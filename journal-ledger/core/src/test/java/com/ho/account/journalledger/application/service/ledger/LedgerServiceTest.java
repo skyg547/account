@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.application.service.ledger;
 
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
+import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class LedgerServiceTest {
@@ -41,11 +43,17 @@ class LedgerServiceTest {
     @Mock
     private LedgerBalancePersistencePort ledgerBalancePersistencePort;
 
+    @Mock
+    private BalanceReaggregationControlPort reaggregationControlPort;
+
     private LedgerService ledgerService;
 
     @BeforeEach
     void setUp() {
-        ledgerService = new LedgerService(ledgerBalancePersistencePort);
+        lenient().when(reaggregationControlPort.snapshot()).thenReturn(
+                new BalanceReaggregationControlPort.ControlSnapshot(
+                        BalanceReaggregationControlPort.Status.OPEN, null, null, null, 0));
+        ledgerService = new LedgerService(ledgerBalancePersistencePort, reaggregationControlPort);
     }
 
     @Test
@@ -66,6 +74,35 @@ class LedgerServiceTest {
                 new LedgerBalancePersistencePort.BalanceAccount("10100", "KRW"),
                 new LedgerBalancePersistencePort.BalanceAccount("40100", "KRW"));
         verifyNoMoreInteractions(ledgerBalancePersistencePort);
+    }
+
+    @Test
+    void readRejectsAResultMaterializedAcrossAnEpochChange() {
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        when(reaggregationControlPort.snapshot()).thenReturn(
+                new BalanceReaggregationControlPort.ControlSnapshot(
+                        BalanceReaggregationControlPort.Status.OPEN, null, null, null, 10),
+                new BalanceReaggregationControlPort.ControlSnapshot(
+                        BalanceReaggregationControlPort.Status.OPEN, null, null, null, 12));
+        when(ledgerBalancePersistencePort.findGlBalances(date, date, null, null)).thenReturn(List.of());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> ledgerService.getGlBalances(date, date, null, null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("changed");
+    }
+
+    @Test
+    void readRejectsBeforeQueryWhileReaggregationIsClosed() {
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        when(reaggregationControlPort.snapshot()).thenReturn(
+                new BalanceReaggregationControlPort.ControlSnapshot(
+                        BalanceReaggregationControlPort.Status.REBUILDING, 767L, date, date, 11));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> ledgerService.getSlBalances(date, date, null, null, null, null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("unavailable");
+        verify(ledgerBalancePersistencePort, never())
+                .findSlBalances(date, date, null, null, null, null);
     }
 
     @Test

@@ -18,9 +18,10 @@
 `journal-ledger:batch`는 API 서버가 아니라 Spring Batch 실행 모듈입니다. 현재 대표 Job은 `dailyBalanceReaggregationJob`이며, 과거 전표 수정이나 누락 전표 전기 후 GL/SL 잔액을 특정 기간 기준으로 다시 계산할 때 사용합니다.
 
 - batch config: Job/Step 연결만 담당합니다.
-- `BalanceCleanUpTasklet`과 `BatchDateRangeParameterUtils`: JobParameter를 기간으로 변환하고 먼저 기간 잔액을 삭제합니다.
-- `JpaPagingItemReader`는 POSTED 상세를 날짜 순으로 읽고, chunk writer는 `LedgerService.updateLedgerBalancesBulk`로 집계합니다.
-- cleanup과 각 chunk는 서로 다른 트랜잭션입니다. 전체 Job 동안 전기를 중지하고 재집계 Job 하나만 실행해야 합니다. 서비스의 단일 트랜잭션 `reaggregateLedgerBalancesForPeriod`와 범위가 다르며, [잠금·재집계 경계](posting-concurrency.md)를 먼저 확인합니다.
+- 시작 Step은 입력 별칭을 한 번 정규화해 JobExecutionContext에 고정하고, 256개 stripe를 모두 잡은 뒤 V15 제어를 `REBUILDING(owner JobInstance ID, range, epoch)`으로 전환합니다.
+- owner cleanup 뒤 `JpaPagingItemReader`가 POSTED 상세를 날짜/ID 순으로 100건씩 읽습니다. owner writer만 barrier 안에서 쓸 수 있어 성공 chunk와 checkpoint가 함께 커밋됩니다.
+- 장애 시 cleanup을 다시 실행하지 않고 같은 JobInstance를 재시작합니다. 다른 인스턴스, 전기, 수동 cleanup, 잔액 조회는 거부됩니다.
+- 마지막 Step은 안정된 POSTED 입력과 GL/SL의 날짜·전체 key·nullable BP/부서·일별 차대·기초/기말을 compact DB 집계로 대사합니다. 정확히 일치할 때만 `OPEN`/새 epoch로 공개합니다.
 
 ```powershell
 .\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30" --console=plain
@@ -65,6 +66,11 @@ journal-ledger:
 ## 로컬 실행
 
 루트 [docs/local-development.md](../../docs/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
+
+API local과 Batch local은 서로 다른 H2 메모리 DB를 사용하지만 둘 다 module-owned Flyway
+V1~V15를 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15처럼 JPA entity가 없는
+제어 테이블도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
+승인된 별도 migration-runner가 먼저 적용한 스키마를 validate합니다.
 
 ```powershell
 .\gradlew :journal-ledger:core:test :journal-ledger:api:test --console=plain --max-workers=1 --no-daemon

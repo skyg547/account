@@ -72,14 +72,26 @@ NULL이어도 같은 순서가 필요합니다.
 `reaggregateLedgerBalancesForPeriod`는 한 트랜잭션 안에서 256개 잠금을 모두 잡은 뒤
 기간 잔액 삭제 → 커밋된 POSTED 상세 조회 → 날짜순 재생성을 수행합니다. 전기가 먼저
 잠금을 얻으면 재집계는 그 커밋을 포함하고, 재집계가 먼저면 대기한 전기가 재생성 후 잔액에
-추가됩니다. `clearLedgerBalancesForPeriod`도 삭제 트랜잭션 동안 모든 번호를 잠급니다.
+추가됩니다. 직접 cleanup은 완성되지 않은 결과를 공개하므로 이제 거부됩니다.
 
-실제 `dailyBalanceReaggregationJob`은 cleanup Step과 100건 단위 chunk를 각각 커밋합니다.
-각 트랜잭션의 갱신은 보호되지만 cleanup부터 마지막 chunk까지의 전체 Job 잠금은 아닙니다.
-따라서 **전체 Job 동안 전기를 중지하고 재집계 Job 하나만 실행**해야 합니다. 온라인으로
-Job을 겹쳐 돌리면 POSTED 입력이 변하거나 이미 전기한 금액을 chunk가 다시 누적할 수 있습니다.
-장애 재시작은 Batch의 커밋된 chunk/checkpoint 기준으로 수행하고 성공한 chunk를 별도로
-재적용하지 않습니다. 이 변경은 Job 단위 분산 유지보수 잠금이나 과거 부정합 복구를 추가하지 않습니다.
+`dailyBalanceReaggregationJob`은 다음 fail-closed 프로토콜을 사용합니다.
+
+1. start Step이 JobParameter의 `startDate/endDate`, 별칭, `baseDate/targetDate`를 한 번
+   정규화하여 JobExecutionContext에 문자열로 고정합니다. 256개 stripe를 먼저 획득하고
+   V15 singleton을 `REBUILDING(owner JobInstance ID, frozen range)`으로 바꾸며 epoch를 증가시킵니다.
+2. owner cleanup과 100-detail chunk만 닫힌 상태에서 쓸 수 있습니다. 성공한 cleanup은 같은
+   JobInstance 재시작에서 다시 실행되지 않고, chunk의 저장과 reader checkpoint는 같은
+   트랜잭션으로 커밋됩니다. 실패 listener/`afterJob`은 제어를 열지 않습니다.
+3. 일반 전기는 영향 계정 stripe를 잡은 뒤 `OPEN`을 확인하므로 start보다 먼저 온 전기는
+   POSTED 입력에 한 번 포함되고, 나중 전기는 상태/엔트리/잔액 전체가 롤백됩니다.
+4. 마지막 Step은 모든 stripe를 다시 잡고 owner를 확인한 뒤 안정된 POSTED source와 GL/SL을
+   날짜, 전체 key, nullable BP/부서, 일별 차변/대변, 기초/기말까지 대사합니다. 누락·추가·금액
+   불일치는 트랜잭션을 롤백해 계속 `REBUILDING`으로 남깁니다. 일치할 때만 `OPEN`으로 바꾸고
+   epoch를 다시 증가시킵니다.
+
+잔액 조회는 긴 shared lock 대신 조회 전 `OPEN+epoch`, materialize/집계 후 같은
+`OPEN+epoch`를 확인합니다. 중간에 재집계가 시작되거나 끝났으면 결과를 반환하지 않습니다.
+직접 DB SQL과 barrier를 모르는 구버전 writer는 이 통제를 우회하므로 혼용할 수 없습니다.
 
 잠금은 기존 다음 날 잔액을 자동 재작성하지 않습니다. 과거 날짜를 뒤늦게 전기했다면 여전히
 그 이후 날짜를 포함한 승인된 재집계가 필요합니다. [이월 규칙](ledger-carry-forward.md)을 따릅니다.
@@ -103,6 +115,18 @@ SELECT COUNT(*), MIN(lock_id), MAX(lock_id) FROM ledger_balance_locks;
 롤백 시에도 모든 writer를 중지한 뒤 검토된 코드 revert를 적용하고 V13/V14는 유지합니다.
 이전 코드는 잔액 잠금 보호가 없으므로 수정 버전으로 정합성 보호를 회복할 때까지 전기·재집계
 트래픽을 중지한 상태로 유지합니다. migration 파일 삭제/repair로 적용 이력을 바꾸지 않습니다.
+
+## V15 업그레이드, 장애 운영과 롤백
+
+모든 journal-ledger writer를 중지한 배포 창에서 V15를 먼저 적용하고, API/Batch/이 모듈 core를
+내장한 인스턴스를 모두 같은 버전으로 교체한 뒤 시작합니다. `ledger_reaggregation_control`은
+정확히 한 행이어야 하며 runtime role은 SELECT/UPDATE가 필요합니다.
+
+장애 후 `REBUILDING`이면 행을 수동 OPEN으로 바꾸거나 새 JobInstance를 만들지 않습니다.
+동일한 식별 JobParameters로 같은 JobInstance를 재시작하여 저장된 기간/checkpoint와 출력이
+계속 맞도록 합니다. 최종 대사 실패는 원천·잔액을 조사한 뒤 같은 인스턴스를 재개합니다.
+코드 롤백도 모든 writer를 중지한 상태에서 수행하며 V15 migration과 제어 행은 보존합니다.
+구버전은 barrier를 사용하지 않으므로 복구 전까지 전기/재집계/잔액 조회 트래픽을 열지 않습니다.
 
 ## V13 업그레이드
 
@@ -137,6 +161,18 @@ H2는 일부 DDL이 남을 수 있으므로 테스트용 DB를 새로 만들어 
 ```bash
 ./gradlew :journal-ledger:test
 ```
+
+Issue #767 로컬 검증에서는 위 집계 명령과 다음 집중 명령을 사용합니다.
+
+```bash
+./gradlew :journal-ledger:core:test --tests '*BalanceReaggregationControlMigrationTest' --tests '*BalanceReaggregationServiceTest' --tests '*PostingConcurrencyIntegrationTest' --console=plain --max-workers=1
+./gradlew :journal-ledger:batch:test --tests '*BalanceReaggregationBatchConfigTest' --tests '*BatchDateRangeParameterUtilsTest' --console=plain --max-workers=1
+```
+
+이 검증은 H2 PostgreSQL mode의 합성 데이터로 cleanup 직후, 202-detail의 1·2번째 chunk 뒤
+장애/동일 instance restart, 겹친 instance, 전기 rollback/retry, epoch read, nullable SL 대사,
+대사 실패의 fail-closed 상태를 확인합니다. 실제 PostgreSQL, 운영 데이터, 분산 프로세스 강제
+종료와 운영 부하는 별도 검증 대상입니다.
 
 이 집계 task는 core/API/batch 테스트를 모두 실행합니다. 기본 테스트 DB는 독립 H2
 PostgreSQL 모드이며 `PostingConcurrencyIntegrationTest`는 각 저장 모드에 대해 다음을 확인합니다.

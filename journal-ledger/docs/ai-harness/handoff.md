@@ -1,3 +1,24 @@
+# GH-767 handoff
+
+Issue #767 implementation, three RED proofs, requested local verification and independent review are complete. Draft PR publication is pending.
+
+- Issue/branch/worktree: [#767](https://github.com/skyg547/account/issues/767); `agent/767-reaggregation-consistency`; `/tmp/account-767-reaggregation-consistency`; base `795c494a`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts and repository-level shared harness files are unchanged.
+- Behavior: V15 persists a fail-closed JobInstance owner barrier. Start freezes the range and closes publication; owner cleanup and checkpointed 100-detail chunks rebuild; exact GL/SL reconciliation alone reopens publication. Posting and reads participate in stripe/epoch fencing.
+- Restart: failure never auto-releases. Use the same identifying JobParameters/JobInstance so completed cleanup and chunks are not replayed. Different instances are rejected while an owner is active.
+- Verification: audited migration and cleanup-exposure regressions fail as expected. Review-found API-local HTTP500 also fails before correction. Final writer and independent forced runs each pass224 tests (core173/API40/batch11), failures/errors/skips0; API GET smoke is HTTP200 `[]`, Batch local lifecycle/boot and static/quality gates pass.
+- Independent review: `/root/review_767` remained read-only. Its initial P2 missing local V15 schema was corrected by the writer; final review reports no P0-P3 and Q1-Q4 PASS.
+- Rollback/deployment: stop every writer/reader, preserve applied V14/V15 and singleton, revert application under review, and restore one barrier-aware version before traffic. Validate runtime SELECT/UPDATE rights, lock waits and cardinality on approved PostgreSQL before deployment.
+- Limits: no live PostgreSQL, production data, distributed process kill or load test. Direct SQL/old binaries bypass the barrier; privileged DB readers can see in-place partial rows even though application consumers reject them.
+- Authority separation: module writer implemented; explorer/reviewer were read-only; parent owns records and Git/GitHub. User authorized push and Draft PR only. Ready, merge, Issue close, deployment and cleanup remain later human gates.
+- Next owner: parent Integrator publishes the Draft PR with `Refs #767`; human reviewer owns subsequent readiness and merge gates.
+
+Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-767 report.
+
 # GH-764 handoff
 
 Issue #764 implementation, audited regression proof, requested local verification and independent review are complete. [Draft PR #784](https://github.com/skyg547/account/pull/784) is OPEN/MERGEABLE with `Refs #764`; implementation commit `6d96ba0d`.

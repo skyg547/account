@@ -1,3 +1,56 @@
+# 2026-09-24 — GH-767 fail-closed balance reaggregation
+
+## Intake, isolation and ownership
+
+- Confirmed actual GitHub Issue [#767](https://github.com/skyg547/account/issues/767) is OPEN. The body retains the audit draft's historical “No GitHub issue has been created” wording.
+- Preserved the dirty primary checkout. Fetched `origin/main`, created `agent/767-reaggregation-consistency` and `/tmp/account-767-reaggregation-consistency` at `795c494a950980864c0e9bc63464dcb505a8d46b`; final fetch showed the same remote base.
+- [Execution contract comment](https://github.com/skyg547/account/issues/767#issuecomment-5815677299) records branch, isolated worktree, module allowlist, requested model and verification. Remote status is `status:in-progress`, owner `agent:codex` before PR handoff.
+- Applied `account-issue-loop`, `account-hexagonal-change`, the single-module ownership form of `account-module-parallel`, and `account-review-handoff`. `/root/implement_767` owned module implementation/tests/docs; `/root/explore_767` and `/root/review_767` were read-only. Parent alone owns these records and Git/GitHub.
+- Scope is `journal-ledger/**`, including these module-local records. Other modules, shared contracts and repository-level shared harness files are frozen. No production/development credentials or database were accessed.
+
+## Audited defect and RED evidence
+
+- The audited schedule was confirmed: cleanup commits deletion before independent 100-detail chunks; failures expose empty/partial balances, a live POSTED reader can move under posting, and overlapping instances can delete or double-apply output. Existing V14 stripes cover each transaction, not the whole Job.
+- Migration RED: `./gradlew :journal-ledger:core:test --tests '*BalanceReaggregationControlMigrationTest' --rerun-tasks --console=plain --max-workers=1` exited1; 1 test/1 expected failure because audited production had no V15 migration.
+- Financial behavioral RED: `./gradlew :journal-ledger:batch:test --tests '*BalanceReaggregationBatchConfigTest.rejectsAcceptedEmptyBalancesAfterCommittedCleanup' --rerun-tasks --console=plain --max-workers=1` exited1; 1 test/1 expected failure. Cleanup deleted an accepted100.00 balance and audited `getGlBalances` returned the empty state instead of rejecting it.
+- Review-found runtime RED: actual `JournalLedgerApplication` local boot initially returned HTTP500 for a GL balance GET because create-drop did not create non-JPA `ledger_reaggregation_control`. The focused `JournalLedgerApiLocalProfileTest.localMigratedSchemaSupportsFencedBalanceReads` failed1/1 before correction.
+
+## Implementation and financial controls
+
+- Append-only `V15__ledger_reaggregation_control.sql` creates one strongly constrained row: status, JobInstance owner, frozen start/end and monotonic epoch. Earlier migrations are unchanged.
+- Core owns `BalanceReaggregationControlPort`, its JDBC adapter and `BalanceReaggregationService`; Batch owns only start/cleanup/chunk/final Step orchestration. The selected JPA or JDBC-bulk balance adapter remains behind `LedgerBalancePersistencePort`.
+- Start acquires all256 V14 stripes before closing the barrier. Ordinary posting acquires affected stripes before asserting `OPEN`; a winner commits into the stable POSTED source, while a later request rolls back journal state, entries and balances. Owner-only cleanup/chunks may write while `REBUILDING`.
+- JobParameters are normalized once into JobExecutionContext. Same JobInstance restart skips the completed cleanup and resumes its saved reader checkpoint; a different instance is rejected while an owner is active.
+- Reads compare `OPEN+epoch` before and after materialization/aggregation and discard any result crossing a rebuild. Finalize locks all stripes and compares stable POSTED source with actual GL/SL by day, complete keys, nullable BP/department, debit/credit and carried beginning/ending balances. Mismatch rolls back without release.
+- API local now uses the module Flyway chain plus Hibernate `validate`; dev/prod keep runtime Flyway disabled for the external migration-runner. Batch local already uses owned H2/Flyway/validate and now has an actual composition-root lifecycle regression.
+
+## Verification and independent review
+
+- Chunk restart coverage uses101 balanced journals/202 details, producing 100/100/2 chunks. Failure on writer invocation2 or3 leaves respectively50.00 or100.00 committed but unpublishable, then the same JobInstance resumes to exactly101.00. Cleanup is verified once.
+- Coverage also includes cleanup failure, overlap rejection, both posting/barrier orderings, JPA and JDBC-bulk rollback/retry, epoch read race, range freeze, V15 constraints/idempotent reacquire, reconciliation failure, exact GL and nullable SL keys, and existing posting/precision controls.
+- Writer final: `./gradlew :journal-ledger:test --console=plain --max-workers=1` exited0 in54s; core173/API40/batch11 =224 tests across41 suites, failures/errors/skips0.
+- Independent reviewer final: `./gradlew :journal-ledger:test --rerun-tasks --console=plain --max-workers=1` exited0; all37 Gradle tasks executed, the same224 tests passed with failures/errors/skips0. Focused local/schema verification passed6/6.
+- Actual API local boot applied seven journal migrations through V15; `GET /api/v1/ledger/gl/balances?...` returned HTTP200 body `[]`. It was intentionally stopped after the check. Batch local boot with jobs disabled applied V15, validated the schema and exited normally. No bootRun process remains.
+- `node --test tools/ci/harness-quality-contract.test.cjs`:32/32 PASS. `git diff --check`, untracked whitespace, changed-file conflict markers and module allowlist checks PASS.
+- Independent review initially reported the local API schema P2 above. The original writer switched local schema ownership to Flyway/validate and added actual-context coverage. Final `/root/review_767`: no P0-P3; Q1-Q4 PASS.
+
+| Item | Result | File/test evidence | N/A reason | Risk / next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | core control port/service/JDBC adapter, four Batch Steps; module224 PASS | Not applicable: production behavior changed | Production cardinality/load remains later | `/root/review_767`, no P0-P3 |
+| Q2 | PASS | `../posting-concurrency.md`; 202-detail restart, overlap, both posting orders and reconciliation failure tests | Not applicable: concurrency flow changed | Distributed process-kill/PostgreSQL gate remains | `/root/review_767` confirmed |
+| Q3 | PASS | module README/docs cover V15, local/dev/prod schema owner, same-instance recovery, rollback and direct-SQL limit | Not applicable: runtime/schema contract changed | Deployment owner verifies grants and coordinated cutover | `/root/review_767` confirmed |
+| Q4 | PASS | stripe-before-barrier, epoch double-read, checkpoint/generation and fail-closed release intent comments | Not applicable: nontrivial ordering changed | Keep old binaries stopped during cutover | `/root/review_767` confirmed |
+
+## Rollback, limits and publication gate
+
+- Rollback requires a reviewed application revert while all journal writers/readers are stopped. Preserve V14/V15 and the singleton; do not delete/repair migrations or manually force `OPEN`. Restore protected binaries before traffic resumes.
+- No live PostgreSQL, production data, distributed kill, runtime-role grant or production load test was used. Privileged direct DB readers can see in-place partial rows while `REBUILDING`; direct SQL and older writers bypass the application barrier. Final all-stripe lock and compact daily-key projections require production lock-wait/cardinality validation.
+- Parent is authorized to commit, push and open a Draft PR with `Refs #767`, then move the Issue to `status:needs-review`. Ready, merge, Issue close, deployment and branch/worktree deletion remain later human gates.
+
+---
+
+The following entries are retained history and are not current GH-767 evidence.
+
 # GH-760 worklog
 
 ## 2026-09-24 — Intake and isolation

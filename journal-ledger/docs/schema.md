@@ -35,6 +35,7 @@ erDiagram
 | `sl_entries` | 거래처·부서 등 상세 차원을 가진 원장 거래 |
 | `sl_balances` | 보조원장 잔액 |
 | `ledger_balance_locks` | 신규/기존 GL·SL 잔액의 계정·통화별 갱신을 직렬화하는 256개 고정 잠금 행 |
+| `ledger_reaggregation_control` | V15 singleton. 공개 상태, owner JobInstance ID, 고정 기간, 조회 세대(epoch)를 보존하는 fail-closed 제어 |
 
 잔액 조회와 집계는 `POSTED` 전표만 재무 금액으로 취급합니다. 잔액 이월 상세는 [ledger-carry-forward.md](ledger-carry-forward.md)를 참고합니다.
 
@@ -166,3 +167,12 @@ SL의 NULL 거래처·부서도 상위 계정 잠금을 공유하므로 아직 �
 기존 SL unique 제약의 NULL 의미 자체를 변경하거나 과거 중복 잔액을 자동 복구하지는 않습니다.
 잠금 행을 삭제/재생성하거나 일부만 seed하면 안 되며, 누락된 행을 만난 writer는 실패합니다.
 배포 순서, runtime 권한과 롤백 조건은 [동시 전기 제어](posting-concurrency.md)를 따릅니다.
+
+## 재집계 공개 제어 (V15)
+
+`V15__ledger_reaggregation_control.sql`은 `control_id=1`인 행 하나를 `OPEN`, epoch 0으로
+생성합니다. `OPEN`이면 owner/기간은 모두 NULL이고, `REBUILDING`이면 owner와 유효한 시작/종료일이
+모두 있어야 한다는 CHECK 제약이 있습니다. 시작과 성공 공개 때 epoch가 각각 증가합니다.
+행 삭제·추가·수동 OPEN 전환은 금지합니다. runtime role에는 이 행의 SELECT/UPDATE 권한이
+필요합니다. V15 적용 전에는 새 코드가 시작되지 않으며, 구버전/직접 SQL writer는 barrier를
+모르므로 배포 창에서 모든 writer를 함께 교체해야 합니다.

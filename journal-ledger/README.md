@@ -101,6 +101,7 @@ erDiagram
 - 전표 HTTP API는 도메인 엔티티를 직접 노출하지 않고 전용 요청/응답 DTO를 사용합니다. 작성·승인·전기 요청에는 실제 처리자를 담은 `X-User-ID` 헤더가 필요합니다.
 - 미결 반제 요청은 `settlementReference`와 `X-User-ID`를 함께 저장합니다. 동일 참조번호가 재전송되면 금액을 중복 반영하지 않습니다.
 - 같은 전표의 동시 전기는 헤더 잠금과 전표 상세 고유 키로 중복 반영을 차단합니다. 서로 다른 전표의 같은 계정·통화 잔액은 공통 잠금 행을 확보한 뒤 최신 값으로 갱신합니다. `READ_COMMITTED` 쓰기 트랜잭션과 V14가 필요하며, [동작·재시도·배포 조건](docs/posting-concurrency.md)을 확인하세요.
+- 재집계 Job은 V15의 영속 제어 행을 `REBUILDING`으로 닫고 JobInstance ID와 정규화 기간을 고정합니다. 장애 중에는 잔액 조회·전기·다른 재집계를 fail-closed로 거부하며, 같은 JobInstance만 저장된 chunk checkpoint에서 재개합니다. 최종 GL/SL 대사가 성공해야 `OPEN`으로 공개됩니다.
 - 재무 잔액과 기간 집계 조회에는 원장 반영이 끝난 `POSTED` 전표만 포함됩니다. `APPROVED` 전표는 아직 재무제표 금액이 아닙니다.
 - 운영 대량 전기/재집계는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch insert/upsert 어댑터를 사용할 수 있습니다. 기본값은 JPA입니다.
 
@@ -117,8 +118,9 @@ docker-compose up -d journal-ledger
 .\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30" --console=plain
 ```
 
-프로파일을 생략하면 `local`이 선택되어 H2 PostgreSQL mode에서 V1/V10/V11/V12/V13/V14를 적용하고
-Hibernate가 스키마를 검증합니다. `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
+프로파일을 생략하면 API와 Batch 모두 `local`이 선택되어 각자의 전용 H2 PostgreSQL mode DB에
+모듈 Flyway V1/V10/V11/V12/V13/V14/V15를 적용하고 Hibernate가 스키마를 검증합니다.
+`dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
 애플리케이션 Flyway와 SQL/Batch 자동 초기화를 끕니다. 배포 전 migration은 별도
 `migration-runner`만 수행합니다. Journal의 Master Data 조회는 local에서 명시적인 local
 adapter를 사용하고 dev/prod에서는 `MASTER_DATA_BASE_URL`의 날짜 명시 read-only API를

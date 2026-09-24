@@ -11,10 +11,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
 import com.ho.account.journalledger.adapter.out.persistence.unsettled.UnsettledItemRepository;
+import com.ho.account.journalledger.application.service.ledger.LedgerService;
+
+import java.time.LocalDate;
 
 /**
  * [Journal Ledger API Local Profile & Application Context Integration Test]
@@ -58,6 +62,12 @@ class JournalLedgerApiLocalProfileTest {
     @Autowired
     private UnsettledItemRepository unsettledItemRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private LedgerService ledgerService;
+
     @Test
     @DisplayName("local 프로파일 구동 시 H2 인메모리 DB로 ApplicationContext가 정상 로드되고 엔티티 및 저장소 빈이 관리된다")
     void localProfileStartsWithH2AndCorePersistenceManaged() {
@@ -65,14 +75,14 @@ class JournalLedgerApiLocalProfileTest {
         assertThat(environment.acceptsProfiles(Profiles.of("local"))).isTrue();
         assertThat(applicationContext).isNotNull();
 
-        // 2. H2 데이터소스 및 JPA ddl-auto=create-drop 검증
+        // 2. H2 데이터소스, 모듈 Flyway migration 및 Hibernate validate 검증
         assertThat(environment.getProperty("spring.datasource.url"))
                 .startsWith("jdbc:h2:mem:journal_ledger_api_db")
                 .contains("MODE=PostgreSQL");
         assertThat(environment.getProperty("spring.datasource.driver-class-name"))
                 .isEqualTo("org.h2.Driver");
         assertThat(environment.getProperty("spring.jpa.hibernate.ddl-auto"))
-                .isEqualTo("create-drop");
+                .isEqualTo("validate");
 
         // 3. 외부 마이크로서비스 제어 서버 및 Kafka 브로커 연동 비활성화 검증
         assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class)).isFalse();
@@ -83,9 +93,9 @@ class JournalLedgerApiLocalProfileTest {
         assertThat(environment.getProperty("eureka.client.fetch-registry", Boolean.class)).isFalse();
         assertThat(environment.getProperty("management.tracing.enabled", Boolean.class)).isFalse();
         assertThat(environment.getProperty("spring.kafka.listener.auto-startup", Boolean.class)).isFalse();
-        // local 프로파일은 flyway 설정을 자체적으로 두지 않고 base application.yml에 기댄다.
-        // 이 단언이 없으면 base에서 그 값이 사라져도 아무 테스트도 알려주지 않는다.
-        assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isFalse();
+        // local은 V15 같은 비-JPA 테이블까지 단일 migration chain으로 만든다.
+        // dev/prod의 외부 migration-runner 정책과 달리 합성 H2만 runtime Flyway를 사용한다.
+        assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isTrue();
 
         // 4. JPA Metamodel Managed Types (엔티티 스캔) 검증
         assertThat(entityManagerFactory.getMetamodel().getManagedTypes())
@@ -100,5 +110,16 @@ class JournalLedgerApiLocalProfileTest {
         assertThat(journalEntryRepository).isNotNull();
         assertThat(glBalanceRepository).isNotNull();
         assertThat(unsettledItemRepository).isNotNull();
+    }
+
+    @Test
+    @DisplayName("실제 local Flyway/validate 스키마는 V15 제어 singleton을 만들고 fenced 잔액 조회를 지원한다")
+    void localMigratedSchemaSupportsFencedBalanceReads() {
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM ledger_reaggregation_control WHERE control_id = 1 AND status = 'OPEN'",
+                Integer.class)).isOne();
+
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        assertThat(ledgerService.getGlBalances(date, date, null, null)).isEmpty();
     }
 }

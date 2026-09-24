@@ -2,6 +2,7 @@ package com.ho.account.journalledger.batch.support;
 
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.item.ExecutionContext;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -16,6 +17,8 @@ import java.util.Optional;
 public final class BatchDateRangeParameterUtils {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final String FROZEN_START = "balanceReaggregation.startDate";
+    private static final String FROZEN_END = "balanceReaggregation.endDate";
 
     private BatchDateRangeParameterUtils() {
     }
@@ -25,6 +28,38 @@ public final class BatchDateRangeParameterUtils {
             throw new IllegalArgumentException("stepExecution must not be null");
         }
         return resolveDateRange(stepExecution.getJobParameters());
+    }
+
+    public static DateRange freezeDateRange(StepExecution stepExecution) {
+        DateRange range = resolveDateRange(stepExecution.getJobParameters());
+        ExecutionContext context = stepExecution.getJobExecution().getExecutionContext();
+        context.putString(FROZEN_START, range.startDate().format(DATE_FORMAT));
+        context.putString(FROZEN_END, range.endDate().format(DATE_FORMAT));
+        return range;
+    }
+
+    public static DateRange resolveFrozenDateRange(StepExecution stepExecution) {
+        if (stepExecution == null) {
+            throw new IllegalArgumentException("stepExecution must not be null");
+        }
+        ExecutionContext context = stepExecution.getJobExecution().getExecutionContext();
+        if (!context.containsKey(FROZEN_START) || !context.containsKey(FROZEN_END)) {
+            throw new IllegalStateException("Reaggregation date range was not frozen by the start step");
+        }
+        LocalDate start = LocalDate.parse(context.getString(FROZEN_START), DATE_FORMAT);
+        LocalDate end = LocalDate.parse(context.getString(FROZEN_END), DATE_FORMAT);
+        if (end.isBefore(start)) {
+            throw new IllegalStateException("Frozen reaggregation range is invalid");
+        }
+        return new DateRange(start, end);
+    }
+
+    public static long ownerJobInstanceId(StepExecution stepExecution) {
+        Long id = stepExecution.getJobExecution().getJobInstance().getInstanceId();
+        if (id == null) {
+            throw new IllegalStateException("Persisted JobInstance ID is required for balance reaggregation ownership");
+        }
+        return id;
     }
 
     public static DateRange resolveDateRange(JobParameters jobParameters) {
