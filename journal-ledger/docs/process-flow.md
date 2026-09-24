@@ -115,6 +115,23 @@ JDBC bulk 모드는 H2 기준 SQL 동작을 `JdbcLedgerBulkPersistenceAdapterTes
 
 `JournalRuleEngine`은 `JournalRuleQueryPort`를 통해 규칙을 읽습니다. JPA 저장소 세부 구조와 조회 메서드는 `JournalRuleQueryAdapter` 뒤에 숨깁니다.
 
+### 이벤트 JSON 금액 정밀도
+
+`POST /api/journals/from-event`의 `eventData`와 Kafka `transaction-events`는 이벤트마다
+필드 구성이 달라 `Map<String, Object>`로 전달됩니다. API의 Jackson 설정은 JSON 소수 토큰을
+binary floating-point인 `Double`이 아니라 `BigDecimal`로 만들며, JSON 정수 토큰은 기존처럼
+정수 타입을 유지합니다. Kafka도 Boot가 관리하는 같은 `ObjectMapper`를
+`StringJsonMessageConverter`에 연결하므로 HTTP와 메시지 경계의 소수 처리 규칙이 같습니다.
+
+입력된 `BigDecimal`은 룰 표현식의 `${amount}` 같은 자리표시자에 정확한 문자열로 보간된 뒤
+`JournalDetail.setAmount`에 전달됩니다. 여기서 기존 `AccountingPrecision`이 원장
+`DECIMAL(19,2)` 계약을 `RoundingMode.UNNECESSARY`로 검사합니다. 따라서
+`900719925474099.11`은 센트까지 그대로 유지되고, `100.000000000000001`처럼 허용 범위를
+넘는 소수는 `100.00`으로 반올림되기 전에 HTTP 400 또는 Kafka 리스너 예외로 거부됩니다.
+Kafka 리스너는 이 예외를 소비 실패로 다시 던지며, 실제 재시도 횟수와 DLQ 라우팅은 배포별
+Kafka 오류 처리 설정의 책임입니다. 이 경계 설정은 정밀도를 보존할 뿐 금액을 확정하거나
+반올림하지 않으며, 금융 유효성 판단은 계속 core 도메인이 담당합니다.
+
 ## 미결 등록·반제 흐름
 
 ```mermaid

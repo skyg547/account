@@ -1,3 +1,22 @@
+# GH-764 handoff
+
+Issue #764 implementation, audited regression proof, requested local verification and independent review are complete. [Draft PR #784](https://github.com/skyg547/account/pull/784) is OPEN/MERGEABLE with `Refs #764`; implementation commit `6d96ba0d`.
+
+- Issue/branch/worktree: [#764](https://github.com/skyg547/account/issues/764); `agent/764-preserve-event-decimals`; `/tmp/account-issue-764`; base `bd2707af`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts and repository-level shared harness files are unchanged.
+- Behavior: untyped HTTP and Kafka JSON decimals become exact `BigDecimal` values before rule interpolation. `900719925474099.11` is preserved; `100.000000000000001` is rejected by unchanged `AccountingPrecision` before rounding. JSON integers stay integral.
+- Verification: audited source `a97d10ab` fails both byte-identical MVC regressions in the expected directions; fixed focused5 PASS; exact module208 PASS; API bootJar and static gates PASS. Details are in [worklog.md](worklog.md).
+- Independent review: `/root/review_764` is read-only. After correction of the production factory-wiring assertion and DLQ overclaim, no P0–P3 remains and Q1–Q4 are PASS.
+- Rollback: reviewed scoped revert of API deserialization configuration, tests and docs. No schema/data rollback is needed.
+- Limits: no live Kafka broker, deployed HTTP server, production data/PostgreSQL or load test. Retry count/DLQ delivery is deployment configuration, not guaranteed by this change.
+- Authority separation: Controller writer changed only inbound production configuration; Test writer changed only regressions; parent owns module docs/records and Git/GitHub; Reviewer did not edit. User authorized push and Draft PR only. Ready, merge, Issue close, deployment and resource cleanup remain later human gates.
+- Remote CI jobs did not start: annotations for Module Validation, Harness Validation and Agent Merge Guard report failed recent account payments or a spending limit requiring increase. This is an external execution prerequisite, not an executed test failure or pass.
+- Next owner: repository/account owner resolves the billing prerequisite and reruns checks; human reviewer handles later readiness and merge gates. Both task/proof branches and worktrees stay retained.
+
+---
+
+The following is the retained historical GH-761 handoff; its remote state is not a current status report.
+
 # GH-761 handoff
 
 Implementation, requested local verification and independent review are complete. [Draft PR #783](https://github.com/skyg547/account/pull/783) is open with `Refs #761`; implementation commit `b2af5823`.

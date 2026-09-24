@@ -24,6 +24,10 @@ journal-ledger:
 spring:
   application:
     name: journal-ledger-api
+  jackson:
+    # Untyped financial decimals must not pass through binary floating point; integers stay integral.
+    deserialization:
+      use-big-decimal-for-floats: true
   profiles:
     default: local
   flyway:
