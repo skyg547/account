@@ -1,3 +1,26 @@
+# GH-758 handoff
+
+Issue #758 implementation, audited RED/current GREEN evidence, requested verification, corrected independent review, and module-local records are complete. [Draft PR #794](https://github.com/skyg547/account/pull/794) is open with `Refs #758`; reviewed implementation/record commit `c78b8465` is published.
+
+- Issue/branch/worktrees: [#758](https://github.com/skyg547/account/issues/758); `agent/758-posted-immutability`; `/tmp/account-758-posted-immutability`; base `6fdd7a40`; audited proof `/tmp/account-758-regression-proof@a97d10ab`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Behavior: POSTED/REVERSED headers, lines, audit fields, ownership, and collection membership reject mutation. JPA callbacks protect normal update/merge/insert/delete/orphan/cascade paths. Both journal repositories fail closed on every inherited bulk-delete variant. Correction stays append-only through a linked reversal/adjustment entry.
+- RED/GREEN: byte-identical fixture SHA `4a9d8ab…` fails3/3 on exact audited `a97d10ab` production and passes3/3 after remediation; proof production is unchanged.
+- Verification: literal requested module command passes. Independent forced run passes core215/API51/batch11 =277 tests across48 suites, failures/errors/skips0; focused persistence19 and Batch5 pass; quality contract32/32 and static gates pass.
+- Independent review: `/root/issue_758_review` remained read-only. Its initial P1 bulk-delete bypass was returned to the original owners and corrected; final review reports no P0-P3 and Q1-Q4 PASS.
+- Rollback: reviewed scoped revert only; no schema/data rollback. Reversion restores the known mutability weakness and must not be deployed without replacement protection.
+- Limits: no live PostgreSQL, production data, runtime DB-role, load, fault-injection, or deployment test. Separate EntityManager bulk JPQL, native SQL, direct JDBC, and privileged DB writes remain outside this JPA/repository boundary and require operational restriction.
+- Authority separation: disjoint domain/test/docs writers implemented; explorer/planner/reviewer were read-only; parent owns records and Git/GitHub. User authorized Draft PR publication, but Ready, merge, Issue close, deployment, and cleanup remain human gates.
+- Publication: Draft PR #794 contains the verification results, rollback/limits, and explicit authority split. This final record-only update changes no production or test behavior.
+- Remote CI prerequisite: entry jobs on publication commit `c78b8465` did not start; annotations cite failed recent account payments or a spending-limit prerequisite. The account owner must resolve billing and rerun checks. No remote CI PASS or executed code-test failure is claimed.
+- Next owner: a human reviewer owns Ready, merge, Issue close, deployment, and cleanup. Both task and proof worktrees remain retained.
+
+Details, exact commands, the corrected P1 trail, and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-758 report.
+
 # GH-757 handoff
 
 Issue #757 regression proof, required module verification and independent review are complete. [Draft PR #793](https://github.com/skyg547/account/pull/793) is open with `Refs #757`; current `main` already contains the production remediation from merged PR #792, and this branch supplies the missing explicit audited RED/current GREEN evidence without duplicating behavior.

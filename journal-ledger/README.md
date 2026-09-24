@@ -9,7 +9,7 @@
 **Q. 이 모듈은 정확히 무슨 일을 하나요?**
 거래를 회계 전표로 만들고, 승인받고, 최종적으로 원장(Ledger)에 반영한 뒤, 나중에 감사관이 "이 돈 어디서 왔어?" 하고 물어볼 때 끝까지 추적할 수 있게 기록을 남기는 곳입니다.
 
-**초보자가 알아야 할 핵심 6가지 개념:**
+**초보자가 알아야 할 핵심 7가지 개념:**
 1. **전표 (`JournalEntry`):** 회계 처리 한 건의 헤더 ("2026-04-13 대출 실행 전표")
 2. **전표 라인 (`JournalDetail`):** 실제 차변/대변 상세 줄.
 3. **상태 변화:** 작성 중(`DRAFT`) -> 승인 요청(`REQUESTED`) -> 승인됨(`APPROVED`) -> 원장 반영 완료(**`POSTED`**)
@@ -18,6 +18,7 @@
    - `SL (보조원장)`: 거래처, 부서 등 상세 차원을 포함한 보조 장부
 5. **Lineage (추적 키):** 이 전표가 시스템의 어떤 원천 문서(지출결의서 등)에서 왔는지 알려주는 꼬리표(`lineageSourceType`, `lineageSourceId`). 드릴다운(Drill-down)의 핵심입니다.
 6. **불변 전기 스냅샷:** 승인된 `JournalEntry`는 `GeneralLedger` Aggregate로 한 번 고정된 뒤 GL과 SL adapter에 전달됩니다. 두 장부가 서로 다른 시점의 가변 데이터를 읽지 않도록 하기 위함입니다.
+7. **전기된 이력은 수정하지 않음:** `POSTED` 전표는 헤더, 감사 정보, 상세 금액·계정·차대 구분·차원·적요와 상세 구성까지 원본 그대로 보존합니다. 오류 정정은 원본을 고치는 대신 원본을 연결한 새 역분개 또는 조정 전표로 기록합니다.
 
 차변과 대변 금액은 단순 `BigDecimal`이 아니라 `Debit`/`Credit` Value Object로 구분합니다.
 두 타입은 기존 DB의 `DECIMAL(19,2)` 계약을 공유하며 소수 둘째 자리를 넘는 값을 몰래
@@ -103,6 +104,7 @@ erDiagram
 - 같은 전표의 동시 전기는 헤더 잠금과 전표 상세 고유 키로 중복 반영을 차단합니다. 서로 다른 전표의 같은 계정·통화 잔액은 공통 잠금 행을 확보한 뒤 최신 값으로 갱신합니다. `READ_COMMITTED` 쓰기 트랜잭션과 V14가 필요하며, [동작·재시도·배포 조건](docs/posting-concurrency.md)을 확인하세요.
 - 재집계 Job은 V15의 영속 제어 행을 `REBUILDING`으로 닫고 JobInstance ID와 정규화 기간을 고정합니다. 장애 중에는 잔액 조회·전기·다른 재집계를 fail-closed로 거부하며, 같은 JobInstance만 저장된 chunk checkpoint에서 재개합니다. 최종 GL/SL 대사가 성공해야 `OPEN`으로 공개됩니다.
 - 재무 잔액과 기간 집계 조회에는 원장 반영이 끝난 `POSTED` 전표만 포함됩니다. `APPROVED` 전표는 아직 재무제표 금액이 아닙니다.
+- `POSTED` 전표의 공개 setter, 상세 소유권 변경과 `add/remove/clear/setDetails`는 즉시 `IllegalStateException`으로 거부됩니다. JPA 저장 콜백은 일반 repository 삭제를 포함한 이미 확정된 헤더·상세의 수정, merge, 추가·삭제를 막고, 두 journal repository는 콜백을 우회하는 batch 삭제 메서드를 명시적으로 거부합니다. `DRAFT`/`REQUESTED`/`APPROVED`는 기존 상태 규칙 안에서 계속 편집할 수 있습니다. 상세 경계와 우회 위험은 [업무 흐름](docs/process-flow.md#posted-최종-이력-보호)과 [데이터 모델](docs/schema.md#posted-전표의-영속-이력-보호)을 확인하세요.
 - 운영 대량 전기/재집계는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch insert/upsert 어댑터를 사용할 수 있습니다. 기본값은 JPA입니다.
 
 **실행 방법 (Docker):**
@@ -117,6 +119,16 @@ docker-compose up -d journal-ledger
 .\gradlew :journal-ledger:api:bootRun --args="--journal-ledger.ledger.persistence-mode=jdbc-bulk" --console=plain
 .\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30" --console=plain
 ```
+
+Linux/macOS에서 Issue #758의 전기 이력 보호를 포함한 모듈 전체 회귀는 저장소 루트에서 다음과 같이 실행합니다.
+
+```bash
+./gradlew :journal-ledger:test
+```
+
+검증된 결과는 core 29 suites/215 tests, API 15/51, batch 4/11로 합계 48 suites/277 tests이며
+실패·오류·skip은 0입니다. 이 명령은 JPA/도메인 회귀를 확인하며, 직접 SQL이나 운영 DB 권한을
+검증하는 명령은 아닙니다.
 
 프로파일을 생략하면 API와 Batch 모두 `local`이 선택되어 각자의 전용 H2 PostgreSQL mode DB에
 모듈 Flyway V1/V10/V11/V12/V13/V14/V15를 적용하고 Hibernate가 스키마를 검증합니다.

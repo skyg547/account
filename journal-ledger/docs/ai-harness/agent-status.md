@@ -1,3 +1,26 @@
+# GH-758 agent status
+
+- Issue: [#758](https://github.com/skyg547/account/issues/758); owner `agent:codex`, current handoff target `status:needs-review` after Draft PR publication.
+- Status: implementation, audited RED proof, corrected independent review, and local verification are complete; [Draft PR #794](https://github.com/skyg547/account/pull/794) is open with `Refs #758`.
+- Base: `origin/main@6fdd7a401fe97a85c3a0f637a85bc51e614c1597`.
+- Branch/worktrees: `agent/758-posted-immutability`, `/tmp/account-758-posted-immutability`; audited proof `agent/758-regression-proof`, `/tmp/account-758-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model/ownership: `gpt-5.6-sol`, high. Domain, test, and documentation writers used disjoint `journal-ledger/**` file ownership; `/root/issue_758_review` remained read-only; the parent Integrator owns these module-local records and all Git/GitHub mutations.
+- Allowlist: `journal-ledger/**`. Other modules, shared contracts, and repository-level shared harness/history files remain unchanged under the user's explicit narrower rule.
+- Result: POSTED/REVERSED header and line setters, ownership and collection membership reject mutation. JPA callbacks protect dirty update, merge, insert, orphan removal, and ordinary repository/cascade deletion; both journal repositories fail closed for all inherited bulk-delete variants. Corrections remain append-only reversal/adjustment entries, with no generic post-posting audit-field exception.
+- RED/GREEN: the byte-identical audited regression (SHA-256 `4a9d8ab5449d7d5496e11bbeda0c2ff89423baea3b6eecc187d20f26fbcee5ec`) fails 3/3 on exact audited production and passes 3/3 after remediation. The proof worktree has no production diff.
+- Verification: literal `./gradlew :journal-ledger:test` passes. Independent forced execution passes core215/API51/batch11 = 277 tests across48 suites, failures/errors/skips0; focused persistence19 and Batch5 pass. Quality contract32/32 and static gates pass.
+- Independent review: initial P1 found repository bulk deletes bypassing callbacks; the finding was returned to the original production/test owners and corrected. Final review reports no P0-P3 and Q1-Q4 PASS.
+- Publication: reviewed implementation/record commit `c78b8465` was pushed and Draft PR #794 was opened. The final record-only head is published separately without changing reviewed production or tests.
+- Remote CI prerequisite: on publication commit `c78b8465`, Agent Merge Guard, Harness Validation, and Module Validation entry jobs did not start. GitHub annotations report failed recent account payments or a spending-limit prerequisite. This is an external account condition, not an executed test failure; no remote CI PASS is claimed.
+- Rollback/limits: a scoped revert needs no schema/data rollback, but restores the historical-mutation weakness. No live PostgreSQL, production data, DB-role policy, load or deployment test was used. Separate EntityManager bulk JPQL, native SQL, direct JDBC, and privileged DB writes remain outside this JPA/repository boundary and require operational restriction.
+- Authority: the user authorized commit, push, and Draft PR for this module. Human review owns Ready, merge, Issue close, deployment, and branch/worktree cleanup.
+
+See [worklog.md](worklog.md) for commands, evidence, Q1-Q4, and the corrected review trail. These records are module-local because the user forbids repository shared-harness edits.
+
+---
+
+The following is retained historical status and is not a current GH-758 report.
+
 # GH-757 agent status
 
 - Issue: [#757](https://github.com/skyg547/account/issues/757); owner `agent:codex`, review handoff target `status:needs-review`.

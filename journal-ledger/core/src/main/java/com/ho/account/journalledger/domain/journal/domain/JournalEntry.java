@@ -16,15 +16,21 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
+import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * 회계 전표(Journal Entry) — 분개 정보를 담는 핵심 Aggregate Root.
@@ -74,6 +80,8 @@ import java.util.Locale;
         @Index(name = "idx_journal_entry_lineage", columnList = "lineageSourceType, lineageSourceId")
 })
 public class JournalEntry {
+
+    static final String FINAL_HISTORY_MUTATION_MESSAGE = "POSTED 전표 이력은 변경하거나 삭제할 수 없습니다.";
 
     /** 시스템 내부 PK (자동 증가) */
     @Id
@@ -192,6 +200,9 @@ public class JournalEntry {
     @Column(length = 100)
     private String lineageSourceId;
 
+    @Transient
+    private JournalEntryStatus persistedStatus;
+
     // ─── 생명주기 콜백 ────────────────────────────────────
 
     /**
@@ -225,10 +236,33 @@ public class JournalEntry {
         }
     }
 
-    /** 수정(UPDATE) 시 updatedAt 자동 갱신 */
+    /**
+     * 이미 저장된 최종 상태를 기준으로 dirty checking과 detached merge 우회를 차단합니다.
+     * 현재 상태만 보면 정상적인 첫 APPROVED -> POSTED 전환도 최종 상태로 오인하므로,
+     * 로드/저장 직후 캡처한 상태와 현재 상태를 함께 판정합니다.
+     */
     @PreUpdate
     protected void onUpdate() {
+        if (isFinalStatus(this.persistedStatus)
+                || this.status == JournalEntryStatus.REVERSED
+                || (this.status == JournalEntryStatus.POSTED
+                        && this.persistedStatus != JournalEntryStatus.APPROVED)) {
+            throw finalHistoryMutation();
+        }
         this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreRemove
+    protected void onRemove() {
+        assertHistoryMutable();
+    }
+
+    /** 상태만 캡처하며 details에는 접근하지 않아 @PostLoad에서 lazy-load/N+1을 만들지 않습니다. */
+    @PostLoad
+    @PostPersist
+    @PostUpdate
+    protected void capturePersistedState() {
+        this.persistedStatus = this.status;
     }
 
     // ─── 도메인 비즈니스 메서드 ──────────────────────────────
@@ -240,6 +274,7 @@ public class JournalEntry {
      * createdBy에는 개별 서비스 principal을 사용해야 이후 별도 checker가 승인할 수 있습니다.</p>
      */
     public void requestApproval(String requester) {
+        assertHistoryMutable();
         if (this.status != JournalEntryStatus.DRAFT) {
             throw new IllegalStateException("승인 요청 가능한 상태가 아닙니다. 현재 상태: " + this.status);
         }
@@ -270,6 +305,7 @@ public class JournalEntry {
      * @param approver 승인자 ID 또는 이름
      */
     public void approve(String approver) {
+        assertHistoryMutable();
         if (this.status != JournalEntryStatus.REQUESTED) {
             throw new IllegalStateException("승인 가능한 상태가 아닙니다. 현재 상태: " + this.status);
         }
@@ -296,6 +332,7 @@ public class JournalEntry {
      * @param reason   반려 사유 (작성자에게 표시됨)
      */
     public void reject(String approver, String reason) {
+        assertHistoryMutable();
         if (this.status != JournalEntryStatus.DRAFT && this.status != JournalEntryStatus.REQUESTED) {
             throw new IllegalStateException("반려 가능한 상태가 아닙니다. 현재 상태: " + this.status);
         }
@@ -321,6 +358,7 @@ public class JournalEntry {
      * @param poster 전기 처리자 ID 또는 이름
      */
     public void post(String poster) {
+        assertHistoryMutable();
         if (this.status != JournalEntryStatus.APPROVED) {
             throw new IllegalStateException("승인된 전표만 전기할 수 있습니다.");
         }
@@ -408,8 +446,13 @@ public class JournalEntry {
             throw new IllegalStateException("전표 작성일(slipDate)은 필수입니다.");
         }
         // Every entry, including event/machine entries, needs a durable maker identity.
-        this.createdBy = JournalActor.canonicalize(this.createdBy);
+        String canonicalMaker = JournalActor.canonicalize(this.createdBy);
+        if (!Objects.equals(this.createdBy, canonicalMaker)) {
+            assertHistoryMutable();
+            this.createdBy = canonicalMaker;
+        }
         if (this.accountingDate == null) {
+            assertHistoryMutable();
             // 회계 반영일 미입력 시 전표 작성일로 기본 설정
             this.accountingDate = this.slipDate;
         }
@@ -487,11 +530,13 @@ public class JournalEntry {
      * @param detail 추가할 전표 상세 라인
      */
     public void addDetail(JournalDetail detail) {
+        assertHistoryMutable();
         if (detail == null) {
             throw new IllegalArgumentException("추가할 전표 상세는 필수입니다.");
         }
-        details.add(detail);
+        detail.assertCanChangeJournalEntry(this);
         detail.setJournalEntry(this);
+        details.add(detail);
     }
 
     /**
@@ -501,8 +546,10 @@ public class JournalEntry {
      * @param detail 제거할 전표 상세 라인
      */
     public void removeDetail(JournalDetail detail) {
-        details.remove(detail);
+        assertHistoryMutable();
+        detail.assertCanChangeJournalEntry(null);
         detail.setJournalEntry(null);
+        details.remove(detail);
     }
 
     /**
@@ -510,6 +557,8 @@ public class JournalEntry {
      * 전표 수정 시 기존 라인을 모두 제거하고 새로 추가할 때 사용합니다.
      */
     public void clearDetails() {
+        assertHistoryMutable();
+        this.details.forEach(detail -> detail.assertCanChangeJournalEntry(null));
         this.details.forEach(detail -> detail.setJournalEntry(null));
         this.details.clear();
     }
@@ -517,19 +566,34 @@ public class JournalEntry {
     // ─── Getter / Setter ──────────────────────────────────
 
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        assertHistoryMutable();
+        this.id = id;
+    }
 
     public String getSlipNo() { return slipNo; }
-    public void setSlipNo(String slipNo) { this.slipNo = slipNo; }
+    public void setSlipNo(String slipNo) {
+        assertHistoryMutable();
+        this.slipNo = slipNo;
+    }
 
     public LocalDate getSlipDate() { return slipDate; }
-    public void setSlipDate(LocalDate slipDate) { this.slipDate = slipDate; }
+    public void setSlipDate(LocalDate slipDate) {
+        assertHistoryMutable();
+        this.slipDate = slipDate;
+    }
 
     public LocalDate getAccountingDate() { return accountingDate; }
-    public void setAccountingDate(LocalDate accountingDate) { this.accountingDate = accountingDate; }
+    public void setAccountingDate(LocalDate accountingDate) {
+        assertHistoryMutable();
+        this.accountingDate = accountingDate;
+    }
 
     public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setDescription(String description) {
+        assertHistoryMutable();
+        this.description = description;
+    }
 
     public JournalEntryStatus getStatus() { return status; }
 
@@ -540,6 +604,7 @@ public class JournalEntry {
      * 그래서 생성 단계에서만 쓸 수 있는 의도 기반 메서드로 DRAFT 초기화를 제한합니다.</p>
      */
     public void initializeDraft() {
+        assertHistoryMutable();
         if (this.status != null && this.status != JournalEntryStatus.DRAFT) {
             throw new IllegalStateException("이미 진행된 전표를 DRAFT로 되돌릴 수 없습니다.");
         }
@@ -547,10 +612,14 @@ public class JournalEntry {
     }
 
     public String getEntryType() { return entryType; }
-    public void setEntryType(String entryType) { this.entryType = entryType; }
+    public void setEntryType(String entryType) {
+        assertHistoryMutable();
+        this.entryType = entryType;
+    }
 
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) {
+        assertHistoryMutable();
         this.currencyCode = currencyCode == null || currencyCode.isBlank()
                 ? null
                 : currencyCode.trim().toUpperCase(Locale.ROOT);
@@ -558,27 +627,43 @@ public class JournalEntry {
 
     public BigDecimal getExchangeRate() { return exchangeRate; }
     public void setExchangeRate(BigDecimal exchangeRate) {
+        assertHistoryMutable();
         this.exchangeRate = exchangeRate == null ? null : AccountingPrecision.exchangeRate(exchangeRate);
     }
 
     public String getRejectionReason() { return rejectionReason; }
-    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public void setRejectionReason(String rejectionReason) {
+        assertHistoryMutable();
+        this.rejectionReason = rejectionReason;
+    }
 
     public List<JournalDetail> getDetails() { return List.copyOf(details); }
     public void setDetails(List<JournalDetail> details) {
+        assertHistoryMutable();
         if (details == null) {
             throw new IllegalArgumentException("전표 상세 목록은 필수입니다.");
         }
+        List<JournalDetail> replacement = new ArrayList<>(details);
+        replacement.forEach(detail -> {
+            if (detail == null) {
+                throw new IllegalArgumentException("전표 상세는 필수입니다.");
+            }
+            detail.assertCanChangeJournalEntry(this);
+        });
         clearDetails();
-        details.forEach(this::addDetail);
+        replacement.forEach(this::addDetail);
     }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        assertHistoryMutable();
+        this.updatedAt = updatedAt;
+    }
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) {
+        assertHistoryMutable();
         String canonicalMaker = JournalActor.canonicalize(createdBy);
         if (this.createdBy != null && !JournalActor.sameIdentity(this.createdBy, canonicalMaker)) {
             throw new IllegalStateException("전표 작성자 identity는 변경할 수 없습니다.");
@@ -590,12 +675,37 @@ public class JournalEntry {
 
     public String getAuditUser() { return auditUser; }
     public void setAuditUser(String auditUser) {
+        assertHistoryMutable();
         this.auditUser = auditUser == null ? null : JournalActor.canonicalize(auditUser);
     }
 
     public String getLineageSourceType() { return lineageSourceType; }
-    public void setLineageSourceType(String lineageSourceType) { this.lineageSourceType = lineageSourceType; }
+    public void setLineageSourceType(String lineageSourceType) {
+        assertHistoryMutable();
+        this.lineageSourceType = lineageSourceType;
+    }
 
     public String getLineageSourceId() { return lineageSourceId; }
-    public void setLineageSourceId(String lineageSourceId) { this.lineageSourceId = lineageSourceId; }
+    public void setLineageSourceId(String lineageSourceId) {
+        assertHistoryMutable();
+        this.lineageSourceId = lineageSourceId;
+    }
+
+    boolean hasFinalHistory() {
+        return isFinalStatus(this.status) || isFinalStatus(this.persistedStatus);
+    }
+
+    private void assertHistoryMutable() {
+        if (hasFinalHistory()) {
+            throw finalHistoryMutation();
+        }
+    }
+
+    private static boolean isFinalStatus(JournalEntryStatus status) {
+        return status == JournalEntryStatus.POSTED || status == JournalEntryStatus.REVERSED;
+    }
+
+    static IllegalStateException finalHistoryMutation() {
+        return new IllegalStateException(FINAL_HISTORY_MUTATION_MESSAGE);
+    }
 }

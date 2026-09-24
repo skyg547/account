@@ -35,6 +35,29 @@ V16은 `journal_entries.approved_by`를 추가합니다. 새 전표는 `created_
 승인자를 추측하지 않습니다. 새 code는 승인 증거가 없는 `APPROVED` 전표의 전기를 fail-closed로
 거부합니다.
 
+### POSTED 전표의 영속 이력 보호
+
+`journal_entries`가 commit된 `POSTED` 이력이면 헤더와 감사 컬럼뿐 아니라 소유한
+`journal_details`의 금액, 차대 구분, 계정, 부서·거래처 차원, 적요, 감사 정보와 멤버십도 함께
+동결됩니다. 공개 도메인 setter와 연관관계 메서드는 변경 전에 `IllegalStateException`을 내고,
+JPA `@PreUpdate`/`@PrePersist`/`@PreRemove` 콜백은 managed dirty update, detached merge,
+상세 삽입과 orphan removal을 영속성 경계에서 거부합니다. 일반 repository의
+`delete`/`deleteById`/`deleteAll`도 엔티티 콜백을 거칩니다. 콜백 없는 batch 삭제를 막기 위해
+`JournalEntryRepository`와 `JournalDetailRepository`는 `deleteAllInBatch`,
+`deleteAllByIdInBatch`, deprecated `deleteInBatch`를 명시적으로 fail-closed합니다.
+
+헤더가 로드·저장된 직후 캡처한 상태를 현재 상태와 구분하므로 합법적인 최초
+`APPROVED -> POSTED` update는 허용하고, 이미 확정된 최종 이력의 후속 update는 거부합니다.
+flush가 실패하면 해당 트랜잭션을 rollback해야 하며, 새 트랜잭션에서 clear/reload하면 commit된
+원래 컬럼 값과 상세 멤버십이 유지됩니다. 감사 identity에도 별도 수정 예외는 없습니다.
+정정은 원본 행을 update하지 않고 원본 lineage를 가진 새 역분개·조정 전표로 기록합니다.
+
+이 제약은 새 DB migration이나 trigger가 아니라 JPA/domain과 두 journal repository의 경계
+보호입니다. 따라서 repository 밖의 별도 `EntityManager` bulk JPQL, native SQL과 권한 있는 직접
+JDBC/DB 쓰기는 보호를 우회할 수 있습니다. 현재 production 코드에서 그런 전표 변경 경로는
+확인되지 않았지만, runtime DB 권한과 배포 점검으로 계속 차단해야 하는 잔여 위험입니다. 기존
+`DRAFT`/`REQUESTED`/`APPROVED` 편집 규칙, 금액 정밀도, maker-checker와 전기 통제는 바뀌지 않습니다.
+
 ## 원장
 
 | 테이블 | 역할 |

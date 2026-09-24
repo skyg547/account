@@ -1,3 +1,68 @@
+# 2026-09-25 — GH-758 immutable posted journal history
+
+## Intake, isolation, and ownership
+
+- Confirmed live [Issue #758](https://github.com/skyg547/account/issues/758), moved it from `status:ready` to `status:in-progress`, and added `agent:codex`. The issue body calls itself a local draft, but the live GitHub Issue and comments are the remote source of truth.
+- Preserved the dirty primary checkout. Fetched `origin/main`, created `agent/758-posted-immutability`, and used isolated `/tmp/account-758-posted-immutability` at base `6fdd7a401fe97a85c3a0f637a85bc51e614c1597`.
+- Created `agent/758-regression-proof` and `/tmp/account-758-regression-proof` at exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Applied `account-issue-loop`, `account-hexagonal-change`, the single-module/disjoint-owner form of `account-module-parallel`, and `account-review-handoff`, using the requested `gpt-5.6-sol` model at high reasoning.
+- Domain, test, and documentation writers owned disjoint files under `journal-ledger/**`; the explorer/planner and `/root/issue_758_review` were read-only. The parent Integrator alone owns module-local records and Git/GitHub actions.
+- Other modules, shared contracts, and repository-level shared harness/history files are frozen by the user's explicit allowlist.
+
+## Implementation and acceptance mapping
+
+- `JournalEntry` centralizes final-history detection for POSTED and defensively REVERSED. Every public header setter and collection mutation checks it before changing state.
+- `JournalDetail` checks the current, persisted, and prospective parent before changing a line or ownership, so detach/reparent cannot erase the final-state evidence first.
+- `@PostLoad`/`@PostPersist`/`@PostUpdate` capture persisted state without traversing lazy details. `@PreUpdate` allows only the legitimate first persisted APPROVED -> POSTED update; already-final dirty update or merge fails. `@PrePersist`/`@PreRemove` protect child insertion and entity/cascade/orphan deletion.
+- No generic post-posting audit annotation escape was added: audit identity and timestamps are historical evidence. Correction remains a linked, new reversal/adjustment entry and leaves the original unchanged.
+- Independent review found that Spring Data `deleteAllInBatch`, `deleteAllByIdInBatch`, and deprecated `deleteInBatch` use JPQL bulk execution and skip callbacks. This initial P1 was returned to the original owners. Both journal repositories now default-override all four bulk-delete surfaces and fail closed; 8 parameterized persistence cases cover header/detail x four variants.
+- Ordinary `delete`, `deleteById`, and `deleteAll` still load entities and use lifecycle callbacks, preserving DRAFT positive controls. The Batch test cleans only its disposable H2 fixture with explicit child-before-parent SQL because production repositories must not expose a callback bypass.
+- Existing maker-checker, BigDecimal precision, posting locks, immutable GL/SL snapshot, and reaggregation behavior are unchanged.
+
+## Audited RED proof
+
+- Copied only `JournalPostedImmutabilityAuditedRegressionTest` into the proof worktree; implementation/proof fixture SHA-256 is `4a9d8ab5449d7d5496e11bbeda0c2ff89423baea3b6eecc187d20f26fbcee5ec`.
+- `git diff --exit-code -- journal-ledger/core/src/main` in the proof worktree passed, confirming no audited production modification.
+- Command: `./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.domain.journal.domain.JournalPostedImmutabilityAuditedRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`.
+- Expected RED: exit1 in23s, 3 tests/3 failures. The audited public APIs changed a POSTED accounting date, changed a line amount, and cleared membership without throwing.
+- Current GREEN: the same three tests pass and verify the value/collection remains unchanged after rejection.
+
+## Verification and corrected independent review
+
+- Baseline literal `./gradlew :journal-ledger:test` at the clean base passed core188/API51/batch11 =250 tests.
+- Pre-review focused selection passed56/56: aggregate15, audited regression3, persistence11, PostingService15, and PostingConcurrency12.
+- The first requested full run exposed four Batch fixture failures because old tests persisted entities already marked POSTED. The test owner corrected only fixture sequencing: persist APPROVED, reload in a transaction, then call the real `post()` transition. Focused Batch passed5/5.
+- The requested literal `./gradlew :journal-ledger:test` then passed core207/API51/batch11 =269 tests before the bulk-delete correction.
+- Initial independent review raised P1 because inherited repository bulk deletes bypassed `@PreRemove`; an interleaved stale run was explicitly discarded and is not verification evidence.
+- Corrected focused commands passed:
+  - `./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.infrastructure.persistence.PostedJournalImmutabilityPersistenceTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`:19/19.
+  - `./gradlew :journal-ledger:batch:test --tests 'com.ho.account.journalledger.batch.config.BalanceReaggregationBatchConfigTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`:5/5.
+- Independent final command: `./gradlew :journal-ledger:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`; exit0, BUILD SUCCESSFUL in1m37s, 37/37 tasks executed. XML totals are core29 suites/215 tests, API15/51, Batch4/11 =48 suites/277 tests, failures/errors/skips0.
+- `node --test tools/ci/harness-quality-contract.test.cjs` passes32/32. `git diff --check`, tracked/untracked allowlist, unmerged-index, and anchored conflict-marker gates pass.
+- Final read-only review reports no remaining P0-P3.
+
+## Q1-Q4 evidence
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `JournalEntry.java`, `JournalDetail.java`의 응집된 final-history/lifecycle guard; 두 journal repository의 bulk-delete 차단; forced277/277 | 해당 없음: 코드 변경 적용 | 직접 SQL 계층은 별도 DB 권한/trigger 검토 대상 | `/root/issue_758_review`: no P0-P3, PASS |
+| Q2 | PASS | `docs/process-flow.md`의 최초 전기 -> 변경/삭제 거절 -> rollback/clear/reload -> 역분개 흐름; persistence19/19 | 해당 없음: 흐름 변경 적용 | 실제 PostgreSQL 동작은 후속 게이트 | `/root/issue_758_review`: PASS |
+| Q3 | PASS | `README.md`, `docs/process-flow.md`, `docs/schema.md`; exact 명령, forced277 결과, repository/SQL 경계 | 해당 없음: 기능 문서 변경 적용 | 운영 DB 권한과 배포 문서는 환경 검증 후 확정 | `/root/issue_758_review`: PASS |
+| Q4 | PASS | persisted/current 상태 구분, lazy-load 회피, bulk callback 우회, disposable-H2 cleanup 의도 주석 | 해당 없음: 비자명 코드 변경 적용 | JPA provider/DB 변경 시 callback ordering 재검증 | `/root/issue_758_review`: PASS |
+
+## Rollback, limits, and handoff
+
+- Roll back by reverting only this Issue-scoped module change before deployment. There is no migration or data transformation. Reversion restores the known ability to mutate posted history, so posting/correction traffic must not resume under the reverted binary without an approved alternative.
+- No live PostgreSQL, production data reconciliation, runtime DB-role test, load, fault injection, or deployment was performed.
+- JPA callbacks and the two public repositories do not cover a separately created EntityManager bulk JPQL query, native SQL, direct JDBC, or privileged DB writes. No production journal mutation path using them was found; module docs make the residual boundary explicit.
+- Reviewed implementation/record commit `c78b8465` is pushed and [Draft PR #794](https://github.com/skyg547/account/pull/794) is open with `Refs #758`. The PR body records verification, limitations, rollback, and writer/reviewer/Integrator authority separation.
+- On publication commit `c78b8465`, Agent Merge Guard run36042763262, Harness Validation run36042763009, and Module Validation run36042763118 failed before executing their entry jobs. Check annotations state that recent account payments failed or the spending limit must be increased. This external GitHub account prerequisite is neither an executed code-test failure nor a remote PASS; the account owner must resolve it and rerun checks.
+- Human review retains Ready, merge, Issue close, deployment, and worktree/branch cleanup authority.
+
+---
+
+The following is retained historical worklog and is not a current GH-758 report.
+
 # 2026-09-25 — GH-757 trusted journal audit actors
 
 ## Intake, overlap analysis and ownership
