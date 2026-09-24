@@ -1,6 +1,6 @@
 # GH-767 handoff
 
-Issue #767 implementation, three RED proofs, requested local verification and independent review are complete. Draft PR publication is pending.
+Issue #767 implementation, three RED proofs, requested local verification and independent review are complete. [Draft PR #785](https://github.com/skyg547/account/pull/785) is open with `Refs #767`; implementation commit `06e5ccc3`.
 
 - Issue/branch/worktree: [#767](https://github.com/skyg547/account/issues/767); `agent/767-reaggregation-consistency`; `/tmp/account-767-reaggregation-consistency`; base `795c494a`.
 - Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts and repository-level shared harness files are unchanged.
@@ -11,7 +11,7 @@ Issue #767 implementation, three RED proofs, requested local verification and in
 - Rollback/deployment: stop every writer/reader, preserve applied V14/V15 and singleton, revert application under review, and restore one barrier-aware version before traffic. Validate runtime SELECT/UPDATE rights, lock waits and cardinality on approved PostgreSQL before deployment.
 - Limits: no live PostgreSQL, production data, distributed process kill or load test. Direct SQL/old binaries bypass the barrier; privileged DB readers can see in-place partial rows even though application consumers reject them.
 - Authority separation: module writer implemented; explorer/reviewer were read-only; parent owns records and Git/GitHub. User authorized push and Draft PR only. Ready, merge, Issue close, deployment and cleanup remain later human gates.
-- Next owner: parent Integrator publishes the Draft PR with `Refs #767`; human reviewer owns subsequent readiness and merge gates.
+- Next owner: human reviewer owns subsequent Ready/merge/Issue-close and deployment gates. The branch and worktree remain retained.
 
 Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
 

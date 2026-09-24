@@ -1,7 +1,7 @@
 # GH-767 agent status
 
-- Issue: [#767](https://github.com/skyg547/account/issues/767); remote `status:in-progress`, owner `agent:codex` at this checkpoint.
-- Status: implementation, audited RED proof, requested local verification and independent review complete; Draft PR publication is pending.
+- Issue: [#767](https://github.com/skyg547/account/issues/767); remote handoff target `status:needs-review`, owner `agent:codex`.
+- Status: implementation, audited RED proof, requested local verification and independent review complete; [Draft PR #785](https://github.com/skyg547/account/pull/785) is open with `Refs #767`.
 - Base: `origin/main@795c494a950980864c0e9bc63464dcb505a8d46b`.
 - Branch/worktree: `agent/767-reaggregation-consistency`, `/tmp/account-767-reaggregation-consistency`.
 - Model assignment: `gpt-5.6-sol`, high. Parent owns Git/GitHub and these module-local records.

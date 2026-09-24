@@ -47,6 +47,12 @@
 - No live PostgreSQL, production data, distributed kill, runtime-role grant or production load test was used. Privileged direct DB readers can see in-place partial rows while `REBUILDING`; direct SQL and older writers bypass the application barrier. Final all-stripe lock and compact daily-key projections require production lock-wait/cardinality validation.
 - Parent is authorized to commit, push and open a Draft PR with `Refs #767`, then move the Issue to `status:needs-review`. Ready, merge, Issue close, deployment and branch/worktree deletion remain later human gates.
 
+## Draft publication
+
+- Parent committed the independently reviewed module change as `06e5ccc3` and pushed only `agent/767-reaggregation-consistency`.
+- Opened [Draft PR #785](https://github.com/skyg547/account/pull/785) against `main` with `Refs #767`. The body records all RED/GREEN evidence, Q1-Q4, rollback/limits, and the writer/reviewer/Integrator authority separation.
+- This follow-up adds only the actual PR link to the three module-local records. No production or test behavior changed after independent approval. Ready, merge, Issue close, deployment and resource deletion were not performed.
+
 ---
 
 The following entries are retained history and are not current GH-767 evidence.
