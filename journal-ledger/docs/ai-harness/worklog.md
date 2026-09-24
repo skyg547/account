@@ -289,3 +289,93 @@ Rollback is a reviewed scoped code revert while all writers remain stopped. Reta
 - [Review handoff](https://github.com/skyg547/account/issues/764#issuecomment-5815580888) records the exact208 tests, audited2 expected failures, independent review, residual risks and authority separation. The PR body includes verification, Q1–Q4, rollback, application-wide mapper scope, scientific-notation fail-closed behavior and the no-live-broker limit.
 - On published implementation head `6d96ba0d`, Module Validation run36009677391/job107666844502, Harness Validation run36009676896/job107666842811, and Agent Merge Guard run36009676918/job107666843813 failed before executing job steps. Each failure annotation states that recent account payments failed or the spending limit must be increased. Matrix/downstream jobs were skipped.
 - This is an external GitHub Actions prerequisite, not an executed code/test failure; no remote CI PASS is claimed. The repository/account owner must resolve GitHub Billing & plans and rerun checks before a later readiness gate. No billing settings, workflow files or repository-level harness files were changed.
+
+# 2026-09-25 — GH-756 maker-checker approval writer checkpoint
+
+- Issue/claim: #756; branch `agent/756-maker-checker-approval`; isolated worktree
+  `/tmp/account-756-maker-checker-approval`; base `origin/main@054cdf132dc7912346bdb8a06f2f7860e332351a`.
+  This is an unpublished writer checkpoint. Parent Integrator owns independent review, commit, push,
+  Draft PR, remote checks and final records.
+- Scope: all changes are under `journal-ledger/**`. Shared contracts, other services and repository-level
+  harness/history files are unchanged.
+- Architecture: HTTP adapters parse Gateway-rebuilt `X-Auth-User`/`X-Auth-Roles` and enforce maker,
+  approver and poster roles. Core canonicalizes every actor (trim + `Locale.ROOT` lowercase, max50),
+  requires a maker, enforces `DRAFT -> REQUESTED -> APPROVED -> POSTED`, rejects canonical self-approval,
+  and preserves `approvedBy` when `auditUser` changes to the poster.
+- Event/machine policy: HTTP payload actor fields are overwritten by the trusted principal; Kafka uses
+  `service:journal-kafka-maker`; the Spring contract event listener reconstructs commands with
+  `service:journal-spring-event-maker`. Contract drafts persist canonical `createdBy` and ignore payload
+  `auditUser` as a separate identity source. `approveAndPost` submits a DRAFT as its stored maker and
+  proceeds only with a distinct checker service principal. Shared `SYSTEM` maker/checker is rejected.
+- Schema: V16 adds `journal_entries.approved_by`. It backfills only still-`APPROVED` rows whose
+  `created_by` and `audit_user` are both nonblank and canonically distinct. Self-approved and makerless
+  rows remain NULL, as do already-`POSTED` rows whose historical checker cannot be reconstructed.
+
+## Verification
+
+- Focused command selecting domain/service/adapter/migration plus HTTP/Kafka regressions: exit0.
+  Selected classes contain28 tests, failures/errors/skips0. The self-approval and direct-DRAFT tests are
+  remediation regressions for audited `a97d10ab`.
+- `JournalMakerCheckerAuditedRegressionTest` is a standalone byte-copyable RED/GREEN fixture using only
+  APIs present at `a97d10ab`: it requires maker approval of its own balanced DRAFT to throw without state
+  mutation. Parent copied it byte-identically to `/tmp/account-756-regression-proof` at exact audited
+  commit `a97d10ab6efc2570a88f83d630242cd748f8be57`; both files have SHA256
+  `f5611fe1c23d3278b5edeab9b4f70db6c4ff33ae368461dcec69f92251303ba8`. The focused audited run compiled
+  and executed1 test with1 expected failure, errors/skips0: the old code raised no throwable and changed
+  the DRAFT instead of enforcing maker-checker separation.
+- Corrective focused command selecting the Spring-event trust-boundary test, migration evidence test and
+  audited regression fixture: exit0, 29s, 3 tests with failures/errors/skips0.
+- Literal requested `./gradlew :journal-ledger:test`: exit0, 1m11s. XML totals are core188/API45/batch11
+  =244 tests across45 suites, failures/errors/skips0. The parent aggregate task is NO-SOURCE and is not
+  counted. API/Batch local contexts apply V16 and Hibernate validate as part of the existing suites.
+- `./gradlew :journal-ledger:api:bootJar :journal-ledger:batch:bootJar --offline --no-daemon
+  --console=plain --max-workers=1`: exit0. This verifies packaging only, not deployed startup; both boot
+  archives were created after V16 was added.
+- Parent reran the literal requested command after all corrections: exit0, BUILD SUCCESSFUL in1m02s.
+  Independent `/root/issue756_review` then forced a clean `--rerun-tasks` module run: exit0 in1m36s,
+  core188/API45/batch11 =244 tests across45 suites, failures/errors/skips0. The reviewer also confirmed
+  API/Batch bootJAR packaging and all static gates.
+- `git diff --check`, changed-scope allowlist and conflict-marker scan: PASS. No file outside
+  `journal-ledger/**` changed.
+
+## Rollback and residual risks
+
+- Rollback is a reviewed Issue-scoped code/test/doc revert. Applied Flyway migrations are immutable:
+  retain V16/`approved_by` even if binaries roll back, or use a separately reviewed forward migration.
+  V16 does not change amounts or ledger balances.
+- Repository search found direct Journal HTTP adapters in Closing, Deposit, Expenditure Resolution,
+  Loan, Payable, Receivable and Reconciliation. All seven need trusted maker headers/roles for draft
+  creation; Deposit currently fails closed for remote approval, while the other approval/post callers
+  also use legacy `X-User-ID` and omit request-approval. They will fail closed until an authorized
+  cross-module follow-up supplies Gateway-authenticated headers, distinct service principals and the
+  controlled transition. Those files are outside this writer's allowlist and were not changed.
+- No live Gateway/JWT, Kafka broker, PostgreSQL, cross-service HTTP deployment, production data or load
+  test was used. H2 proves migration/wiring behavior, not PostgreSQL deployment timing. Historical POSTED
+  rows intentionally retain a NULL checker evidence gap.
+
+| Item | Result | File/test evidence | N/A reason | Risk / next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `JournalCommandAuthorization`, `JournalActor`, `JournalEntry`; focused28 + corrective3/module244 PASS | Applicable: command/domain responsibilities changed | Seven remote consumers remain a deployment gate | `/root/issue756_review`; no P0–P3 |
+| Q2 | PASS | `../process-flow.md`; HTTP → request → approve → post and machine policy; failure tests | Applicable: lifecycle and errors changed | Live cross-service flow untested | `/root/issue756_review` confirmed |
+| Q3 | PASS | `../../README.md`, `../beginner-guide.md`, `../process-flow.md`, `../schema.md` | Applicable: public headers/state/schema changed | Consumer code/docs outside allowlist remain a follow-up | `/root/issue756_review` confirmed |
+| Q4 | PASS | trusted HTTP/Spring/Kafka identity replacement, adapter auto-submit and V16 non-invention comments | Applicable: non-obvious trust/migration choices changed | Keep comments and service principals aligned | `/root/issue756_review` confirmed |
+
+Independent review initially found that V16 would have legitimized legacy self-approved rows and that the
+Spring event listener trusted payload maker identity. The original writer narrowed the migration to
+nonblank, canonically distinct evidence, added negative upgrade rows, bound Spring events to a fixed service
+maker, expanded the seven-consumer inventory and reran verification. Final review found no P0–P3.
+
+## Draft publication and remote CI prerequisite
+
+- Parent committed the independently reviewed39-file module change as
+  `a6ecb1d69be232d9937624e8b26244d0537fd8a9`, pushed only `agent/756-maker-checker-approval`, and opened
+  [Draft PR #792](https://github.com/skyg547/account/pull/792) against `main` with `Refs #756`. The PR is
+  OPEN/DRAFT/MERGEABLE. Issue #756 remains OPEN and is synchronized to `status:needs-review`.
+- On the published implementation head, Module Validation run36036177785/job107756709599, Harness
+  Validation run36036177968/job107756711043 and Agent Merge Guard run36036177942/job107756711683 failed
+  before executing steps. Each failure annotation states that recent account payments failed or the
+  spending limit needs increase. Matrix/downstream checks were skipped or queued.
+- This is an external GitHub Actions prerequisite, not an executed code/test failure; no remote CI PASS is
+  claimed. The repository/account owner must resolve Billing & plans and rerun checks. Human review and the
+  seven remote-consumer compatibility changes remain deployment gates. Ready, merge, Issue close, deployment
+  and branch/worktree/proof cleanup were not performed.

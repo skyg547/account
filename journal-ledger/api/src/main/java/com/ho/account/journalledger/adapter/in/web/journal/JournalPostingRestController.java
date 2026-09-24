@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -47,12 +48,16 @@ public class JournalPostingRestController {
      * @return 전표 생성 결과 (전표 ID, 전표 번호, 상태)
      */
     @PostMapping
-    public ResponseEntity<JournalPostingResult> createPosting(@Valid @RequestBody JournalEntryCommand command) {
+    public ResponseEntity<JournalPostingResult> createPosting(
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles,
+            @Valid @RequestBody JournalEntryCommand command) {
+        String maker = JournalCommandAuthorization.requireMaker(actor, roles);
         log.info("Received REST Journal Posting request for lineageSourceId: {}, type: {}",
                 command.lineageSourceId(), command.lineageSourceType());
         
         try {
-            JournalPostingResult result = journalPostingPort.createDraftEntry(command);
+            JournalPostingResult result = journalPostingPort.createDraftEntry(withTrustedMaker(command, maker));
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             log.warn("Invalid journal entry command: {}", e.getMessage());
@@ -61,5 +66,12 @@ public class JournalPostingRestController {
             log.warn("Journal creation failed due to state rule: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    private JournalEntryCommand withTrustedMaker(JournalEntryCommand command, String maker) {
+        return new JournalEntryCommand(
+                command.slipDate(), command.accountingDate(), command.description(), command.entryType(),
+                command.currencyCode(), command.exchangeRate(), maker, maker, command.lineageSourceType(),
+                command.lineageSourceId(), command.slipNo(), command.lines());
     }
 }

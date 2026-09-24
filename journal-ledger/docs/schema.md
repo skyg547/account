@@ -18,13 +18,22 @@ erDiagram
 
 | 테이블 | 역할 | 중요 필드 |
 | --- | --- | --- |
-| `journal_entries` | 전표 헤더와 상태, 원천 추적 | `slip_no`, `status`, `accounting_date`, lineage 필드 |
+| `journal_entries` | 전표 헤더와 상태, 원천 추적 | `slip_no`, `status`, `accounting_date`, `created_by`, `approved_by`, `audit_user`, lineage 필드 |
 | `journal_details` | 차변/대변 라인 | `account_code`, `side`, `amount`, 거래처·부서 코드 |
 | `journal_rules` | 적용 가능한 자동분개 규칙 | 규칙 코드, 우선순위, 유효기간 |
 | `journal_rule_conditions` | 규칙 적용 조건 | 필드, 연산자, 비교값 |
 | `journal_rule_details` | 규칙이 생성할 라인 명세 | `drcr_type`, 계정·금액·적요 표현식 |
 
 `journal_rule_details.drcr_type`은 DB에는 문자열로 저장하지만 도메인에서는 `JournalSide` 열거형으로 제한합니다.
+
+V16은 `journal_entries.approved_by`를 추가합니다. 새 전표는 `created_by`(maker),
+`approved_by`(checker), `audit_user`(마지막 상태 처리자)를 분리하므로 전기 후 `audit_user`가 poster로
+바뀌어도 checker 증거가 남습니다. 업그레이드 시 아직 `APPROVED`이고 `created_by`/`audit_user`가
+모두 nonblank이며 trim/lowercase canonical identity가 서로 다른 행만 기존 `audit_user`를
+`approved_by`로 backfill합니다. self-approved 행과 maker 증거가 없는 행은 취약한 승인 이력을
+정당화하지 않도록 `NULL`로 남깁니다. 이미 `POSTED`인 과거 행도 `audit_user`가 poster일 수 있어
+승인자를 추측하지 않습니다. 새 code는 승인 증거가 없는 `APPROVED` 전표의 전기를 fail-closed로
+거부합니다.
 
 ## 원장
 

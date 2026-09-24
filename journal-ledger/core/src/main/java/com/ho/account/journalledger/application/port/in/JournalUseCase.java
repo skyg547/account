@@ -132,21 +132,20 @@ public interface JournalUseCase {
     Optional<JournalEntry> getJournalEntry(Long id);
 
     /**
-     * 전표를 승인합니다.
+     * 작성자가 DRAFT 전표를 승인 요청 상태로 전환합니다.
      *
-     * [업무 설명]
-     * 결재자(승인권자)가 전표를 검토하고 승인하는 단계입니다.
-     * DRAFT 또는 REQUESTED 상태의 전표만 승인 가능합니다.
-     * 승인 후 APPROVED 상태가 되며, 이후 전기(Posting)가 가능합니다.
-     *
-     * [개발 설명]
-     * 도메인 엔티티의 approve(approver) 메서드를 호출합니다 (Rich Domain Model).
-     * 상태 전환 로직은 도메인 엔티티 내부에 캡슐화되어 있습니다.
+     * @param id 승인 요청할 전표의 내부 PK
+     * @param requester trusted/canonical 작성자 식별자
+     */
+    void requestJournalEntryApproval(Long id, String requester);
+
+    /**
+     * 별도 결재자가 REQUESTED 전표를 검토하고 승인합니다.
      *
      * @param id       승인할 전표의 내부 PK
      * @param approver 승인자 식별자 (사용자 ID 또는 이름)
      * @throws IllegalArgumentException 존재하지 않는 전표 ID
-     * @throws IllegalStateException    DRAFT/REQUESTED 상태가 아닌 경우
+     * @throws IllegalStateException    REQUESTED 상태가 아니거나 maker와 approver가 같은 경우
      */
     void approveJournalEntry(Long id, String approver);
 
@@ -169,7 +168,7 @@ public interface JournalUseCase {
      * APPROVED 상태여야만 전기 가능합니다.
      *
      * @param id     전기할 전표의 내부 PK
-     @param poster 전기 처리자 식별자
+     * @param poster 전기 처리자 식별자
       * @throws IllegalArgumentException 존재하지 않는 전표 ID
       * @throws IllegalStateException    APPROVED 상태가 아닌 경우
       */

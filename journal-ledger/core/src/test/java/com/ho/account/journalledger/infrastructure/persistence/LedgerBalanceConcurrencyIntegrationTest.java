@@ -379,6 +379,7 @@ class LedgerBalanceConcurrencyIntegrationTest {
             journal.setCurrencyCode("KRW");
             journal.setLineageSourceType("TEST");
             journal.setLineageSourceId("GL761-" + suffix);
+            journal.setCreatedBy("maker");
             for (int index : reversed ? List.of(1, 0) : List.of(0, 1)) {
                 JournalDetail detail = new JournalDetail();
                 detail.setSide(index == (reversed ? 1 : 0) ? JournalSide.DEBIT : JournalSide.CREDIT);
@@ -390,6 +391,7 @@ class LedgerBalanceConcurrencyIntegrationTest {
                 journal.addDetail(detail);
             }
             journal.initializeDraft();
+            journal.requestApproval("maker");
             journal.approve("approver");
             return journals.saveAndFlush(journal).getId();
         });

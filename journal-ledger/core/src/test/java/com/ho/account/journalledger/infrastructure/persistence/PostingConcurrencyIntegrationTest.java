@@ -115,6 +115,7 @@ class PostingConcurrencyIntegrationTest {
                 jdbc.update("DELETE FROM " + table);
             }
             JournalEntry journal = journal();
+            journal.requestApproval("maker");
             journal.approve("approver");
             journalId = journals.saveAndFlush(journal).getId();
             for (JournalDetail detail : journal.getDetails()) {
@@ -307,6 +308,7 @@ class PostingConcurrencyIntegrationTest {
             JournalEntry draft = journal();
             draft.setSlipNo("GL760-SAME-TX");
             journals.saveAndFlush(draft);
+            draft.requestApproval("maker");
             draft.approve("same-tx-approver");
             posting(mode).postJournalEntry(draft.getId(), "same-tx-poster");
             assertThat(draft.getStatus()).isEqualTo(JournalEntryStatus.POSTED);
@@ -383,6 +385,7 @@ class PostingConcurrencyIntegrationTest {
         journal.setCurrencyCode("KRW");
         journal.setLineageSourceType("TEST");
         journal.setLineageSourceId("GL760");
+        journal.setCreatedBy("maker");
         journal.addDetail(detail(JournalSide.DEBIT, "10100"));
         journal.addDetail(detail(JournalSide.CREDIT, "40100"));
         journal.initializeDraft();

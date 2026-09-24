@@ -167,6 +167,10 @@ public class JournalEntry {
     @Column(length = 50)
     private String createdBy;
 
+    /** 승인자 canonical ID. 전기 후에도 auditUser와 별도로 보존됩니다. */
+    @Column(length = 50)
+    private String approvedBy;
+
     /** 최종 처리자 (승인/반려/전기한 사람). 상태 변경 시 자동 갱신됩니다. */
     @Column(length = 50)
     private String auditUser;
@@ -230,10 +234,32 @@ public class JournalEntry {
     // ─── 도메인 비즈니스 메서드 ──────────────────────────────
 
     /**
-     * 전표를 승인합니다 (상태: DRAFT/REQUESTED → APPROVED).
+     * 전표를 승인 요청합니다 (상태: DRAFT → REQUESTED).
+     *
+     * <p>작성자 본인만 자신의 초안을 제출할 수 있습니다. 이벤트/기계 전표도 동일하며,
+     * createdBy에는 개별 서비스 principal을 사용해야 이후 별도 checker가 승인할 수 있습니다.</p>
+     */
+    public void requestApproval(String requester) {
+        if (this.status != JournalEntryStatus.DRAFT) {
+            throw new IllegalStateException("승인 요청 가능한 상태가 아닙니다. 현재 상태: " + this.status);
+        }
+        String canonicalMaker = JournalActor.canonicalize(this.createdBy);
+        String canonicalRequester = JournalActor.canonicalize(requester);
+        if (!canonicalMaker.equals(canonicalRequester)) {
+            throw new IllegalStateException("전표 작성자만 승인 요청할 수 있습니다.");
+        }
+        validateInvariants();
+        this.createdBy = canonicalMaker;
+        this.status = JournalEntryStatus.REQUESTED;
+        this.auditUser = canonicalRequester;
+    }
+
+    /**
+     * 전표를 승인합니다 (상태: REQUESTED → APPROVED).
      *
      * [업무 규칙]
-     * - DRAFT 또는 REQUESTED 상태에서만 승인 가능합니다.
+     * - REQUESTED 상태에서만 승인 가능합니다.
+     * - canonical identity가 작성자와 같은 actor는 승인할 수 없습니다.
      * - 승인 전 반드시 차대변 합계 일치(validateBalance)를 검증합니다.
      * - 승인된 전표는 PostingService를 통해 GL/SL 원장에 전기됩니다.
      *
@@ -244,12 +270,19 @@ public class JournalEntry {
      * @param approver 승인자 ID 또는 이름
      */
     public void approve(String approver) {
-        if (this.status != JournalEntryStatus.DRAFT && this.status != JournalEntryStatus.REQUESTED) {
+        if (this.status != JournalEntryStatus.REQUESTED) {
             throw new IllegalStateException("승인 가능한 상태가 아닙니다. 현재 상태: " + this.status);
         }
+        String canonicalMaker = JournalActor.canonicalize(this.createdBy);
+        String canonicalApprover = JournalActor.canonicalize(approver);
+        if (canonicalMaker.equals(canonicalApprover)) {
+            throw new IllegalStateException("전표 작성자와 승인자는 달라야 합니다.");
+        }
         validateInvariants(); // 도메인 불변성(Invariants) 및 차대변 합계 일치 검증
+        this.createdBy = canonicalMaker;
+        this.approvedBy = canonicalApprover;
         this.status = JournalEntryStatus.APPROVED;
-        this.auditUser = approver;
+        this.auditUser = canonicalApprover;
     }
 
     /**
@@ -291,8 +324,11 @@ public class JournalEntry {
         if (this.status != JournalEntryStatus.APPROVED) {
             throw new IllegalStateException("승인된 전표만 전기할 수 있습니다.");
         }
+        if (this.approvedBy == null || this.approvedBy.isBlank()) {
+            throw new IllegalStateException("승인자 증거가 없는 전표는 전기할 수 없습니다.");
+        }
         this.status = JournalEntryStatus.POSTED;
-        this.auditUser = poster;
+        this.auditUser = JournalActor.canonicalize(poster);
     }
 
     /**
@@ -371,6 +407,8 @@ public class JournalEntry {
         if (this.slipDate == null) {
             throw new IllegalStateException("전표 작성일(slipDate)은 필수입니다.");
         }
+        // Every entry, including event/machine entries, needs a durable maker identity.
+        this.createdBy = JournalActor.canonicalize(this.createdBy);
         if (this.accountingDate == null) {
             // 회계 반영일 미입력 시 전표 작성일로 기본 설정
             this.accountingDate = this.slipDate;
@@ -540,10 +578,20 @@ public class JournalEntry {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
     public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public void setCreatedBy(String createdBy) {
+        String canonicalMaker = JournalActor.canonicalize(createdBy);
+        if (this.createdBy != null && !JournalActor.sameIdentity(this.createdBy, canonicalMaker)) {
+            throw new IllegalStateException("전표 작성자 identity는 변경할 수 없습니다.");
+        }
+        this.createdBy = canonicalMaker;
+    }
+
+    public String getApprovedBy() { return approvedBy; }
 
     public String getAuditUser() { return auditUser; }
-    public void setAuditUser(String auditUser) { this.auditUser = auditUser; }
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser == null ? null : JournalActor.canonicalize(auditUser);
+    }
 
     public String getLineageSourceType() { return lineageSourceType; }
     public void setLineageSourceType(String lineageSourceType) { this.lineageSourceType = lineageSourceType; }

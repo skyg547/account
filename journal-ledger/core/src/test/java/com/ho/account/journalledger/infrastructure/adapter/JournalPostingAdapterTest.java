@@ -18,7 +18,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -94,5 +97,37 @@ class JournalPostingAdapterTest {
             assertThat(detail.getAccountCode()).isEqualTo("211000");
             assertThat(detail.getBaseAmount()).isEqualByComparingTo("50.00");
         });
+    }
+
+    @Test
+    void machineDraftUsesControlledSubmissionBeforeDistinctCheckerApprovalAndPosting() {
+        JournalEntry entry = new JournalEntry();
+        entry.setCreatedBy("Service:Closing-Maker");
+        entry.initializeDraft();
+        when(journalUseCase.getJournalEntry(77L)).thenReturn(java.util.Optional.of(entry));
+
+        adapter.approveAndPost(77L, " Service:Closing-Checker ");
+
+        var order = inOrder(journalUseCase);
+        order.verify(journalUseCase).getJournalEntry(77L);
+        order.verify(journalUseCase).requestJournalEntryApproval(77L, "service:closing-maker");
+        order.verify(journalUseCase).approveJournalEntry(77L, "service:closing-checker");
+        order.verify(journalUseCase).postJournalEntry(77L, "service:closing-checker");
+    }
+
+    @Test
+    void machineDraftRejectsSameCanonicalMakerAndCheckerBeforeAnyTransition() {
+        JournalEntry entry = new JournalEntry();
+        entry.setCreatedBy("SYSTEM");
+        entry.initializeDraft();
+        when(journalUseCase.getJournalEntry(77L)).thenReturn(java.util.Optional.of(entry));
+
+        assertThatThrownBy(() -> adapter.approveAndPost(77L, " system "))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("distinct");
+
+        verify(journalUseCase, never()).requestJournalEntryApproval(any(), any());
+        verify(journalUseCase, never()).approveJournalEntry(any(), any());
+        verify(journalUseCase, never()).postJournalEntry(any(), any());
     }
 }

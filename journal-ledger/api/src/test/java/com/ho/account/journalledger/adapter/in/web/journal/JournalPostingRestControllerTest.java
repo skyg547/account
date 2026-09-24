@@ -6,6 +6,7 @@ import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -45,13 +46,18 @@ class JournalPostingRestControllerTest {
         when(mockPort.createDraftEntry(any(JournalEntryCommand.class))).thenReturn(expectedResult);
 
         // when
-        var response = controller.createPosting(command);
+        var response = controller.createPosting(
+                " Trusted-Maker ", "ROLE_JOURNAL_MAKER", command);
 
         // then
         assertThat(response.getStatusCodeValue()).isEqualTo(200);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().journalEntryId()).isEqualTo(100L);
         assertThat(response.getBody().slipNo()).isEqualTo("SLIP-20260812-0001");
-        verify(mockPort, times(1)).createDraftEntry(command);
+        ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(mockPort, times(1)).createDraftEntry(captor.capture());
+        assertThat(captor.getValue().createdBy()).isEqualTo("trusted-maker");
+        assertThat(captor.getValue().auditUser()).isEqualTo("trusted-maker");
+        assertThat(captor.getValue().lineageSourceId()).isEqualTo(command.lineageSourceId());
     }
 }

@@ -5,11 +5,13 @@ import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalActor;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -72,8 +74,10 @@ public class JournalPostingAdapter implements JournalPostingPort {
         entry.setDescription(command.description());
         entry.setEntryType(command.entryType());
         entry.setExchangeRate(command.exchangeRate() != null ? command.exchangeRate() : BigDecimal.ONE);
-        entry.setCreatedBy(command.createdBy());
-        entry.setAuditUser(command.auditUser());
+        String maker = JournalActor.canonicalize(command.createdBy());
+        entry.setCreatedBy(maker);
+        // Contract payload auditUser is not an independent identity source at draft creation.
+        entry.setAuditUser(maker);
         entry.setLineageSourceType(command.lineageSourceType());
         entry.setLineageSourceId(command.lineageSourceId());
         if (command.slipNo() != null && !command.slipNo().isBlank()) {
@@ -102,7 +106,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
             }
             
             detail.setDetailDescription(line.detailDescription());
-            detail.setAuditUser(command.auditUser());
+            detail.setAuditUser(maker);
             detail.setJournalEntry(entry);
             return detail;
         }).collect(Collectors.toList()));
@@ -118,21 +122,33 @@ public class JournalPostingAdapter implements JournalPostingPort {
     }
 
     @Override
+    @Transactional
     public void approveAndPost(Long journalEntryId, String actor) {
         JournalEntry entry = journalUseCase.getJournalEntry(journalEntryId)
                 .orElseThrow(() -> new IllegalStateException(
                         "Closing journal entry not found: " + journalEntryId));
+        String checker = JournalActor.canonicalize(actor);
         JournalEntryStatus status = entry.getStatus();
         if (status == JournalEntryStatus.POSTED) {
             return;
         }
-        if (status == JournalEntryStatus.DRAFT || status == JournalEntryStatus.REQUESTED) {
-            journalUseCase.approveJournalEntry(journalEntryId, actor);
-            journalUseCase.postJournalEntry(journalEntryId, actor);
+        if (status == JournalEntryStatus.DRAFT) {
+            if (JournalActor.sameIdentity(entry.getCreatedBy(), checker)) {
+                throw new IllegalStateException("Machine journal maker and checker principals must be distinct.");
+            }
+            // A machine draft still enters the same controlled state; the persisted maker submits it.
+            journalUseCase.requestJournalEntryApproval(journalEntryId, entry.getCreatedBy());
+            journalUseCase.approveJournalEntry(journalEntryId, checker);
+            journalUseCase.postJournalEntry(journalEntryId, checker);
+            return;
+        }
+        if (status == JournalEntryStatus.REQUESTED) {
+            journalUseCase.approveJournalEntry(journalEntryId, checker);
+            journalUseCase.postJournalEntry(journalEntryId, checker);
             return;
         }
         if (status == JournalEntryStatus.APPROVED) {
-            journalUseCase.postJournalEntry(journalEntryId, actor);
+            journalUseCase.postJournalEntry(journalEntryId, checker);
             return;
         }
         throw new IllegalStateException(

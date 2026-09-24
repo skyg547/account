@@ -9,7 +9,8 @@ flowchart LR
     USECASE --> RULE[JournalRuleEngine 또는 수동 전표 변환]
     RULE --> VALIDATE[JournalValidationEngine]
     VALIDATE --> DRAFT[DRAFT 전표 저장]
-    DRAFT --> APPROVE[APPROVED]
+    DRAFT --> REQUEST[REQUESTED 승인 요청]
+    REQUEST --> APPROVE[APPROVED]
     APPROVE --> POST[PostingService]
     POST --> SNAPSHOT[GeneralLedger immutable snapshot]
     SNAPSHOT --> PERIOD{회계기간 OPEN 확인}
@@ -26,10 +27,52 @@ flowchart LR
 | 단계 | 상태 | 핵심 검증 | 데이터 결과 |
 | --- | --- | --- | --- |
 | 작성 | `DRAFT` | 라인 금액, 차대변, 처리자, 원천 추적 | `journal_entries`, `journal_details` |
-| 승인 | `APPROVED` | 승인 가능한 상태와 권한 | 승인 이력과 처리자 |
-| 전기 | `POSTED` | 승인·차대일치·상세 ID 검증 후 회계기간 재확인 | 전표 상태, GL/SL 엔트리와 잔액 |
+| 승인 요청 | `REQUESTED` | 요청자가 canonical 작성자와 동일하고 차대일치 | maker와 요청 상태 |
+| 승인 | `APPROVED` | 승인 역할, `REQUESTED`, maker와 다른 canonical approver | 별도 `approved_by` 증거 |
+| 전기 | `POSTED` | posting 역할, 승인 증거·차대일치·상세 ID 검증 후 회계기간 재확인 | 승인 증거 유지, 최종 actor, GL/SL 엔트리와 잔액 |
 
 재무 잔액과 기간 집계에는 `POSTED` 전표만 포함합니다. `APPROVED`는 승인됐지만 아직 원장에 반영되지 않은 상태입니다.
+
+### Maker-checker 승인과 HTTP 권한
+
+HTTP 쓰기 입력은 외부 요청값이 아니라 Gateway가 JWT 검증 뒤 다시 만든 `X-Auth-User`와
+쉼표 구분 `X-Auth-Roles`를 사용합니다. 사용자는 trim 후 `Locale.ROOT` lowercase로 canonicalize하며
+현재 전표 감사 컬럼 계약에 맞춰 50자를 넘으면 거부합니다. 따라서 `Maker.One`, ` maker.one `,
+`MAKER.ONE`은 같은 identity입니다. API가 역할을 검사하고, core가 호출 경로와 무관하게 상태와
+maker-checker 불변식을 다시 검사합니다.
+
+| 명령 | 허용 역할 | 상태/identity 결과 |
+| --- | --- | --- |
+| 수동·HTTP 이벤트·계약 전표 작성 | `ROLE_JOURNAL_MAKER` | trusted actor가 `createdBy`인 `DRAFT`; body actor는 무시 |
+| `POST /api/journals/{id}/request-approval` | `ROLE_JOURNAL_MAKER` | 작성자 본인만 `DRAFT -> REQUESTED` |
+| `POST /api/journals/{id}/approve` | `ROLE_JOURNAL_APPROVER` | 별도 actor만 `REQUESTED -> APPROVED`, `approvedBy` 저장 |
+| `POST /api/journals/{id}/post` | `ROLE_JOURNAL_POSTER` | `APPROVED -> POSTED`, `approvedBy` 유지, `auditUser`는 poster |
+| 조회 | Gateway 인증 정책 | 이 모듈의 command role 검사는 적용하지 않음 |
+
+`ROLE_ACCOUNTING_ADMIN`과 `ROLE_ADMIN`은 세 command 역할을 모두 만족하지만 자기 승인을 허용하지
+않습니다. `ROLE_` 접두사가 없는 동일 역할 문자열도 정규화합니다. actor가 없으면 HTTP 401,
+역할이 없거나 부족하면 403, 잘못된 상태·자기 승인·도메인 검증 실패는 400이며 use case는 권한
+실패 전에 호출되지 않습니다. posting 권한은 approval 권한과 별도입니다.
+
+Kafka `transaction-events`와 Spring contract event는 Gateway header가 없으므로 payload의 actor를
+신뢰하지 않습니다. 각 inbound adapter가 maker를 `service:journal-kafka-maker`와
+`service:journal-spring-event-maker`로 덮어씁니다. `approveAndPost`는 DRAFT를 저장된 maker로 먼저
+`REQUESTED`에 제출한 뒤 전달된 checker가 별도 identity일 때만 승인·전기합니다. 따라서 Spring
+event 전표를 후속 처리하는 checker도 `service:journal-spring-event-maker`와 다른 canonical service
+principal이어야 합니다. 예를 들어 maker `service:closing-maker`, checker
+`service:closing-checker`는 가능하지만 maker/checker가 모두 `SYSTEM`이면 실패합니다. 기계
+발행자는 공유 `SYSTEM` 대신 서로 구분되는 service principal과 checker 자격을 공급해야 합니다.
+
+초보자 설명: 역할은 “이 버튼을 누를 자격”, identity는 “실제로 누른 사람”입니다. 관리자에게
+두 역할이 있어도 자신이 만든 전표를 자신이 승인할 수는 없습니다. 기존 직접 HTTP 연동은
+승인 전에 새 request-approval 호출과 Gateway 신뢰 헤더/역할을 연결해야 합니다.
+
+배포 호환성 조사에서 직접 Journal HTTP API를 호출하는 어댑터는 Closing, Deposit,
+Expenditure Resolution, Loan, Payable, Receivable, Reconciliation에서 확인됐습니다. 일곱 어댑터
+모두 draft 생성의 trusted maker header/role 연결이 필요합니다. Deposit은 현재 원격 승인/전기를
+지원하지 않으며, 나머지 승인/전기 호출자는 legacy `X-User-ID`와 DRAFT 직접 승인 순서를
+`X-Auth-User`/`X-Auth-Roles` 및 request-approval 단계로 바꿔야 합니다. 이 consumer 변경은
+journal-ledger 경계 밖의 별도 배포 게이트입니다.
 
 전표 저장은 `JournalPersistencePort`, GL/SL 엔트리 저장은 `LedgerEntryPersistencePort`,
 잔액 조회·저장·재집계는 `LedgerBalancePersistencePort`를 사용합니다.
@@ -58,12 +101,13 @@ JPA와 JDBC bulk adapter는 이 같은 불변 snapshot을 각 저장 형태로 �
    별개이며, 전기 때 전체 엔진을 재실행하거나 계정 정보를 다시 조회하지 않습니다.
 3. 기간 확인을 통과한 뒤에만 `post(poster)`로 상태와 감사 사용자를 변경하고,
    전표 저장 → 같은 스냅샷으로 GL/SL 엔트리 저장 → bulk 잔액 갱신을 각각 한 번 호출합니다.
-   처리자를 생략하는 `postJournalEntry(id)`도 같은 검증을 거치며 성공 처리자는 `SYSTEM`입니다.
+   처리자를 생략하는 내부 `postJournalEntry(id)`도 같은 검증을 거치며 성공 처리자는 canonical
+   `system`입니다. 이 overload는 HTTP posting 권한을 대신하지 않습니다.
 
 기존 `FiscalPeriodAccountingPeriodStatusAdapter`는 `OPEN`을 허용하고 `CLOSED`와
 `PERMANENTLY_CLOSED`를 닫힌 기간으로 판단합니다. 기간 부재와 조회 예외도 전기 실패로
-전파합니다. 이 거부 경로에서는 원래 `APPROVED` 상태, 감사 사용자와 상세가 유지되고,
-전표·GL/SL 엔트리 저장 및 잔액 갱신 호출은 모두 0회입니다. Controller의 HTTP 계약은 바꾸지 않습니다.
+전파합니다. 이 거부 경로에서는 원래 `APPROVED` 상태, 승인 증거, 감사 사용자와 상세가 유지되고,
+전표·GL/SL 엔트리 저장 및 잔액 갱신 호출은 모두 0회입니다. HTTP command는 위 역할 계약을 따릅니다.
 
 유효 전표의 전기 요청마다 기간 조회가 한 번 추가됩니다. 이는 조회 당시 이미 닫힌 기간의
 전기를 차단하는 통제입니다. 같은 전표의 동시 전기는 아래 DB 잠금과 고유 제약으로 차단하지만,
@@ -234,10 +278,11 @@ future가 끝나지 않는지 확인하고, PostgreSQL에서는 독립 backend P
 
 | 기능 | 엔드포인트 | 주요 입력 |
 | --- | --- | --- |
-| 전표 생성 | `POST /api/journals` | 전표 DTO, `X-User-ID` |
-| 이벤트 기반 전표 생성 | `POST /api/journals/from-event` | 이벤트 데이터, `X-User-ID` |
-| 승인 | `POST /api/journals/{id}/approve` | `X-User-ID` |
-| 전기 | `POST /api/journals/{id}/post` | `X-User-ID` |
+| 전표 생성 | `POST /api/journals` | 전표 DTO, `X-Auth-User`, maker role |
+| 이벤트 기반 전표 생성 | `POST /api/journals/from-event` | 이벤트 데이터, `X-Auth-User`, maker role |
+| 승인 요청 | `POST /api/journals/{id}/request-approval` | `X-Auth-User`, maker role |
+| 승인 | `POST /api/journals/{id}/approve` | `X-Auth-User`, approver role |
+| 전기 | `POST /api/journals/{id}/post` | `X-Auth-User`, poster role |
 | 거래처별 미결 조회 | `GET /api/unsettled/businesspartner/{businessPartnerCode}` | 거래처 코드 |
 | 반제 | `POST /api/unsettled/{id}/settle` | 금액, `settlementReference`, `X-User-ID` |
 | FX 대시보드 조회 | `GET /api/fx/dashboard` | 입력 없음 |

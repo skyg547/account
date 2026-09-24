@@ -165,6 +165,7 @@ class PostingServiceTest {
     void rejectsInvalidStatusBeforePeriodLookup(JournalEntryStatus status) {
         JournalEntry entry = draftEntry();
         if (status == JournalEntryStatus.POSTED) {
+            entry.requestApproval("maker-1");
             entry.approve("approver-1");
             entry.post("original-poster");
         }
@@ -279,7 +280,8 @@ class PostingServiceTest {
 
     private GeneralLedger assertPostedOnce(JournalEntry entry, String poster) {
         assertThat(entry.getStatus()).isEqualTo(JournalEntryStatus.POSTED);
-        assertThat(entry.getAuditUser()).isEqualTo(poster);
+        assertThat(entry.getApprovedBy()).isEqualTo("approver-1");
+        assertThat(entry.getAuditUser()).isEqualTo(poster.toLowerCase(java.util.Locale.ROOT));
         verify(journalPersistencePort).findByIdWithDetails(entry.getId());
         verify(journalPersistencePort).save(entry);
         ArgumentCaptor<GeneralLedger> ledgerCaptor = ArgumentCaptor.forClass(GeneralLedger.class);
@@ -297,6 +299,7 @@ class PostingServiceTest {
 
     private JournalEntry approvedEntry() {
         JournalEntry entry = draftEntry();
+        entry.requestApproval("maker-1");
         entry.approve("approver-1");
         return entry;
     }
@@ -311,6 +314,7 @@ class PostingServiceTest {
         entry.setCurrencyCode("KRW");
         entry.setLineageSourceType("UNIT_TEST");
         entry.setLineageSourceId("SRC-1");
+        entry.setCreatedBy("maker-1");
         entry.addDetail(detail(11L, JournalSide.DEBIT, "10100"));
         entry.addDetail(detail(12L, JournalSide.CREDIT, "40100"));
         entry.initializeDraft();
@@ -331,9 +335,10 @@ class PostingServiceTest {
         return detail;
     }
 
-    private record JournalState(JournalEntryStatus status, String auditUser, List<DetailState> details) {
+    private record JournalState(
+            JournalEntryStatus status, String approvedBy, String auditUser, List<DetailState> details) {
         private static JournalState capture(JournalEntry entry) {
-            return new JournalState(entry.getStatus(), entry.getAuditUser(),
+            return new JournalState(entry.getStatus(), entry.getApprovedBy(), entry.getAuditUser(),
                     entry.getDetails().stream().map(DetailState::capture).toList());
         }
     }

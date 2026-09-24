@@ -32,6 +32,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class JournalPostingEventListener {
 
+    private static final String SPRING_EVENT_MAKER = "service:journal-spring-event-maker";
+
     private final JournalPostingPort journalPostingPort;
 
     /**
@@ -46,7 +48,7 @@ public class JournalPostingEventListener {
                 command.lineageSourceId(), command.lineageSourceType());
         
         try {
-            JournalPostingResult result = journalPostingPort.createDraftEntry(command);
+            JournalPostingResult result = journalPostingPort.createDraftEntry(withTrustedMaker(command));
             log.info("Successfully processed Async Journal Posting Event: slipNo={}, id={}",
                     result.slipNo(), result.journalEntryId());
             return result;
@@ -55,5 +57,13 @@ public class JournalPostingEventListener {
                     command.lineageSourceId(), e);
             throw e;
         }
+    }
+
+    private JournalEntryCommand withTrustedMaker(JournalEntryCommand command) {
+        // An in-process event has no Gateway-authenticated headers, so its payload cannot establish identity.
+        return new JournalEntryCommand(
+                command.slipDate(), command.accountingDate(), command.description(), command.entryType(),
+                command.currencyCode(), command.exchangeRate(), SPRING_EVENT_MAKER, SPRING_EVENT_MAKER,
+                command.lineageSourceType(), command.lineageSourceId(), command.slipNo(), command.lines());
     }
 }
