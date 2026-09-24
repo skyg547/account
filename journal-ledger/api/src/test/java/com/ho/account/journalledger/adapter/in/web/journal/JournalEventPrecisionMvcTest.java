@@ -70,15 +70,19 @@ class JournalEventPrecisionMvcTest {
     void preservesLargeDecimalThroughMvcAndRuleInterpolation() throws Exception {
         mockMvc.perform(post("/api/journals/from-event")
                         .queryParam("accountingDate", ACCOUNTING_DATE.toString())
-                        .header("X-User-ID", "precision-user")
+                        .header("X-Auth-User", "precision-user")
+                        .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"eventData":{"ruleCode":"PRECISION_RULE","amount":900719925474099.11}}
+                                {"eventData":{"ruleCode":"PRECISION_RULE","amount":900719925474099.11,
+                                  "createdBy":"payload-attacker","auditUser":"payload-attacker"}}
                                 """))
                 .andExpect(status().isOk());
 
         assertThat(objectMapper.isEnabled(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)).isTrue();
         assertExactDecimal(receivedEvent.get().get("amount"), "900719925474099.11", 2);
+        assertThat(receivedEvent.get().get("createdBy")).isEqualTo("precision-user");
+        assertThat(receivedEvent.get().get("auditUser")).isEqualTo("precision-user");
         assertThat(generatedEntry.get()).isNotNull();
         assertThat(generatedEntry.get().getDetails()).hasSize(2);
         assertThat(generatedEntry.get().getDetails())
@@ -91,7 +95,8 @@ class JournalEventPrecisionMvcTest {
     void rejectsExcessFractionalPrecisionBeforeRounding() throws Exception {
         mockMvc.perform(post("/api/journals/from-event")
                         .queryParam("accountingDate", ACCOUNTING_DATE.toString())
-                        .header("X-User-ID", "precision-user")
+                        .header("X-Auth-User", "precision-user")
+                        .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"eventData":{"ruleCode":"PRECISION_RULE","amount":100.000000000000001}}

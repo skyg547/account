@@ -4,11 +4,62 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class JournalEntryAggregateTest {
+
+    @Test
+    @DisplayName("대소문자와 공백이 다른 동일 canonical 작성자의 자기 승인을 거부한다.")
+    void rejectsCanonicalSelfApproval() {
+        JournalEntry entry = balancedDraft("Maker.One");
+        entry.requestApproval(" maker.one ");
+
+        assertThatThrownBy(() -> entry.approve("MAKER.ONE"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("작성자와 승인자");
+
+        assertThat(entry.getStatus()).isEqualTo(JournalEntryStatus.REQUESTED);
+        assertThat(entry.getApprovedBy()).isNull();
+    }
+
+    @Test
+    @DisplayName("DRAFT를 승인 요청 없이 직접 승인할 수 없다.")
+    void rejectsApprovalDirectlyFromDraft() {
+        JournalEntry entry = balancedDraft("maker");
+
+        assertThatThrownBy(() -> entry.approve("checker"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("승인 가능한 상태");
+    }
+
+    @Test
+    @DisplayName("최초 저장한 maker identity를 다른 actor로 바꿀 수 없다.")
+    void preventsMakerIdentityReplacement() {
+        JournalEntry entry = balancedDraft("maker-one");
+
+        assertThatThrownBy(() -> entry.setCreatedBy("maker-two"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("변경할 수 없습니다");
+
+        assertThat(entry.getCreatedBy()).isEqualTo("maker-one");
+    }
+
+    @Test
+    @DisplayName("별도 checker 승인 증거는 poster가 auditUser를 바꾼 뒤에도 보존된다.")
+    void preservesApprovalEvidenceAfterPosting() {
+        JournalEntry entry = balancedDraft(" Service:Closing-Maker ");
+        entry.requestApproval("service:closing-maker");
+        entry.approve(" Service:Closing-Checker ");
+        entry.post(" Posting.Operator ");
+
+        assertThat(entry.getStatus()).isEqualTo(JournalEntryStatus.POSTED);
+        assertThat(entry.getCreatedBy()).isEqualTo("service:closing-maker");
+        assertThat(entry.getApprovedBy()).isEqualTo("service:closing-checker");
+        assertThat(entry.getAuditUser()).isEqualTo("posting.operator");
+    }
 
     @Test
     @DisplayName("JournalEntry가 상세 라인의 소유권을 설정하고 외부 컬렉션 변경을 차단한다.")
@@ -30,6 +81,7 @@ class JournalEntryAggregateTest {
     void rejectsBaseCurrencyImbalance() {
         JournalEntry entry = new JournalEntry();
         entry.setSlipDate(java.time.LocalDate.now());
+        entry.setCreatedBy("maker");
         entry.addDetail(detail(JournalSide.DEBIT, "10100", "100.00", "135000.00"));
         entry.addDetail(detail(JournalSide.CREDIT, "40100", "100.00", "134999.99"));
 
@@ -43,6 +95,7 @@ class JournalEntryAggregateTest {
     void requiresBothAccountingSides() {
         JournalEntry entry = new JournalEntry();
         entry.setSlipDate(java.time.LocalDate.now());
+        entry.setCreatedBy("maker");
         entry.addDetail(detail(JournalSide.DEBIT, "10100", "10.00", "10.00"));
         entry.addDetail(detail(JournalSide.DEBIT, "10200", "10.00", "10.00"));
 
@@ -64,10 +117,24 @@ class JournalEntryAggregateTest {
     }
 
     @Test
+    @DisplayName("사람·이벤트·기계 전표 모두 maker identity 없이는 생성할 수 없다.")
+    void rejectsMissingMakerIdentity() {
+        JournalEntry entry = new JournalEntry();
+        entry.setSlipDate(LocalDate.of(2026, 9, 25));
+        entry.addDetail(detail(JournalSide.DEBIT, "10100", "10.00", "10.00"));
+        entry.addDetail(detail(JournalSide.CREDIT, "40100", "10.00", "10.00"));
+
+        assertThatThrownBy(entry::validateInvariants)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("actor is required");
+    }
+
+    @Test
     @DisplayName("정상적인 헤더 및 차대변 라인이 설정된 전표는 불변성 검증을 통과한다.")
     void passesValidInvariants() {
         JournalEntry entry = new JournalEntry();
         entry.setSlipDate(java.time.LocalDate.now());
+        entry.setCreatedBy("maker");
         entry.addDetail(detail(JournalSide.DEBIT, "10100", "10.00", "10.00"));
         entry.addDetail(detail(JournalSide.CREDIT, "40100", "10.00", "10.00"));
 
@@ -87,5 +154,15 @@ class JournalEntryAggregateTest {
         detail.setAmount(new BigDecimal(amount));
         detail.setBaseAmount(new BigDecimal(baseAmount));
         return detail;
+    }
+
+    private JournalEntry balancedDraft(String maker) {
+        JournalEntry entry = new JournalEntry();
+        entry.setSlipDate(LocalDate.of(2026, 9, 25));
+        entry.setCreatedBy(maker);
+        entry.addDetail(detail(JournalSide.DEBIT, "10100", "10.00", "10.00"));
+        entry.addDetail(detail(JournalSide.CREDIT, "40100", "10.00", "10.00"));
+        entry.initializeDraft();
+        return entry;
     }
 }

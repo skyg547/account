@@ -116,3 +116,37 @@ Remote CI did not execute: GitHub check annotations report failed account paymen
 Legacy duplicates/NULL references require separately approved financial reconciliation before V13. Constraint creation needs a deployment window appropriate for table size. Production load, process crash injection, concurrent closing and different journals updating shared balances were not verified. No deployment or financial data repair was performed.
 
 Main worktree: `/tmp/account-760-single-posting`; regression-proof worktree: `/tmp/account-760-regression-proof`. Evidence logs and saved PostgreSQL XML remain under `/tmp/account-760-*`. Task-only PostgreSQL container `account-760-postgres` is stopped and retained. Branches/worktrees are retained for human review; shared harness history remains unchanged under the user's allowlist.
+
+---
+
+# GH-756 reviewed handoff
+
+Issue #756 is implemented and independently reviewed on `agent/756-maker-checker-approval` in
+`/tmp/account-756-maker-checker-approval`, based on `origin/main@054cdf13`. This checkpoint is not yet
+published.
+
+- Core owns canonical identity and lifecycle invariants: every entry has a maker, only that maker submits
+  DRAFT, only a different checker approves REQUESTED, and posting preserves `approvedBy` separately from
+  the final `auditUser`.
+- API owns trusted header parsing and command roles. Missing actor returns401, missing/insufficient role403,
+  and invalid state/self-approval400 without widening domain or persistence responsibilities.
+- HTTP event payload identities are overwritten; Kafka and Spring contract events use separate fixed
+  listener makers; machine auto-post requires a checker service principal distinct from that listener
+  maker. V16 backfills only nonblank, canonically distinct legacy maker/checker evidence; self-approved
+  and makerless rows remain unpostable.
+- Verification: focused28, corrective focused3 and exact module244 PASS with failures/errors/skips0;
+  parent exact rerun and independent forced rerun PASS; API/Batch bootJar packaging and static
+  scope/whitespace/conflict-marker gates PASS.
+- Audited proof: `/tmp/account-756-regression-proof` at exact `a97d10ab` runs the byte-identical
+  `JournalMakerCheckerAuditedRegressionTest` (SHA256 `f5611f…`) with1 expected failure and no errors/skips,
+  proving the audited code allowed maker approval of its own DRAFT.
+- Independent reviewer `/root/issue756_review` returned the original V16/event trust gaps to the writer,
+  verified their correction, found no remaining P0–P3 and marked Q1–Q4 PASS.
+- Rollback: reviewed scoped revert while retaining applied V16, or later forward migration. No financial
+  amount, ledger balance or production data was changed.
+- Deployment gate: out-of-scope direct HTTP adapters exist in Closing, Deposit, Expenditure Resolution,
+  Loan, Payable, Receivable and Reconciliation. Coordinate trusted maker headers/roles for all seven and
+  request-approval/distinct service checker updates for approval-capable callers before deployment;
+  fail-closed behavior is intentional.
+- Next owner: parent Integrator for commit/push/Draft PR and remote check inspection. Human reviewer owns
+  consumer follow-up, Ready/merge/Issue close/deployment/cleanup gates.

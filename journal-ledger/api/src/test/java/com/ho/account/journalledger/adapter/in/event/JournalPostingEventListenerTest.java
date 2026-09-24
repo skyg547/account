@@ -18,8 +18,8 @@ import static org.mockito.Mockito.*;
 class JournalPostingEventListenerTest {
 
     @Test
-    @DisplayName("비동기 전표 전기 이벤트 수신 시 JournalPostingPort를 성공적으로 호출하고 결과를 반환한다")
-    void handleJournalPostingEvent_success() {
+    @DisplayName("비동기 전표 이벤트의 위조 identity를 고정 service maker로 교체한다")
+    void handleJournalPostingEvent_replacesPayloadIdentityWithTrustedServiceMaker() {
         // given
         JournalPostingPort mockPort = mock(JournalPostingPort.class);
         JournalPostingEventListener listener = new JournalPostingEventListener(mockPort);
@@ -34,8 +34,8 @@ class JournalPostingEventListenerTest {
                 "GENERAL",
                 "KRW",
                 BigDecimal.ONE,
-                "SYSTEM",
-                "SYSTEM",
+                "spoofed-maker",
+                "spoofed-auditor",
                 "LOAN",
                 "LOAN-999",
                 List.of(debit, credit)
@@ -51,6 +51,12 @@ class JournalPostingEventListenerTest {
         assertThat(actualResult).isNotNull();
         assertThat(actualResult.journalEntryId()).isEqualTo(200L);
         assertThat(actualResult.slipNo()).isEqualTo("SLIP-20260812-0002");
-        verify(mockPort, times(1)).createDraftEntry(command);
+        var commandCaptor = org.mockito.ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(mockPort, times(1)).createDraftEntry(commandCaptor.capture());
+        JournalEntryCommand trustedCommand = commandCaptor.getValue();
+        assertThat(trustedCommand.createdBy()).isEqualTo("service:journal-spring-event-maker");
+        assertThat(trustedCommand.auditUser()).isEqualTo("service:journal-spring-event-maker");
+        assertThat(trustedCommand.lineageSourceId()).isEqualTo(command.lineageSourceId());
+        assertThat(trustedCommand.lines()).isEqualTo(command.lines());
     }
 }

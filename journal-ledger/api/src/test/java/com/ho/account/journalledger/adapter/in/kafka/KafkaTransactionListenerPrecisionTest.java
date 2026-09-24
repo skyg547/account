@@ -98,6 +98,8 @@ class KafkaTransactionListenerPrecisionTest {
 
         assertThat(objectMapper.isEnabled(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)).isTrue();
         assertExactDecimal(receivedEvent.get().get("amount"), "900719925474099.11", 2);
+        assertThat(receivedEvent.get().get("createdBy")).isEqualTo("service:journal-kafka-maker");
+        assertThat(receivedEvent.get().get("auditUser")).isEqualTo("service:journal-kafka-maker");
         assertThat(generatedEntry.get()).isNotNull();
         assertThat(generatedEntry.get().getAccountingDate()).isEqualTo(LocalDate.of(2026, 9, 24));
         assertThat(generatedEntry.get().getDetails())

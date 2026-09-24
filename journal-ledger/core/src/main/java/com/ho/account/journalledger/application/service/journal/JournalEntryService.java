@@ -23,8 +23,9 @@ import java.util.Optional;
  *
  * 전표 처리 흐름:
  *   1. createJournalEntry()       → 전표 작성 (DRAFT 상태)
- *   2. approveJournalEntry()      → 전표 승인 (DRAFT → APPROVED)
- *   3. postJournalEntry()         → 전기 처리 (APPROVED → POSTED)
+ *   2. requestJournalEntryApproval() → 승인 요청 (DRAFT → REQUESTED)
+ *   3. approveJournalEntry()      → 전표 승인 (REQUESTED → APPROVED)
+ *   4. postJournalEntry()         → 전기 처리 (APPROVED → POSTED)
  *                                    → GL/SL 원장에 잔액 반영
  *
  * 이벤트 기반 자동 전표:
@@ -197,23 +198,17 @@ public class JournalEntryService implements JournalUseCase {
         return journalPersistencePort.findById(id);
     }
 
-    /**
-     * 전표를 승인합니다.
-     *
-     * [업무 설명]
-     * 결재권자(승인자)가 전표를 검토하고 승인합니다.
-     * 승인된 전표만 이후 전기(Posting) 처리가 가능합니다.
-     * 상태 전환: DRAFT → APPROVED (또는 REQUESTED → APPROVED)
-     *
-     * [개발 설명]
-     * 상태 전환 로직은 서비스가 아닌 도메인 엔티티(JournalEntry.approve())에 구현됩니다.
-     * 이것이 Rich Domain Model 패턴입니다.
-     * 서비스는 "1. 조회 → 2. 도메인 메서드 호출 → 3. 저장"의 흐름만 조정합니다.
-     *
-     * @param id       승인할 전표의 내부 PK
-     * @param approver 승인자 식별자
-     * @throws IllegalArgumentException 존재하지 않는 전표 ID
-     */
+    /** 작성자가 자신의 DRAFT 전표를 REQUESTED로 제출합니다. */
+    @Override
+    @Transactional
+    public void requestJournalEntryApproval(Long id, String requester) {
+        JournalEntry entry = journalPersistencePort.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 전표입니다: " + id));
+        entry.requestApproval(requester);
+        journalPersistencePort.save(entry);
+    }
+
+    /** 별도 결재자가 REQUESTED 전표를 APPROVED로 전환합니다. */
     @Override
     @Transactional
     public void approveJournalEntry(Long id, String approver) {
@@ -222,7 +217,7 @@ public class JournalEntryService implements JournalUseCase {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 전표입니다: " + id));
 
         // 2. 도메인 엔티티에 상태 전환 위임 (Rich Domain Model)
-        //    approve() 내부에서 현재 상태가 DRAFT/REQUESTED인지 검증합니다.
+        //    approve() 내부에서 REQUESTED 상태와 maker-checker 분리를 검증합니다.
         entry.approve(approver);
 
         // 3. 변경된 상태를 저장

@@ -79,7 +79,9 @@ class GeneralLedgerTest {
         entry.addDetail(detail(12L, JournalSide.DEBIT, "10200", "50000000000000000.00"));
         entry.addDetail(detail(13L, JournalSide.CREDIT, "40100", "50000000000000000.00"));
         entry.addDetail(detail(14L, JournalSide.CREDIT, "40200", "50000000000000000.00"));
+        entry.setCreatedBy("maker");
         entry.initializeDraft();
+        entry.requestApproval("maker");
         entry.approve("approver");
 
         GeneralLedger ledger = GeneralLedger.fromApproved(entry);
@@ -90,6 +92,7 @@ class GeneralLedgerTest {
     private JournalEntry approvedEntry(boolean persistedDetails) {
         JournalEntry entry = baseEntry(persistedDetails);
         entry.initializeDraft();
+        entry.requestApproval("maker");
         entry.approve("approver");
         return entry;
     }
@@ -103,6 +106,7 @@ class GeneralLedgerTest {
         entry.setCurrencyCode("krw");
         entry.setLineageSourceType("UNIT_TEST");
         entry.setLineageSourceId("SRC-44");
+        entry.setCreatedBy("maker");
         entry.addDetail(detail(persistedDetails ? 11L : null, JournalSide.DEBIT, "10100"));
         entry.addDetail(detail(persistedDetails ? 12L : null, JournalSide.CREDIT, "40100"));
         return entry;

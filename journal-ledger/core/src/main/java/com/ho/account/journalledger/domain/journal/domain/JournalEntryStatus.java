@@ -24,7 +24,7 @@ package com.ho.account.journalledger.domain.journal.domain;
  * ─────────────────────────────────────────────────
  * [개발 설명]
  * - JournalEntry.status 필드에 @Enumerated(EnumType.STRING)으로 저장됩니다.
- * - 상태 전이 로직은 JournalEntry 도메인 엔티티의 approve()/reject()/post() 메서드에서 관리합니다.
+ * - 상태 전이 로직은 JournalEntry 도메인 엔티티의 requestApproval()/approve()/reject()/post() 메서드에서 관리합니다.
  * - POSTED와 REVERSED 상태의 전표는 수정·삭제가 불가합니다(불변성 보장).
  * ─────────────────────────────────────────────────
  */

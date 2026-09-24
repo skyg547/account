@@ -101,9 +101,11 @@ class JdbcLedgerBulkPersistenceAdapterTest {
         entry.setCurrencyCode("KRW");
         entry.setLineageSourceType("TEST");
         entry.setLineageSourceId("SRC-1");
+        entry.setCreatedBy("maker");
         entry.addDetail(journalDetail(101L, JournalSide.DEBIT, "10100", "cash debit"));
         entry.addDetail(journalDetail(102L, JournalSide.CREDIT, "40100", "revenue credit"));
         entry.initializeDraft();
+        entry.requestApproval("maker");
         entry.approve("approver");
         return GeneralLedger.fromApproved(entry);
     }

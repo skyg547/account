@@ -150,7 +150,9 @@ class BalanceReaggregationBatchConfigTest {
         detail2.setBaseAmount(new BigDecimal("50000.00"));
         entry1.addDetail(detail2);
 
+        entry1.setCreatedBy("batch-maker");
         entry1.initializeDraft();
+        entry1.requestApproval("batch-maker");
         entry1.approve("TEST");
         entry1.post("TEST");
 
@@ -229,7 +231,9 @@ class BalanceReaggregationBatchConfigTest {
         credit.setAmount(new BigDecimal("100.00"));
         credit.setBaseAmount(new BigDecimal("100.00"));
         source.addDetail(credit);
+        source.setCreatedBy("batch-maker");
         source.initializeDraft();
+        source.requestApproval("batch-maker");
         source.approve("TEST");
         source.post("TEST");
         journalEntryRepository.saveAndFlush(source);
@@ -338,7 +342,9 @@ class BalanceReaggregationBatchConfigTest {
         credit.setAmount(amount);
         credit.setBaseAmount(amount);
         entry.addDetail(credit);
+        entry.setCreatedBy("batch-maker");
         entry.initializeDraft();
+        entry.requestApproval("batch-maker");
         entry.approve("TEST");
         entry.post("TEST");
         return entry;

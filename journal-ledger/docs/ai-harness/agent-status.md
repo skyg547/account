@@ -104,3 +104,29 @@ Verification: exact module command170/170; PostgreSQL16.13 regressions14/14; ind
 Remote CI limitation: GitHub Actions did not start the jobs because account billing/spending-limit prerequisites are unmet. No CI test failure or CI pass is claimed; the account owner must resolve the external prerequisite and rerun checks before later readiness gates.
 
 These module-local records satisfy task traceability within the explicit module allowlist. They do not replace or edit the repository's shared harness history.
+
+---
+
+# GH-756 reviewed status
+
+- Issue/branch/worktree: #756; `agent/756-maker-checker-approval`;
+  `/tmp/account-756-maker-checker-approval`; base `origin/main@054cdf13`.
+- Status: implementation, audited RED proof, local verification and independent review complete;
+  unpublished and awaiting parent commit/push/Draft PR. Ready transition, merge and Issue close were not performed.
+- Result: trusted HTTP role matrix; canonical maker/checker identity; mandatory REQUESTED transition;
+  separate durable `approved_by`; fail-closed HTTP/Kafka/Spring-contract machine paths; V16 backfill only for
+  nonblank, canonically distinct legacy maker/checker evidence.
+- Verification: focused28 plus corrective focused3 PASS; literal `./gradlew :journal-ledger:test`
+  core188/API45/batch11 =244 PASS, failures/errors/skips0; API/Batch bootJAR and
+  diff/marker/scope gates PASS. Parent exact command and independent forced rerun also passed.
+- Audited RED: `/tmp/account-756-regression-proof` at exact `a97d10ab`; byte-identical fixture SHA256
+  `f5611fe1c23d3278b5edeab9b4f70db6c4ff33ae368461dcec69f92251303ba8`;1 test produced1 expected
+  assertion failure because the audited implementation did not reject maker approval of its own DRAFT.
+- Independent review: `/root/issue756_review`; initial V16/event trust findings were returned to the
+  original writer and corrected. Final review found no P0–P3 and confirmed Q1–Q4 PASS.
+- Residual: Closing, Deposit, Expenditure Resolution, Loan, Payable, Receivable and Reconciliation direct
+  HTTP adapters require a separately authorized trusted-header/lifecycle compatibility follow-up before
+  coordinated deployment. No live Gateway/Kafka/
+  PostgreSQL or production data was used.
+- Next owner: parent Integrator owns commit/push/Draft PR and remote check inspection; human reviewer owns
+  the seven-consumer compatibility gate and all Ready/merge/Issue-close/deployment decisions.

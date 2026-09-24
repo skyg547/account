@@ -19,6 +19,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class KafkaTransactionListener {
 
+    private static final String KAFKA_MAKER = "service:journal-kafka-maker";
+
     private final JournalUseCase journalUseCase;
 
     @KafkaListener(topics = "transaction-events", groupId = "journal-ledger-group")
@@ -33,7 +35,11 @@ public class KafkaTransactionListener {
             }
 
             // 전표 자동 생성 시도
-            journalUseCase.createJournalEntryFromEvent(event, accountingDate)
+            Map<String, Object> trustedEvent = new java.util.HashMap<>(event);
+            // Kafka has no Gateway headers; bind the entry to this listener's service principal.
+            trustedEvent.put("createdBy", KAFKA_MAKER);
+            trustedEvent.put("auditUser", KAFKA_MAKER);
+            journalUseCase.createJournalEntryFromEvent(trustedEvent, accountingDate)
                     .ifPresentOrElse(
                             entry -> log.info("Successfully generated journal entry: No={}, ID={}", entry.getSlipNo(), entry.getId()),
                             () -> log.warn("No matching journal rule found for event: {}", event)

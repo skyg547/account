@@ -31,11 +31,13 @@ public class JournalController {
      */
     @PostMapping
     public ResponseEntity<JournalApiDto.View> createJournalEntry(
-            @RequestHeader("X-User-ID") String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles,
             @Valid @RequestBody JournalApiDto.CreateRequest request) {
+        String maker = JournalCommandAuthorization.requireMaker(actor, roles);
         try {
             return ResponseEntity.ok(JournalApiDto.View.from(
-                    journalUseCase.createJournalEntry(request.toDomain(actor))));
+                    journalUseCase.createJournalEntry(request.toDomain(maker))));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -46,11 +48,13 @@ public class JournalController {
      */
     @PostMapping("/from-event")
     public ResponseEntity<JournalApiDto.View> createJournalEntryFromEvent(
-            @RequestHeader("X-User-ID") String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles,
             @Valid @RequestBody JournalApiDto.EventRequest request,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
+        String maker = JournalCommandAuthorization.requireMaker(actor, roles);
         try {
-            return journalUseCase.createJournalEntryFromEvent(request.eventDataWithActor(actor), accountingDate)
+            return journalUseCase.createJournalEntryFromEvent(request.eventDataWithActor(maker), accountingDate)
                     .map(JournalApiDto.View::from)
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.noContent().build());
@@ -93,14 +97,33 @@ public class JournalController {
     }
 
     /**
+     * 전표 승인 요청
+     */
+    @PostMapping("/{id}/request-approval")
+    public ResponseEntity<Void> requestJournalEntryApproval(
+            @PathVariable Long id,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles) {
+        String maker = JournalCommandAuthorization.requireMaker(actor, roles);
+        try {
+            journalUseCase.requestJournalEntryApproval(id, maker);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
      * 전표 승인
      */
     @PostMapping("/{id}/approve")
     public ResponseEntity<Void> approveJournalEntry(
             @PathVariable Long id,
-            @RequestHeader("X-User-ID") String actor) {
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles) {
+        String approver = JournalCommandAuthorization.requireApprover(actor, roles);
         try {
-            journalUseCase.approveJournalEntry(id, actor);
+            journalUseCase.approveJournalEntry(id, approver);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -113,9 +136,11 @@ public class JournalController {
     @PostMapping("/{id}/post")
     public ResponseEntity<Void> postJournalEntry(
             @PathVariable Long id,
-            @RequestHeader("X-User-ID") String actor) {
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles) {
+        String poster = JournalCommandAuthorization.requirePoster(actor, roles);
         try {
-            journalUseCase.postJournalEntry(id, actor);
+            journalUseCase.postJournalEntry(id, poster);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();

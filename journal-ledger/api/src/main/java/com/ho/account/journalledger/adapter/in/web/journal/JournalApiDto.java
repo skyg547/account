@@ -2,6 +2,7 @@ package com.ho.account.journalledger.adapter.in.web.journal;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalActor;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -72,8 +73,9 @@ final class JournalApiDto {
     record EventRequest(@NotNull Map<String, Object> eventData) {
         Map<String, Object> eventDataWithActor(String actor) {
             Map<String, Object> enriched = new java.util.HashMap<>(eventData);
-            enriched.putIfAbsent("createdBy", requireActor(actor));
-            enriched.putIfAbsent("auditUser", requireActor(actor));
+            // Payload identity is untrusted; the Gateway-authenticated principal always wins.
+            enriched.put("createdBy", requireActor(actor));
+            enriched.put("auditUser", requireActor(actor));
             return enriched;
         }
     }
@@ -89,6 +91,7 @@ final class JournalApiDto {
             String currencyCode,
             BigDecimal exchangeRate,
             String createdBy,
+            String approvedBy,
             String auditUser,
             String lineageSourceType,
             String lineageSourceId,
@@ -106,6 +109,7 @@ final class JournalApiDto {
                     entry.getCurrencyCode(),
                     entry.getExchangeRate(),
                     entry.getCreatedBy(),
+                    entry.getApprovedBy(),
                     entry.getAuditUser(),
                     entry.getLineageSourceType(),
                     entry.getLineageSourceId(),
@@ -137,9 +141,6 @@ final class JournalApiDto {
     }
 
     private static String requireActor(String actor) {
-        if (actor == null || actor.isBlank()) {
-            throw new IllegalArgumentException("X-User-ID is required");
-        }
-        return actor.trim();
+        return JournalActor.canonicalize(actor);
     }
 }

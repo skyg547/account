@@ -82,9 +82,11 @@ class LedgerEntryPersistenceAdapterTest {
         entry.setCurrencyCode("KRW");
         entry.setLineageSourceType("UNIT_TEST");
         entry.setLineageSourceId("SRC-44");
+        entry.setCreatedBy("maker");
         entry.addDetail(detail(11L, JournalSide.DEBIT, "10100"));
         entry.addDetail(detail(12L, JournalSide.CREDIT, "40100"));
         entry.initializeDraft();
+        entry.requestApproval("maker");
         entry.approve("approver");
         return GeneralLedger.fromApproved(entry);
     }

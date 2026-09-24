@@ -36,7 +36,7 @@ IntelliJ에서는 공유 실행 설정 `Journal Ledger Batch Reaggregation`을 �
 - **Journal Rule Engine (자동 분개 룰 엔진)**:
   - 하드코딩된 계정과 통화를 제거하고, `company`, `accountingPolicy` 등 시스템 설정 룰을 통해 통화, 차대변, 정상 잔액 방향을 판단합니다.
   - 필수 DSL 값이 누락되면 `null`을 반환하여 이후 단계에서 크래시를 유도하는 대신, 명시적 도메인 예외를 던져 룰의 엄격한 유효성을 보장합니다.
-  - 전표 생성 주체(`audit actor`)를 "SYSTEM"으로 하드코딩하지 않고, 이벤트 데이터에 실린 Caller Actor를 파싱해 전표 이력 추적성을 보장합니다.
+  - HTTP 이벤트는 Gateway가 검증한 actor로 payload identity를 덮어쓰고, Kafka와 Spring contract 이벤트는 각각 listener 전용 service principal을 maker로 사용합니다. 공유 `SYSTEM` 또는 이벤트 payload actor를 trusted identity로 사용하지 않습니다.
 - **Closing Lock 통제**:
   - 전표 생성 시 결산 모듈(`ClosingStatusAdapter`)의 기간 잠금(Period Lock) 및 마감 상태를 검사하여, 닫힌 회계 기간에 소급 기표를 넣지 못하게 차단합니다.
 - **미결 항목 출력 포트**:
