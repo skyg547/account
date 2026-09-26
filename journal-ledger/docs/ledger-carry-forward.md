@@ -23,14 +23,16 @@
    - 레코드가 **없을 경우:** DB에서 해당 날짜 이전(`balanceDate < today`) 중 **가장 최근의 `endingBalance`**를 조회.
    - 조회된 금액을 새로운 레코드의 `beginningBalance`로 설정.
    - 만약 한 번도 거래가 없었다면 0원부터 시작.
-4. **증분 업데이트:** 오늘 발생한 전표의 차변(Debit) 또는 대변(Credit) 금액을 합산.
-5. **최종 잔액 재계산:** `Ending Balance = Beginning + Debit - Credit` (자산 기준).
+4. **증분 업데이트:** 같은 회계일의 전표를 GL 계정·통화와 SL의 정확한 계정·거래처(NULL 포함)·부서(NULL 포함)·통화 키별로 모아 차변과 대변을 합산.
+5. **최종 잔액 재계산:** 전기일 행은 `Ending Balance = Beginning + Debit - Credit`으로 다시 계산.
+6. **후속일 전파:** 키별 `차변 합계 - 대변 합계`를 전기일보다 뒤에 이미 존재하는 모든 일별 행의 `beginningBalance`와 `endingBalance`에 같은 트랜잭션으로 더합니다. 후속일의 당일 차변·대변은 바꾸지 않으며 거래가 없던 날짜에 새 행을 만들지 않습니다.
 
 ---
 
 ## 3. 관련 핵심 클래스 및 메서드
 
-- **`LedgerService.updateGlBalance()`**: 총계정원장 잔액 이월 로직의 본거지.
+- **`LedgerService.updateLedgerBalancesBulk()`**: 날짜·GL/SL 키별 금액 집계와 정상 전기의 후속일 delta 전파를 조정합니다.
+- **`LedgerBalancePersistencePort.shiftSuccessorBalances()`**: 후속 잔액 행을 메모리에 적재하지 않는 set-based 갱신 계약입니다.
 - **`GlBalanceRepository.findFirstBy...BeforeOrderByBalanceDateDesc()`**: 직전 잔액을 찾는 핵심 쿼리.
 - **`GlBalance.recalculate()`**: 기초 잔액과 증분을 합산하여 기말 잔액을 산출하는 도메인 로직.
 
@@ -38,8 +40,10 @@
 
 ## 4. 주의사항 (Developer Tips)
 - **SCD2 연동:** 계정과목이나 부서가 변경되어도 원장의 이력은 보존되어야 하므로, 잔액 데이터 생성 시점의 마스터 데이터 정보를 정확히 참조합니다.
-- **역날짜 전표(Back-dated):** 과거 날짜의 전표를 입력할 경우, 그 이후 모든 날짜의 잔액을 다시 계산(Re-aggregation)해야 합니다. 현재는 `reaggregateLedgerBalancesForPeriod`와 `journal-ledger:batch`의 `dailyBalanceReaggregationJob`으로 이를 지원합니다. JobParameter는 `startDate/endDate` 또는 단일 `baseDate`를 사용합니다.
+- **역날짜 전표(Back-dated):** 정상 전기는 같은 계정·통화 stripe 잠금과 `OPEN` 확인 아래 GL 및 정확한 SL 키의 기존 후속일 기초·기말을 즉시 이동합니다. 월말·연말도 날짜 비교로 처리합니다. 배포 전부터 있던 부정합, 직접 SQL writer, 누락된 일별 행을 자동 생성·복구하지는 않으므로 이 경우 `reaggregateLedgerBalancesForPeriod` 또는 `dailyBalanceReaggregationJob`을 사용합니다.
+- **재집계 범위:** 요청 종료일이 과거이면 모든 stripe를 보유한 상태에서 GL/SL에 존재하는 최종 잔액일과 최신 `POSTED` 회계일 중 가장 늦은 날까지 종료일을 확장합니다. Batch는 이 유효 범위를 V15 owner 행과 JobExecutionContext 양쪽에 같은 값으로 고정하고 재시작 때 재사용합니다.
 - **순서와 트랜잭션:** bulk 입력은 날짜 오름차순으로 처리해 다음 날 기초가 앞선 날 기말을 읽도록 합니다. 단일 트랜잭션 재집계는 삭제 전에 모든 계정 잠금을 확보합니다. Batch Job은 cleanup/chunk마다 커밋하지만 V15 owner barrier가 전기·조회·겹친 Job을 막고, 최종 이월 대사 뒤에만 공개합니다. [동시성·재시도 제약](posting-concurrency.md)을 확인합니다.
+- **성능:** 정상 전기는 변경된 GL/SL 키마다 후속 행을 set-based UPDATE하며 여러 해의 행을 Java로 읽지 않습니다. 대신 과거일수록 DB가 갱신하고 잠그는 행 수와 WAL/undo가 늘어 트랜잭션이 길어질 수 있습니다. 운영 데이터 분포로 실행 계획, lock wait, 로그·복제량을 측정하고 장기 수리는 승인된 재집계 창에서 수행합니다.
 
 ## 5. 기간 잔액 조회: 기초는 한 번, 거래 흐름은 모두
 

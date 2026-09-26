@@ -100,9 +100,43 @@ public class LedgerBalancePersistenceAdapter implements LedgerBalancePersistence
     }
 
     @Override
+    public void shiftSuccessorBalances(
+            LocalDate postingDate, List<GlBalanceDelta> glDeltas, List<SlBalanceDelta> slDeltas) {
+        if ((glDeltas == null || glDeltas.isEmpty()) && (slDeltas == null || slDeltas.isEmpty())) {
+            return;
+        }
+
+        // JPQL bulk UPDATE bypasses dirty checking and the first-level cache. Flush the current
+        // posting rows first, then clear after both ledgers are shifted so no stale successor can leak.
+        entityManager.flush();
+        if (glDeltas != null) {
+            glDeltas.forEach(delta -> glBalanceRepository.shiftSuccessorBalances(
+                    delta.accountCode(), delta.currencyCode(), postingDate, delta.signedDelta()));
+        }
+        if (slDeltas != null) {
+            slDeltas.forEach(delta -> slBalanceRepository.shiftSuccessorBalances(
+                    delta.accountCode(), delta.businessPartnerCode(), delta.departmentCode(),
+                    delta.currencyCode(), postingDate, delta.signedDelta()));
+        }
+        entityManager.clear();
+    }
+
+    @Override
+    public Optional<LocalDate> findLatestBalanceOrPostedDate() {
+        return latest(
+                glBalanceRepository.findLatestBalanceDate(),
+                slBalanceRepository.findLatestBalanceDate(),
+                journalDetailRepository.findLatestPostedAccountingDate());
+    }
+
+    @Override
     public void deleteBalancesBetween(LocalDate startDate, LocalDate endDate) {
-        glBalanceRepository.deleteAllInBatch(glBalanceRepository.findByBalanceDateBetween(startDate, endDate));
-        slBalanceRepository.deleteAllInBatch(slBalanceRepository.findByBalanceDateBetween(startDate, endDate));
+        // Expanded repair ranges may span years. Delete in the database instead of materializing
+        // every projection, and clear managed balances that would otherwise survive the bulk delete.
+        entityManager.flush();
+        glBalanceRepository.deleteByBalanceDateBetweenBulk(startDate, endDate);
+        slBalanceRepository.deleteByBalanceDateBetweenBulk(startDate, endDate);
+        entityManager.clear();
     }
 
     @Override
@@ -136,5 +170,16 @@ public class LedgerBalancePersistenceAdapter implements LedgerBalancePersistence
         long count = (row.length > 0 && row[0] != null) ? ((Number) row[0]).longValue() : 0L;
         BigDecimal sum = (row.length > 1 && row[1] != null) ? (BigDecimal) row[1] : BigDecimal.ZERO;
         return new LedgerAggregateSummary(count, sum);
+    }
+
+    @SafeVarargs
+    private Optional<LocalDate> latest(Optional<LocalDate>... dates) {
+        LocalDate latest = null;
+        for (Optional<LocalDate> candidate : dates) {
+            if (candidate.isPresent() && (latest == null || candidate.get().isAfter(latest))) {
+                latest = candidate.get();
+            }
+        }
+        return Optional.ofNullable(latest);
     }
 }

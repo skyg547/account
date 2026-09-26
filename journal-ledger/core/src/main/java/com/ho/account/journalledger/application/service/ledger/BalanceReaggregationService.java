@@ -27,11 +27,16 @@ public class BalanceReaggregationService {
     private final BalanceReaggregationControlPort control;
 
     @Transactional
-    public void start(long ownerJobInstanceId, LocalDate startDate, LocalDate endDate) {
+    public EffectiveDateRange start(long ownerJobInstanceId, LocalDate startDate, LocalDate endDate) {
+        requireRange(startDate, endDate);
         // Start takes every writer stripe before changing publication state. A writer that won a
         // stripe is included first; a writer that lost observes REBUILDING after it wakes.
         balances.lockAllBalanceAccounts();
-        control.start(ownerJobInstanceId, startDate, endDate);
+        LocalDate effectiveEndDate = balances.findLatestBalanceOrPostedDate()
+                .filter(latest -> latest.isAfter(endDate))
+                .orElse(endDate);
+        control.start(ownerJobInstanceId, startDate, effectiveEndDate);
+        return new EffectiveDateRange(startDate, effectiveEndDate);
     }
 
     @Transactional
@@ -106,6 +111,13 @@ public class BalanceReaggregationService {
         }
     }
 
+    private void requireRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("A valid reaggregation date range is required");
+        }
+    }
+
+    public record EffectiveDateRange(LocalDate startDate, LocalDate endDate) {}
     private record DatedGlKey(LocalDate date, GlKey key) {}
     private record DatedSlKey(LocalDate date, SlKey key) {}
     private record Amounts(BigDecimal beginning, BigDecimal debit, BigDecimal credit, BigDecimal ending) {

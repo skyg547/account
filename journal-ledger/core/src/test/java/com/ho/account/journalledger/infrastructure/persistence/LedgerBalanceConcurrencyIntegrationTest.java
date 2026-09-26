@@ -74,6 +74,7 @@ class LedgerBalanceConcurrencyIntegrationTest {
     private static final PostingTestDatabase DATABASE = PostingTestDatabase.create();
     private static final LocalDate DATE = LocalDate.of(2026, 9, 24);
     private static final List<String> ACCOUNTS = List.of("10100", "40100");
+    private static final AtomicLong FIXTURE_SEQUENCE = new AtomicLong();
     enum Mode { JPA, JDBC }
     record Dimensions(String partner, String department) { }
 
@@ -115,6 +116,125 @@ class LedgerBalanceConcurrencyIntegrationTest {
                 Stream.of(new Dimensions(null, null), new Dimensions(null, "D-761"),
                         new Dimensions("BP-761", null), new Dimensions("BP-761", "D-761"))
                         .map(dimensions -> Arguments.of(mode, existing, dimensions))));
+    }
+
+    static Stream<Arguments> backdatedCases() {
+        List<LocalDate> boundaryDates = List.of(
+                LocalDate.of(2026, 1, 31),
+                LocalDate.of(2026, 12, 31));
+        List<Dimensions> dimensions = List.of(
+                new Dimensions(null, null),
+                new Dimensions("BP-766", null),
+                new Dimensions(null, "D-766"),
+                new Dimensions("BP-766", "D-766"),
+                new Dimensions("NULL", "NULL"));
+        return Stream.of(Mode.values()).flatMap(mode -> boundaryDates.stream().flatMap(date ->
+                dimensions.stream().map(dimension -> Arguments.of(mode, date, dimension))));
+    }
+
+    @ParameterizedTest(name = "{0}, postingDate={1}, dimensions={2}")
+    @MethodSource("backdatedCases")
+    void backdatedPostingShiftsEverySparseSuccessorAcrossMonthAndYearBoundaries(
+            Mode mode, LocalDate postingDate, Dimensions dimensions) {
+        LocalDate firstSuccessor = postingDate.plusDays(1);
+        LocalDate sparseSuccessor = postingDate.plusDays(40);
+        posting(mode).postJournalEntry(seedJournal("BD-OPEN-" + mode + "-" + postingDate + "-" + dimensions,
+                postingDate, "100.00", false, dimensions, ACCOUNTS), "initial-poster");
+        posting(mode).postJournalEntry(seedJournal("BD-NEXT-" + mode + "-" + postingDate + "-" + dimensions,
+                firstSuccessor, "20.00", false, dimensions, ACCOUNTS), "next-poster");
+        posting(mode).postJournalEntry(seedJournal("BD-SPARSE-" + mode + "-" + postingDate + "-" + dimensions,
+                sparseSuccessor, "5.00", false, dimensions, ACCOUNTS), "sparse-poster");
+
+        posting(mode).postJournalEntry(seedJournal("BD-LATE-" + mode + "-" + postingDate + "-" + dimensions,
+                postingDate, "10.00", false, dimensions, ACCOUNTS), "late-poster");
+
+        assertSuccessor("gl_balances", "10100", firstSuccessor, null, "110.00", "20.00", "0.00", "130.00");
+        assertSuccessor("gl_balances", "10100", sparseSuccessor, null, "130.00", "5.00", "0.00", "135.00");
+        assertSuccessor("gl_balances", "40100", firstSuccessor, null, "-110.00", "0.00", "20.00", "-130.00");
+        assertSuccessor("gl_balances", "40100", sparseSuccessor, null, "-130.00", "0.00", "5.00", "-135.00");
+        assertSuccessor("sl_balances", "10100", firstSuccessor, dimensions,
+                "110.00", "20.00", "0.00", "130.00");
+        assertSuccessor("sl_balances", "10100", sparseSuccessor, dimensions,
+                "130.00", "5.00", "0.00", "135.00");
+        assertSuccessor("sl_balances", "40100", firstSuccessor, dimensions,
+                "-110.00", "0.00", "20.00", "-130.00");
+        assertSuccessor("sl_balances", "40100", sparseSuccessor, dimensions,
+                "-130.00", "0.00", "5.00", "-135.00");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void netZeroBackdatedMovementDoesNotShiftSuccessors(Mode mode) {
+        LocalDate postingDate = LocalDate.of(2026, 5, 31);
+        LocalDate successor = postingDate.plusDays(1);
+        Dimensions dimensions = new Dimensions("BP-ZERO", "D-ZERO");
+        List<String> sameAccount = List.of("10100", "10100");
+        posting(mode).postJournalEntry(seedJournal("ZERO-OPEN-" + mode, postingDate,
+                "100.00", false, dimensions, sameAccount), "initial-poster");
+        posting(mode).postJournalEntry(seedJournal("ZERO-NEXT-" + mode, successor,
+                "20.00", false, dimensions, sameAccount), "next-poster");
+
+        posting(mode).postJournalEntry(seedJournal("ZERO-LATE-" + mode, postingDate,
+                "10.00", false, dimensions, sameAccount), "late-poster");
+
+        assertSuccessor("gl_balances", "10100", successor, null,
+                "0.00", "20.00", "20.00", "0.00");
+        assertSuccessor("sl_balances", "10100", successor, dimensions,
+                "0.00", "20.00", "20.00", "0.00");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void literalNullSlCodesRemainDistinctFromAbsentDimensionsDuringRepair(Mode mode) {
+        LocalDate postingDate = LocalDate.of(2026, 6, 30);
+        LocalDate successor = postingDate.plusDays(1);
+        Dimensions absent = new Dimensions(null, null);
+        Dimensions literal = new Dimensions("NULL", "NULL");
+        for (Dimensions dimensions : List.of(absent, literal)) {
+            posting(mode).postJournalEntry(seedJournal("NULL-OPEN-" + mode + "-" + dimensions,
+                    postingDate, "100.00", false, dimensions, ACCOUNTS), "initial-poster");
+            posting(mode).postJournalEntry(seedJournal("NULL-NEXT-" + mode + "-" + dimensions,
+                    successor, "20.00", false, dimensions, ACCOUNTS), "next-poster");
+        }
+
+        posting(mode).postJournalEntry(seedJournal("NULL-LATE-" + mode,
+                postingDate, "10.00", false, literal, ACCOUNTS), "late-poster");
+
+        assertSuccessor("sl_balances", "10100", successor, absent,
+                "100.00", "20.00", "0.00", "120.00");
+        assertSuccessor("sl_balances", "10100", successor, literal,
+                "110.00", "20.00", "0.00", "130.00");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void successorOverflowRollsBackJournalEntriesPostingDayAndEveryShift(Mode mode) {
+        LocalDate postingDate = LocalDate.of(2026, 7, 31);
+        LocalDate successor = postingDate.plusDays(1);
+        Dimensions dimensions = new Dimensions(null, null);
+        BigDecimal databaseMaximum = new BigDecimal("99999999999999999.99");
+        seedBalances(successor, dimensions, databaseMaximum);
+        Long journalId = seedJournal("OVERFLOW-" + mode, postingDate,
+                "1.00", false, dimensions, ACCOUNTS);
+
+        assertThatThrownBy(() -> posting(mode).postJournalEntry(journalId, "overflow-poster"))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?",
+                String.class, journalId)).isEqualTo("APPROVED");
+        for (String table : List.of("gl_entries", "sl_entries")) {
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class)).isZero();
+        }
+        for (String table : List.of("gl_balances", "sl_balances")) {
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE balance_date = ?",
+                    Integer.class, postingDate)).isZero();
+            assertThat(jdbc.queryForObject("SELECT beginning_balance FROM " + table
+                            + " WHERE account_code = '10100' AND balance_date = ?",
+                    BigDecimal.class, successor)).isEqualByComparingTo(databaseMaximum);
+            assertThat(jdbc.queryForObject("SELECT ending_balance FROM " + table
+                            + " WHERE account_code = '10100' AND balance_date = ?",
+                    BigDecimal.class, successor)).isEqualByComparingTo(databaseMaximum);
+        }
     }
 
     @ParameterizedTest(name = "{0}, existing={1}, dimensions={2}")
@@ -370,16 +490,36 @@ class LedgerBalanceConcurrencyIntegrationTest {
         }
     }
 
+    private void assertSuccessor(String table, String accountCode, LocalDate date, Dimensions dimensions,
+                                 String beginning, String debit, String credit, String ending) {
+        StringBuilder dimensionPredicate = new StringBuilder();
+        List<Object> parameters = new java.util.ArrayList<>(List.of(accountCode, date));
+        if (dimensions != null) {
+            if (dimensions.partner() == null) dimensionPredicate.append(" AND bp_code IS NULL");
+            else { dimensionPredicate.append(" AND bp_code = ?"); parameters.add(dimensions.partner()); }
+            if (dimensions.department() == null) dimensionPredicate.append(" AND dept_code IS NULL");
+            else { dimensionPredicate.append(" AND dept_code = ?"); parameters.add(dimensions.department()); }
+        }
+        var row = jdbc.queryForMap("SELECT * FROM " + table
+                + " WHERE account_code = ? AND balance_date = ?" + dimensionPredicate, parameters.toArray());
+        assertThat((BigDecimal) row.get("beginning_balance")).isEqualByComparingTo(beginning);
+        assertThat((BigDecimal) row.get("debit_amount")).isEqualByComparingTo(debit);
+        assertThat((BigDecimal) row.get("credit_amount")).isEqualByComparingTo(credit);
+        assertThat((BigDecimal) row.get("ending_balance")).isEqualByComparingTo(ending);
+    }
+
     private Long seedJournal(String suffix, LocalDate date, String amount, boolean reversed,
                              Dimensions dimensions, List<String> accounts) {
         return transactions.execute(status -> {
+            String syntheticId = "G" + FIXTURE_SEQUENCE.incrementAndGet() + "-"
+                    + Integer.toUnsignedString(suffix.hashCode(), 36);
             JournalEntry journal = new JournalEntry();
-            journal.setSlipNo("GL761-" + suffix);
+            journal.setSlipNo(syntheticId);
             journal.setSlipDate(date);
             journal.setAccountingDate(date);
             journal.setCurrencyCode("KRW");
             journal.setLineageSourceType("TEST");
-            journal.setLineageSourceId("GL761-" + suffix);
+            journal.setLineageSourceId(syntheticId);
             journal.setCreatedBy("maker");
             for (int index : reversed ? List.of(1, 0) : List.of(0, 1)) {
                 JournalDetail detail = new JournalDetail();

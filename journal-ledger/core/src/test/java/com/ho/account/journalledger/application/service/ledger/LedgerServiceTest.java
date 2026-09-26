@@ -128,6 +128,69 @@ class LedgerServiceTest {
     }
 
     @Test
+    void directRebuildExpandsThroughTheLatestBalanceOrPostedSourceAndDoesNotPropagateReplayDeltas() {
+        LocalDate requestedStart = LocalDate.of(2026, 1, 31);
+        LocalDate requestedEnd = LocalDate.of(2026, 2, 1);
+        LocalDate latest = LocalDate.of(2027, 1, 15);
+        when(ledgerBalancePersistencePort.findLatestBalanceOrPostedDate()).thenReturn(Optional.of(latest));
+        when(ledgerBalancePersistencePort.findPostedJournalDetailsBetween(requestedStart, latest)).thenReturn(List.of(
+                detail(requestedStart, JournalSide.DEBIT, "10100", "10.00"),
+                detail(latest, JournalSide.DEBIT, "10100", "5.00")));
+
+        ledgerService.reaggregateLedgerBalancesForPeriod(requestedStart, requestedEnd);
+
+        verify(ledgerBalancePersistencePort).deleteBalancesBetween(requestedStart, latest);
+        verify(ledgerBalancePersistencePort).findPostedJournalDetailsBetween(requestedStart, latest);
+        verify(ledgerBalancePersistencePort, never()).shiftSuccessorBalances(any(), any(), any());
+    }
+
+    @Test
+    void normalPostingPassesSignedGlAndExactSlDeltasToSuccessorRepair() {
+        LocalDate date = LocalDate.of(2026, 12, 31);
+        JournalDetail debit = detail(date, JournalSide.DEBIT, "10100", "12.34");
+        debit.setBusinessPartnerCode(null);
+        debit.setDepartmentCode("D-766");
+        JournalDetail credit = detail(date, JournalSide.CREDIT, "10100", "2.34");
+        credit.setBusinessPartnerCode(null);
+        credit.setDepartmentCode("D-766");
+
+        ledgerService.updateLedgerBalancesBulk(List.of(debit, credit));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LedgerBalancePersistencePort.GlBalanceDelta>> gl = ArgumentCaptor.forClass(List.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LedgerBalancePersistencePort.SlBalanceDelta>> sl = ArgumentCaptor.forClass(List.class);
+        verify(ledgerBalancePersistencePort).shiftSuccessorBalances(org.mockito.ArgumentMatchers.eq(date),
+                gl.capture(), sl.capture());
+        assertThat(gl.getValue()).containsExactly(new LedgerBalancePersistencePort.GlBalanceDelta(
+                "10100", "KRW", new BigDecimal("10.00")));
+        assertThat(sl.getValue()).containsExactly(new LedgerBalancePersistencePort.SlBalanceDelta(
+                "10100", null, "D-766", "KRW", new BigDecimal("10.00")));
+    }
+
+    @Test
+    void netZeroMovementIsPersistedWithoutAFalseSuccessorDelta() {
+        LocalDate date = LocalDate.of(2026, 12, 31);
+
+        ledgerService.updateLedgerBalancesBulk(List.of(
+                detail(date, JournalSide.DEBIT, "10100", "10.00"),
+                detail(date, JournalSide.CREDIT, "10100", "10.00")));
+
+        verify(ledgerBalancePersistencePort).shiftSuccessorBalances(date, List.of(), List.of());
+    }
+
+    @Test
+    void ownerControlledReplayNeverShiftsAlreadyReconstructedSuccessors() {
+        LocalDate start = LocalDate.of(2026, 1, 31);
+        LocalDate end = LocalDate.of(2027, 1, 1);
+
+        ledgerService.updateLedgerBalancesBulkForReaggregation(
+                766L, start, end, List.of(detail(start, JournalSide.DEBIT, "10100", "10.00")));
+
+        verify(ledgerBalancePersistencePort, never()).shiftSuccessorBalances(any(), any(), any());
+    }
+
+    @Test
     void emptyBulkDoesNotAcquireLocks() {
         ledgerService.updateLedgerBalancesBulk(List.of());
         ledgerService.updateLedgerBalancesBulk(null);

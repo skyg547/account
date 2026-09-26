@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 전표 상세 저장소 (Journal Detail Repository)
@@ -111,6 +112,9 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
        List<JournalDetail> findPostedJournalDetailsByAccountingDateBetween(
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate);
+
+       @Query("SELECT MAX(je.accountingDate) FROM JournalEntry je WHERE je.status = 'POSTED'")
+       Optional<LocalDate> findLatestPostedAccountingDate();
 
        /**
         * 기간과 차대변 방향, 그리고 계정코드 기준의 전기(POSTED) 완료된 전표 상세 금액을 DB에서 직접 집계합니다.

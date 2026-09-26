@@ -96,7 +96,10 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 | 미결 항목 저장 | `UnsettledItemPersistencePort` | JPA | - |
 
 잔액 변경은 `lockBalanceAccounts`로 이번 호출의 모든 계정·통화 잠금을 먼저 획득한 뒤
-조회/계산/저장합니다. 기간 삭제·단일 트랜잭션 재집계는 `lockAllBalanceAccounts`를 사용합니다.
+조회/계산/저장합니다. 정상 전기의 날짜·키별 signed delta는 출력 포트의 set-based successor
+UPDATE로 기존 후속 행의 기초·기말에 반영하고, 재집계 replay에서는 이 전파를 사용하지 않습니다.
+기간 삭제·단일 트랜잭션 재집계는 `lockAllBalanceAccounts`를 사용하며 요청 종료일을 잔액과
+`POSTED` 원천의 최신일까지 확장합니다.
 `LedgerBalanceWriteLock`은 256개 DB 잠금 행의 정렬, 트랜잭션/isolation 검증과 최신 값 refresh를
 두 어댑터에 공유합니다. 금액 계산과 이월 규칙은 계속 `LedgerService`와 도메인에 남습니다.
 재집계 제어는 `BalanceReaggregationControlPort` 뒤의 JDBC adapter가 V15 singleton과 compact
