@@ -67,6 +67,28 @@ public class JdbcLedgerBalanceBulkPersistenceAdapter implements LedgerBalancePer
                AND period = ?
             """;
 
+    private static final String UPDATE_GL_SUCCESSORS = """
+            UPDATE gl_balances
+               SET beginning_balance = beginning_balance + ?,
+                   ending_balance = ending_balance + ?,
+                   updated_at = ?
+             WHERE account_code = ?
+               AND currency_code = ?
+               AND balance_date > ?
+            """;
+
+    private static final String UPDATE_SL_SUCCESSORS = """
+            UPDATE sl_balances
+               SET beginning_balance = beginning_balance + ?,
+                   ending_balance = ending_balance + ?,
+                   updated_at = ?
+             WHERE account_code = ?
+               AND ((? IS NULL AND bp_code IS NULL) OR bp_code = ?)
+               AND ((? IS NULL AND dept_code IS NULL) OR dept_code = ?)
+               AND currency_code = ?
+               AND balance_date > ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
     private final GlBalanceRepository glBalanceRepository;
     private final SlBalanceRepository slBalanceRepository;
@@ -192,9 +214,75 @@ public class JdbcLedgerBalanceBulkPersistenceAdapter implements LedgerBalancePer
     }
 
     @Override
+    public void shiftSuccessorBalances(
+            LocalDate postingDate, List<GlBalanceDelta> glDeltas, List<SlBalanceDelta> slDeltas) {
+        if ((glDeltas == null || glDeltas.isEmpty()) && (slDeltas == null || slDeltas.isEmpty())) {
+            return;
+        }
+
+        // Reads use JPA even in JDBC-bulk mode. Flush any managed current row before the direct
+        // updates, then evict it so a later date in this transaction observes the shifted database row.
+        entityManager.flush();
+        LocalDateTime now = LocalDateTime.now();
+        if (glDeltas != null && !glDeltas.isEmpty()) {
+            jdbcTemplate.batchUpdate(UPDATE_GL_SUCCESSORS, new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    GlBalanceDelta delta = glDeltas.get(i);
+                    ps.setBigDecimal(1, delta.signedDelta());
+                    ps.setBigDecimal(2, delta.signedDelta());
+                    ps.setObject(3, now);
+                    ps.setString(4, delta.accountCode());
+                    ps.setString(5, delta.currencyCode());
+                    ps.setObject(6, postingDate);
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return glDeltas.size();
+                }
+            });
+        }
+        if (slDeltas != null && !slDeltas.isEmpty()) {
+            jdbcTemplate.batchUpdate(UPDATE_SL_SUCCESSORS, new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    SlBalanceDelta delta = slDeltas.get(i);
+                    ps.setBigDecimal(1, delta.signedDelta());
+                    ps.setBigDecimal(2, delta.signedDelta());
+                    ps.setObject(3, now);
+                    ps.setString(4, delta.accountCode());
+                    ps.setString(5, delta.businessPartnerCode());
+                    ps.setString(6, delta.businessPartnerCode());
+                    ps.setString(7, delta.departmentCode());
+                    ps.setString(8, delta.departmentCode());
+                    ps.setString(9, delta.currencyCode());
+                    ps.setObject(10, postingDate);
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return slDeltas.size();
+                }
+            });
+        }
+        entityManager.clear();
+    }
+
+    @Override
+    public Optional<LocalDate> findLatestBalanceOrPostedDate() {
+        return latest(
+                glBalanceRepository.findLatestBalanceDate(),
+                slBalanceRepository.findLatestBalanceDate(),
+                journalDetailRepository.findLatestPostedAccountingDate());
+    }
+
+    @Override
     public void deleteBalancesBetween(LocalDate startDate, LocalDate endDate) {
+        entityManager.flush();
         jdbcTemplate.update("DELETE FROM gl_balances WHERE balance_date BETWEEN ? AND ?", startDate, endDate);
         jdbcTemplate.update("DELETE FROM sl_balances WHERE balance_date BETWEEN ? AND ?", startDate, endDate);
+        entityManager.clear();
     }
 
     @Override
@@ -309,6 +397,17 @@ public class JdbcLedgerBalanceBulkPersistenceAdapter implements LedgerBalancePer
 
     private BigDecimal zeroIfNull(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    @SafeVarargs
+    private Optional<LocalDate> latest(Optional<LocalDate>... dates) {
+        LocalDate latest = null;
+        for (Optional<LocalDate> candidate : dates) {
+            if (candidate.isPresent() && (latest == null || candidate.get().isAfter(latest))) {
+                latest = candidate.get();
+            }
+        }
+        return Optional.ofNullable(latest);
     }
 
     private enum DatabaseDialect {

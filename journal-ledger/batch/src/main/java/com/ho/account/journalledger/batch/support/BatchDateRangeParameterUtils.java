@@ -31,7 +31,17 @@ public final class BatchDateRangeParameterUtils {
     }
 
     public static DateRange freezeDateRange(StepExecution stepExecution) {
-        DateRange range = resolveDateRange(stepExecution.getJobParameters());
+        return freezeDateRange(stepExecution, resolveDateRange(stepExecution));
+    }
+
+    public static DateRange freezeDateRange(StepExecution stepExecution, DateRange range) {
+        if (stepExecution == null) {
+            throw new IllegalArgumentException("stepExecution must not be null");
+        }
+        if (range == null || range.startDate() == null || range.endDate() == null
+                || range.endDate().isBefore(range.startDate())) {
+            throw new IllegalArgumentException("A valid date range is required for freezing");
+        }
         ExecutionContext context = stepExecution.getJobExecution().getExecutionContext();
         context.putString(FROZEN_START, range.startDate().format(DATE_FORMAT));
         context.putString(FROZEN_END, range.endDate().format(DATE_FORMAT));

@@ -18,9 +18,15 @@ public class BalanceReaggregationStartTasklet implements Tasklet {
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
         var stepExecution = contribution.getStepExecution();
-        var range = BatchDateRangeParameterUtils.freezeDateRange(stepExecution);
-        reaggregationService.start(BatchDateRangeParameterUtils.ownerJobInstanceId(stepExecution),
-                range.startDate(), range.endDate());
+        var requestedRange = BatchDateRangeParameterUtils.resolveDateRange(stepExecution);
+        var effectiveRange = reaggregationService.start(
+                BatchDateRangeParameterUtils.ownerJobInstanceId(stepExecution),
+                requestedRange.startDate(), requestedRange.endDate());
+        // Freeze the same expanded range persisted in V15. Cleanup, reader, writer and finalize
+        // all resolve this execution context on restart instead of recomputing a moving horizon.
+        BatchDateRangeParameterUtils.freezeDateRange(stepExecution,
+                new BatchDateRangeParameterUtils.DateRange(
+                        effectiveRange.startDate(), effectiveRange.endDate()));
         return RepeatStatus.FINISHED;
     }
 }

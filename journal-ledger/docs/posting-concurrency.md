@@ -52,6 +52,10 @@ NULL이어도 같은 순서가 필요합니다.
    문자열 `"NULL"`, 구분 문자가 포함된 코드를 서로 다른 차원으로 보존합니다.
 6. 계산된 절대 금액을 기존 JPA `saveAll` 또는 JDBC GL upsert/SL null-safe update+insert로
    저장합니다. 잠금은 전표 상태·엔트리·잔액을 포함한 전체 트랜잭션 커밋/롤백까지 유지됩니다.
+7. 정상 전기는 날짜·GL 키와 정확한 nullable SL 키마다 `차변-대변` delta를 계산하고,
+   `balance_date`가 전기일보다 큰 기존 행의 기초·기말을 set-based UPDATE로 함께 이동합니다.
+   JPA/JDBC-bulk 어댑터 모두 UPDATE 전에 flush하고 뒤에 1차 캐시를 비우므로 bulk SQL 이전
+   객체가 후속 계산이나 flush에서 결과를 덮지 않습니다. 재집계 replay는 이 전파를 끕니다.
 
 단일 호출은 모든 잠금을 먼저 같은 순서로 확보하므로 전표 상세의 계정 순서가 달라도
 잠금 순서가 뒤집히지 않습니다. 다만 한 외부 트랜잭션에서 여러 전표를 순차 전기하거나
@@ -76,9 +80,11 @@ NULL이어도 같은 순서가 필요합니다.
 
 `dailyBalanceReaggregationJob`은 다음 fail-closed 프로토콜을 사용합니다.
 
-1. start Step이 JobParameter의 `startDate/endDate`, 별칭, `baseDate/targetDate`를 한 번
-   정규화하여 JobExecutionContext에 문자열로 고정합니다. 256개 stripe를 먼저 획득하고
-   V15 singleton을 `REBUILDING(owner JobInstance ID, frozen range)`으로 바꾸며 epoch를 증가시킵니다.
+1. start Step이 JobParameter의 `startDate/endDate`, 별칭, `baseDate/targetDate`를 정규화합니다.
+   256개 stripe를 먼저 획득한 뒤 요청 종료일, GL/SL 최종 잔액일, 최신 `POSTED` 회계일의
+   최댓값으로 유효 종료일을 확장합니다. V15 singleton을
+   `REBUILDING(owner JobInstance ID, effective range)`으로 바꾸고 같은 유효 범위를
+   JobExecutionContext에 문자열로 고정하며 epoch를 증가시킵니다.
 2. owner cleanup과 100-detail chunk만 닫힌 상태에서 쓸 수 있습니다. 성공한 cleanup은 같은
    JobInstance 재시작에서 다시 실행되지 않고, chunk의 저장과 reader checkpoint는 같은
    트랜잭션으로 커밋됩니다. 실패 listener/`afterJob`은 제어를 열지 않습니다.
@@ -93,8 +99,16 @@ NULL이어도 같은 순서가 필요합니다.
 `OPEN+epoch`를 확인합니다. 중간에 재집계가 시작되거나 끝났으면 결과를 반환하지 않습니다.
 직접 DB SQL과 barrier를 모르는 구버전 writer는 이 통제를 우회하므로 혼용할 수 없습니다.
 
-잠금은 기존 다음 날 잔액을 자동 재작성하지 않습니다. 과거 날짜를 뒤늦게 전기했다면 여전히
-그 이후 날짜를 포함한 승인된 재집계가 필요합니다. [이월 규칙](ledger-carry-forward.md)을 따릅니다.
+정상 과거일 전기는 기존 후속일 행을 같은 트랜잭션에서 이동하므로 커밋 뒤 stale projection을
+공개하지 않습니다. delta가 0인 키는 UPDATE하지 않고, 거래가 없던 날짜의 행은 만들지 않습니다.
+배포 전에 이미 stale한 데이터, 직접 SQL/구버전 writer의 결과와 기존 중복·손상 데이터는 자동
+탐지하거나 보정하지 않으므로 가장 이른 영향일부터 승인된 재집계를 실행해야 합니다.
+[이월 규칙](ledger-carry-forward.md)을 따릅니다.
+
+후속일 UPDATE는 Java에 여러 해의 잔액을 적재하지 않지만, 오래된 전기 한 건이 해당 키의 많은
+행을 갱신하여 row lock, WAL/undo, 복제 지연과 트랜잭션 시간을 늘릴 수 있습니다. 계정·통화
+stripe도 커밋까지 유지되므로 운영 분포의 실행 계획과 lock wait를 배포 전에 측정해야 합니다.
+직접 SQL writer와 포트를 우회한 저장은 이 전파·OPEN·cache 보호를 모두 우회합니다.
 
 ## V14 업그레이드와 롤백
 
@@ -127,6 +141,14 @@ SELECT COUNT(*), MIN(lock_id), MAX(lock_id) FROM ledger_balance_locks;
 계속 맞도록 합니다. 최종 대사 실패는 원천·잔액을 조사한 뒤 같은 인스턴스를 재개합니다.
 코드 롤백도 모든 writer를 중지한 상태에서 수행하며 V15 migration과 제어 행은 보존합니다.
 구버전은 barrier를 사용하지 않으므로 복구 전까지 전기/재집계/잔액 조회 트래픽을 열지 않습니다.
+
+후속일 전파 코드는 새 migration을 추가하지 않지만 모든 posting writer가 같은 버전이어야 합니다.
+구버전과 혼용하면 구버전에서 수행한 과거일 전기가 다시 stale 잔액을 만들 수 있습니다. 배포 전
+writer를 멈추고 기존 부정합을 대사한 뒤, 필요하면 가장 이른 영향일부터 확장 재집계를 완료하고
+전 인스턴스를 함께 기동합니다. 코드 롤백도 writer를 먼저 중지하며 이미 전파된 올바른 delta를
+역으로 빼지 않습니다. 롤백 버전으로 트래픽을 재개해야 한다면 후속 과거일 전기를 금지하고,
+수정 버전 복구 후 같은 범위의 재집계·대사가 끝날 때까지 잔액을 권위 값으로 공개하지 않습니다.
+로컬 H2 회귀는 실제 PostgreSQL의 대량 UPDATE 비용, WAL/복제 지연, 분산 lock timeout을 대신하지 않습니다.
 
 ## V17 역분개 작업 업그레이드와 롤백
 

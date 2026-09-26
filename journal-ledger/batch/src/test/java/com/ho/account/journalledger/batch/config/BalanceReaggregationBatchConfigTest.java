@@ -50,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.reset;
@@ -203,6 +204,40 @@ class BalanceReaggregationBatchConfigTest {
                 "10100", "KRW", targetDate, YearMonth.from(targetDate)).orElseThrow();
         assertThat(debitBal2.getDebitAmount()).isEqualByComparingTo(new BigDecimal("50000.00"));
         assertThat(debitBal2.getCreditAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("요청 종료일 뒤의 마지막 POSTED 일자까지 범위를 고정해 모든 후속 잔액을 재생한다")
+    void expandsAndFreezesRequestedRangeThroughTheLatestPostedSource() throws Exception {
+        LocalDate requestedDate = LocalDate.of(2026, 12, 31);
+        LocalDate latestPostedDate = LocalDate.of(2027, 2, 10);
+        JournalEntry first = approvedEntry(
+                "EXPAND-FIRST", requestedDate, "10100", "20100", new BigDecimal("100.00"));
+        JournalEntry sparseSuccessor = approvedEntry(
+                "EXPAND-SPARSE", latestPostedDate, "10100", "20100", new BigDecimal("20.00"));
+        journalEntryRepository.saveAllAndFlush(List.of(first, sparseSuccessor));
+        postPersistedEntries(List.of(first, sparseSuccessor));
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addString("startDate", requestedDate.toString())
+                .addString("endDate", requestedDate.toString())
+                .addLong("expandedRange", System.currentTimeMillis())
+                .toJobParameters());
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        verify(reaggregationService).clean(anyLong(), eq(requestedDate), eq(latestPostedDate));
+        GlBalance successor = glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
+                "10100", "KRW", latestPostedDate, YearMonth.from(latestPostedDate)).orElseThrow();
+        assertThat(successor.getBeginningBalance()).isEqualByComparingTo("100.00");
+        assertThat(successor.getDebitAmount()).isEqualByComparingTo("20.00");
+        assertThat(successor.getEndingBalance()).isEqualByComparingTo("120.00");
+        assertThat(slBalanceRepository.findAll()).filteredOn(balance ->
+                        balance.getAccountCode().equals("10100") && balance.getBalanceDate().equals(latestPostedDate))
+                .singleElement().satisfies(balance -> {
+                    assertThat(balance.getBeginningBalance()).isEqualByComparingTo("100.00");
+                    assertThat(balance.getDebitAmount()).isEqualByComparingTo("20.00");
+                    assertThat(balance.getEndingBalance()).isEqualByComparingTo("120.00");
+                });
     }
 
     @Test

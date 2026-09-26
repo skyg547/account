@@ -6,6 +6,9 @@ import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.BalanceAccount;
+import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.GlBalanceDelta;
+import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.SlBalanceDelta;
+import com.ho.account.journalledger.domain.ledger.domain.AccountingPrecision;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -44,87 +46,11 @@ public class LedgerService {
     @Transactional
     public void updateLedgerBalances(JournalDetail journalDetail, LocalDate accountingDate) {
         String accountCode = journalDetail.getAccountCode();
-        String businessPartnerCode = journalDetail.getBusinessPartnerCode();
-        String departmentCode = journalDetail.getDepartmentCode();
         String currencyCode = journalDetail.getJournalEntry().getCurrencyCode();
-        BigDecimal amount = journalDetail.getBaseAmount();
-        boolean isDebit = JournalSide.DEBIT.equals(journalDetail.getSide());
 
         ledgerBalancePersistencePort.lockBalanceAccounts(List.of(new BalanceAccount(accountCode, currencyCode)));
         reaggregationControlPort.assertOpen();
-        updateGlBalance(accountCode, currencyCode, amount, isDebit, accountingDate);
-        updateSlBalance(accountCode, businessPartnerCode, departmentCode, currencyCode, amount, isDebit, accountingDate);
-    }
-
-    private void updateGlBalance(String accountCode,
-                                 String currencyCode,
-                                 BigDecimal amount,
-                                 boolean isDebit,
-                                 LocalDate accountingDate) {
-        YearMonth period = YearMonth.from(accountingDate);
-
-        Optional<GlBalance> optionalGlBalance = ledgerBalancePersistencePort.findGlBalance(
-                accountCode, currencyCode, accountingDate, period);
-
-        GlBalance glBalance = optionalGlBalance.orElseGet(() -> {
-            GlBalance newGlBalance = new GlBalance();
-            newGlBalance.setAccountCode(accountCode);
-            newGlBalance.setCurrencyCode(currencyCode);
-            newGlBalance.setBalanceDate(accountingDate);
-            newGlBalance.setPeriod(period);
-
-            ledgerBalancePersistencePort.findPreviousGlBalance(
-                    accountCode, currencyCode, accountingDate)
-                .ifPresent(prev -> newGlBalance.setBeginningBalance(prev.getEndingBalance()));
-
-            return newGlBalance;
-        });
-
-        if (isDebit) {
-            glBalance.addDebit(amount);
-        } else {
-            glBalance.addCredit(amount);
-        }
-
-        ledgerBalancePersistencePort.saveGlBalance(glBalance);
-    }
-
-    private void updateSlBalance(String accountCode,
-                                 String businessPartnerCode,
-                                 String departmentCode,
-                                 String currencyCode,
-                                 BigDecimal amount,
-                                 boolean isDebit,
-                                 LocalDate accountingDate) {
-        YearMonth period = YearMonth.from(accountingDate);
-
-        Optional<SlBalance> optionalSlBalance =
-                ledgerBalancePersistencePort.findSlBalance(
-                        accountCode, businessPartnerCode, departmentCode, currencyCode, accountingDate, period);
-
-        SlBalance slBalance = optionalSlBalance.orElseGet(() -> {
-            SlBalance newSlBalance = new SlBalance();
-            newSlBalance.setAccountCode(accountCode);
-            newSlBalance.setBusinessPartnerCode(businessPartnerCode);
-            newSlBalance.setDepartmentCode(departmentCode);
-            newSlBalance.setCurrencyCode(currencyCode);
-            newSlBalance.setBalanceDate(accountingDate);
-            newSlBalance.setPeriod(period);
-
-            ledgerBalancePersistencePort.findPreviousSlBalance(
-                    accountCode, businessPartnerCode, departmentCode, currencyCode, accountingDate)
-                .ifPresent(prev -> newSlBalance.setBeginningBalance(prev.getEndingBalance()));
-
-            return newSlBalance;
-        });
-
-        if (isDebit) {
-            slBalance.addDebit(amount);
-        } else {
-            slBalance.addCredit(amount);
-        }
-
-        ledgerBalancePersistencePort.saveSlBalance(slBalance);
+        updateDailyBalances(accountingDate, List.of(journalDetail), true);
     }
 
     /**
@@ -143,14 +69,18 @@ public class LedgerService {
 
     @Transactional
     public void reaggregateLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
+        requireDateRange(startDate, endDate);
         ledgerBalancePersistencePort.lockAllBalanceAccounts();
         reaggregationControlPort.assertOpen();
-        ledgerBalancePersistencePort.deleteBalancesBetween(startDate, endDate);
+        LocalDate effectiveEndDate = expandReaggregationEndDate(endDate);
+        ledgerBalancePersistencePort.deleteBalancesBetween(startDate, effectiveEndDate);
 
         List<JournalDetail> postedJournalDetails =
-                ledgerBalancePersistencePort.findPostedJournalDetailsBetween(startDate, endDate);
+                ledgerBalancePersistencePort.findPostedJournalDetailsBetween(startDate, effectiveEndDate);
 
-        updateLedgerBalancesBulk(postedJournalDetails);
+        // A rebuild derives every date from POSTED sources. Propagating each replayed movement would
+        // shift later rows a second time after their beginning balance was already reconstructed.
+        updateLedgerBalancesBulkAfterGuard(postedJournalDetails, false);
     }
 
     @Transactional
@@ -163,7 +93,7 @@ public class LedgerService {
                 .map(detail -> new BalanceAccount(detail.getAccountCode(), detail.getJournalEntry().getCurrencyCode()))
                 .distinct().toList());
         reaggregationControlPort.assertOpen();
-        updateLedgerBalancesBulkAfterGuard(journalDetails);
+        updateLedgerBalancesBulkAfterGuard(journalDetails, true);
     }
 
     @Transactional
@@ -176,10 +106,14 @@ public class LedgerService {
                 .map(detail -> new BalanceAccount(detail.getAccountCode(), detail.getJournalEntry().getCurrencyCode()))
                 .distinct().toList());
         reaggregationControlPort.assertOwner(ownerJobInstanceId, startDate, endDate);
-        updateLedgerBalancesBulkAfterGuard(journalDetails);
+        updateLedgerBalancesBulkAfterGuard(journalDetails, false);
     }
 
-    private void updateLedgerBalancesBulkAfterGuard(List<JournalDetail> journalDetails) {
+    private void updateLedgerBalancesBulkAfterGuard(
+            List<JournalDetail> journalDetails, boolean propagateSuccessors) {
+        if (journalDetails == null || journalDetails.isEmpty()) {
+            return;
+        }
         Map<LocalDate, List<JournalDetail>> groupedByDate = journalDetails.stream()
                 // Earlier days must be persisted first so later days inherit their closing balance.
                 .collect(Collectors.groupingBy(d -> d.getJournalEntry().getAccountingDate(), TreeMap::new, Collectors.toList()));
@@ -188,11 +122,12 @@ public class LedgerService {
             LocalDate date = entry.getKey();
             List<JournalDetail> details = entry.getValue();
 
-            updateDailyBalances(date, details);
+            updateDailyBalances(date, details, propagateSuccessors);
         }
     }
 
-    private void updateDailyBalances(LocalDate date, List<JournalDetail> details) {
+    private void updateDailyBalances(
+            LocalDate date, List<JournalDetail> details, boolean propagateSuccessors) {
         Map<GlBalanceKey, BigDecimal> glDebitMap = new LinkedHashMap<>();
         Map<GlBalanceKey, BigDecimal> glCreditMap = new LinkedHashMap<>();
         Set<GlBalanceKey> glKeys = new LinkedHashSet<>();
@@ -249,6 +184,39 @@ public class LedgerService {
 
         if (!slBalancesToSave.isEmpty()) {
             ledgerBalancePersistencePort.saveSlBalances(slBalancesToSave);
+        }
+
+        if (propagateSuccessors) {
+            List<GlBalanceDelta> glDeltas = glKeys.stream()
+                    .map(key -> new GlBalanceDelta(key.accountCode(), key.currencyCode(),
+                            signedDelta(glDebitMap.getOrDefault(key, BigDecimal.ZERO),
+                                    glCreditMap.getOrDefault(key, BigDecimal.ZERO))))
+                    .filter(delta -> delta.signedDelta().signum() != 0)
+                    .toList();
+            List<SlBalanceDelta> slDeltas = slKeys.stream()
+                    .map(key -> new SlBalanceDelta(key.accountCode(), key.partnerCode(), key.deptCode(),
+                            key.currencyCode(), signedDelta(
+                                    slDebitMap.getOrDefault(key, BigDecimal.ZERO),
+                                    slCreditMap.getOrDefault(key, BigDecimal.ZERO))))
+                    .filter(delta -> delta.signedDelta().signum() != 0)
+                    .toList();
+            ledgerBalancePersistencePort.shiftSuccessorBalances(date, glDeltas, slDeltas);
+        }
+    }
+
+    private BigDecimal signedDelta(BigDecimal debit, BigDecimal credit) {
+        return AccountingPrecision.ledgerAmount(debit.subtract(credit));
+    }
+
+    private LocalDate expandReaggregationEndDate(LocalDate requestedEndDate) {
+        return ledgerBalancePersistencePort.findLatestBalanceOrPostedDate()
+                .filter(latest -> latest.isAfter(requestedEndDate))
+                .orElse(requestedEndDate);
+    }
+
+    private void requireDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("A valid reaggregation date range is required");
         }
     }
 
