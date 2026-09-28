@@ -1,5 +1,6 @@
 package com.ho.account.closing.application.service;
 
+import com.ho.account.closing.domain.ApprovedRetainedEarningsMapping;
 import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
@@ -43,7 +44,7 @@ class AnnualClosingServiceTest {
                 detail("49999", "REVENUE", JournalSide.CREDIT, "50000.00", "50000.00")));
         AnnualClosingService service = service(journal);
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         assertThat(journal.createdCommands()).hasSize(1);
         JournalEntryCommand command = journal.createdCommands().get(0);
@@ -55,7 +56,64 @@ class AnnualClosingServiceTest {
                 .containsExactly("DEBIT", "CREDIT", "CREDIT");
         assertThat(command.lines()).extracting(line -> line.amount().toPlainString())
                 .containsExactly("1000.00", "300.00", "700.00");
+        assertThat(journal.masterLookupCount(RETAINED_EARNINGS_ACCOUNT, YEAR_END)).isOne();
         assertThat(journal.readDetailIds()).containsExactly(1L);
+    }
+
+    @Test
+    void mappedCreditNormalEquityDestinationReceivesLossOnItsDebitSide() {
+        StatefulJournal journal = new StatefulJournal();
+        journal.addSource("POSTED", List.of(
+                detail("51000", "EXPENSES", JournalSide.DEBIT, "700.00", "700.00")));
+
+        service(journal).performIncomeStatementClosing(YEAR);
+
+        assertThat(journal.createdCommands()).singleElement().satisfies(command -> {
+            assertThat(command.lines()).extracting(
+                            line -> line.drcrType() + "|" + line.accountCode() + "|"
+                                    + line.amount().toPlainString())
+                    .containsExactly(
+                            "CREDIT|51000|700.00",
+                            "DEBIT|35000|700.00");
+        });
+        assertThat(journal.masterLookupCount(RETAINED_EARNINGS_ACCOUNT, YEAR_END)).isOne();
+    }
+
+    @Test
+    void zeroNetIncomeStillValidatesMappedDatedDestinationWithoutCreatingDraft() {
+        StatefulJournal journal = new StatefulJournal();
+        journal.addSource("POSTED", List.of(
+                detail(REVENUE_ACCOUNT, "REVENUE", JournalSide.CREDIT, "1000.00", "1000.00"),
+                detail(REVENUE_ACCOUNT, "REVENUE", JournalSide.DEBIT, "1000.00", "1000.00")));
+
+        service(journal).performIncomeStatementClosing(YEAR);
+
+        assertThat(journal.masterLookupCount(RETAINED_EARNINGS_ACCOUNT, YEAR_END)).isOne();
+        assertThat(journal.readDetailIds()).containsExactly(1L);
+        assertThat(journal.createdCommands()).isEmpty();
+    }
+
+    @Test
+    void mappingAuditIdentityChangeMakesPendingDraftStale() {
+        StatefulJournal journal = journalWithPostedRevenue("1000.00");
+        service(journal, "controller-a", "CHG-776-A").performIncomeStatementClosing(YEAR);
+
+        assertThatThrownBy(() -> service(journal, "controller-b", "CHG-776-B")
+                .performIncomeStatementClosing(YEAR))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("stale");
+        assertThat(journal.createdCommands()).hasSize(1);
+    }
+
+    @Test
+    void fullyPostedCompleteCloseRemainsNoOpWhenOnlyMappingAuditIdentityChanges() {
+        StatefulJournal journal = journalWithPostedRevenue("1000.00");
+        service(journal, "controller-a", "CHG-776-A").performIncomeStatementClosing(YEAR);
+        journal.markCreatedEntryPosted(0);
+
+        service(journal, "controller-b", "CHG-776-B").performIncomeStatementClosing(YEAR);
+
+        assertThat(journal.createdCommands()).hasSize(1);
     }
 
     @Test
@@ -63,12 +121,12 @@ class AnnualClosingServiceTest {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         long draftId = journal.createdEntryId(0);
         JournalEntryCommand original = journal.createdCommands().get(0);
         journal.clearReadDetailIds();
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         assertThat(journal.createdCommands()).hasSize(1);
         assertThat(journal.readDetailIds()).contains(draftId);
@@ -86,12 +144,12 @@ class AnnualClosingServiceTest {
     void changedSourceAmountRejectsStaleDraftWithoutSecondWrite() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         journal.sourceDetails(1L).get(0).setAmount(new BigDecimal("1500.00"));
         journal.sourceDetails(1L).get(0).setBaseAmount(new BigDecimal("1500.00"));
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -100,11 +158,11 @@ class AnnualClosingServiceTest {
     void changedSourceAccountRejectsStaleDraft() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         journal.sourceDetails(1L).get(0).setAccountCode("42000");
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -113,12 +171,12 @@ class AnnualClosingServiceTest {
     void netEqualClassificationChangeStillRejectsStaleDraft() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         // A CREDIT has the same signed balance under both categories, so line-only comparison is insufficient.
         journal.sourceDetails(1L).get(0).setAccountCategory("EXPENSES");
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -127,13 +185,13 @@ class AnnualClosingServiceTest {
     void postedCloseThenReopenedAdjustmentCreatesOneDistinctDeltaAndPostedRetryIsNoOp() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         JournalEntryCommand baseClose = journal.createdCommands().get(0);
         journal.markCreatedEntryPosted(0);
         journal.addSource("POSTED", List.of(
                 detail(REVENUE_ACCOUNT, "REVENUE", JournalSide.CREDIT, "500.00", "500.00")));
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         assertThat(journal.createdCommands()).hasSize(2);
         JournalEntryCommand delta = journal.createdCommands().get(1);
@@ -144,7 +202,7 @@ class AnnualClosingServiceTest {
                 .containsExactly("DEBIT|41000|500.00", "CREDIT|35000|500.00");
 
         journal.markCreatedEntryPosted(1);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         assertThat(journal.createdCommands()).hasSize(2);
     }
@@ -155,12 +213,12 @@ class AnnualClosingServiceTest {
         String legacySlipNo = journal.addLegacyPostedAnnualClose("1000.00");
         AnnualClosingService service = service(journal);
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         assertThat(journal.createdCommands()).isEmpty();
 
         journal.addSource("POSTED", List.of(
                 detail(REVENUE_ACCOUNT, "REVENUE", JournalSide.CREDIT, "500.00", "500.00")));
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         assertThat(journal.createdCommands()).hasSize(1);
         JournalEntryCommand delta = journal.createdCommands().get(0);
@@ -182,11 +240,11 @@ class AnnualClosingServiceTest {
                 detail("52000", "EXPENSES", JournalSide.DEBIT, "50.00", "50.00")));
         AnnualClosingService service = service(journal);
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         JournalEntryCommand original = journal.createdCommands().get(0);
         journal.reverseProviderOrder();
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
 
         assertThat(journal.createdCommands()).singleElement().satisfies(reused -> {
             assertThat(reused.slipNo()).isEqualTo(original.slipNo());
@@ -198,10 +256,10 @@ class AnnualClosingServiceTest {
     void missingSnapshotLineageFailsClosed() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         journal.createdSummary(0).setLineageSourceId(null);
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -210,10 +268,10 @@ class AnnualClosingServiceTest {
     void malformedSnapshotLineageFailsClosed() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         journal.createdSummary(0).setLineageSourceId("not-a-source-snapshot");
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -223,10 +281,10 @@ class AnnualClosingServiceTest {
     void unsupportedAnnualClosingStatusFailsClosed(String status) {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         journal.createdSummary(0).setStatus(status);
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -235,10 +293,10 @@ class AnnualClosingServiceTest {
     void alteredDraftHeaderFailsClosed() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         journal.createdSummary(0).setCurrencyCode("USD");
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -247,12 +305,12 @@ class AnnualClosingServiceTest {
     void unbalancedDraftLinesFailClosed() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         JournalDetailSummary retainedEarnings = journal.createdDetails(0).get(1);
         retainedEarnings.setAmount(new BigDecimal("900.00"));
         retainedEarnings.setBaseAmount(new BigDecimal("900.00"));
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -261,10 +319,10 @@ class AnnualClosingServiceTest {
     void balancedButAlteredDraftLineFailsClosed() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         journal.createdDetails(0).get(0).setDetailDescription("altered after snapshot");
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -273,13 +331,13 @@ class AnnualClosingServiceTest {
     void malformedPostedCloseFailsClosedBeforeDeltaWrite() {
         StatefulJournal journal = journalWithPostedRevenue("1000.00");
         AnnualClosingService service = service(journal);
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         journal.markCreatedEntryPosted(0);
         journal.createdDetails(0).get(1).setBaseAmount(new BigDecimal("900.00"));
         journal.addSource("POSTED", List.of(
                 detail(REVENUE_ACCOUNT, "REVENUE", JournalSide.CREDIT, "500.00", "500.00")));
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -293,7 +351,7 @@ class AnnualClosingServiceTest {
         journal.addSource("POSTED", List.of(source));
         AnnualClosingService service = service(journal);
 
-        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+        assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .isInstanceOfAny(IllegalStateException.class, NullPointerException.class);
         assertThat(journal.createdCommands()).isEmpty();
     }
@@ -307,7 +365,7 @@ class AnnualClosingServiceTest {
         journal.addMasterAccount(REVENUE_ACCOUNT, source.getAccountingDate(),
                 account(REVENUE_ACCOUNT, "REVENUE"));
 
-        service(journal).performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service(journal).performIncomeStatementClosing(YEAR);
 
         assertThat(journal.createdCommands()).singleElement().satisfies(command ->
                 assertThat(command.lines()).extracting(line -> line.accountCode())
@@ -320,7 +378,7 @@ class AnnualClosingServiceTest {
         StatefulJournal journal = journalWithMissingSourceCategory();
 
         assertThatThrownBy(() -> service(journal)
-                .performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+                .performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).isEmpty();
     }
@@ -333,7 +391,7 @@ class AnnualClosingServiceTest {
                 account("42000", "REVENUE"));
 
         assertThatThrownBy(() -> service(journal)
-                .performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+                .performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).isEmpty();
     }
@@ -347,7 +405,7 @@ class AnnualClosingServiceTest {
                 account(REVENUE_ACCOUNT, category));
 
         assertThatThrownBy(() -> service(journal)
-                .performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT))
+                .performIncomeStatementClosing(YEAR))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(journal.createdCommands()).isEmpty();
     }
@@ -366,10 +424,10 @@ class AnnualClosingServiceTest {
                 account(REVENUE_ACCOUNT, "REVENUE"));
         AnnualClosingService service = service(journal);
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         assertThat(journal.masterLookupCount(REVENUE_ACCOUNT, credit.getAccountingDate())).isOne();
 
-        service.performIncomeStatementClosing(YEAR, RETAINED_EARNINGS_ACCOUNT);
+        service.performIncomeStatementClosing(YEAR);
         assertThat(journal.masterLookupCount(REVENUE_ACCOUNT, credit.getAccountingDate())).isEqualTo(2);
         assertThat(journal.createdCommands()).hasSize(1);
     }
@@ -386,7 +444,28 @@ class AnnualClosingServiceTest {
     }
 
     private static AnnualClosingService service(StatefulJournal journal) {
-        return new AnnualClosingService(journal, journal, journal);
+        return service(journal, "closing-controller", "CHG-776");
+    }
+
+    private static AnnualClosingService service(
+            StatefulJournal journal,
+            String approvedBy,
+            String changeReference) {
+        journal.addMasterAccount(
+                RETAINED_EARNINGS_ACCOUNT,
+                YEAR_END,
+                account(RETAINED_EARNINGS_ACCOUNT, "EQUITY"));
+        return new AnnualClosingService(
+                journal,
+                journal,
+                journal,
+                fiscalYear -> new ApprovedRetainedEarningsMapping(
+                        "ENTITY-01",
+                        fiscalYear,
+                        RETAINED_EARNINGS_ACCOUNT,
+                        true,
+                        approvedBy,
+                        changeReference));
     }
 
     private static StatefulJournal journalWithPostedRevenue(String amount) {

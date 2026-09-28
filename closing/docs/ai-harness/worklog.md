@@ -331,3 +331,47 @@ Rollback: stop annual-close execution, preserve every posted/draft journal and l
 - [Draft PR #806](https://github.com/skyg547/account/pull/806) is OPEN/DRAFT, `Refs #775`, from `agent/775-annual-close-stale-draft` to `main`; initial mergeability was MERGEABLE. Verified implementation commit: `1200064ad77dbb44925641d359a73924e4c212bc`. Issue #775 is OPEN / `status:needs-review`; worktree retained.
 - The implementation-head [Module Validation](https://github.com/skyg547/account/actions/runs/36423379589), [Harness Validation](https://github.com/skyg547/account/actions/runs/36423379826), and [Merge Guard](https://github.com/skyg547/account/actions/runs/36423379805) jobs did not start. Each GitHub annotation identifies failed recent account payments or a spending-limit restriction. No hosted code/test pass is claimed, and no billing setting was accessed or changed.
 - Publication changes after the verified implementation commit are limited to `agent-status.md`, `worklog.md`, and `handoff.md`. Next owner: repository account owner for Actions availability, then a human reviewer for current-head CI and the documented Journal authentication/operational gates. Ready, merge, Issue close, deployment, and cleanup remain unperformed.
+
+## 2026-09-28 — GH-776 retained-earnings destination control
+
+- Contract: [Issue #776](https://github.com/skyg547/account/issues/776), `agent/776-retained-earnings-control`, `/tmp/account-776-retained-earnings-control`, allowlist `closing/**`, Draft delivery with `Refs #776`. The branch began at `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65` and was fast-forwarded to reviewed #775 Draft head `a1b108f7f5e4c18a9e384139c5e93c7b3b151d68`; #776 is therefore a stacked Draft dependency on PR #806.
+- API and architecture: the annual endpoint accepts only JSON `year`; account and entity selectors are rejected as unknown fields before use-case delegation. `RetainedEarningsMappingPort` keeps the core independent of Spring configuration, while `ConfiguredRetainedEarningsMappingAdapter` resolves one runtime legal entity and one exact fiscal-year rule.
+- Control input: every configured rule requires account code, `postable: true`, nonblank `approvedBy` and `changeReference`. There is no usable default and all rows are checked for invalid/duplicate years and missing evidence. Configuration is snapshotted at bean construction, so changes require a drained annual-close path and full runtime restart.
+- Financial gate: before Journal reads, the configured account is looked up on Dec31 and must return the exact code, `EQUITY` category and CREDIT normal balance. Asset, liability, revenue, expense, unknown/missing, mismatched-code, blank-category and debit-normal equity cases fail before any Journal read/write. Profit, loss and zero-net-income paths all cross this gate.
+- Audit/retry: the normalized entity/year/account/postable/approver/change-reference identity joins the #775 source content in `ANNUAL_SOURCE_SNAPSHOT_V2`. A metadata change makes a pending draft stale. Fully validated posted balances are still subtracted before a new write, so an already complete close does not create a financial delta merely because audit metadata changed. Existing #775 full-header/line/status/lineage, cumulative delta, ordering, BigDecimal and legacy-posted controls remain.
+- RED: on the stacked #775 source, the P17-style regression supplied dated cash account `10100`/`ASSETS` and posted revenue 1,000. The test compiled and failed because `createDraftEntry` was reached; 1 test, 1 intended failure. This proves the defect rather than a fixture/compiler failure.
+- Focused GREEN: Core60 (Annual29, destination9, configuration16, slip6) and API9 (controller7, dev context2), failures/errors/skips0. Independent reviewer forced the same69 relevant tests with offline/rerun/single-worker settings and obtained failures/errors/skips0.
+- Required full verification: exact `./gradlew :closing:test` PASS in1m25s. XML totals Core344/API132/Batch98 =574 tests across25/17/14 =56 suites, failures0/errors0/skipped0. `./gradlew :closing:api:bootJar :closing:batch:bootJar --console=plain --max-workers=1 --no-daemon` PASS in16s. Scope, whitespace, conflict-marker and unmerged-index checks pass.
+- Review: independent read-only `/root/review_776` found no P0–P3 and marked Q1–Q4 PASS. Draft publication is safe only against `agent/775-annual-close-stale-draft`; #806 must merge before retargeting/rebasing #776 to current `main` and repeating current-head verification.
+
+Changed implementation/test/guide paths; the three parent-owned module records are additional:
+
+- `closing/README.md`
+- `closing/api/src/main/java/com/ho/account/closing/dto/AnnualClosingRequestDto.java`
+- `closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java`
+- `closing/api/src/test/java/com/ho/account/closing/ClosingDevRuntimeContextTest.java`
+- `closing/api/src/test/java/com/ho/account/closing/web/ClosingControllerTest.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/in/AnnualClosingUseCase.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/out/RetainedEarningsMappingPort.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java`
+- `closing/core/src/main/java/com/ho/account/closing/domain/ApprovedRetainedEarningsMapping.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/config/AnnualClosingConfigurationProperties.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/config/ConfiguredRetainedEarningsMappingAdapter.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/AnnualClosingDestinationControlRegressionTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/AnnualClosingServiceTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/config/ConfiguredRetainedEarningsMappingAdapterTest.java`
+- `closing/docs/beginner-guide.md`
+- `closing/docs/local-run.md`
+- `closing/docs/process-flow.md`
+- `closing/docs/schema.md`
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `AnnualClosingService.java:80`, `ApprovedRetainedEarningsMapping.java:10`, `ConfiguredRetainedEarningsMappingAdapter.java:20`; full574/independent69 PASS | 해당 없음: 금융 목적지·API·설정 경계 변경 | 실제 provider 동시성·원격 쓰기 미검증 | `/root/review_776`, P0–P3 없음 |
+| Q2 | PASS | `process-flow.md:362`; year→mapping→Dec31 Master→snapshot→draft/delta와 실패·재시작 흐름 | 해당 없음: 입력·처리·출력·재실행 변경 | provider-side 원자 snapshot 없음 | 독립 구현/문서/테스트 대조 PASS |
+| Q3 | PASS | `README.md:16`, `beginner-guide.md:45`, `local-run.md:96`, `schema.md:46`; 합성 YAML과 운영 제약 | 해당 없음: API·설정·운영 계약 변경 | 배포 설정 review와 실제 원격 write는 운영 게이트 | 독립 문서 사실성/제약 대조 PASS |
+| Q4 | PASS | `ApprovedRetainedEarningsMapping.java:3-7`, `ConfiguredRetainedEarningsMappingAdapter.java:70-76`, `AnnualClosingService.java:211-218`, `AnnualClosingService.java:579-580`, `AnnualClosingRequestDto.java:21-27`; postability attestation, 단일 법인, 설정 identity fingerprint, Master 한계, unknown-field fail-closed 의도 주석 | 해당 없음: 비자명 통제 로직 변경 | upstream 계약이 확장되면 주석/정책 갱신 필요 | 독립 의도/구현 일치 확인 |
+
+잔여 테스트 공백: 허용되는 최대 50자 계정 코드의 lineage가 정적으로 86자로 `VARCHAR(100)` 이내임은 독립 리뷰에서 확인했지만, 최대 길이를 직접 assertion하는 회귀 테스트는 없다.
+
+Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전표와 lineage를 보존·대사한다. 검토된 #776 delta만 revert하고 설정은 코드 rollback 뒤 제거한다. 이전 request-selected account 계약은 endpoint가 비활성화된 동안만 복원할 수 있으며, Journal 데이터 삭제·재작성이나 migration rollback은 하지 않는다. 다음 owner는 stacked Draft의 human reviewer와 #806 이후 current-main 통합 검증자다.

@@ -359,29 +359,44 @@ FX 귀속 관계를 읽으므로 운영 규모에서는 PostgreSQL 실행계획�
 | `closingDate` | `2026-04-30` | `allowance_summary.base_date`와 GL 잔액 기준일 |
 | `provisionBatchId` | `20260430` | 전표 lineage와 전표번호 결정성에 사용 |
 
-## 연차 손익 대체 (GH-775)
+## 연차 손익 대체 (GH-775, GH-776)
 
-`AnnualClosingService`는 해당 연도의 `POSTED` 원천을 읽고 source snapshot identity를 만든 뒤,
-검증된 기존 연차 결산의 누적 금액을 뺀 잔여분만 이익잉여금으로 대체하는 `DRAFT`를 생성합니다.
-헤더만 같은 전표를 성공으로 간주하지 않습니다.
+`AnnualClosingService`는 요청에서 연도만 받습니다. `RetainedEarningsMappingPort`가
+`account.closing.annual`에서 단일 법인의 정확한 회계연도 규칙을 선택하고, 연말 Master
+Data가 목적지를 정확한 `EQUITY`/`CREDIT` 계정으로 확인한 뒤에만 Journal을 읽습니다.
+그 다음 #775 source snapshot과 누적 `POSTED` 금액을 사용해 잔여분만 대체하는 `DRAFT`를
+만듭니다. 순이익·순손실·순액 0은 전표 금액만 다를 뿐, 설정과 목적지 검증을 먼저
+하는 통제 흐름은 같습니다.
 
 ```mermaid
 flowchart TD
-    A[연도 내 Journal summary 조회] --> B[POSTED 비연차 원천의 헤더와 상세 검증]
-    B --> C[source snapshot identity 생성]
-    C --> D[기존 연차 DRAFT와 POSTED의 헤더·상세 검증]
-    D --> E[필요 대체액 - 누적 POSTED 결산액]
-    E -->|잔여 0| F[새 전표 없이 성공]
-    E -->|같은 snapshot의 정확한 DRAFT| G[기존 초안 재사용]
-    E -->|오래되거나 잘못된 DRAFT| H[실패 후 운영 대사]
-    E -->|잔여 존재, DRAFT 없음| I[새 snapshot lineage의 delta DRAFT 생성]
+    A[API 본문의 year] --> B[단일 법인·정확한 연도 설정 규칙]
+    B --> C[12월 31일 Master의 정확한 EQUITY/CREDIT 검증]
+    C --> D[연도 내 Journal summary 조회]
+    D --> E[POSTED 비연차 원천의 헤더와 상세 검증]
+    E --> F[원천 및 설정 통제 identity의 source snapshot]
+    F --> G[기존 연차 DRAFT와 POSTED의 헤더·상세 검증]
+    G --> H[필요 대체액 - 누적 POSTED 결산액]
+    H -->|잔여 0| I[새 전표 없이 성공]
+    H -->|같은 snapshot의 정확한 DRAFT| J[기존 초안 재사용]
+    H -->|오래되거나 잘못된 DRAFT| K[실패 후 운영 대사]
+    H -->|잔여 존재, DRAFT 없음| L[새 snapshot lineage의 delta DRAFT 생성]
 ```
+
+### 목적지 설정과 연말 Master 검증
+
+- 하나의 Closing 런타임에는 하나의 `legalEntityCode`만 설정합니다. Journal summary·detail·생성 명령에 법인 차원이 없으므로 이 제약이 없으면 법인별 집계·전기 분리를 증명할 수 없습니다.
+- `mappings`의 모든 행을 검증한 뒤 요청 `fiscalYear`와 정확히 일치하는 한 행을 사용합니다. 가까운 연도로 fallback하지 않으며, 누락·중복 연도는 실패합니다.
+- 규칙은 `accountCode`, 명시적 `postable: true`, `approvedBy`, `changeReference`를 모두 요구합니다. 이 값들은 동료 검토·버전 관리된 배포 설정의 통제 증빙입니다.
+- `AccountSubjectRef`에는 실제 postability 필드가 없습니다. 따라서 `postable: true`는 Master Data가 반환한 사실이 아니라 승인된 control-plane attestation이며, `fixedAsset`/`unsettled`로 추론하지 않습니다.
+- 서비스는 연도의 12월 31일로 `findAccountSubjectAt(accountCode, yearEnd)`을 호출합니다. 조회 누락, 다른 계정 코드, `EQUITY` 아닌 모든 분류, 빈/알 수 없는 분류, 차변 정상잔액은 실패합니다. 즉 자산·부채·수익·비용·기타 분류와 `EQUITY`/차변 계정은 Journal 조회나 초안 생성 전에 차단됩니다.
+- 설정은 빈 기본값으로 기동할 수 있지만 연차 호출 시 fail-closed 검증합니다. adapter가 Spring bean으로 생성될 때 설정을 snapshot하므로 변경은 연차 호출을 drain한 뒤 모든 instance를 재시작해야 적용됩니다.
 
 ### Source snapshot 입력과 식별
 
 - 대상은 1월 1일부터 12월 31일까지의 `POSTED`이면서 연차 결산이 아닌 전표입니다. `DRAFT` 원천은 금액과 identity에서 제외합니다.
 - 전표 헤더의 ID, 전표번호, 전표일·회계일, 설명, 상태, 유형, 통화, lineage 쌍과 각 상세의 ID, 계정, 유효 분류, 차대변, 금액·기준통화금액, 회계일, 헤더 연결 값, 상세 설명과 부서·거래처·계좌 차원을 정규화합니다.
-- 상세와 전표 순서를 정렬하고 연도·이익잉여금 계정과 함께 SHA-256으로 식별합니다. 따라서 공급자의 반환 순서만 바뀌면 identity는 같지만, 금액·계정·분류 또는 헤더/lineage 내용이 바뀌면 다른 snapshot입니다.
+- 상세와 전표 순서를 정렬하고 연도·이익잉여금 계정·정규화한 설정 통제 identity와 함께 SHA-256으로 식별합니다. 설정 identity는 `legalEntityCode`, 연도, 계정 코드, `postable`, `approvedBy`, `changeReference`를 포함합니다. 공급자의 반환 순서만 바뀌면 identity는 같지만, 원천 금액·계정·분류·헤더/lineage나 이 설정 증빙이 바뀌면 다른 snapshot입니다.
 - 상세가 비어 있지 않은 지원 `accountCategory`를 제공하면 그 값을 사용합니다. 값이 없으면 상세의 계정 코드와 회계일자로 `MasterDataQueryPort.findAccountSubjectAt`을 호출하며, 같은 실행의 동일 계정·일자는 캐시합니다. dev에서 remote Master Data 설정을 활성화한 경우의 구현은 `HttpClosingMasterDataQueryAdapter`입니다.
 - 지원 분류는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`, `NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 기준일 계정 조회 누락, 다른 계정 코드 반환, 빈 분류, 미지원 분류와 연차 라인의 현재 원천 분류 불일치는 실패합니다. `REVENUE`와 `EXPENSES`만 대체 금액에 포함되며, 한 계정이 두 손익 분류로 나타나거나 이익잉여금 계정이 손익 계정이면 실패합니다.
 
@@ -393,6 +408,7 @@ flowchart TD
 
 - `DRAFT` 재사용 전 연말 일자, 설명, `TRANSFER`, `KRW`, lineage와 전표번호를 검증합니다. 상세는 ID·계정 중복 없음, 양수 금액, `amount=baseAmount`, 헤더 연결, 계정 분류, 정확한 설명, 차원 없음, 차대변 균형과 현재 잔여 계정별 금액까지 모두 일치해야 합니다.
 - 현재 snapshot·전표번호·전체 내용 중 하나라도 다르거나 pending 초안이 둘 이상이면 자동 덮어쓰기나 두 번째 생성을 하지 않고 실패합니다. lineage 누락·형식 오류와 변조된 헤더/상세도 같은 fail-closed 대상입니다.
+- pending `DRAFT` 이후 승인자·변경 참조를 포함한 설정을 개정하면 snapshot이 바뀌므로 기존 초안은 stale로 실패합니다. 이미 완전한 연차 전표가 `POSTED`되어 잔여가 0이라면 감사 metadata만 바뀌었다는 이유로 새 금액 delta를 만들지 않습니다.
 - 유효한 `POSTED` 연차 전표들은 계정별 signed 기준통화금액으로 누적합니다. 현재 원천을 닫는 데 필요한 금액에서 이 누계를 뺀 잔여가 0이면 새 전표 없이 끝납니다. 같은 snapshot의 `POSTED`가 있는데도 잔여가 남으면 불완전 결산으로 보고 실패합니다.
 - 기존 승인 절차가 연도를 재오픈해 새 `POSTED` 원천이 들어올 수 있게 된 뒤 활동이 추가되면 snapshot과 전표번호가 달라집니다. 기존 전기분을 다시 만들지 않고 잔여 수익·비용과 이익잉여금만 새로운 delta `DRAFT`로 만듭니다. 이 delta가 `POSTED`된 뒤 같은 입력으로 재실행하면 무처리입니다. `AnnualClosingService` 자체는 `ReopenApproval`을 조회하거나 승인 여부를 검증하지 않으므로, 이는 재오픈 권한 통제가 아니라 재오픈 이후의 재무 잔여분 통제입니다.
 - 과거 `lineageSourceId=연도` 형식은 `POSTED`일 때만 허용합니다. 헤더·전표번호·전체 라인을 먼저 검증하고 누계에 포함하므로, 이후 조정분도 잔여 delta로 생성됩니다. 같은 형식의 legacy `DRAFT`는 재사용하지 않습니다.
@@ -405,10 +421,15 @@ flowchart TD
 API:
 
 ```http
-POST /api/closing/annual/perform-income-statement-closing?year=2026&retainedEarningsAccountCode=35000
+POST /api/closing/annual/perform-income-statement-closing
+Content-Type: application/json
+
+{"year": 2026}
 ```
 
-성공 응답 계약은 기존과 같은 HTTP 200 빈 본문입니다. 최초 실행은 새 `DRAFT`, 정확한 초안 재시도나
+본문에는 1900~9999의 정수 `year`만 허용합니다. 계정 코드나 법인을 포함한 추가 필드,
+누락되거나 범위를 벗어난 연도는 use case 호출 전 HTTP 400입니다. 성공 응답 계약은 HTTP 200
+빈 본문입니다. 최초 실행은 새 `DRAFT`, 정확한 초안 재시도나
 누적 `POSTED` 완료 상태는 새 전표 없는 성공, 기존 승인 흐름의 재오픈 후 원천 추가는 잔여 delta
 `DRAFT`가 기대 결과입니다. 검증 실패는 HTTP 409 `WORKFLOW_STATE_CONFLICT`이며 성공으로 간주하면
 안 됩니다. 이 순서는 통제된 포트 회귀 테스트의 기대 결과이며 실제 배포 API를 순서대로 호출해 확인한
@@ -418,7 +439,8 @@ POST /api/closing/annual/perform-income-statement-closing?year=2026&retainedEarn
 전표별 상세를 다시 읽는 N+1 방식이고, 원격 조회와 원격 초안 생성도 하나의 분산 트랜잭션이 아닙니다.
 동시 원천 변경을 막는 안정적 pagination/snapshot 포트, 실 PostgreSQL 실행계획·대량 부하, 분산 장애와
 운영 데이터 복구는 검증하지 않았습니다. 실행 전후 원천과 생성 전표를 운영 대사해야 하며 배포 준비나
-운영 원자성을 이 흐름만으로 주장하지 않습니다.
+운영 원자성을 이 흐름만으로 주장하지 않습니다. Journal에 법인 차원이 생기기 전에는
+여러 법인 원천이 한 실행에 섞이지 않음을 구조적으로 증명할 수 없으므로 런타임을 법인별로 분리합니다.
 
 독립 Journal의 쓰기 API는 신뢰된 service principal을 `X-Auth-User`와 `X-Auth-Roles`로 요구합니다.
 현재 Closing의 `HttpClosingJournalAdapter`는 이 헤더를 전달하지 않으므로 실제 원격 초안 생성은

@@ -2,8 +2,10 @@ package com.ho.account.closing.web;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -17,6 +19,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,12 +30,13 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class ClosingControllerTest {
 
     private ClosingUseCase closingUseCase;
+    private AnnualClosingUseCase annualClosingUseCase;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         closingUseCase = mock(ClosingUseCase.class);
-        AnnualClosingUseCase annualClosingUseCase = mock(AnnualClosingUseCase.class);
+        annualClosingUseCase = mock(AnnualClosingUseCase.class);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new ClosingController(closingUseCase, annualClosingUseCase))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(
@@ -39,6 +45,42 @@ class ClosingControllerTest {
                                 .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                                 .build()))
                 .build();
+    }
+
+    @Test
+    void annualClosingAcceptsOnlyTheFiscalYearAndDelegatesWithoutAnAccountSelector() throws Exception {
+        mockMvc.perform(post("/api/closing/annual/perform-income-statement-closing")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"year\":2026}"))
+                .andExpect(status().isOk());
+
+        verify(annualClosingUseCase).performIncomeStatementClosing(2026);
+    }
+
+    @Test
+    void annualClosingRejectsTheRemovedRequestAccountSelector() throws Exception {
+        mockMvc.perform(post("/api/closing/annual/perform-income-statement-closing")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "year": 2026,
+                                  "retainedEarningsAccountCode": "10100"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(annualClosingUseCase);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"year\":1899}", "{\"year\":10000}"})
+    void annualClosingRejectsMissingOrUnsupportedFiscalYear(String requestJson) throws Exception {
+        mockMvc.perform(post("/api/closing/annual/perform-income-statement-closing")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(annualClosingUseCase);
     }
 
     @Test

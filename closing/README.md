@@ -13,11 +13,19 @@ GL07/#762 커밋 동시성 통합 전에는 #772 전체 해결로 간주할 수 
 불명확하면 영속 전이 기록을 유지하고 자동 재전송하지 않습니다.
 [월말 동시 결정과 복구](docs/process-flow.md#월말-동시-결정과-복구-gh-774)를 참고하세요.
 
-연차 손익 대체는 해당 연도의 `POSTED` 원천 헤더와 상세를 식별한 source snapshot을 사용합니다.
-현재 원천과 헤더·라인 전체가 같은 `DRAFT`만 재사용하고, 기존 승인 절차로 재오픈된 뒤 추가 전기가
-있으면 검증된 `POSTED` 결산의 누적 금액을 뺀 잔여분만 별도 초안으로 만듭니다. 연차 서비스 자체는
-재오픈 승인을 조회·검증하지 않으며 오래되거나 변조된 초안도 자동 교체하지 않습니다. 상세 규칙과
-운영 한계는 [연차 손익 대체](docs/process-flow.md#연차-손익-대체-gh-775)를 참고하세요.
+연차 손익 대체 API는 연도만 받고, 이익잉여금 목적지는 배포 검토를 거친
+`account.closing.annual`의 단일 법인·정확한 연도 규칙으로 결정합니다. 규칙은 계정 코드,
+`postable: true` 승인 표시, 승인자, 변경 참조를 모두 갖추어야 하며, 12월 31일 기준
+Master Data가 같은 계정을 `EQUITY`/`CREDIT`로 반환해야 Journal 조회로 넘어갑니다.
+Master Data에 실제 postability 필드가 없으므로 `postable`은 검증된 Master 속성이 아니라
+통제 평면의 승인 확인입니다. Journal 계약에도 법인 차원이 없어 하나의 런타임은 여러
+법인을 서비스하면 안 됩니다.
+
+해당 연도의 `POSTED` 원천 헤더·상세와 설정 통제 identity는 #775 source snapshot에
+함께 들어갑니다. 현재 원천·설정과 헤더·라인 전체가 같은 `DRAFT`만 재사용하고,
+재오픈 뒤 추가 전기가 있으면 검증된 `POSTED` 결산을 뺀 잔여분만 별도 초안으로 만듭니다.
+설정을 개정하면 기존 pending 초안은 stale 충돌이 되며 자동 교체하지 않습니다. 상세 규칙과
+운영 한계는 [연차 손익 대체](docs/process-flow.md#연차-손익-대체-gh-775-gh-776)를 참고하세요.
 
 ---
 
@@ -168,7 +176,9 @@ ECL 충당 Job 예시:
 - FX 장부금액은 이전에 전기한 평가 조정과 역분개를 원천통화별로 포함합니다. 평가액은 외화 원금을 바꾸지 않으며, 전월 평가가 전기되고 환율이 같으면 다음 평가 차액은 0입니다. [귀속과 대사 기준](docs/process-flow.md#이전-평가를-포함한-장부금액-gh-779)을 참고하세요.
 - ECL은 하나의 확정 run/model, 하나의 법인, 동일 기준일의 summary만 허용하며 계정·통화별 목표와 실제 전기된 거래통화·기능통화 잔액을 각각 대사합니다. 외화는 기준일 환율이 필요하며, 기존 장부액이 그 환율과 다르면 FX 평가 전기를 먼저 요구합니다. summary가 비어 있으면 성공으로 처리하지 않습니다. [통화별 계산과 재시도](docs/process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요.
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. 통제된 환경에서만 `account.closing.accounting.auto-post-adjustments=true`로 자동 승인/전기를 허용합니다.
-- 연차 손익 대체는 Journal 상세의 지원 `accountCategory`를 우선 사용하고, 값이 없으면 계정 코드와 상세 회계일자로 Master Data를 조회합니다. dev의 remote Master Data 설정을 활성화하면 `HttpClosingMasterDataQueryAdapter`가 이 조회를 담당합니다. 조회 누락·계정 불일치·빈 값·미지원 분류는 실패하며, 수익·비용만 금액 대체 대상이지만 다른 지원 분류도 source snapshot 식별에 포함됩니다.
+- 연차 API 본문에는 `year`만 넣습니다. 이익잉여금 계정과 법인을 요청으로 선택할 수 없으며, `account.closing.annual`에 연도별 승인 규칙이 없거나 `postable`/`approvedBy`/`changeReference` 증빙이 부족하면 실패합니다. 설정은 버전 관리·동료 검토된 배포 입력으로 관리하고, 변경 시 연차 호출을 drain한 뒤 모든 instance를 재시작합니다.
+- 이익잉여금 계정은 매호출 12월 31일 Master Data에서 정확한 코드·`EQUITY`·`CREDIT`를 검증합니다. 자산·부채·수익·비용·알 수 없는 분류, 차변 정상잔액은 Journal 조회·생성 전에 거부합니다. 순이익·순손실·순액 0 모두 이 검증을 우회하지 않습니다.
+- 원천 라인 분류는 Journal 상세의 지원 `accountCategory`를 우선 사용하고, 값이 없으면 계정 코드와 상세 회계일자로 Master Data를 조회합니다. 조회 누락·계정 불일치·빈 값·미지원 분류는 실패하며, 수익·비용만 금액 대체 대상이지만 다른 지원 분류도 source snapshot 식별에 포함됩니다.
 - 현재 구현은 원천 전표별 상세 조회(N+1)이며 원격 조회와 초안 생성은 분산 원자적 snapshot이 아닙니다. 또한 `HttpClosingJournalAdapter`는 Journal 쓰기에 필요한 `X-Auth-User`/`X-Auth-Roles` service-principal 계약을 아직 전달하지 않으므로, 별도 승인된 인증 통합 전에는 독립 Journal 원격 초안 생성을 검증된 경로로 간주하면 안 됩니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.

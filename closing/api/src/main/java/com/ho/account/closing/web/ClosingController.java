@@ -258,11 +258,15 @@ public class ClosingController {
     }
 
     /**
-     * 연차 결산(손익 대체 분개 생성)을 수행합니다.
+     * 지정한 회계연도의 손익을 시스템이 통제하는 이익잉여금 계정으로 대체합니다.
+     *
+     * @param requestDto 검증할 회계연도만 포함한 연차 결산 요청
+     * @return 응답 본문 없음
      */
     @PostMapping("/annual/perform-income-statement-closing")
-    public ResponseEntity<Void> performIncomeStatementClosing(@RequestParam int year, @RequestParam String retainedEarningsAccountCode) {
-        annualClosingUseCase.performIncomeStatementClosing(year, retainedEarningsAccountCode);
+    public ResponseEntity<Void> performIncomeStatementClosing(
+            @Valid @RequestBody AnnualClosingRequestDto requestDto) {
+        annualClosingUseCase.performIncomeStatementClosing(requestDto.getYear());
         return ResponseEntity.ok().build();
     }
 }
