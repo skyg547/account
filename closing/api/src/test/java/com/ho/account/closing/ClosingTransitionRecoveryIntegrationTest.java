@@ -161,6 +161,8 @@ class ClosingTransitionRecoveryIntegrationTest {
         var http = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new ClosingExceptionHandler()).build();
 
         http.perform(put("/api/closing/reopen-approvals/{id}/status", fixture.approvalId())
+                        .header("X-Auth-User", "approver")
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"APPROVED\",\"approvedBy\":\"approver\"}"))
                 .andExpect(status().isServiceUnavailable())
@@ -168,6 +170,8 @@ class ClosingTransitionRecoveryIntegrationTest {
 
         ClosingCalendar pending = assertPendingReopen(fixture, "OPEN");
         http.perform(put("/api/closing/reopen-approvals/{id}/status", fixture.approvalId())
+                        .header("X-Auth-User", "rejector")
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"REJECTED\",\"approvedBy\":\"rejector\"}"))
                 .andExpect(status().isConflict())

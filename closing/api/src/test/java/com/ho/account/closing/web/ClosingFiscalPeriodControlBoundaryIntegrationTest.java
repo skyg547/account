@@ -11,13 +11,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.closing.application.port.in.AnnualClosingUseCase;
 import com.ho.account.closing.application.port.in.ClosingUseCase;
 import com.ho.account.closing.domain.ReopenApproval;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
-import com.ho.account.closing.dto.ReopenApprovalRequestDto;
-import com.ho.account.closing.dto.ReopenApprovalStatusUpdateDto;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,10 +27,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  */
 class ClosingFiscalPeriodControlBoundaryIntegrationTest {
 
+    private static final String TRUSTED_ACTOR = "gateway-operator";
+
     private MockMvc mockMvc;
     private ClosingUseCase closingUseCase;
     private AnnualClosingUseCase annualClosingUseCase;
-    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
@@ -43,7 +41,6 @@ class ClosingFiscalPeriodControlBoundaryIntegrationTest {
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ClosingExceptionHandler())
                 .build();
-        objectMapper = new ObjectMapper();
     }
 
     @Test
@@ -51,53 +48,47 @@ class ClosingFiscalPeriodControlBoundaryIntegrationTest {
         ReopenApproval approval = new ReopenApproval();
         approval.setId(10L);
         approval.assignFiscalPeriod(1L, "2026", "01");
-        approval.request("USER_A", "Auditing adjustment needed");
+        approval.request(TRUSTED_ACTOR, "Auditing adjustment needed");
 
-        when(closingUseCase.requestPeriodReopen(1L, "USER_A", "Auditing adjustment needed"))
+        when(closingUseCase.requestPeriodReopen(1L, TRUSTED_ACTOR, "Auditing adjustment needed"))
                 .thenReturn(approval);
 
-        ReopenApprovalRequestDto requestDto = new ReopenApprovalRequestDto();
-        requestDto.setFiscalPeriodId(1L);
-        requestDto.setRequestedBy("USER_A");
-        requestDto.setReason("Auditing adjustment needed");
-
         mockMvc.perform(post("/api/closing/reopen-approvals")
+                        .header("X-Auth-User", TRUSTED_ACTOR)
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content("{\"fiscalPeriodId\":1,\"requestedBy\":\"USER_A\","
+                                + "\"reason\":\"Auditing adjustment needed\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(10))
-                .andExpect(jsonPath("$.requestedBy").value("USER_A"));
+                .andExpect(jsonPath("$.requestedBy").value(TRUSTED_ACTOR));
     }
 
     @Test
     void requestPeriodReopenReturnsConflictWhenPendingRequestAlreadyExists() throws Exception {
-        when(closingUseCase.requestPeriodReopen(1L, "USER_A", "Duplicate request"))
+        when(closingUseCase.requestPeriodReopen(1L, TRUSTED_ACTOR, "Duplicate request"))
                 .thenThrow(new IllegalStateException("A pending reopen request already exists for the fiscal period."));
 
-        ReopenApprovalRequestDto requestDto = new ReopenApprovalRequestDto();
-        requestDto.setFiscalPeriodId(1L);
-        requestDto.setRequestedBy("USER_A");
-        requestDto.setReason("Duplicate request");
-
         mockMvc.perform(post("/api/closing/reopen-approvals")
+                        .header("X-Auth-User", TRUSTED_ACTOR)
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content("{\"fiscalPeriodId\":1,\"requestedBy\":\"USER_A\","
+                                + "\"reason\":\"Duplicate request\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("WORKFLOW_STATE_CONFLICT"));
     }
 
     @Test
     void approveReopenReturnsConflictWhenRequesterIsSameAsApprover() throws Exception {
-        when(closingUseCase.updateReopenApprovalStatus(10L, ReopenApprovalStatus.APPROVED, "USER_A"))
+        when(closingUseCase.updateReopenApprovalStatus(10L, ReopenApprovalStatus.APPROVED, TRUSTED_ACTOR))
                 .thenThrow(new IllegalStateException("Reopen requester cannot approve or reject their own request."));
 
-        ReopenApprovalStatusUpdateDto updateDto = new ReopenApprovalStatusUpdateDto();
-        updateDto.setStatus(ReopenApprovalStatus.APPROVED);
-        updateDto.setApprovedBy("USER_A");
-
         mockMvc.perform(put("/api/closing/reopen-approvals/10/status")
+                        .header("X-Auth-User", TRUSTED_ACTOR)
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDto)))
+                        .content("{\"status\":\"APPROVED\",\"approvedBy\":\"USER_A\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("WORKFLOW_STATE_CONFLICT"))
                 .andExpect(jsonPath("$.message").value("Reopen requester cannot approve or reject their own request."));
@@ -109,37 +100,33 @@ class ClosingFiscalPeriodControlBoundaryIntegrationTest {
         approval.setId(10L);
         approval.assignFiscalPeriod(1L, "2026", "01");
         approval.request("USER_A", "Auditing adjustment needed");
-        approval.approve("USER_B_MANAGER");
+        approval.approve(TRUSTED_ACTOR);
 
-        when(closingUseCase.updateReopenApprovalStatus(10L, ReopenApprovalStatus.APPROVED, "USER_B_MANAGER"))
+        when(closingUseCase.updateReopenApprovalStatus(10L, ReopenApprovalStatus.APPROVED, TRUSTED_ACTOR))
                 .thenReturn(approval);
 
-        ReopenApprovalStatusUpdateDto updateDto = new ReopenApprovalStatusUpdateDto();
-        updateDto.setStatus(ReopenApprovalStatus.APPROVED);
-        updateDto.setApprovedBy("USER_B_MANAGER");
-
         mockMvc.perform(put("/api/closing/reopen-approvals/10/status")
+                        .header("X-Auth-User", TRUSTED_ACTOR)
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDto)))
+                        .content("{\"status\":\"APPROVED\",\"approvedBy\":\"USER_B_MANAGER\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(10))
-                .andExpect(jsonPath("$.approvedBy").value("USER_B_MANAGER"));
+                .andExpect(jsonPath("$.approvedBy").value(TRUSTED_ACTOR));
 
-        verify(closingUseCase).updateReopenApprovalStatus(10L, ReopenApprovalStatus.APPROVED, "USER_B_MANAGER");
+        verify(closingUseCase).updateReopenApprovalStatus(10L, ReopenApprovalStatus.APPROVED, TRUSTED_ACTOR);
     }
 
     @Test
     void returnsNotFoundWhenFiscalPeriodOrApprovalDoesNotExist() throws Exception {
-        when(closingUseCase.updateReopenApprovalStatus(999L, ReopenApprovalStatus.APPROVED, "USER_B"))
+        when(closingUseCase.updateReopenApprovalStatus(999L, ReopenApprovalStatus.APPROVED, TRUSTED_ACTOR))
                 .thenThrow(new EntityNotFoundException("ReopenApproval not found"));
 
-        ReopenApprovalStatusUpdateDto updateDto = new ReopenApprovalStatusUpdateDto();
-        updateDto.setStatus(ReopenApprovalStatus.APPROVED);
-        updateDto.setApprovedBy("USER_B");
-
         mockMvc.perform(put("/api/closing/reopen-approvals/999/status")
+                        .header("X-Auth-User", TRUSTED_ACTOR)
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDto)))
+                        .content("{\"status\":\"APPROVED\",\"approvedBy\":\"USER_B\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
     }
