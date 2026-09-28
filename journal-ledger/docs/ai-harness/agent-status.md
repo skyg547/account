@@ -1,3 +1,26 @@
+# GH-768 agent status
+
+- Issue: [#768](https://github.com/skyg547/account/issues/768); owner `agent:codex`, review handoff target `status:needs-review`.
+- Status: implementation, byte-identical audited RED/current GREEN proof, requested module verification, corrected independent review, and functional documentation are complete; [Draft PR #802](https://github.com/skyg547/account/pull/802) is open with `Refs #768`.
+- Base: `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Branch/worktrees: `agent/768-reaggregation-restart-dates`, `/tmp/account-768-reaggregation-dates`; detached proof `/tmp/account-768-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model/ownership: `gpt-5.6-sol`, high. Batch, test, and documentation writers used disjoint `journal-ledger/**` allowlists; Explorer/Reviewer were read-only; parent owns these records and Git/GitHub.
+- Allowlist: `journal-ledger/**`. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Result: no-date reaggregation resolves JVM-zone yesterday once in Start, freezes the effective owner/context range, and reuses it across midnight/next-day same-instance restart. Invalid/conflicting inputs fail before locks, barrier, or deletion while existing full/partial/single-date compatibility remains.
+- RED/GREEN: byte-identical regression SHA-256 `64aa4d1a9a794e289c721ee6e16db280aab2839948684b71e91b482f66f5302b` fails 1/1 on audited `a97d10ab` and passes 1/1 after remediation; audited production is unchanged.
+- Verification: final literal `./gradlew :journal-ledger:test` passes 56 suites/398 tests (core304/API57/batch37), failures/errors/skips0; focused35/35 and quality contract32/32 pass; static gates pass.
+- Independent review: initial P1 partial-date compatibility and P3 stale-name findings were returned to the original owners and corrected. Final `/root/issue_768_review` reports no P0-P3 and Q1-Q4 PASS.
+- Publication: implementation commit `71546fec` is pushed and Draft PR #802 contains acceptance evidence, verification, rollback/limits, and authority separation. This record-only follow-up changes no production or test behavior.
+- Remote CI prerequisite: Agent Merge Guard, Harness Validation, and Module Validation entry jobs failed before executing any steps. GitHub annotations report failed recent account payments or a spending-limit prerequisite; no remote CI PASS or executed code-test failure is claimed.
+- Rollback/limits: scoped revert, no migration. No production data, live PostgreSQL, distributed process kill, production load, deployment, or historical repair was used; non-UTC Spring-context wiring remains without a dedicated integration.
+- Authority: user authorized commit, push, Draft PR, and module-local record updates. Human review owns Ready, merge, Issue close, deployment, and cleanup.
+
+See [worklog.md](worklog.md) for commands, RED/GREEN evidence, review corrections, and Q1-Q4.
+
+---
+
+The following is retained historical status and is not a current GH-768 report.
+
 # GH-763 agent status
 
 - Issue: [#763](https://github.com/skyg547/account/issues/763); owner `agent:codex`, review handoff target `status:needs-review`.

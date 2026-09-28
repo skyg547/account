@@ -4,8 +4,10 @@ import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.item.ExecutionContext;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 
 /**
@@ -19,15 +21,22 @@ public final class BatchDateRangeParameterUtils {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final String FROZEN_START = "balanceReaggregation.startDate";
     private static final String FROZEN_END = "balanceReaggregation.endDate";
+    private static final String[] START_DATE_ALIASES = {"startDate", "fromDate"};
+    private static final String[] END_DATE_ALIASES = {"endDate", "toDate"};
+    private static final String[] SINGLE_DATE_ALIASES = {"baseDate", "targetDate"};
 
     private BatchDateRangeParameterUtils() {
     }
 
     public static DateRange resolveDateRange(StepExecution stepExecution) {
+        return resolveDateRange(stepExecution, Clock.systemDefaultZone());
+    }
+
+    public static DateRange resolveDateRange(StepExecution stepExecution, Clock clock) {
         if (stepExecution == null) {
             throw new IllegalArgumentException("stepExecution must not be null");
         }
-        return resolveDateRange(stepExecution.getJobParameters());
+        return resolveDateRange(stepExecution.getJobParameters(), clock);
     }
 
     public static DateRange freezeDateRange(StepExecution stepExecution) {
@@ -73,40 +82,73 @@ public final class BatchDateRangeParameterUtils {
     }
 
     public static DateRange resolveDateRange(JobParameters jobParameters) {
+        return resolveDateRange(jobParameters, Clock.systemDefaultZone());
+    }
+
+    /**
+     * Resolves one unambiguous requested range before the owner barrier is acquired.
+     *
+     * <p>Equal duplicate aliases are accepted for launcher compatibility. A start-only range remains
+     * a one-day range; an end-only range starts on the prior calendar day in the supplied clock's
+     * zone. Conflicting aliases and mixing a single-day alias with range aliases are rejected before
+     * cleanup. With no date parameter, that same prior calendar day is used for both bounds.</p>
+     */
+    public static DateRange resolveDateRange(JobParameters jobParameters, Clock clock) {
         if (jobParameters == null) {
             throw new IllegalArgumentException("jobParameters must not be null");
         }
-        LocalDate fallback = LocalDate.now().minusDays(1);
-        LocalDate resolvedStart = findFirstNonBlank(
-                jobParameters.getString("startDate"),
-                jobParameters.getString("fromDate"),
-                jobParameters.getString("baseDate"),
-                jobParameters.getString("targetDate")
-        ).map(date -> LocalDate.parse(date, DATE_FORMAT)).orElse(fallback);
+        if (clock == null) {
+            throw new IllegalArgumentException("clock must not be null");
+        }
 
-        LocalDate resolvedEnd = findFirstNonBlank(
-                jobParameters.getString("endDate"),
-                jobParameters.getString("toDate"),
-                jobParameters.getString("baseDate"),
-                jobParameters.getString("targetDate")
-        ).map(date -> LocalDate.parse(date, DATE_FORMAT)).orElse(resolvedStart);
+        Optional<LocalDate> start = resolveAliases(jobParameters, "start date", START_DATE_ALIASES);
+        Optional<LocalDate> end = resolveAliases(jobParameters, "end date", END_DATE_ALIASES);
+        Optional<LocalDate> single = resolveAliases(jobParameters, "single date", SINGLE_DATE_ALIASES);
+        boolean hasRangeAlias = start.isPresent() || end.isPresent();
 
+        if (single.isPresent() && hasRangeAlias) {
+            throw new IllegalArgumentException(
+                    "Single-date aliases (baseDate/targetDate) cannot be mixed with range aliases");
+        }
+        if (single.isPresent()) {
+            return new DateRange(single.get(), single.get());
+        }
+        if (!hasRangeAlias) {
+            LocalDate yesterday = LocalDate.now(clock).minusDays(1);
+            return new DateRange(yesterday, yesterday);
+        }
+        LocalDate resolvedStart = start.orElseGet(() -> LocalDate.now(clock).minusDays(1));
+        LocalDate resolvedEnd = end.orElse(resolvedStart);
         if (resolvedEnd.isBefore(resolvedStart)) {
             throw new IllegalArgumentException("endDate must be greater than or equal to startDate");
         }
         return new DateRange(resolvedStart, resolvedEnd);
     }
 
-    private static Optional<String> findFirstNonBlank(String... values) {
-        if (values == null) {
-            return Optional.empty();
-        }
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return Optional.of(value.trim());
+    private static Optional<LocalDate> resolveAliases(
+            JobParameters jobParameters, String semanticName, String... aliases) {
+        LocalDate resolved = null;
+        String resolvedAlias = null;
+        for (String alias : aliases) {
+            String rawValue = jobParameters.getString(alias);
+            if (rawValue == null || rawValue.isBlank()) {
+                continue;
             }
+            LocalDate candidate;
+            try {
+                candidate = LocalDate.parse(rawValue.trim(), DATE_FORMAT);
+            } catch (DateTimeParseException exception) {
+                throw new IllegalArgumentException(
+                        "Invalid " + alias + "; expected an ISO date such as 2026-04-30", exception);
+            }
+            if (resolved != null && !resolved.equals(candidate)) {
+                throw new IllegalArgumentException(
+                        "Conflicting " + semanticName + " aliases: " + resolvedAlias + " and " + alias);
+            }
+            resolved = candidate;
+            resolvedAlias = alias;
         }
-        return Optional.empty();
+        return Optional.ofNullable(resolved);
     }
 
     public record DateRange(LocalDate startDate, LocalDate endDate) {
