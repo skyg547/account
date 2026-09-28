@@ -2,6 +2,8 @@ package com.ho.account.closing.application.service;
 
 import com.ho.account.closing.application.port.in.ClosingAdmissionQuery;
 import com.ho.account.closing.application.port.in.ClosingUseCase;
+import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
+import com.ho.account.closing.application.port.in.FinancialClosingCalculationResult;
 import com.ho.account.closing.application.port.out.ClosingAdjustmentPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingAggregatePersistencePort;
 import com.ho.account.closing.application.port.out.ClosingAuditLogPersistencePort;
@@ -25,10 +27,6 @@ import com.ho.account.closing.domain.ClosingGate.ClosingGateStatus;
 import com.ho.account.closing.domain.ClosingTask.ClosingTaskStatus;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
 import com.ho.account.contracts.journal.JournalDetailSummary;
-import com.ho.account.contracts.journal.JournalEntryCommand;
-import com.ho.account.contracts.journal.JournalLineCommand;
-import com.ho.account.contracts.journal.JournalPostingPort;
-import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
@@ -70,9 +68,9 @@ public class ClosingService implements ClosingUseCase {
     private final ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
     
     private final FiscalPeriodControlPort fiscalPeriodControlPort;
-    private final JournalPostingPort journalPostingPort;
     private final JournalQueryPort journalQueryPort;
     private final ClosingAccountingProperties closingAccountingProperties;
+    private final FinancialClosingCalculation financialClosingCalculation;
     private final ClosingAdmissionQuery closingAdmissionQuery;
     private final ClosingAggregatePersistencePort aggregatePersistencePort;
     private final ClosingPeriodTransitionService periodTransitions;
@@ -296,10 +294,10 @@ public class ClosingService implements ClosingUseCase {
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType, String runBy) {
+        requireSupportedValuationType(valuationType);
+        requireActor(runBy, "runBy");
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-        ClosingAccountingProperties.AutomatedJournalRule accountingRule =
-                closingAccountingProperties.requireValuationRule(valuationType);
 
         // @todo Add an explicit execution key with a unique constraint. Completion requires
         // period/type/business-date/key lookup plus duplicate-request and crash-recovery tests.
@@ -307,52 +305,33 @@ public class ClosingService implements ClosingUseCase {
                 fiscalPeriod, valuationType, runBy);
 
         try {
-            JournalPostingResult result = createAutomatedJournalEntry(
-                    fiscalPeriod.endDate(),
-                    "자동 " + valuationType.name() + " 평가 분개",
-                    "SYSTEM",
-                    "VALUATION_BATCH",
-                    batch.getId().toString(),
-                    accountingRule
-            );
-            return batchExecutionRecorder.markValuationPendingApproval(
-                    batch.getId(),
-                    result.journalEntryId(),
-                    "/reports/valuation/" + batch.getId(),
-                    runBy);
-        } catch (Exception e) {
+            FinancialClosingCalculationResult result = financialClosingCalculation.runFxValuation(
+                    fiscalPeriod.endDate(), batch.getId());
+            return finishValuation(batch.getId(), result, runBy);
+        } catch (RuntimeException e) {
             markValuationFailedPreservingCause(batch.getId(), runBy, e);
-            throw new RuntimeException("Valuation batch failed", e);
+            throw e;
         }
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType, String runBy) {
+        requireSupportedProvisionType(provisionType);
+        requireActor(runBy, "runBy");
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-        ClosingAccountingProperties.AutomatedJournalRule accountingRule =
-                closingAccountingProperties.requireProvisionRule(provisionType);
 
         ProvisionBatch batch = batchExecutionRecorder.startProvision(
                 fiscalPeriod, provisionType, runBy);
 
         try {
-            JournalPostingResult result = createAutomatedJournalEntry(
-                    fiscalPeriod.endDate(),
-                    "자동 " + provisionType.name() + " 충당 분개",
-                    "SYSTEM",
-                    "PROVISION_BATCH",
-                    batch.getId().toString(),
-                    accountingRule
-            );
-            return batchExecutionRecorder.markProvisionPendingApproval(
-                    batch.getId(),
-                    result.journalEntryId(),
-                    runBy);
-        } catch (Exception e) {
+            FinancialClosingCalculationResult result = financialClosingCalculation.runEclProvision(
+                    fiscalPeriod.endDate(), batch.getId());
+            return finishProvision(batch.getId(), result, runBy);
+        } catch (RuntimeException e) {
             markProvisionFailedPreservingCause(batch.getId(), runBy, e);
-            throw new RuntimeException("Provision batch failed", e);
+            throw e;
         }
     }
 
@@ -441,48 +420,41 @@ public class ClosingService implements ClosingUseCase {
         }
     }
 
-    private JournalPostingResult createAutomatedJournalEntry(
-            LocalDate accountingDate,
-            String description,
-            String createdBy,
-            String lineageSourceType,
-            String lineageSourceId,
-            ClosingAccountingProperties.AutomatedJournalRule accountingRule) {
-        BigDecimal amount = accountingRule.getAmount();
-        List<JournalLineCommand> lines = List.of(
-                new JournalLineCommand(
-                        "DEBIT",
-                        accountingRule.getDebitAccountCode(),
-                        amount,
-                        amount,
-                        null,
-                        null,
-                        description + " (차변)"),
-                new JournalLineCommand(
-                        "CREDIT",
-                        accountingRule.getCreditAccountCode(),
-                        amount,
-                        amount,
-                        null,
-                        null,
-                        description + " (대변)")
-        );
+    private ValuationBatch finishValuation(
+            Long batchId,
+            FinancialClosingCalculationResult result,
+            String actor) {
+        String reportLink = "/reports/valuation/" + batchId;
+        if (result.journalCount() == 0 || closingAccountingProperties.isAutoPostAdjustments()) {
+            return batchExecutionRecorder.markValuationCompleted(
+                    batchId, result.singleJournalEntryId(), reportLink, actor);
+        }
+        return batchExecutionRecorder.markValuationPendingApproval(
+                batchId, result.singleJournalEntryId(), reportLink, actor);
+    }
 
-        JournalEntryCommand command = new JournalEntryCommand(
-                accountingDate,
-                accountingDate,
-                description,
-                "ADJUSTMENT",
-                "KRW",
-                BigDecimal.ONE,
-                createdBy,
-                createdBy,
-                lineageSourceType,
-                lineageSourceId,
-                lines
-        );
+    private ProvisionBatch finishProvision(
+            Long batchId,
+            FinancialClosingCalculationResult result,
+            String actor) {
+        if (result.journalCount() == 0 || closingAccountingProperties.isAutoPostAdjustments()) {
+            return batchExecutionRecorder.markProvisionCompleted(
+                    batchId, result.singleJournalEntryId(), actor);
+        }
+        return batchExecutionRecorder.markProvisionPendingApproval(
+                batchId, result.singleJournalEntryId(), actor);
+    }
 
-        return journalPostingPort.createDraftEntry(command);
+    private void requireSupportedValuationType(ValuationBatch.ValuationType valuationType) {
+        if (valuationType != ValuationBatch.ValuationType.FX_RATE) {
+            throw new IllegalArgumentException("Only FX_RATE valuation is supported");
+        }
+    }
+
+    private void requireSupportedProvisionType(ProvisionBatch.ProvisionType provisionType) {
+        if (provisionType != ProvisionBatch.ProvisionType.ECL) {
+            throw new IllegalArgumentException("Only ECL provision is supported");
+        }
     }
 
     private void requireActor(String value, String fieldName) {

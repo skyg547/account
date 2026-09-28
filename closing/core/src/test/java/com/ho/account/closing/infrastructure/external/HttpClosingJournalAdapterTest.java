@@ -52,6 +52,8 @@ class HttpClosingJournalAdapterTest {
             String path = exchange.getRequestURI().getPath();
             requests.add(new Received(path, exchange.getRequestMethod(),
                     exchange.getRequestHeaders().getFirst("X-User-ID"),
+                    exchange.getRequestHeaders().getFirst("X-Auth-User"),
+                    exchange.getRequestHeaders().getFirst("X-Auth-Roles"),
                     new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
             int status = path.equals(failedPath) ? failureStatus : 200;
             String body = path.equals(CREATE) ? DRAFT : path.equals(SUMMARIES) ? "[" + VIEW + "]" : VIEW;
@@ -110,6 +112,8 @@ class HttpClosingJournalAdapterTest {
         assertThat(requests).extracting(Received::method).containsExactly("POST", "POST", "POST", "GET", "GET");
         assertThat(requests.get(1).actor()).isEqualTo("closing-operator");
         assertThat(requests.get(2).actor()).isEqualTo("closing-operator");
+        assertThat(requests.get(0).authUser()).isEqualTo("closing-operator");
+        assertThat(requests.get(0).authRoles()).isEqualTo("ROLE_JOURNAL_MAKER");
         JsonNode json = new ObjectMapper()
                 .enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
                 .readTree(requests.get(0).body());
@@ -173,5 +177,11 @@ class HttpClosingJournalAdapterTest {
                 new JournalLineCommand("CREDIT", "101000", amount, amount, null, null, "Closing credit")));
     }
 
-    private record Received(String path, String method, String actor, String body) { }
+    private record Received(
+            String path,
+            String method,
+            String actor,
+            String authUser,
+            String authRoles,
+            String body) { }
 }

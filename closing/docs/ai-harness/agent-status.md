@@ -112,3 +112,12 @@
 - Initial implementation-head hosted checks did not execute: GitHub check annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36031718246), [Harness Validation](https://github.com/skyg547/account/actions/runs/36031718247), [Merge Guard](https://github.com/skyg547/account/actions/runs/36031718278). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
+
+## GH-777 — verified, awaiting Draft publication
+
+- Issue #777 / CL07, branch `agent/777-financial-run-evidence`, worktree `/tmp/account-777-financial-run-evidence`, base `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Closing-only implementation removes configured fixed amounts and routes API `FX_RATE`/`ECL` runs through the same core evidence policy and posted-journal SQL as Batch. Missing evidence fails before Journal; history records 0/1/many, auto-post and failure outcomes.
+- FX API uses a single bounded evidence pass and exact immutable command plan. ECL source groups and query time are bounded before per-group reads. Batch adds restart-safe write-free validation while preserving partition/cursor/chunk/checkpoint behavior.
+- Required `./gradlew :closing:test`: PASS512 (API127/Batch100/Core285), failure/error/skip0. API/Batch bootJar PASS. Scope, whitespace, conflict, dependency and no-migration gates pass.
+- Independent read-only review returned APPROVE, no open P0–P3, Q1–Q4 PASS after maker-header and monolith ECL bean defects were fixed and rerun.
+- Parent Integrator now owns authorized commit/push/Draft PR/module-record publication. Ready, merge, Issue close, deployment and branch/worktree deletion remain unperformed. Next owner after Draft: human current-head/CI reviewer and authorized operations owner for real PostgreSQL/source freeze/deployed Journal gates.

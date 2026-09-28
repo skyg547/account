@@ -3,6 +3,7 @@ package com.ho.account.closing.batch.adapter.out;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;

@@ -42,7 +42,17 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.sql.init.mode=never",
                 "closing.master-data.remote.enabled=true",
                 "closing.master-data.base-url=http://master-data.test",
-                "closing.journal-ledger.base-url=http://journal-ledger.test"
+                "closing.journal-ledger.base-url=http://journal-ledger.test",
+                "closing.sources.enabled=true",
+                "closing.sources.journal.url=jdbc:postgresql://localhost:1/closing-dev-journal",
+                "closing.sources.journal.username=test",
+                "closing.sources.journal.password=test",
+                "closing.sources.ecl.url=jdbc:postgresql://localhost:1/closing-dev-ecl",
+                "closing.sources.ecl.username=test",
+                "closing.sources.ecl.password=test",
+                "closing.sources.master-data.url=jdbc:postgresql://localhost:1/closing-dev-master",
+                "closing.sources.master-data.username=test",
+                "closing.sources.master-data.password=test"
         })
 class ClosingDevRuntimeContextTest {
     @Autowired ApplicationContext context;

@@ -34,6 +34,10 @@
 4. `ecl`은 IFRS 9 Stage/PD/LGD/EAD 계산 결과를 `allowance_summary`에 확정합니다.
 5. `closing:batch`는 `allowance_summary`와 실제 전기된 충당금 잔액을 같은 통화끼리 비교해 차이만 전표로 만듭니다.
 
+API로 실행해도 금액을 직접 입력하지 않습니다. 평가 API는 `FX_RATE`, 충당 API는 `ECL`만
+받고, Batch와 같은 core 계산 규칙 및 `POSTED` 전표 집계 SQL로 근거를 다시 읽습니다. 즉
+운영자가 임의의 고정 금액을 넣어 전표를 만드는 우회 경로는 없습니다.
+
 ECL 목표가100달러라면 기존 충당금80달러와 비교해야 합니다. 장부의 원화 금액104,000원을
 100달러에서 빼면 안 됩니다. 환율1,300에서 추가 전표는20달러/26,000원입니다.
 환율이1,400으로 바뀌었다면 기존80달러의 장부를 먼저112,000원으로 FX 평가·전기하고
@@ -62,6 +66,14 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 
 자동 승인/전기는 `account.closing.accounting.auto-post-adjustments=true`일 때만 허용합니다. 로컬이나 검증 환경에서는 이 값을 기본 `false`로 두는 편이 안전합니다.
 
+API 실행 이력은 전표가 없거나 자동 전기된 경우 `COMPLETED`, DRAFT 전표가 있으면
+`PENDING_APPROVAL`, 처리 중 예외가 나면 `FAILED`입니다. 여러 전표가 생성되어도 기존 이력
+테이블에는 ID 한 개만 담을 수 있으므로 `generated_journal_entry_id`는 `null`입니다.
+
+FX Batch는 먼저 전표를 쓰지 않는 전체 검사를 하고, 성공한 뒤 partition/cursor/chunk 전기를
+시작합니다. 재시작 시에도 검사를 다시 합니다. 다만 검사와 전기 사이를 묶는 분산 snapshot은
+없으므로 운영자는 실행 동안 원장, 기준일 환율, 평가 정책을 변경하지 않아야 합니다.
+
 ## 코드 위치
 
 | 관심사 | 위치 |
@@ -85,6 +97,8 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 - 결산 조정 전표의 회계일자가 대상 회계기간 안에 있는지 확인합니다.
 - ECL 충당 전표 실행 전 동일 기준일·단일 run/model·단일 법인의 `allowance_summary`가 생성되어 있는지 확인합니다. 현재 GL에는 법인 차원이 없어서 여러 법인을 한 실행에 섞으면 실패합니다.
 - FX 평가 전 기준일 환율, 전기된 외화 잔액, 기준일 유효 계정 정보와 계정별 명시적 평가 정책을 확인합니다.
+- `dev`에서 실제 금융 실행을 검증할 때만 승인된 source 설정과 함께 `closing.sources.enabled=true`를 명시합니다. 기본값 `false`/미설정은 외부 DB나 Journal 대신 가짜 성공을 주지 않고 실패합니다.
+- remote Journal의 멱등 slip 처리, API 중복 요청 방지, 여러 전표 ID 조회, production PostgreSQL 부하는 아직 별도 운영·검증 과제입니다.
 - 재오픈 요청자와 승인자가 다른지, 동일 기간에 대기 중인 요청이 없는지 확인합니다.
 - EOD 명령은 Gateway가 검증해 만든 actor/role 헤더를 통해서만 호출하고 서비스 포트를 외부에 노출하지 않습니다.
 - 일마감 상태의 `transactionAllowed=false`는 도메인 판단입니다. Journal 전표 생성 게이트에 연결되기 전까지는 월 회계기간 잠금과 별도로 운영 통제가 필요합니다.

@@ -46,6 +46,10 @@ IntelliJ에서는 `.run`의 `Closing API bootRun`, `Closing Batch Context` 실�
 
 FX 평가와 ECL 충당의 금액 산출, 차대변 판단, 전표 라인 구성은 `closing:core`의 application service가 담당합니다. `closing:batch`는 Spring Batch Job/Step, Reader/Writer/Tasklet, 외부 Repository/JournalUseCase 어댑터만 담당합니다.
 
+API 평가/충당 실행도 고정 금액을 받지 않습니다. API는 `FX_RATE`, 충당은 `ECL`만 지원하며,
+API와 Batch 모두 실제 `POSTED` 전표를 집계하는 공통 SQL과 같은 core 금융 정책을 사용합니다.
+누락 환율이나 확정 ECL summary는 첫 Journal 쓰기 전에 실패합니다.
+
 초보자 설명: Batch는 "공장 컨베이어 벨트"이고 core는 "회계 규칙을 판단하는 업무 담당자"입니다. 컨베이어가 어떤 순서로 데이터를 흘릴지는 batch가 정하지만, 어떤 금액을 차변/대변에 놓을지는 core가 결정해야 테스트와 API/Batch 흐름이 같은 규칙을 공유할 수 있습니다.
 
 ### 📌 결산 캘린더 및 마감 파이프라인
@@ -162,7 +166,12 @@ ECL 충당 Job 예시:
 - FX 장부금액은 이전에 전기한 평가 조정과 역분개를 원천통화별로 포함합니다. 평가액은 외화 원금을 바꾸지 않으며, 전월 평가가 전기되고 환율이 같으면 다음 평가 차액은 0입니다. [귀속과 대사 기준](docs/process-flow.md#이전-평가를-포함한-장부금액-gh-779)을 참고하세요.
 - ECL은 하나의 확정 run/model, 하나의 법인, 동일 기준일의 summary만 허용하며 계정·통화별 목표와 실제 전기된 거래통화·기능통화 잔액을 각각 대사합니다. 외화는 기준일 환율이 필요하며, 기존 장부액이 그 환율과 다르면 FX 평가 전기를 먼저 요구합니다. summary가 비어 있으면 성공으로 처리하지 않습니다. [통화별 계산과 재시도](docs/process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요.
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. 통제된 환경에서만 `account.closing.accounting.auto-post-adjustments=true`로 자동 승인/전기를 허용합니다.
+- API는 FX evidence를 한 번 스트리밍해 기본 10,000행, 생성 전표 command 1,000개의 hard cap 안에서 전체 command를 먼저 불변 목록으로 확정한 뒤 그 목록만 게시합니다. ECL source 조회도 최대 1,001개 전표 그룹과 60초 query timeout으로 경계를 두고, 1,000개를 넘으면 그룹별 원장/환율 조회와 Journal 게시 전에 실패합니다.
+- API 실행 이력은 전표가 0건이거나 자동 전기이면 `COMPLETED`, DRAFT가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 전표가 여러 건이면 단일 `generated_journal_entry_id`에는 `null`을 기록합니다.
+- FX Batch는 쓰기 없는 전체 source validation step을 먼저 실행한 뒤 기존 partition/cursor/chunk 전기를 수행합니다. 재시작 때 validation도 다시 실행합니다. 두 단계 사이의 분산 snapshot을 제공하지 않으므로 원장·환율·정책을 운영 절차로 동결해야 합니다.
+- `dev` profile은 `closing.sources.enabled=false` 또는 미설정일 때 외부 source/Journaling을 fail-closed합니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.
 - Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49의 10개 Closing 소유 테이블 baseline을 적용하고, V50으로 EOD/BOD 상태를 승격한 뒤 V51로 운영 조회 인덱스를 수렴시키고 V52로 월말 전이 기록을 추가합니다. 기존 legacy DB는 runner가 전체 컬럼 타입·길이·nullability·identity·PK/FK/기간 unique를 확인한 경우에만 49 baseline을 기록하고 V50/V51/V52를 forward 적용합니다. V52는 미완료 월말 전이 기록을 추가하며 새 버전 기동 전에 적용해야 합니다.
+- 이 금융 실행 경로 변경에는 새 스키마나 migration이 없습니다.
 - Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.

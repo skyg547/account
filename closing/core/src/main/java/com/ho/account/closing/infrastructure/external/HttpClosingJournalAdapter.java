@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -36,10 +37,14 @@ import org.springframework.web.client.RestClientResponseException;
  */
 @Component
 @Profile("dev")
+@ConditionalOnProperty(name = "closing.sources.enabled", havingValue = "true")
 public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQueryPort {
 
     private static final String UNSUPPORTED_QUERY =
             "Journal Ledger HTTP API does not support this Closing query";
+    private static final String AUTH_USER_HEADER = "X-Auth-User";
+    private static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
+    private static final String JOURNAL_MAKER_ROLE = "ROLE_JOURNAL_MAKER";
 
     private final RestClient restClient;
 
@@ -85,6 +90,9 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
         try {
             PostingResponse response = successful(restClient.post()
                     .uri("/api/v1/journals/posting")
+                    // Journal replaces the untrusted body actor with these gateway-style headers.
+                    .header(AUTH_USER_HEADER, command.createdBy())
+                    .header(AUTH_ROLES_HEADER, JOURNAL_MAKER_ROLE)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(command)
                     .retrieve())

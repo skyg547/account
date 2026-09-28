@@ -87,6 +87,10 @@ FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineag
 `base_amount`만 장부금액에 더하고 외화 원금에는 더하지 않습니다. 새 컬럼·테이블이나
 기존 lineage의 backfill은 필요하지 않습니다. 근거 없는 레거시 식별자는 별도 대사가 필요합니다.
 
+API와 Batch의 FX/ECL 원장 조회는 core의 `PostedJournalContributionQuery`를 공유합니다.
+API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 이번 금융
+실행 변경에는 스키마나 migration 추가가 없습니다.
+
 ## `allowance_summary` 연결 기준
 
 ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코드를 결정합니다.
@@ -112,8 +116,11 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `account.closing.accounting.fx-translation-gain-account-code` | `72000` | 외화환산이익 계정 |
 | `account.closing.accounting.fx-translation-loss-account-code` | `92000` | 외화환산손실 계정 |
 | `account.closing.accounting.auto-post-adjustments` | `false` | 결산 조정 전표 자동 승인/전기 여부 |
-| `account.closing.accounting.valuation-rules.FX_RATE.*` | 운영 설정 필요 | API 평가 배치가 만들 자동분개 룰 |
-| `account.closing.accounting.provision-rules.ECL.*` | 운영 설정 필요 | API 충당 배치가 만들 자동분개 룰 |
+| `account.closing.accounting.api-financial-run-max-evidence-rows` | `10000` | API FX source evidence hard cap |
+| `account.closing.accounting.api-financial-run-max-journal-commands` | `1000` | API FX/ECL 전표 command hard cap; ECL source도 cap+1 그룹까지만 조회해 초과를 fail-closed |
+| `account.closing.accounting.provision-rules.ECL.debit-account-code` | 운영 설정 필요 | ECL 비용 계정 fallback mapping |
+| `account.closing.accounting.provision-rules.ECL.credit-account-code` | 운영 설정 필요 | ECL 충당금 계정 fallback mapping |
+| `closing.sources.enabled` (`dev`) | `false`/미설정 | `true`일 때만 승인된 외부 source/Journaling 구성; 그 외 금융 실행 fail-closed |
 | `account.closing.batch.fx.chunk-size` | `1000` | FX Cursor 처리와 트랜잭션 checkpoint 단위 |
 | `account.closing.batch.fx.grid-size` | `4` | FX 병렬 계정 범위와 동시 실행 상한 |
 
@@ -125,6 +132,11 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 - `period_locks`는 현재 unlock 시 감사 로그를 남기고 활성 행을 삭제합니다. `active`, `unlocked_by`, `unlocked_at`, `unlock_reason`을 추가하는 forward migration 후 이력 행 보존 방식으로 전환해야 합니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
 - `valuation_batches`/`provision_batches`에는 기간·유형·기준일·요청 키의 멱등 unique key가 아직 없습니다. 중복 요청과 crash recovery를 포함한 migration이 필요합니다.
+- 두 history 테이블의 `generated_journal_entry_id`는 scalar라서 0건/다중 전표 실행 ID를 표현하지 못합니다. 현재는 `null`이며, 다중 전표 조회 모델은 후속 설계가 필요합니다.
+
+원격 Journal의 멱등 slip 처리와 로컬 history/Batch metadata 사이 원자성, FX Batch validation과
+posting 사이 원장·환율·정책 동결은 스키마가 아니라 운영/통합 통제입니다. production
+PostgreSQL 실행계획과 대용량 부하는 아직 검증하지 않았습니다.
 
 ## 운영 점검 SQL 예시
 
