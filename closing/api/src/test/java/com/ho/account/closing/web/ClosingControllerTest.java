@@ -214,11 +214,12 @@ class ClosingControllerTest {
         mockMvc.perform(post("/api/closing/annual/perform-income-statement-closing")
                         .header("X-Auth-User", TRUSTED_ACTOR)
                         .header("X-Auth-Roles", "ROLE_AUDITOR, " + role)
-                        .param("year", "2026")
-                        .param("retainedEarningsAccountCode", "31000"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"year\":2026}"))
+                        
                 .andExpect(status().isOk());
 
-        verify(annualClosingUseCase).performIncomeStatementClosing(2026, "31000");
+        verify(annualClosingUseCase).performIncomeStatementClosing(2026);
     }
 
     @Test
@@ -339,7 +340,7 @@ class ClosingControllerTest {
                 Arguments.of("determine status", new MutationRequest("POST", "/api/closing/calendars/determine-status",
                         "{\"calendarId\":9,\"user\":\"forged\"}")),
                 Arguments.of("annual close", new MutationRequest("POST",
-                        "/api/closing/annual/perform-income-statement-closing?year=2026&retainedEarningsAccountCode=31000", null)));
+                        "/api/closing/annual/perform-income-statement-closing", "{\"year\":2026}")));
     }
 
     private ClosingTask task(Long id, ClosingCalendar calendar, String name,
@@ -374,5 +375,27 @@ class ClosingControllerTest {
             }
             return request;
         }
+    }
+
+    @Test
+    void performIncomeStatementClosingRejectsUnknownFields() throws Exception {
+        mockMvc.perform(post("/api/closing/annual/perform-income-statement-closing")
+                        .header("X-Auth-User", TRUSTED_ACTOR)
+                        .header("X-Auth-Roles", "ROLE_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"year\":2026, \"retainedEarningsAccountCode\":\"31000\"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(annualClosingUseCase);
+    }
+
+    @Test
+    void performIncomeStatementClosingRejectsInvalidYear() throws Exception {
+        mockMvc.perform(post("/api/closing/annual/perform-income-statement-closing")
+                        .header("X-Auth-User", TRUSTED_ACTOR)
+                        .header("X-Auth-Roles", "ROLE_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"year\":1899}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(annualClosingUseCase);
     }
 }

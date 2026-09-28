@@ -151,26 +151,57 @@ HTTP 오류, 응답 부재, 역직렬화 실패를 전표 허용으로 해석하
 이 명령은 부모 프로젝트의 빈 테스트 태스크뿐 아니라 Core/API/Batch 테스트를 모두 실행합니다.
 Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journal이 추가되지 않습니다.
 
-## 연차 손익 대체 재실행 확인 (GH-775)
+## 연차 손익 대체 설정과 재실행 확인 (GH-775, GH-776)
 
-API 경로와 파라미터는 변경되지 않았습니다.
+연차 API는 계정과 법인을 요청자가 선택하지 못하게 하고 연도만 받습니다.
 
 ```http
-POST /api/closing/annual/perform-income-statement-closing?year=2026&retainedEarningsAccountCode=35000
+POST /api/closing/annual/perform-income-statement-closing
+Content-Type: application/json
+
+{"year": 2026}
 ```
 
-성공은 HTTP 200 빈 본문입니다. 요청에는 처리자 파라미터가 없고 생성되는 Journal 명령의
+본문의 `year`는 필수이고 1900~9999여야 합니다. `retainedEarningsAccountCode`나 법인 선택값 등
+어떤 추가 필드도 HTTP 400으로 거부되며 use case로 전달되지 않습니다. 성공은 HTTP 200
+빈 본문입니다. 생성되는 Journal 명령의
 `createdBy`/`auditUser`는 기존과 같이 `SYSTEM`입니다. 이는 사람의 승인·전기 증거가 아니므로 새
 `DRAFT`는 Journal의 통제된 검토 절차를 따라야 합니다.
+
+### 배포 설정 예시
+
+다음은 형태만 보여 주는 합성 예시입니다. 실제 법인·계정·승인자·변경 번호를 그대로 사용하지
+말고, 민감한 인증정보나 실제 URL을 넣지 않습니다.
+
+```yaml
+account:
+  closing:
+    annual:
+      legal-entity-code: "ENTITY-EXAMPLE"
+      mappings:
+        - fiscal-year: 2026
+          account-code: "31000"
+          postable: true
+          approved-by: "reviewer-example"
+          change-reference: "CHANGE-EXAMPLE-2026"
+```
+
+- 런타임 하나에 `legal-entity-code` 하나만 사용합니다. Journal 계약에 법인 차원이 없으므로 여러 법인을 같은 런타임에 섞지 않습니다.
+- 설정된 모든 `mappings` 행은 1900~9999의 중복 없는 `fiscal-year`, `account-code`, 명시적 `postable: true`, 비어 있지 않은 `approved-by`/`change-reference`를 갖추어야 합니다. 요청 연도와 정확히 일치하는 행이 없으면 실패합니다.
+- `postable`은 Master Data가 제공하는 필드가 아니라 승인된 배포 설정의 control-plane attestation입니다. 실제 계정의 효력·분류·정상잔액은 연도 12월 31일 Master 조회로 따로 검증합니다.
+- 설정 adapter는 Spring bean 생성 시점의 값을 snapshot합니다. 변경은 동료 검토·버전 승인된 배포 설정으로 만들고, 연차 호출을 drain한 뒤 모든 instance를 재시작합니다. 혼합 버전 instance를 동시 writer로 운영하지 않습니다.
+- 데이터베이스에 설정 테이블을 추가하지 않으므로 #776은 schema migration을 요구하지 않습니다.
 
 아래 순서는 단위/통제 포트 회귀 테스트로 확인한 기대 동작이며, 실제 배포 API를 순서대로 호출했다는
 증거가 아닙니다.
 
-1. 2026년 `POSTED` 매출 1,000을 준비하고, 상세에 지원 `accountCategory`를 넣거나 같은 계정·회계일자의 Master Data 분류를 준비합니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
-2. 원천을 바꾸지 않고 다시 호출합니다. 헤더·lineage·모든 라인이 같은 초안이면 HTTP 200이고 두 번째 초안은 생기지 않습니다.
-3. 초안 상태에서 원천 금액·계정·분류를 바꾸거나 초안 헤더/라인을 변조하면 HTTP 409와 `WORKFLOW_STATE_CONFLICT`가 기대 결과입니다. 자동 교체는 없습니다.
-4. 최초 초안을 승인·전기하고 기존 승인 흐름으로 연도를 재오픈한 뒤 `POSTED` 매출 500을 추가해 다시 호출합니다. 기존 1,000이 아니라 매출 차변 500, 이익잉여금 대변 500의 별도 delta `DRAFT`가 기대 결과입니다. 연차 서비스가 `ReopenApproval`을 직접 조회·검증하지는 않습니다.
-5. delta도 전기한 뒤 같은 입력으로 호출하면 새 전표 없이 HTTP 200입니다.
+1. 2026년 설정 규칙과 2026-12-31 기준으로 정확한 코드·`EQUITY`·`CREDIT`인 Master 계정을 준비합니다. 설정 누락/중복, `postable` 미승인, 증빙 누락, Master 조회 누락/코드 불일치, 자산·부채·수익·비용·알 수 없는 분류, 차변 정상잔액은 Journal 조회 전에 실패해야 합니다.
+2. 2026년 `POSTED` 매출 1,000을 준비하고, 상세에 지원 `accountCategory`를 넣거나 같은 계정·회계일자의 Master Data 분류를 준비합니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
+3. 원천과 설정을 바꾸지 않고 다시 호출합니다. 헤더·lineage·모든 라인이 같은 초안이면 HTTP 200이고 두 번째 초안은 생기지 않습니다.
+4. pending 초안 상태에서 원천 금액·계정·분류, 설정의 법인·계정·`postable`·승인자·변경 참조, 또는 초안 헤더/라인을 바꾸면 HTTP 409와 `WORKFLOW_STATE_CONFLICT`가 기대 결과입니다. 설정 identity도 #775 source snapshot에 들어가므로 오래된 초안은 자동 교체하지 않습니다.
+5. 최초 초안을 승인·전기하고 기존 승인 흐름으로 연도를 재오픈한 뒤 `POSTED` 매출 500을 추가해 다시 호출합니다. 기존 1,000이 아니라 매출 차변 500, 이익잉여금 대변 500의 별도 delta `DRAFT`가 기대 결과입니다. 연차 서비스가 `ReopenApproval`을 직접 조회·검증하지는 않습니다.
+6. delta도 전기한 뒤 같은 입력으로 호출하면 새 전표 없이 HTTP 200입니다. 완전한 `POSTED` 누계가 있는 상태에서 승인 metadata만 바꾸더라도 잔여가 0이면 새 금액 delta는 생성하지 않습니다.
+7. 순손실과 순액 0 케이스도 같은 설정·연말 Master 검증을 먼저 합니다. 순액 0이면 검증을 통과한 후 새 전표만 만들지 않습니다.
 
 지원 `accountCategory`는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`,
 `NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 상세가 이 값을 제공하면 우선 사용하고, 없으면
@@ -189,14 +220,15 @@ POST /api/closing/annual/perform-income-statement-closing?year=2026&retainedEarn
 회귀 검증:
 
 ```bash
-./gradlew :closing:core:test --tests '*AnnualClosingServiceTest' --tests '*ClosingSlipNoFactoryTest'
 ./gradlew :closing:test
 ```
 
-기대 결과는 모든 테스트 통과입니다. 이 테스트는 통제된 포트/로컬 어댑터 근거이며, summary 조회 뒤
+이 문서는 위 명령의 실행 성공을 주장하지 않습니다. 실제 종료 코드와 실패 0을 별도 검증 기록으로
+남겨야 합니다. 이 테스트는 통제된 포트/로컬 어댑터 근거이며, summary 조회 뒤
 전표별 상세를 읽는 현재 N+1 흐름의 실제 PostgreSQL 실행계획·운영 부하를 검증하지 않습니다. 공급자
 측 원자적 snapshot이나 조회와 원격 초안 생성 사이의 분산 원자성, 운영 데이터 및 장애 복구도 증명하지
-않으므로 실행 전후 대사가 필요합니다.
+않으므로 실행 전후 대사가 필요합니다. 실제 법인 차원이 없는 Journal에서 여러 법인 운영을
+증명하지도 않으므로 법인별 런타임 분리를 유지합니다.
 
 추가로 독립 Journal의 쓰기 API는 신뢰된 service principal의 `X-Auth-User`와 `X-Auth-Roles`를
 요구하지만 현재 `HttpClosingJournalAdapter`는 이 헤더를 전달하지 않습니다. loopback 어댑터 테스트는
