@@ -183,4 +183,4 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 ### GH-777 Draft publication
 
 - [Draft PR #808](https://github.com/skyg547/account/pull/808) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; verified implementation commit `8fa4d8fb`. Issue #777 remains OPEN / `status:needs-review`, and the isolated worktree remains available.
-- Hosted checks are initially QUEUED; no hosted success is claimed. Ready, merge, Issue close, deployment and resource deletion remain separate human/authorized-owner gates.
+- Hosted module/harness/merge-guard jobs did not start because GitHub annotations report failed recent account payments or a spending-limit restriction; no hosted code/test result is claimed. Ready, merge, Issue close, deployment and resource deletion remain separate human/authorized-owner gates.

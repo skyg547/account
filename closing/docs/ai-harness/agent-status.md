@@ -125,4 +125,4 @@
 ### GH-777 Draft published
 
 - [PR #808](https://github.com/skyg547/account/pull/808) is OPEN/DRAFT and initially MERGEABLE, `Refs #777`; implementation commit `8fa4d8fb`. Issue #777 remains OPEN / `status:needs-review`; worktree retained.
-- Hosted module/harness/merge-guard checks are initially QUEUED, so no remote pass/fail is claimed. Human current-head review and operational gates remain next.
+- Hosted module/harness/merge-guard jobs did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. This is an external service gate, not a code/test result. Human current-head review and operational gates remain next.
