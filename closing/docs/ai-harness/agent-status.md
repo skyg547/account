@@ -132,3 +132,10 @@
 - Static gate: 27 final paths including the three module records, all under `closing/**`; diff whitespace, conflict markers and unmerged index are clean. Shared harness and other modules are untouched.
 - Residual gates: deployed Gateway header reconstruction/network isolation, live PostgreSQL, production data, distributed/load behavior and current-head hosted CI were not verified. Batch scheduler authorization is outside scope.
 - 권한 분리: 구현·테스트·문서 작성자와 읽기 전용 리뷰어를 분리했고 부모만 Git/GitHub 게시를 수행합니다. Draft 게시만 승인되며 Ready·merge·Issue close·배포·삭제는 별도 승인입니다.
+
+### GH-771 Draft publication
+
+- [Draft PR #805](https://github.com/skyg547/account/pull/805) is OPEN/DRAFT, initially MERGEABLE, `Refs #771`; implementation commit `b941b29f313d618c002a4ec310e6571c11ce5edc`.
+- Issue #771 is OPEN / `status:needs-review`; branch and worktree are retained.
+- Initial Module Validation, Harness Validation and Agent Merge Guard jobs did not start because GitHub reported failed recent account payments or a spending-limit restriction. No hosted test success/failure is inferred and no billing configuration was accessed.
+- Next owner: repository account owner for Actions availability, then human reviewer for current-head CI and the documented Gateway/network gates.

@@ -178,3 +178,9 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Deploy only behind a Gateway that strips caller identity headers and rebuilds them from authenticated context, with Closing API ports privately isolated. Live Gateway/PostgreSQL, production data, distributed faults/load and Batch scheduler authorization were not tested.
 - Rollback is a reviewed Closing-only revert; no migration or data reset. Preserve existing audit/business data. Next owner is the human Draft/current-head CI reviewer and the authorized Gateway/network owner.
 - **권한 분리:** writers changed only assigned Closing files, the reviewer remained read-only, and the parent Integrator owns commit/push/Draft/records. AI review does not replace human approval. Ready, merge, Issue close, deployment and resource cleanup remain separate gates.
+
+### GH-771 Draft publication
+
+- [Draft PR #805](https://github.com/skyg547/account/pull/805) is OPEN/DRAFT and initially MERGEABLE, `Refs #771`, implementation commit `b941b29f313d618c002a4ec310e6571c11ce5edc`. Issue #771 remains OPEN / `status:needs-review`; branch/worktree retained.
+- Initial [Module Validation](https://github.com/skyg547/account/actions/runs/36417503790), [Harness Validation](https://github.com/skyg547/account/actions/runs/36417503763), and [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36417503806) jobs did not start. GitHub reports failed recent account payments or a spending-limit restriction. This is an external infrastructure gate, not a code/test result; billing settings were not inspected or changed.
+- The follow-up publication commit changes only these three records. Verified code/tests/guides remain unchanged. The repository account owner must restore Actions, after which a human reviewer owns current-head CI and Gateway/network review. Ready, merge, Issue close, deployment and cleanup were not performed.
