@@ -179,3 +179,9 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Rollback: suspend annual close, preserve and reconcile existing journals/lineage, then reviewed scoped revert; no schema/data reset. Legacy/stale drafts require approved Journal correction rather than automatic deletion.
 - 권한 분리: service/test/documentation writers had disjoint files, the independent reviewer was read-only, and only the parent Integrator updates records and performs commit/push/Draft publication. This procedural separation is not human approval or a security boundary.
 - Draft PR publication is pending. Use `Refs #775`; keep Issue open. Ready, merge, Issue close, deployment and branch/worktree deletion require later gates.
+
+### GH-775 Draft publication
+
+- Published [Draft PR #806](https://github.com/skyg547/account/pull/806), OPEN/DRAFT, initially MERGEABLE, `Refs #775`, branch `agent/775-annual-close-stale-draft` to `main`. Verified implementation commit `1200064ad77dbb44925641d359a73924e4c212bc`; Issue #775 remains OPEN / `status:needs-review`; worktree retained.
+- Initial implementation-head hosted jobs did not execute because GitHub annotations report failed recent account payments or a spending-limit restriction: [Module Validation](https://github.com/skyg547/account/actions/runs/36423379589), [Harness Validation](https://github.com/skyg547/account/actions/runs/36423379826), and [Merge Guard](https://github.com/skyg547/account/actions/runs/36423379805). These are infrastructure gates, not code/test failures. No billing setting was accessed or changed.
+- This append modifies only the three module-local records; production and test content remains at the independently reviewed implementation commit. Next owner is the repository account owner for Actions availability and then the human Draft reviewer. Ready, merge, Issue close, deployment, and branch/worktree deletion were not performed.

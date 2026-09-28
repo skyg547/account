@@ -325,3 +325,9 @@ Changed implementation/test/guide paths; the three module-local records are addi
 | Q4 | PASS | snapshot TODO/lineage 길이/redirect 차단 의도 주석; provider-order·failure tests | 해당 없음: 비자명 로직 변경 | 36-bit slip discriminator 충돌은 full lineage 검증으로 fail-closed | 독립 주석/구현 일치 확인 PASS |
 
 Rollback: stop annual-close execution, preserve every posted/draft journal and lineage for reconciliation, then use a reviewed scoped revert. No migration or data reset is required. Existing old drafts must not be deleted automatically. Next owner after Draft publication is a human reviewer for current-head CI and the separate Journal service-authentication integration; Ready/merge/Issue close/deployment/cleanup are not authorized here.
+
+### GH-775 Draft publication
+
+- [Draft PR #806](https://github.com/skyg547/account/pull/806) is OPEN/DRAFT, `Refs #775`, from `agent/775-annual-close-stale-draft` to `main`; initial mergeability was MERGEABLE. Verified implementation commit: `1200064ad77dbb44925641d359a73924e4c212bc`. Issue #775 is OPEN / `status:needs-review`; worktree retained.
+- The implementation-head [Module Validation](https://github.com/skyg547/account/actions/runs/36423379589), [Harness Validation](https://github.com/skyg547/account/actions/runs/36423379826), and [Merge Guard](https://github.com/skyg547/account/actions/runs/36423379805) jobs did not start. Each GitHub annotation identifies failed recent account payments or a spending-limit restriction. No hosted code/test pass is claimed, and no billing setting was accessed or changed.
+- Publication changes after the verified implementation commit are limited to `agent-status.md`, `worklog.md`, and `handoff.md`. Next owner: repository account owner for Actions availability, then a human reviewer for current-head CI and the documented Journal authentication/operational gates. Ready, merge, Issue close, deployment, and cleanup remain unperformed.
