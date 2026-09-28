@@ -15,6 +15,7 @@
 | 충당 배치 | `ProvisionBatch` | ECL 등 충당금 보충/환입을 처리한 실행 기록입니다. |
 | 결산 조정 | `ClosingAdjustment` | 마감 중 승인된 조정 전표와 회계기간을 연결하는 기록입니다. |
 | 일마감 상태 | `DailyClosingStatus`, `EodState` | 영업일별 EOD/BOD 상태와 처리자·시각을 보존합니다. |
+| 최종 마감 증빙 | `FinalCloseEvidenceSet` | 각 원천 실행과 계정·통화별 원천/전기 합계가 맞는지 담은 수정 불가 스냅샷입니다. |
 
 ## 일·월·연 결산 모델
 
@@ -33,6 +34,12 @@
 3. `journal-ledger`는 실제 전표와 GL 잔액을 관리합니다.
 4. `ecl`은 IFRS 9 Stage/PD/LGD/EAD 계산 결과를 `allowance_summary`에 확정합니다.
 5. `closing:batch`는 `allowance_summary`와 실제 전기된 충당금 잔액을 같은 통화끼리 비교해 차이만 전표로 만듭니다.
+6. 최종 마감 전에 AP·AR·리스·대출·Journal 조정·ECL 공급자가 실행 ID와 대사 합계를 증빙으로 제출합니다. 연 마감에는 연차 손익 대체 증빙도 더합니다.
+
+증빙은 “완료했습니다”라는 체크 표시만이 아닙니다. 각 통제는 `PASS`, 차단 건수 0,
+계정·통화별 원천 합계와 실제 전기 합계가 같아야 합니다. 거래가 없어 합계가 0이어도 행을 생략하지
+않고 `0/0`으로 명시합니다. Closing은 누락값을 0으로 추정하거나 운영자가 수동으로 통과시키지 않습니다.
+가장 최근 스냅샷 하나가 판단 기준이므로 최신 FAIL 뒤에 남아 있는 과거 PASS는 사용할 수 없습니다.
 
 ECL 목표가100달러라면 기존 충당금80달러와 비교해야 합니다. 장부의 원화 금액104,000원을
 100달러에서 빼면 안 됩니다. 환율1,300에서 추가 전표는20달러/26,000원입니다.
@@ -68,6 +75,8 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 | --- | --- |
 | REST API | `closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java` |
 | EOD/BOD REST API | `closing/api/src/main/java/com/ho/account/closing/web/EodLifecycleController.java` |
+| 최종 마감 증빙 REST API | `closing/api/src/main/java/com/ho/account/closing/web/FinalCloseEvidenceController.java` |
+| 증빙 검증 서비스 | `closing/core/src/main/java/com/ho/account/closing/application/service/FinalCloseEvidenceService.java` |
 | 유즈케이스 흐름 | `closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java` |
 | EOD/BOD 유즈케이스 | `closing/core/src/main/java/com/ho/account/closing/application/service/EodLifecycleService.java` |
 | 연차 손익 대체 | `closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java` |
@@ -82,9 +91,13 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 - 모든 필수 태스크가 `COMPLETED`인지 확인합니다.
 - 모든 게이트가 `PASSED`인지 확인합니다.
 - 태스크/게이트 정의가 최소 한 개씩 존재하고 JSON 조건은 실제 evidence evaluator로 검증되는지 확인합니다.
+- 최신 최종 마감 증빙에 여섯 월 통제가 각각 한 번 있고, YEAR에는 연차 손익 대체가 추가됐는지 확인합니다.
+- 각 원천 실행 ID가 실제 확정 실행을 가리키고 계정·통화별 원천/전기 합계가 일치하며, 0도 명시됐는지 확인합니다.
 - 결산 조정 전표의 회계일자가 대상 회계기간 안에 있는지 확인합니다.
 - ECL 충당 전표 실행 전 동일 기준일·단일 run/model·단일 법인의 `allowance_summary`가 생성되어 있는지 확인합니다. 현재 GL에는 법인 차원이 없어서 여러 법인을 한 실행에 섞으면 실패합니다.
 - FX 평가 전 기준일 환율, 전기된 외화 잔액, 기준일 유효 계정 정보와 계정별 명시적 평가 정책을 확인합니다.
 - 재오픈 요청자와 승인자가 다른지, 동일 기간에 대기 중인 요청이 없는지 확인합니다.
 - EOD 명령은 Gateway가 검증해 만든 actor/role 헤더를 통해서만 호출하고 서비스 포트를 외부에 노출하지 않습니다.
+- 증빙 POST도 사설 Gateway를 통해서만 호출합니다. Gateway는 외부 `X-Auth-*`를 제거하고 검증된 actor와 `ROLE_CLOSING_EVIDENCE_PROVIDER`를 다시 넣어야 하며 본문에는 `submittedBy`를 넣지 않습니다.
+- 원천 공급자/Gateway 계약과 실제 PostgreSQL·분산 호출 TOCTOU는 end-to-end 운영 검증이 필요합니다. 검증할 수 없으면 마감은 계속 차단합니다.
 - 일마감 상태의 `transactionAllowed=false`는 도메인 판단입니다. Journal 전표 생성 게이트에 연결되기 전까지는 월 회계기간 잠금과 별도로 운영 통제가 필요합니다.

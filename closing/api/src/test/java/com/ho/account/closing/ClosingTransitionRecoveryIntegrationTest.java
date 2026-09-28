@@ -7,6 +7,7 @@ import com.ho.account.closing.ClosingAggregateConcurrencyIntegrationTest.Pause;
 import com.ho.account.closing.application.port.in.ClosingAdmissionQuery;
 import com.ho.account.closing.application.port.in.ClosingTransitionRecoveryUseCase;
 import com.ho.account.closing.application.port.in.ClosingUseCase;
+import com.ho.account.closing.application.port.in.FinalCloseEvidenceUseCase;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
 import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort;
 import com.ho.account.closing.application.service.ClosingTransitionPendingException;
@@ -74,6 +75,7 @@ class ClosingTransitionRecoveryIntegrationTest {
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired ClosingController controller;
     @Autowired ClosingTransitionTransactions transactions;
+    @Autowired FinalCloseEvidenceUseCase finalCloseEvidence;
 
     @ParameterizedTest
     @ValueSource(strings = {"OPEN", "CLOSED"})
@@ -407,6 +409,10 @@ class ClosingTransitionRecoveryIntegrationTest {
         calendar.setFiscalYear(year);
         calendar.setFiscalPeriod(period);
         calendar.setStatus(state);
+        if (state == ClosingCalendarStatus.IN_PROGRESS) {
+            calendar.setCloseInitiatedBy("synthetic-fixture");
+            calendar.setCloseInitiatedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(1));
+        }
         calendar.setAuditUser("synthetic-fixture");
         return calendars.save(calendar);
     }
@@ -417,6 +423,8 @@ class ClosingTransitionRecoveryIntegrationTest {
         closing.updateClosingTaskStatus(task.getId(), ClosingTaskStatus.COMPLETED, "task-worker");
         ClosingGate gate = closing.createClosingGate(newGate(calendar));
         closing.checkAndPassClosingGate(gate.getId(), "gate-reviewer");
+        var period = master.findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod()).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, calendar, period.id(), period.endDate());
     }
 
     private void approve(Fixture fixture) {

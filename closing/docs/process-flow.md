@@ -45,6 +45,7 @@ sequenceDiagram
 sequenceDiagram
     participant User as 사용자/운영자
     participant API as ClosingController
+    participant Evidence as FinalCloseEvidenceService
     participant Service as ClosingService
     participant Domain as ClosingCalendar
     participant Master as FiscalPeriodControlPort
@@ -67,7 +68,10 @@ sequenceDiagram
     User->>API: 마감 완료 판정
     API->>Service: determineClosingStatus
     Service->>Store: 캘린더 잠금, 최신 태스크/게이트 조회
-    Service->>Domain: validateReadyToClose, 전이 의도 준비
+    Service->>Domain: validateReadyToClose
+    Service->>Evidence: 최신 typed evidence 검증
+    Evidence-->>Service: 바인딩할 evidenceSetId
+    Service->>Domain: CLOSED 전이 의도 준비
     Service->>Store: PREPARED 커밋 → DISPATCHED 커밋
     Service->>Master: FiscalPeriod CLOSED 한 번 전송
     Service->>Store: 결과 확인 후 캘린더/감사 로그 커밋
@@ -78,6 +82,81 @@ sequenceDiagram
 화면은 `GET /api/closing/calendars/{calendarId}/tasks`로 한 캘린더의 태스크를 조회합니다. 예를 들어 `GET /api/closing/calendars/10/tasks`는 해당 캘린더에 속한 태스크를 `ClosingTaskDto` 배열로 반환하고, 태스크가 없으면 빈 배열을 반환합니다. `calendarId`는 양수여야 하며 이 조회는 상태를 변경하거나 감사 로그를 만들지 않습니다.
 
 캘린더는 `OPEN -> IN_PROGRESS -> CLOSED -> OPEN(승인된 재오픈)` 순서만 허용합니다. 필수 태스크와 게이트가 최소 한 개씩 있어야 하며, JSON 조건 문자열이 설정된 태스크/게이트는 아직 typed evidence evaluator가 없으므로 fail-closed 처리합니다.
+
+## 최종 마감 증빙 (GH-778)
+
+최종 마감용 typed evidence는 태스크/게이트의 자유 형식 JSON 조건과 별도인 필수 통제입니다.
+신뢰된 내부 공급자는 `POST /api/closing/calendars/{calendarId}/final-close-evidence`로 스냅샷을
+추가하고, Closing은 캘린더별 `observedAt DESC, append id DESC`의 최신 한 건만 판단합니다.
+따라서 더 오래된 PASS 뒤에 최신 FAIL을 제출하면 FAIL이 마감을 차단하며, 과거 PASS로 되돌리는
+선택이나 수동 override는 없습니다. 수정은 새 `evidenceSetId`의 더 최신 스냅샷으로 제출합니다.
+
+월/분기/반기에는 아래 여섯 통제가 각각 정확히 한 번 있어야 합니다. `fiscalPeriod=YEAR`이면
+`ANNUAL_TRANSFER/closing`도 정확히 한 번 추가합니다. 다른 통제, 중복 통제, 예상 원천 시스템이
+아닌 통제는 거부합니다.
+
+| 통제 타입 | `sourceSystem` |
+| --- | --- |
+| `AP_SUBLEDGER` | `payable` |
+| `AR_SUBLEDGER` | `receivable` |
+| `LEASE_SUBLEDGER` | `asset-lease` |
+| `LOAN_SUBLEDGER` | `loan` |
+| `JOURNAL_ADJUSTMENTS` | `journal-ledger` |
+| `ECL_RECONCILIATION` | `ecl` |
+| `ANNUAL_TRANSFER` | `closing` (`YEAR`만 필수) |
+
+각 통제는 불변 `sourceRunId`, `outcome=PASS`, `blockingItemCount=0`과 하나 이상의
+계정·통화별 `sourceTotal`/`postedTotal`을 포함합니다. 금액은 `BigDecimal` 숫자 비교로 같아야 하고,
+같은 통제 안의 계정·대문자 통화 차원은 중복될 수 없습니다. 활동이 없어도 합계 목록을 비우지 않고
+공급자 계약에서 합의한 차원을 `0/0`으로 명시합니다. Closing은 누락 차원을 0으로 추정하지 않습니다.
+
+제출 시 캘린더를 잠그고 미완료 전이가 없는 `IN_PROGRESS`인지, path/body의 `calendarId`와
+캘린더의 `fiscalYear`/`fiscalPeriod`가 같은지, canonical digest가 같은지 확인합니다. 최종 마감 시에는
+Master의 `fiscalPeriodId`·회계연도·기간과 증빙이 정확히 같고 `ledgerCutoff`이 Master 기간 종료일과
+같은지 다시 확인합니다. `observedAt`은 현재 마감의 `closeInitiatedAt`보다 엄격히 뒤이고 미래가
+아니며 `account.closing.final-close-evidence.max-age`(기본 `PT24H`) 이내여야 합니다.
+
+`contentDigest`는 아래 문자열을 순서대로 canonicalize한 SHA-256 소문자 hex입니다. 각 문자열마다
+4-byte big-endian UTF-8 byte 길이와 UTF-8 bytes를 digest에 넣습니다. trim 대상 문자열은 도메인이
+trim한 값, 통화는 대문자, 날짜/시각은 `LocalDate.toString()`/`Instant.toString()`, 정수는 10진 문자열,
+금액은 trailing zero를 제거한 plain 문자열(모든 0은 `0`)입니다.
+
+PostgreSQL `TIMESTAMP WITH TIME ZONE` 저장 정밀도에 맞춰 `observedAt`은 digest 계산 전에 나노초를
+**반올림하지 않고 마이크로초로 절삭**합니다. 공급자는 이 정규화한 ISO Instant를 요청 body와 digest
+입력에 동일하게 사용해야 합니다. 예를 들어 `...00.123456789Z`는 `...00.123456Z`가 되며, 응답과
+영속화된 값도 정규화된 시각입니다.
+
+1. `FINAL_CLOSE_EVIDENCE_V1`, `evidenceSetId`, `calendarId`, `fiscalPeriodId`, `fiscalYear`,
+   `fiscalPeriod`, `ledgerCutoff`, `observedAt`, Gateway가 정한 `submittedBy`, 통제 개수
+2. 통제를 enum 선언 순서 → `sourceSystem` → `sourceRunId`로 정렬한 뒤, 각 통제의 `type`,
+   `sourceSystem`, `sourceRunId`, `outcome`, `blockingItemCount`, 합계 개수
+3. 각 통제의 합계를 `accountCode` → 대문자 `currencyCode`로 정렬한 뒤, `accountCode`,
+   `currencyCode`, `sourceTotal`, `postedTotal`
+
+본문의 `contentDigest` 자체는 digest 입력에 넣지 않습니다.
+같은 `evidenceSetId`/digest 재제출은 기존 행을 돌려주지만, 같은 ID의 다른 내용은 거부합니다.
+`submittedBy`는 본문에 없고 `X-Auth-User`만 사용하므로 공급자는 최종 Gateway actor까지 포함해
+digest를 계산해야 합니다.
+
+최종 마감 준비 트랜잭션은 체크리스트와 Master OPEN identity를 확인한 다음 최신 증빙을 검증하고,
+선택한 `evidenceSetId`를 `transition_evidence_set_id`에 기록한 뒤에만 `PREPARED`를 커밋합니다.
+누락·FAIL·blocking item·빈/불일치 합계·오래됨·미래 시각·기간/cutoff/digest 불일치는 이 단계에서
+실패하므로 Master 상태 변경 호출 전에 차단됩니다. `PREPARED` 복구는 이 바인딩으로 최초 전송을
+계속하고, `DISPATCHED` 복구도 같은 ID를 유지한 채 Master 결과만 대사합니다. 준비 뒤 새 증빙이
+추가돼도 진행 중인 작업의 ID를 바꾸지 않습니다. 증빙 없는 legacy CLOSED 전이는 V53 이행을 위해
+DB에는 남을 수 있지만 런타임 dispatch/finish는 fail-closed합니다.
+
+이 API는 사설 포트여야 합니다. Gateway는 외부 `X-Auth-User`/`X-Auth-Roles`를 제거하고 검증된
+사용자와 `ROLE_CLOSING_EVIDENCE_PROVIDER` 권한을 재구성해야 합니다. 이 역할과
+`account.closing.final-close-evidence.trusted-submitters`의 actor가 모두 맞아야 합니다. allowlist는
+기본 빈 집합이라 deny-all이고 최대 64개이며, 각 actor는 trim 후 100자 이하·대소문자까지 정확히
+일치합니다. body의 `submittedBy`, 운영자 수동 통과 플래그, 실패 시 허용 경로는 제공하지 않습니다.
+
+헤더와 로컬 allowlist는 그 자체로 암호학적 서비스 identity를 증명하지 않습니다. production 준비에는
+Closing 포트의 사설 네트워크 격리와 Gateway의 외부 헤더 제거/검증된 헤더 재구성을 end-to-end로
+확인해야 합니다. 향후에는 mTLS 또는 서명된 서비스 토큰 같은 강한 서비스 인증을 사용할 수 있습니다.
+원천 서비스/Gateway의 생산 계약과 실제 PostgreSQL·분산 호출 TOCTOU는 Closing 단위 테스트만으로
+증명되지 않으므로 사람이 감독하는 end-to-end/운영 검증이 필요합니다.
 
 ## 기간 잠금과 재오픈
 
@@ -114,14 +193,15 @@ flowchart LR
 원격 Master는 별도 트랜잭션이므로 로컬 롤백이 이미 반영된 Master 상태를 되돌리지 못합니다.
 이를 처리하기 위해 캘린더에 작업 ID, 목표 상태, 원 결정자와 전송 단계를 저장합니다.
 
-1. 캘린더 잠금 아래 조건을 검증하고 `PREPARED`를 커밋합니다. 재오픈 승인은 이때
+1. 캘린더 잠금 아래 조건을 검증하고 `PREPARED`를 커밋합니다. CLOSED 목표는 검증한
+   `transition_evidence_set_id`도 함께 고정합니다. 재오픈 승인은 이때
    `APPROVED`로 확정되지만 캘린더는 아직 `CLOSED`입니다. 승인이 원격 반영 완료를 뜻하지 않습니다.
 2. `DISPATCHED`를 별도 커밋한 실행자만 Master 상태 PUT을 한 번 보냅니다.
 3. 같은 기간·목표 상태의 정상 결과를 확인하면 캘린더를 목표 상태로 바꾸고 완료 감사 기록을 남깁니다.
    준비·전송 중에는 마감 캘린더가 `IN_PROGRESS`, 재오픈 캘린더가 `CLOSED`여서 일반 전표를 차단합니다.
 4. 응답 유실, 원격 예외 또는 로컬 완료 저장 실패 시 전송 표시를 보존합니다. 경쟁 변경은 계속 차단합니다.
 
-복구는 작업 ID에 묶입니다. 아직 `PREPARED`이면 최초 전송을 진행할 수 있지만,
+복구는 작업 ID와 준비 때 바인딩한 최종 마감 증빙 ID에 묶입니다. 아직 `PREPARED`이면 최초 전송을 진행할 수 있지만,
 `DISPATCHED`이면 자동 재전송하지 않습니다. 권한 있는 운영자가 원 요청이 더 이상 실행될 수 없음을
 확인한 뒤 Master를 재조회하고, 목표 상태와 일치할 때만 로컬 완료를 확정합니다.
 재조회에서도 원래 상태가 보이면 차단을 유지하고 별도 Master 운영 절차로 정합성을 해결해야 합니다.
@@ -133,7 +213,7 @@ flowchart LR
 뒤집을 수 있으므로, 확인이 끝나기 전까지 해당 기간의 변경을 멈춥니다.
 
 이 프로토콜은 Closing 명령을 직렬화합니다. Master 직접 변경과 다른 배포의 오래된 Closing writer를
-원격에서 차단하는 작업 키·버전 계약은 제공하지 않습니다. 배포 시 V52를 먼저 적용하고 오래된 월말
+원격에서 차단하는 작업 키·버전 계약은 제공하지 않습니다. 배포 시 V53까지 먼저 적용하고 오래된 월말
 writer를 모두 중지·배출한 뒤 새 버전을 사용해야 합니다. 미해결 전이가 있으면 기록을 지우거나 이전
 버전으로 바로 돌아가지 말고 먼저 원 요청 종료와 두 시스템 상태를 대사합니다.
 구체적인 조회·복구 API와 검증 범위는 [로컬 실행 가이드](local-run.md#월말-전이-조회와-복구-gh-774)를 참조하세요.

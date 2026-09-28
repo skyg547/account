@@ -52,6 +52,7 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 재오픈 요청 | `POST /api/closing/reopen-approvals` |
 | 결산 조정 등록 | `POST /api/closing/adjustments` |
 | 마감 완료 판정 | `POST /api/closing/calendars/determine-status` |
+| 최종 마감 증빙 추가 | `POST /api/closing/calendars/{calendarId}/final-close-evidence` |
 | 연차 손익 대체 | `POST /api/closing/annual/perform-income-statement-closing` |
 | 첫 영업일 초기화 | `POST /api/closing/eod/{businessDate}/bootstrap` |
 | EOD 준비/시작/완료 | `POST /api/closing/eod/{businessDate}/eod/{prepare\|start\|complete}` |
@@ -64,7 +65,7 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 
 EOD 변경 명령에는 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다. 로컬에서 API 포트를 직접 호출할 때 이 헤더를 임의로 넣을 수 있으므로 해당 방식은 기능 확인용일 뿐 보안 검증이 아닙니다.
 
-Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스, V52 월말 전이 기록을 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
+Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스, V52 월말 전이 기록, V53 최종 마감 증빙을 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
 
 Closing API 조합 루트는 실제로 사용하는 Master Data의 `FiscalPeriodControlPort`와 `MasterDataQueryPort` 어댑터, 그리고 이들이 요구하는 최소 persistence adapter/mapper를 함께 명시 import합니다. 이는 Closing의 회계기간 제어와 평가 조회 포트를 완성하는 조합 책임이며, Master Data 전체 infrastructure 패키지를 scan하거나 local 전용 fallback으로 production 어댑터를 가리지 않습니다.
 
@@ -92,6 +93,90 @@ HTTP 오류, 응답 부재, 역직렬화 실패를 전표 허용으로 해석하
 
 이 명령은 부모 프로젝트의 빈 테스트 태스크뿐 아니라 Core/API/Batch 테스트를 모두 실행합니다.
 Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journal이 추가되지 않습니다.
+
+## 최종 마감 증빙 제출과 검증 (GH-778)
+
+증빙 API는 공개 사용자용이 아니라 내부 공급자용입니다. Gateway가 클라이언트가 보낸
+`X-Auth-User`/`X-Auth-Roles`를 제거하고 검증한 서비스 identity로 다시 만들어야 합니다.
+`ROLE_CLOSING_EVIDENCE_PROVIDER` 역할과 trusted submitter allowlist가 모두 필요합니다. actor 누락은
+401, 역할 부족 또는 allowlist 불일치는 403입니다. 기본 allowlist는 비어 있어 모든 제출을 거부합니다.
+로컬에서 헤더를 직접 넣는 예시는 payload/상태 흐름 확인용일 뿐 Gateway 보안 검증이 아닙니다.
+
+```yaml
+account:
+  closing:
+    final-close-evidence:
+      max-age: PT24H
+      trusted-submitters:
+        - payable-close-provider
+```
+
+`trusted-submitters`는 최대 64개이며, 각 actor는 trim 후 100자 이하이고 대소문자까지 정확히
+`X-Auth-User`와 일치해야 합니다. 운영 환경의 승인된 서비스 identity만 설정하고 빈 값은 넣지 않습니다.
+`max-age`는 양수 Spring `Duration`이며 기본값은 `PT24H`입니다. `observedAt`은 현재 캘린더의
+마감 시작 시각보다 뒤이고 미래가 아니며 이 나이 안에 있어야 합니다. 아래 본문에는 의도적으로
+`submittedBy`가 없습니다. path/body `calendarId`, `fiscalPeriodId`, 회계연도·기간,
+`ledgerCutoff`은 최종 마감 때 Master identity/종료일과 정확히 일치해야 합니다.
+공급자는 `observedAt`의 나노초를 반올림하지 않고 마이크로초로 절삭한 ISO Instant를 body에 넣고,
+바로 그 문자열로 digest를 계산해야 합니다. 서버 응답도 PostgreSQL 호환 마이크로초 값입니다.
+
+```http
+POST /api/closing/calendars/10/final-close-evidence
+X-Auth-User: payable-close-provider
+X-Auth-Roles: ROLE_CLOSING_EVIDENCE_PROVIDER
+Content-Type: application/json
+```
+
+```json
+{
+  "evidenceSetId": "2026-04-close-0001",
+  "calendarId": 10,
+  "fiscalPeriodId": 104,
+  "fiscalYear": "2026",
+  "fiscalPeriod": "04",
+  "ledgerCutoff": "2026-04-30",
+  "observedAt": "2026-04-30T15:10:00.123456Z",
+  "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "controls": [
+    {
+      "type": "AP_SUBLEDGER",
+      "sourceSystem": "payable",
+      "sourceRunId": "ap-close-2026-04-30-7",
+      "outcome": "PASS",
+      "blockingItemCount": 0,
+      "totals": [
+        {"accountCode": "21000", "currencyCode": "KRW", "sourceTotal": 0, "postedTotal": 0}
+      ]
+    }
+  ]
+}
+```
+
+digest 값은 형식만 맞춘 placeholder이고, 예시는 명시적 `0/0`과 필드 모양만 보여 주므로 그대로
+제출하면 digest 불일치로 거부되며 최종 마감 조건도 충족하지 않습니다.
+일반 기간은 AP/AR/리스/대출/Journal 조정/ECL 여섯 통제를 각각 한 번, `YEAR`는 여기에
+`ANNUAL_TRANSFER`를 더해야 합니다. 각 통제의 expected `sourceSystem`, digest 정렬·길이-prefix·
+금액 정규화 규칙은 [업무 흐름](process-flow.md#최종-마감-증빙-gh-778)을 따릅니다.
+
+성공은 201과 저장된 `submittedBy`/digest/control count를 반환합니다. 같은 set ID와 digest 재시도는
+기존 set을 반환하고, 같은 ID의 다른 내용은 409입니다. 형식 위반은 400, 캘린더 없음은 404,
+digest/상태/identity 위반 또는 최종 마감 증빙 실패는 409입니다. 실패한 증빙을 무시하는 override는
+없습니다. 최신 set이 FAIL이면 새롭고 올바른 set을 append해야 합니다.
+
+검증 명령(실행 결과는 별도로 기록):
+
+```bash
+./gradlew :closing:core:test --tests '*FinalCloseEvidence*' --console=plain --max-workers=1 --no-daemon
+./gradlew :closing:api:test --tests '*FinalCloseEvidence*' --tests '*ClosingTransitionRecovery*' --console=plain --max-workers=1 --no-daemon
+./gradlew :closing:test --console=plain --max-workers=1 --no-daemon
+./gradlew :closing:api:bootJar :closing:batch:bootJar --offline --console=plain --max-workers=1 --no-daemon
+```
+
+생산 공급자들이 실제 확정 run과 완전한 계정·통화 차원을 보내는지, Gateway가 헤더를 제거/재구성하는지,
+실제 PostgreSQL의 migration·잠금과 원천 관측 후 Master 변경 사이 분산 TOCTOU는 사람이 감독하는
+end-to-end/운영 검증이 필요합니다. 헤더와 allowlist는 암호학적 identity 증명이 아니므로 production은
+사설 네트워크와 Gateway의 외부 헤더 제거/재구성을 검증해야 하며, 향후 mTLS나 서명된 서비스 토큰을
+사용할 수 있습니다. 이 검증이 없다는 이유로 fail-open하지 않습니다.
 
 ## 월말 전이 조회와 복구 (GH-774)
 

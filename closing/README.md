@@ -13,6 +13,12 @@ GL07/#762 커밋 동시성 통합 전에는 #772 전체 해결로 간주할 수 
 불명확하면 영속 전이 기록을 유지하고 자동 재전송하지 않습니다.
 [월말 동시 결정과 복구](docs/process-flow.md#월말-동시-결정과-복구-gh-774)를 참고하세요.
 
+최종 마감은 체크리스트뿐 아니라 공급자가 제출한 불변 typed evidence를 필수로 요구합니다.
+월 마감에는 AP·AR·리스·대출 보조부, Journal 조정, ECL 대사의 여섯 통제가 필요하고,
+`fiscalPeriod=YEAR`에는 연차 손익 대체 통제가 추가됩니다. 최신 스냅샷이 실패·누락·오래됨·
+기간 불일치이면 Master를 변경하기 전에 차단합니다. 계약과 신뢰 경계는
+[최종 마감 증빙](docs/process-flow.md#최종-마감-증빙-gh-778)을 참고하세요.
+
 ---
 
 ## 0. 📚 문서 읽기 순서
@@ -37,6 +43,7 @@ IntelliJ에서는 `.run`의 `Closing API bootRun`, `Closing Batch Context` 실�
 3. **잠금(Lock):** 마감이 끝난 달에 누군가 몰래 과거 날짜로 전표를 넣지 못하도록 해당 기간을 잠그는 것입니다.
 4. **재오픈(Reopen):** 정말 중요한 실수로 인해 잠긴 기간을 수정해야 할 때, 높은 책임자의 승인을 받아 임시로 자물쇠를 푸는 절차입니다.
 5. **EOD/BOD:** 영업일 한 건을 `OPEN → PRE_CLOSING → CLOSING_IN_PROGRESS → CLOSED`로 닫고, 닫힌 행을 보존한 채 다음 영업일을 `BOD_IN_PROGRESS → OPEN`으로 여는 일마감 흐름입니다.
+6. **최종 마감 증빙:** 각 원천 시스템의 실행 ID와 계정·통화별 원천/전기 합계를 함께 보존한 불변 스냅샷입니다. 값이 0이어도 행을 생략하지 않고 `0/0`으로 명시합니다.
 
 ---
 
@@ -78,6 +85,16 @@ sequenceDiagram
 
 상태 변경 API는 임의의 목표 상태를 받지 않고 `prepare`, `start`, `complete`, `cancel-preparation`, `start/complete BOD` 명령으로만 노출됩니다. Gateway가 JWT를 검증해 만든 `X-Auth-User`와 `X-Auth-Roles`를 사용하므로 Closing API 포트를 외부에 직접 공개하지 않습니다.
 
+### 📌 최종 마감 증빙
+
+내부 공급자는 `POST /api/closing/calendars/{calendarId}/final-close-evidence`로 증빙을 추가합니다.
+본문에는 `submittedBy`가 없으며, Gateway가 클라이언트의 `X-Auth-*`를 제거하고 검증된
+`X-Auth-User`와 `X-Auth-Roles=ROLE_CLOSING_EVIDENCE_PROVIDER`를 다시 만들어야 합니다.
+역할과 `account.closing.final-close-evidence.trusted-submitters`의 대소문자 일치 actor가 모두
+필요합니다. allowlist 기본값은 비어 있어 전부 거부합니다. 수동 우회나 fail-open 경로는 없습니다.
+`account.closing.final-close-evidence.max-age`의 기본값은 `PT24H`이며, 관측 시각은 현재 마감 시작
+뒤이면서 미래가 아니고 최대 유효시간 안이어야 합니다.
+
 ### 📌 타 모듈과의 연동 (Status Port)
 전표 모듈은 전표를 끊기 전, 이 포트를 통해 해당 날짜가 마감되었는지 확인합니다.
 
@@ -98,6 +115,9 @@ flowchart LR
 erDiagram
     FISCAL_PERIODS ||--o{ PERIOD_LOCKS : "locked_by"
     CLOSING_CALENDARS ||--o{ CLOSING_TASKS : "manages"
+    CLOSING_CALENDARS ||--o{ FINAL_CLOSE_EVIDENCE_SETS : "snapshots"
+    FINAL_CLOSE_EVIDENCE_SETS ||--o{ FINAL_CLOSE_EVIDENCE_CONTROLS : "contains"
+    FINAL_CLOSE_EVIDENCE_CONTROLS ||--o{ FINAL_CLOSE_EVIDENCE_TOTALS : "reconciles"
     DAILY_CLOSING_STATUS {
         date business_date PK
         string state
@@ -163,6 +183,7 @@ ECL 충당 Job 예시:
 - ECL은 하나의 확정 run/model, 하나의 법인, 동일 기준일의 summary만 허용하며 계정·통화별 목표와 실제 전기된 거래통화·기능통화 잔액을 각각 대사합니다. 외화는 기준일 환율이 필요하며, 기존 장부액이 그 환율과 다르면 FX 평가 전기를 먼저 요구합니다. summary가 비어 있으면 성공으로 처리하지 않습니다. [통화별 계산과 재시도](docs/process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요.
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. 통제된 환경에서만 `account.closing.accounting.auto-post-adjustments=true`로 자동 승인/전기를 허용합니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
+- 최종 마감 증빙 공급자와 Gateway가 본문·canonical digest·역할 및 actor allowlist 계약을 함께 구현해야 합니다. 헤더/allowlist만으로 암호학적 서비스 identity를 증명하지 않으므로 production은 사설 네트워크와 Gateway 헤더 재구성을 검증하고, 향후 mTLS나 서명된 서비스 토큰 같은 강한 인증을 적용해야 합니다. Closing은 원천 서비스의 실행 완료 자체를 호출해 확인하지 않으며, 잘못되거나 없는 증빙을 허용으로 바꾸지 않습니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.
-- Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49의 10개 Closing 소유 테이블 baseline을 적용하고, V50으로 EOD/BOD 상태를 승격한 뒤 V51로 운영 조회 인덱스를 수렴시키고 V52로 월말 전이 기록을 추가합니다. 기존 legacy DB는 runner가 전체 컬럼 타입·길이·nullability·identity·PK/FK/기간 unique를 확인한 경우에만 49 baseline을 기록하고 V50/V51/V52를 forward 적용합니다. V52는 미완료 월말 전이 기록을 추가하며 새 버전 기동 전에 적용해야 합니다.
+- Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49의 10개 Closing 소유 테이블 baseline을 적용하고, V50으로 EOD/BOD 상태를 승격한 뒤 V51로 운영 조회 인덱스, V52로 월말 전이 기록, V53으로 불변 최종 마감 증빙과 전이 바인딩을 추가합니다. 기존 legacy DB는 runner가 전체 V49 구조를 확인한 경우에만 baseline을 기록하고 후속 버전을 forward 적용합니다. 새 API/Batch 기동 전 V53까지 migrate/validate해야 합니다.
 - Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.

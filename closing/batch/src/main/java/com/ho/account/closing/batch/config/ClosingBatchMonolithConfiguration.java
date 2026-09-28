@@ -31,6 +31,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 })
 @EntityScan(basePackages = {
         "com.ho.account.closing.domain",
+        "com.ho.account.closing.infrastructure.persistence",
         "com.ho.account.journalledger.domain",
         "com.ho.account.masterdata.core.domain",
         "com.ho.account.masterdata.core.infrastructure.persistence"

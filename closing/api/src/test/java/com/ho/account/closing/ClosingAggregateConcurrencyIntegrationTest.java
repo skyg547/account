@@ -1,6 +1,7 @@
 package com.ho.account.closing;
 
 import com.ho.account.closing.application.port.in.ClosingUseCase;
+import com.ho.account.closing.application.port.in.FinalCloseEvidenceUseCase;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
 import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingTaskPersistencePort;
@@ -72,6 +73,7 @@ class ClosingAggregateConcurrencyIntegrationTest {
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired EntityManager entityManager;
     @Autowired ClosingController controller;
+    @Autowired FinalCloseEvidenceUseCase finalCloseEvidence;
 
     @Test
     void approvingTransactionExcludesConcurrentRejectionAndPersistsOnlyOneDecision() throws Exception {
@@ -345,6 +347,9 @@ class ClosingAggregateConcurrencyIntegrationTest {
         closing.updateClosingTaskStatus(task.getId(), ClosingTaskStatus.COMPLETED, "fixture");
         ClosingGate gate = closing.createClosingGate(newGate(calendar));
         closing.checkAndPassClosingGate(gate.getId(), "fixture");
+        var fiscalPeriod = master.findFiscalPeriod(year, period).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(
+                finalCloseEvidence, calendar, fiscalPeriod.id(), fiscalPeriod.endDate());
         return calendar;
     }
 
@@ -353,6 +358,10 @@ class ClosingAggregateConcurrencyIntegrationTest {
         calendar.setFiscalYear(year);
         calendar.setFiscalPeriod(period);
         calendar.setStatus(state);
+        if (state == ClosingCalendarStatus.IN_PROGRESS) {
+            calendar.setCloseInitiatedBy("synthetic-fixture");
+            calendar.setCloseInitiatedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(1));
+        }
         calendar.setAuditUser("synthetic-fixture");
         return calendars.save(calendar);
     }

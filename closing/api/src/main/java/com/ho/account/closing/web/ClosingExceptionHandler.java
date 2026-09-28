@@ -1,6 +1,7 @@
 package com.ho.account.closing.web;
 
 import com.ho.account.closing.application.service.ClosingTransitionPendingException;
+import com.ho.account.closing.application.service.FinalCloseEvidenceValidationException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
@@ -11,7 +12,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 /**
  * Closing REST API 컨트롤러의 도메인/비즈니스 예외를 명확한 HTTP 응답 코드로 변환합니다.
  */
-@RestControllerAdvice(assignableTypes = {ClosingController.class, ClosingTransitionController.class})
+@RestControllerAdvice(assignableTypes = {
+        ClosingController.class,
+        ClosingTransitionController.class,
+        FinalCloseEvidenceController.class
+})
 public class ClosingExceptionHandler {
 
     @ExceptionHandler(EntityNotFoundException.class)
@@ -24,6 +29,13 @@ public class ClosingExceptionHandler {
     public ResponseEntity<ClosingErrorResponse> handleBadRequest(IllegalArgumentException exception) {
         return ResponseEntity.badRequest()
                 .body(new ClosingErrorResponse("INVALID_REQUEST", exception.getMessage()));
+    }
+
+    @ExceptionHandler(FinalCloseEvidenceValidationException.class)
+    public ResponseEntity<ClosingErrorResponse> handleFinalCloseEvidenceBlocked(
+            FinalCloseEvidenceValidationException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ClosingErrorResponse("FINAL_CLOSE_EVIDENCE_BLOCKED", exception.getMessage()));
     }
 
     @ExceptionHandler(IllegalStateException.class)
