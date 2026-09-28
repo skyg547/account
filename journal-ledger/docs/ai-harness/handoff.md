@@ -11,6 +11,7 @@ Issue #769 implementation, audited RED/current GREEN proof, required verificatio
 - GL10 boundary: this PR gives broker-coordinate convergence for quarantine replay. Generic HTTP/contracts/manual idempotency and matching-event commit ambiguity remain with open/blocked #765 outside the allowlist.
 - Rollback/deployment: apply and retain V18, verify DB privileges/retention/alerts and Kafka DLT ACL/retention in the target environment. Quiesce consumers before reviewed application rollback and never discard quarantine evidence.
 - Limits: no live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment testing.
+- Remote CI prerequisite: the three entry workflows on head `87729d67` ran zero steps and failed with GitHub billing/spending-limit annotations. The account owner must resolve that prerequisite and rerun checks; this is neither a remote test pass nor an executed code-test failure.
 - Authority separation: module writer implemented; reviewer was read-only; the original writer corrected findings; parent Integrator owns records and Git/GitHub. User authorized Draft publication, but Ready, merge, Issue close, deployment, and cleanup remain human gates.
 - Next owner: a human reviewer owns remote CI and later Ready/merge/Issue-close/deployment gates. Both task and proof worktrees remain retained.
 

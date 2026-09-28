@@ -12,6 +12,7 @@
 - GL10 boundary: quarantine replay converges on one journal, but generic cross-path idempotency in open/blocked #765 is outside this module-only allowlist and remains unresolved. No broader exact-once claim is made.
 - Rollback/limits: quiesce consumers, retain V18/data, and use a reviewed scoped revert. No live PostgreSQL/Kafka, production data, offset-commit fault injection, load, or deployment verification was performed.
 - Publication: reviewed implementation commit `90d4c307` is pushed. Draft PR #804 contains verification, rollback/limits, Q1-Q4, and explicit authority separation; this record-only update changes no production or test behavior.
+- Remote CI prerequisite: on publication head `87729d67`, Agent Merge Guard, Harness Validation, and Module Validation entry jobs did not execute any steps. Their annotations cite failed recent account payments or a spending-limit prerequisite; no remote CI PASS or executed code-test failure is claimed.
 - Authority: user authorized commit, push, and Draft PR. Human review owns Ready, merge, Issue close, deployment, and cleanup.
 
 See [worklog.md](worklog.md) for commands, evidence, corrected findings, and Q1-Q4.

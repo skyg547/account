@@ -48,6 +48,7 @@
 - Deployment must apply V18 before the new binary and verify database privileges, payload retention/access/encryption, completeness alerts, and DLT topic/ACL/retention/partitioning. No live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment test was used.
 - Rollback requires quiescing consumers and a reviewed application revert while preserving applied V18 and every quarantine record. Dropping the table or retained evidence is not an approved rollback; reverting without equivalent protection restores silent ledger omission.
 - Reviewed implementation commit `90d4c307` is pushed and [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`. Its body records acceptance evidence, verification, Q1-Q4, limitations, rollback, and authority separation.
+- On publication head `87729d67`, Agent Merge Guard run `36413587998`, Harness Validation run `36413587500`, and Module Validation run `36413587552` failed before any job steps ran. Each entry-job annotation reports failed recent account payments or a spending-limit prerequisite. This external GitHub account condition is not an executed test failure, and no remote CI PASS is claimed.
 - Implementation was performed by the assigned module writer; independent review was read-only; the original writer corrected findings; the parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
 
 ---
