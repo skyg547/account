@@ -123,3 +123,9 @@
 - Annual close now fingerprints validated posted source content, reuses only an exact current draft, validates full annual header/lineage/lines, and subtracts cumulative valid posted closes to create only a reopened-year residual delta. Missing Journal classifications use a dated Master Data lookup cached by account/date.
 - Independent Q1–Q4 and all four Issue acceptance criteria are PASS; no remaining scoped P0–P3. Draft PR publication is pending this record commit.
 - Deployment/live remote gate remains HOLD: no live PostgreSQL/load/distributed-fault proof, provider-side atomic snapshot, or approved Journal `X-Auth-User`/`X-Auth-Roles` service-principal integration. Ready, merge, Issue close, deployment and resource deletion remain separate gates.
+
+### GH-775 Draft publication
+
+- Published [Draft PR #806](https://github.com/skyg547/account/pull/806), OPEN/DRAFT and initially MERGEABLE, with `Refs #775`; verified implementation commit `1200064ad77dbb44925641d359a73924e4c212bc`. Issue #775 remains OPEN and is labeled `status:needs-review`; the isolated worktree is retained.
+- Initial implementation-head GitHub Actions did not execute jobs because annotations report failed recent account payments or a spending-limit restriction: [Module Validation](https://github.com/skyg547/account/actions/runs/36423379589), [Harness Validation](https://github.com/skyg547/account/actions/runs/36423379826), and [Merge Guard](https://github.com/skyg547/account/actions/runs/36423379805). These are infrastructure failures, not hosted code/test results; no billing setting was accessed or changed.
+- This publication append changes only the three Closing module records. The PR body contains full540 and independent129 verification, Q1–Q4, rollback, residual risks, and authority separation. Ready, merge, Issue close, deployment, and resource deletion were not performed.
