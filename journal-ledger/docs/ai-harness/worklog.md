@@ -51,6 +51,7 @@
 - No production data, live PostgreSQL, distributed process kill, production load, deployment, or historical repair was performed. H2 PostgreSQL mode proves Spring Batch metadata/checkpoint behavior locally but not production database/process behavior. JVM-default-zone semantics are preserved; a dedicated non-UTC Spring-context integration was not run.
 - Parent committed the reviewed implementation as `71546fec`, pushed `agent/768-reaggregation-restart-dates`, and opened [Draft PR #802](https://github.com/skyg547/account/pull/802) with `Refs #768`.
 - PR #802 records acceptance evidence, exact verification, rollback/limits, Q1-Q4, and explicit writer/reviewer/Integrator/human authority separation. Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
+- On publication head `963ba023`, Agent Merge Guard run `36408685328`, Harness Validation run `36408685417`, and Module Validation run `36408685493` failed before any entry-job steps ran; downstream jobs were skipped or failed as a consequence. Their annotations report failed recent account payments or a spending-limit prerequisite. This external condition is not an executed code/test/harness failure, and no remote CI PASS is claimed. The repository/account owner must resolve billing and rerun checks.
 
 ---
 

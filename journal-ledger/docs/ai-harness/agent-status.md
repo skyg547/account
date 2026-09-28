@@ -11,6 +11,7 @@
 - Verification: final literal `./gradlew :journal-ledger:test` passes 56 suites/398 tests (core304/API57/batch37), failures/errors/skips0; focused35/35 and quality contract32/32 pass; static gates pass.
 - Independent review: initial P1 partial-date compatibility and P3 stale-name findings were returned to the original owners and corrected. Final `/root/issue_768_review` reports no P0-P3 and Q1-Q4 PASS.
 - Publication: implementation commit `71546fec` is pushed and Draft PR #802 contains acceptance evidence, verification, rollback/limits, and authority separation. This record-only follow-up changes no production or test behavior.
+- Remote CI prerequisite: Agent Merge Guard, Harness Validation, and Module Validation entry jobs failed before executing any steps. GitHub annotations report failed recent account payments or a spending-limit prerequisite; no remote CI PASS or executed code-test failure is claimed.
 - Rollback/limits: scoped revert, no migration. No production data, live PostgreSQL, distributed process kill, production load, deployment, or historical repair was used; non-UTC Spring-context wiring remains without a dedicated integration.
 - Authority: user authorized commit, push, Draft PR, and module-local record updates. Human review owns Ready, merge, Issue close, deployment, and cleanup.
 

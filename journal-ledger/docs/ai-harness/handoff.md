@@ -8,11 +8,12 @@ Issue #768 implementation, audited RED/current GREEN proof, requested verificati
 - RED/GREEN: byte-identical SHA-256 `64aa4d1a9a794e289c721ee6e16db280aab2839948684b71e91b482f66f5302b` fails1/1 on exact audited production and passes1/1 on the branch.
 - Verification: literal `./gradlew :journal-ledger:test` passes core304/API57/batch37 =398 tests across56 suites, failures/errors/skips0. Focused restart/parser/audited selection passes35/35; quality contract32/32 and static gates pass.
 - Independent review: initial P1 compatibility and P3 naming findings were corrected by the original production/test/docs owners. Final read-only review reports no P0-P3 and Q1-Q4 PASS.
+- Remote CI: Agent Merge Guard, Harness Validation, and Module Validation entry jobs have zero executed steps and failed on the GitHub billing/spending-limit prerequisite. This is not an executed code-test failure; the account owner must resolve it and rerun checks.
 - Rollback: reviewed revert of the Issue-scoped module commits; no schema/data rollback. Reversion restores the wall-clock drift weakness, so no-date reaggregation must remain disabled without an equivalent immutable-date control.
 - Limits: synthetic H2 PostgreSQL-mode tests only; no live PostgreSQL, production data, distributed process kill, load, deployment, or historical repair. A dedicated non-UTC Spring-context integration was not run.
 - Authority: parent Integrator owns commits, push, these records, and Issue/PR mutations. Draft PR #802 remains Draft; human review owns Ready, merge, Issue close, deployment, and branch/worktree cleanup.
 
-Next owner: human reviewer evaluates Draft PR #802 and remote checks. Do not manually reopen a `REBUILDING` owner row or create a new JobInstance for failure recovery; restart with the exact original identifying parameter names and values.
+Next owner: the repository/account owner resolves the GitHub billing prerequisite and reruns checks; a human reviewer evaluates Draft PR #802. Do not manually reopen a `REBUILDING` owner row or create a new JobInstance for failure recovery; restart with the exact original identifying parameter names and values.
 
 ---
 
