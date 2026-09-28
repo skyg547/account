@@ -9,16 +9,20 @@ import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.stereotype.Component;
 
-/** Freezes input and acquires the persistent owner barrier in the start-step transaction. */
+import java.time.Clock;
+
+/** Resolves and freezes input, then acquires the persistent owner barrier in the start-step transaction. */
 @Component
 @RequiredArgsConstructor
 public class BalanceReaggregationStartTasklet implements Tasklet {
     private final BalanceReaggregationService reaggregationService;
+    private final Clock clock;
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
         var stepExecution = contribution.getStepExecution();
-        var requestedRange = BatchDateRangeParameterUtils.resolveDateRange(stepExecution);
+        // Validate every supplied alias before start() takes writer locks or changes the barrier.
+        var requestedRange = BatchDateRangeParameterUtils.resolveDateRange(stepExecution, clock);
         var effectiveRange = reaggregationService.start(
                 BatchDateRangeParameterUtils.ownerJobInstanceId(stepExecution),
                 requestedRange.startDate(), requestedRange.endDate());
