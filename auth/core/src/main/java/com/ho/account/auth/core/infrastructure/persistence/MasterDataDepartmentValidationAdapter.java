@@ -1,21 +1,27 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
+import java.util.Map;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-
-@Slf4j
 @Component
 @ConditionalOnProperty(name = "auth.master-data.enabled", havingValue = "true")
 public class MasterDataDepartmentValidationAdapter implements DepartmentValidationPort {
-
+    private static final String UNAVAILABLE_MESSAGE = "Department validation is unavailable";
+    // Prove one complete object: default conversion can ignore trailing tokens and overwrite duplicate identities.
+    private static final ObjectReader DEPARTMENT_RESPONSE_READER = new ObjectMapper().readerFor(Map.class)
+            .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
 
     private final RestClient masterDataRestClient;
 
@@ -30,24 +36,31 @@ public class MasterDataDepartmentValidationAdapter implements DepartmentValidati
         }
 
         try {
-            masterDataRestClient.get()
+            var response = masterDataRestClient.get()
                     .uri("/api/basic/departments/{departmentCode}", departmentCode)
                     .retrieve()
-                    .toBodilessEntity();
-            return true;
+                    .toEntity(String.class);
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                throw unavailable();
+            }
+            Map<?, ?> body = DEPARTMENT_RESPONSE_READER.readValue(response.getBody());
+            // A successful status alone proves nothing: require the requested identity without JSON type coercion.
+            if (body != null && body.get("code") instanceof String code && code.equals(departmentCode)) {
+                return true;
+            }
+            throw unavailable();
         } catch (RestClientResponseException ex) {
             if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return false;
             }
-            log.warn("master-data service returned non-200 status for departmentCode={}, fallback to allow", departmentCode, ex);
-            return true;
-        } catch (RestClientException ex) {
-            // Standalone mode: fallback to true if master-data service is offline
-            log.warn("master-data service unreachable for departmentCode={}, fallback to allow standalone auth", departmentCode);
-            return true;
+            throw unavailable();
+        } catch (RestClientException | JsonProcessingException ex) {
+            throw unavailable();
         }
+    }
 
+    private static IllegalStateException unavailable() {
+        // The API logs exceptions; retaining a remote cause or message would expose the URI, code or body.
+        return new IllegalStateException(UNAVAILABLE_MESSAGE);
     }
 }
-
-
