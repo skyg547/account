@@ -112,3 +112,14 @@
 - Initial implementation-head hosted checks did not execute: GitHub check annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36031718246), [Harness Validation](https://github.com/skyg547/account/actions/runs/36031718247), [Merge Guard](https://github.com/skyg547/account/actions/runs/36031718278). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
+
+## GH-775 — annual close source snapshot and delta
+
+- Issue [#775](https://github.com/skyg547/account/issues/775), CL05; claim [5869470536](https://github.com/skyg547/account/issues/775#issuecomment-5869470536).
+- Branch `agent/775-annual-close-stale-draft`; isolated worktree `/tmp/account-775-annual-close-stale-draft`; base and current `origin/main` `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Scope is `closing/**` only. Shared harness and all other modules remain unchanged; these records are module-local under the user's explicit restriction.
+- Requested execution tier: `gpt-5.6-sol` / high. Service, test, documentation and independent read-only reviewer roles used disjoint ownership; the parent Integrator alone owns module records and Git/GitHub publication.
+- Status: implementation frozen and scoped review PASS. The audited behavior produced 13 expected failures in a 68-test focused RED run. Independent focused replay passed129/129. Exact required `./gradlew :closing:test` passed Core315/API127/Batch98 =540 tests in54 suites, failures/errors/skips0.
+- Annual close now fingerprints validated posted source content, reuses only an exact current draft, validates full annual header/lineage/lines, and subtracts cumulative valid posted closes to create only a reopened-year residual delta. Missing Journal classifications use a dated Master Data lookup cached by account/date.
+- Independent Q1–Q4 and all four Issue acceptance criteria are PASS; no remaining scoped P0–P3. Draft PR publication is pending this record commit.
+- Deployment/live remote gate remains HOLD: no live PostgreSQL/load/distributed-fault proof, provider-side atomic snapshot, or approved Journal `X-Auth-User`/`X-Auth-Roles` service-principal integration. Ready, merge, Issue close, deployment and resource deletion remain separate gates.

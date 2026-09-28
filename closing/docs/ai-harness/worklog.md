@@ -289,3 +289,39 @@ Changed implementation/test/guide paths (the three parent-owned module records a
 - Initial implementation-head hosted checks did not execute: GitHub check annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36031718246), [Harness Validation](https://github.com/skyg547/account/actions/runs/36031718247), [Merge Guard](https://github.com/skyg547/account/actions/runs/36031718278). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
+
+## 2026-09-28 — GH-775 annual close stale-draft remediation
+
+- Contract: [Issue #775](https://github.com/skyg547/account/issues/775), `agent/775-annual-close-stale-draft`, `/tmp/account-775-annual-close-stale-draft`, base/current main `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`, allowlist `closing/**`, Draft delivery with `Refs #775`.
+- Architecture: `AnnualClosingService` remains the core application coordinator. It canonicalizes sorted posted source summaries/details into a SHA-256 snapshot, uses an 86-character `year|retainedHash|snapshotHash` lineage and 20-character snapshot-derived slip, validates every annual header/detail/status/lineage, and calculates `required closing - cumulative POSTED annual closing` by signed `BigDecimal` base amount. No schema, shared contract, API shape or Batch flow changed.
+- Retry policy: only a single exact `DRAFT` for the current snapshot and residual is reusable. Stale, malformed, legacy-draft, unsupported-status or duplicate pending candidates fail closed. Fully validated legacy year-only `POSTED` entries remain cumulative history. A posted close plus new posted activity creates only the residual delta; posting that delta makes the same input a no-op.
+- Classification: Journal-provided supported categories are used when present. Missing values resolve through `MasterDataQueryPort.findAccountSubjectAt(account,date)` with a per-run account/date cache. Dev remote composition adds `HttpClosingMasterDataQueryAdapter`; invalid, missing, mismatched, redirected or failed responses do not become permission to close.
+- Regression evidence: untouched audited behavior failed 13 of 68 focused tests on stale reuse/delta/content/category cases while existing posted-only/base-amount controls remained green. Final independent replay passed129/129: Annual25, Journal HTTP54, Master HTTP17, admission27 and slip factory6.
+- Whole module: exact `./gradlew :closing:test` PASS in1m26s; Core315/API127/Batch98 =540 tests across54 suites, failures0/errors0/skipped0. `git diff --check`, conflict-marker scan, unmerged-path check and closing-only scope check pass.
+- Baseline compatibility: the first whole-module run exposed27 pre-existing admission fixture failures caused by direct DRAFT-to-APPROVED transitions. The test-only fixture now requests approval first and expects the canonical lowercase system actor; its27 assertions pass without production behavior changes.
+- Review: the first read-only review found the introduced Journal `accountCategory` contract assumption. The writer corrected it with the dated Master fallback and provider-shape tests. Final reviewer found no scoped P0–P3, mapped all acceptance criteria PASS and set the scoped delivery gate PASS.
+
+Changed implementation/test/guide paths; the three module-local records are additional:
+
+- `closing/README.md`
+- `closing/api/src/test/java/com/ho/account/closing/ClosingDevRuntimeContextTest.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/ClosingSlipNoFactory.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpClosingJournalAdapter.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpClosingMasterDataQueryAdapter.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/AnnualClosingServiceTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/ClosingJournalAdmissionIntegrationTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/external/HttpClosingJournalAdapterTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/external/HttpClosingMasterDataQueryAdapterTest.java`
+- `closing/docs/beginner-guide.md`
+- `closing/docs/local-run.md`
+- `closing/docs/process-flow.md`
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `AnnualClosingService.java:74,157,411`; focused129/full540 PASS | 해당 없음: 금융 계산·재실행 변경 | 실제 인증 원격 Journal/Master 및 동시 변경 검증 | `/root/issue775_review`, snapshot/sign/balance/status/duplicate 검토 PASS |
+| Q2 | PASS | `AnnualClosingService` application 정책과 `HttpClosingMasterDataQueryAdapter` outbound 기술 분리; `process-flow.md:362` | 해당 없음: 구조·흐름 변경 | summary/detail 및 unique account/date N+1, 비원자 snapshot | 독립 구현/경계/문서 대조 PASS |
+| Q3 | PASS | `README.md:16`, `beginner-guide.md:45`, `local-run.md:96`, `process-flow.md:362`; full540 PASS | 해당 없음: 기능 안내 변경 | 승인된 service-principal 계약 전 remote write HOLD | 독립 문서 사실성/한계 대조 PASS |
+| Q4 | PASS | snapshot TODO/lineage 길이/redirect 차단 의도 주석; provider-order·failure tests | 해당 없음: 비자명 로직 변경 | 36-bit slip discriminator 충돌은 full lineage 검증으로 fail-closed | 독립 주석/구현 일치 확인 PASS |
+
+Rollback: stop annual-close execution, preserve every posted/draft journal and lineage for reconciliation, then use a reviewed scoped revert. No migration or data reset is required. Existing old drafts must not be deleted automatically. Next owner after Draft publication is a human reviewer for current-head CI and the separate Journal service-authentication integration; Ready/merge/Issue close/deployment/cleanup are not authorized here.

@@ -2,11 +2,13 @@ package com.ho.account.closing;
 
 import com.ho.account.closing.config.ClosingMonolithConfiguration;
 import com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapter;
+import com.ho.account.closing.infrastructure.external.HttpClosingMasterDataQueryAdapter;
 import com.ho.account.closing.infrastructure.external.HttpFiscalPeriodControlAdapter;
 import com.ho.account.closing.infrastructure.local.ClosingLocalExternalPortConfiguration;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +73,8 @@ class ClosingDevRuntimeContextTest {
                 .singleElement().isInstanceOf(HttpClosingJournalAdapter.class);
         assertThat(context.getBeansOfType(JournalPostingPort.class).values())
                 .singleElement().isSameAs(context.getBean(JournalQueryPort.class));
+        assertThat(context.getBeansOfType(MasterDataQueryPort.class).values())
+                .singleElement().isInstanceOf(HttpClosingMasterDataQueryAdapter.class);
         assertThat(context.getBeansOfType(ClosingMonolithConfiguration.class)).isEmpty();
         assertThat(context.getBeansOfType(ClosingLocalExternalPortConfiguration.class)).isEmpty();
     }
