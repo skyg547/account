@@ -151,6 +151,58 @@ HTTP 오류, 응답 부재, 역직렬화 실패를 전표 허용으로 해석하
 이 명령은 부모 프로젝트의 빈 테스트 태스크뿐 아니라 Core/API/Batch 테스트를 모두 실행합니다.
 Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journal이 추가되지 않습니다.
 
+## 연차 손익 대체 재실행 확인 (GH-775)
+
+API 경로와 파라미터는 변경되지 않았습니다.
+
+```http
+POST /api/closing/annual/perform-income-statement-closing?year=2026&retainedEarningsAccountCode=35000
+```
+
+성공은 HTTP 200 빈 본문입니다. 요청에는 처리자 파라미터가 없고 생성되는 Journal 명령의
+`createdBy`/`auditUser`는 기존과 같이 `SYSTEM`입니다. 이는 사람의 승인·전기 증거가 아니므로 새
+`DRAFT`는 Journal의 통제된 검토 절차를 따라야 합니다.
+
+아래 순서는 단위/통제 포트 회귀 테스트로 확인한 기대 동작이며, 실제 배포 API를 순서대로 호출했다는
+증거가 아닙니다.
+
+1. 2026년 `POSTED` 매출 1,000을 준비하고, 상세에 지원 `accountCategory`를 넣거나 같은 계정·회계일자의 Master Data 분류를 준비합니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
+2. 원천을 바꾸지 않고 다시 호출합니다. 헤더·lineage·모든 라인이 같은 초안이면 HTTP 200이고 두 번째 초안은 생기지 않습니다.
+3. 초안 상태에서 원천 금액·계정·분류를 바꾸거나 초안 헤더/라인을 변조하면 HTTP 409와 `WORKFLOW_STATE_CONFLICT`가 기대 결과입니다. 자동 교체는 없습니다.
+4. 최초 초안을 승인·전기하고 기존 승인 흐름으로 연도를 재오픈한 뒤 `POSTED` 매출 500을 추가해 다시 호출합니다. 기존 1,000이 아니라 매출 차변 500, 이익잉여금 대변 500의 별도 delta `DRAFT`가 기대 결과입니다. 연차 서비스가 `ReopenApproval`을 직접 조회·검증하지는 않습니다.
+5. delta도 전기한 뒤 같은 입력으로 호출하면 새 전표 없이 HTTP 200입니다.
+
+지원 `accountCategory`는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`,
+`NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 상세가 이 값을 제공하면 우선 사용하고, 없으면
+계정 코드와 상세 회계일자로 Master Data의 유효 계정을 조회합니다. dev에서는
+`closing.master-data.remote.enabled=true`일 때 `HttpClosingMasterDataQueryAdapter`가
+`closing.master-data.base-url`의 날짜 지정 조회를 사용합니다. 계정 조회 누락·다른 계정 반환·빈 값·
+미지원 분류와 연차 라인의 원천 분류 불일치는 실패합니다. 실제 손익 대체 금액에는
+`REVENUE`/`EXPENSES`만 포함됩니다. legacy `lineageSourceId=2026` 연차 전표는 헤더·라인이 모두
+유효한 `POSTED`일 때만 누계로 인정됩니다. 연차 후보가 `APPROVED`, `REJECTED`, `REVERSED` 또는
+알 수 없는 상태이면 실패합니다.
+
+409가 나면 권한 있는 회계 운영자가 현재 원천 snapshot과 기존 연차 전표의 lineage·헤더·상세·상태를
+대사하고 Journal의 승인된 취소/정정 절차로 해결한 뒤 재실행합니다. Closing API에는 기존 전표를
+자동 삭제·반려·역분개하는 경로가 없습니다.
+
+회귀 검증:
+
+```bash
+./gradlew :closing:core:test --tests '*AnnualClosingServiceTest' --tests '*ClosingSlipNoFactoryTest'
+./gradlew :closing:test
+```
+
+기대 결과는 모든 테스트 통과입니다. 이 테스트는 통제된 포트/로컬 어댑터 근거이며, summary 조회 뒤
+전표별 상세를 읽는 현재 N+1 흐름의 실제 PostgreSQL 실행계획·운영 부하를 검증하지 않습니다. 공급자
+측 원자적 snapshot이나 조회와 원격 초안 생성 사이의 분산 원자성, 운영 데이터 및 장애 복구도 증명하지
+않으므로 실행 전후 대사가 필요합니다.
+
+추가로 독립 Journal의 쓰기 API는 신뢰된 service principal의 `X-Auth-User`와 `X-Auth-Roles`를
+요구하지만 현재 `HttpClosingJournalAdapter`는 이 헤더를 전달하지 않습니다. loopback 어댑터 테스트는
+이 인증을 요구하지 않으므로 실제 원격 `DRAFT` 쓰기를 증명하지 않습니다. 비운영/운영 원격 실행 전에
+별도 승인된 인증·권한 전파를 구현하고 Journal과의 통합 테스트를 통과해야 합니다.
+
 ## 월말 전이 조회와 복구 (GH-774)
 
 | 기능 | 엔드포인트 |
@@ -215,15 +267,18 @@ Batch 조합 루트에만 명시적으로 연결됩니다. 이 포트는 로컬 
 실제 Journal 연동을 가리지 않습니다. Batch 조합 루트도 FX 평가에 필요한 환율 조회와 Closing이
 사용하는 Master Data 포트 및 최소 persistence adapter/mapper만 명시 import합니다.
 
-따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용하지 말고 승인된
-개발 환경의 실제 Journal 어댑터 구성을 사용해야 합니다.
+따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용할 수 없습니다. 다만 현재
+Journal 쓰기 API가 요구하는 `X-Auth-User`/`X-Auth-Roles` service-principal 계약을
+`HttpClosingJournalAdapter`가 전달하지 않으므로, 별도 승인된 인증 통합 전에는 개발 환경의 원격 쓰기도
+검증 가능한 경로가 아닙니다.
 
 `dev`의 `HttpClosingJournalAdapter`는 생성·승인·전기·조회에서 HTTP 3xx를 정상 처리하지 않고
 `IllegalStateException`으로 실패시킵니다. `Location`에 대한 추가 요청도 하지 않습니다.
 초안 생성 실패 시 호출 흐름은 승인·전기로 진행하지 않고, 승인 실패 시 전기를 호출하지 않습니다.
 조회에서 404만 전표 없음으로 처리하며 302를 전표 없음이나 성공으로 바꾸지 않습니다.
-기존 actor·lineage 전달은 유지됩니다. 원격 쓰기는 각각 별도 트랜잭션이므로 실패 후 자동 재시도하지
-않고, 이미 생성·승인된 전표가 있는지 대사해야 합니다.
+명령 본문의 actor·lineage는 유지되지만 본문 actor는 Journal의 신뢰 헤더를 대신하지 않습니다.
+원격 쓰기는 각각 별도 트랜잭션이므로 실패 후 자동 재시도하지 않고, 이미 생성·승인된 전표가 있는지
+대사해야 합니다.
 
 ```bash
 bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --console=plain --max-workers=1 --no-daemon

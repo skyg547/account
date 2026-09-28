@@ -113,29 +113,13 @@
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
 
-## GH-771 — closing command authority boundary
+## GH-775 — annual close source snapshot and delta
 
-- Issue [#771](https://github.com/skyg547/account/issues/771), CL01; claim [5868686077](https://github.com/skyg547/account/issues/771#issuecomment-5868686077).
-- Branch `agent/771-closing-authority-boundary`; isolated worktree `/tmp/account-771-closing-authority-boundary`; base `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
-- Scope is `closing/**` only. Shared harness and every other module remain unchanged; these module-local records satisfy the requested harness update.
-- Requested model/reasoning: GPT-5.6 Sol / high. Read-only exploration is split across inbound, core and test evidence. The controller writer and test writer will receive disjoint production/test allowlists; the independent reviewer is read-only. Parent alone owns module docs, records and Git/GitHub publication.
-- Goal: bind general Closing HTTP commands to Gateway-derived `X-Auth-User`, require the established Closing command roles, and make the existing reopen maker-checker invariant operate on trusted principals. EOD and admission policies remain unchanged.
-- Non-goals: Gateway/network changes, scheduler authorization for operational Batch Jobs, new role taxonomy, schema/data migration, production DB/data access, Ready/merge/Issue close/deployment/cleanup.
-- Required gate: audited-behavior RED, focused API GREEN, `./gradlew :closing:test`, Q1–Q4 evidence and independent read-only review before the authorized Draft PR with `Refs #771`.
-- Baseline exact command executed before Issue edits: API127 and Batch98 passed; Core267 ran with 27 failures, all in `ClosingJournalAdmissionIntegrationTest` because its Closing-owned fixture calls current Journal `approve` directly from DRAFT instead of the now-required REQUESTED state. This pre-existing cross-module fixture drift will be minimally corrected inside the allowlist and is not represented as #771 RED evidence.
-
-### GH-771 verified implementation
-
-- All 15 general mutations now require a trusted Gateway actor and one of three Closing roles. Legacy JSON/query identities cannot select requester, approver, runner or audit actor; the real HTTP/use-case/JPA regression leaves a same-principal reopen PENDING and both Closing/Master periods CLOSED.
-- Final authority contract: missing actor 401; general/transition actor over 50 or EOD actor over 80 returns 400; missing/invalid role 403. EOD retains its prior 80-character and role behavior.
-- Required full command PASS: API151 + Batch98 + Core267 = **516**, failures/errors/skips 0. API and Batch bootJar PASS. Independent focused31 PASS; no remaining P0–P3; Q1–Q4 PASS.
-- Static gate: 27 final paths including the three module records, all under `closing/**`; diff whitespace, conflict markers and unmerged index are clean. Shared harness and other modules are untouched.
-- Residual gates: deployed Gateway header reconstruction/network isolation, live PostgreSQL, production data, distributed/load behavior and current-head hosted CI were not verified. Batch scheduler authorization is outside scope.
-- 권한 분리: 구현·테스트·문서 작성자와 읽기 전용 리뷰어를 분리했고 부모만 Git/GitHub 게시를 수행합니다. Draft 게시만 승인되며 Ready·merge·Issue close·배포·삭제는 별도 승인입니다.
-
-### GH-771 Draft publication
-
-- [Draft PR #805](https://github.com/skyg547/account/pull/805) is OPEN/DRAFT, initially MERGEABLE, `Refs #771`; implementation commit `b941b29f313d618c002a4ec310e6571c11ce5edc`.
-- Issue #771 is OPEN / `status:needs-review`; branch and worktree are retained.
-- Initial Module Validation, Harness Validation and Agent Merge Guard jobs did not start because GitHub reported failed recent account payments or a spending-limit restriction. No hosted test success/failure is inferred and no billing configuration was accessed.
-- Next owner: repository account owner for Actions availability, then human reviewer for current-head CI and the documented Gateway/network gates.
+- Issue [#775](https://github.com/skyg547/account/issues/775), CL05; claim [5869470536](https://github.com/skyg547/account/issues/775#issuecomment-5869470536).
+- Branch `agent/775-annual-close-stale-draft`; isolated worktree `/tmp/account-775-annual-close-stale-draft`; base and current `origin/main` `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Scope is `closing/**` only. Shared harness and all other modules remain unchanged; these records are module-local under the user's explicit restriction.
+- Requested execution tier: `gpt-5.6-sol` / high. Service, test, documentation and independent read-only reviewer roles used disjoint ownership; the parent Integrator alone owns module records and Git/GitHub publication.
+- Status: implementation frozen and scoped review PASS. The audited behavior produced 13 expected failures in a 68-test focused RED run. Independent focused replay passed129/129. Exact required `./gradlew :closing:test` passed Core315/API127/Batch98 =540 tests in54 suites, failures/errors/skips0.
+- Annual close now fingerprints validated posted source content, reuses only an exact current draft, validates full annual header/lineage/lines, and subtracts cumulative valid posted closes to create only a reopened-year residual delta. Missing Journal classifications use a dated Master Data lookup cached by account/date.
+- Independent Q1–Q4 and all four Issue acceptance criteria are PASS; no remaining scoped P0–P3. Draft PR publication is pending this record commit.
+- Deployment/live remote gate remains HOLD: no live PostgreSQL/load/distributed-fault proof, provider-side atomic snapshot, or approved Journal `X-Auth-User`/`X-Auth-Roles` service-principal integration. Ready, merge, Issue close, deployment and resource deletion remain separate gates.

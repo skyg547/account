@@ -290,31 +290,38 @@ Changed implementation/test/guide paths (the three parent-owned module records a
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
 
-## 2026-09-28 — GH-771 trusted Closing command actors
+## 2026-09-28 — GH-775 annual close stale-draft remediation
 
-- Issue [#771](https://github.com/skyg547/account/issues/771), CL01; claim [5868686077](https://github.com/skyg547/account/issues/771#issuecomment-5868686077). Branch `agent/771-closing-authority-boundary`, isolated worktree `/tmp/account-771-closing-authority-boundary`, base `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
-- Scope is `closing/**` only. General Closing mutation routes now accept their actor only from Gateway-rebuilt `X-Auth-User`, require `ADMIN`, `ACCOUNTING_ADMIN`, or `CLOSING_MANAGER`, and ignore legacy body/query actor fields. The existing domain maker-checker rule therefore compares distinct trusted principals. Reads, core financial rules, EOD roles and annual-close core signature remain unchanged.
-- Actor compatibility is fail-fast: general Closing and transition persistence keeps its existing 50-character contract; EOD keeps its existing 80-character contract. Missing actor is 401, over-limit actor 400, and missing/invalid role 403 before use-case invocation. Supporting longer identities requires a separate schema contract change.
-- Audited-behavior RED: before production edits, `ClosingAuthorizationIntegrationTest` ran one test and failed with seven assertions: forged body actors produced 200/APPROVED, reopened Closing and Master periods, and recorded the forged requester rather than the single authenticated principal. The audited `a97d10ab` controller and reopen domain blobs match the pre-change test target.
-- Final regression uses real HTTP, Closing use cases and JPA with only the remote Master control represented by a stateful test port. It proves a single trusted actor cannot request and approve by changing JSON identities: decision 409, approval PENDING, approver null, both periods CLOSED, and audit actor bound to the header principal. Controller tests cover all 15 general mutations for 401/403/no use-case call and trusted actor mapping.
-- Exact required `./gradlew :closing:test --console=plain`: BUILD SUCCESSFUL in 1m1s. XML totals are API151/18 suites, Batch98/14 suites, Core267/22 suites = **516 tests/54 suites**, failures/errors/skips 0. `./gradlew :closing:api:bootJar :closing:batch:bootJar --console=plain` also passed in 20s.
-- The baseline-only 27 Core failures were fixture drift in `ClosingJournalAdmissionIntegrationTest`: current Journal requires DRAFT → REQUESTED → APPROVED. The Closing-owned fixture now performs that transition and expects canonical lowercase `system`; focused and full tests pass. This is not represented as Issue #771 RED evidence.
-- Independent read-only `/root/review_771` reran 31 focused authorization tests, failure/error/skip 0. Its P2 actor-length findings and P3 documentation finding were returned to the original writers and corrected. Final review reports no P0–P3. The reviewer checked 25 implementation/test/guide paths; the final 27-path set adds the three parent-owned module records and remains under `closing/**`. Whitespace, conflict-marker and unmerged-index gates pass.
+- Contract: [Issue #775](https://github.com/skyg547/account/issues/775), `agent/775-annual-close-stale-draft`, `/tmp/account-775-annual-close-stale-draft`, base/current main `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`, allowlist `closing/**`, Draft delivery with `Refs #775`.
+- Architecture: `AnnualClosingService` remains the core application coordinator. It canonicalizes sorted posted source summaries/details into a SHA-256 snapshot, uses an 86-character `year|retainedHash|snapshotHash` lineage and 20-character snapshot-derived slip, validates every annual header/detail/status/lineage, and calculates `required closing - cumulative POSTED annual closing` by signed `BigDecimal` base amount. No schema, shared contract, API shape or Batch flow changed.
+- Retry policy: only a single exact `DRAFT` for the current snapshot and residual is reusable. Stale, malformed, legacy-draft, unsupported-status or duplicate pending candidates fail closed. Fully validated legacy year-only `POSTED` entries remain cumulative history. A posted close plus new posted activity creates only the residual delta; posting that delta makes the same input a no-op.
+- Classification: Journal-provided supported categories are used when present. Missing values resolve through `MasterDataQueryPort.findAccountSubjectAt(account,date)` with a per-run account/date cache. Dev remote composition adds `HttpClosingMasterDataQueryAdapter`; invalid, missing, mismatched, redirected or failed responses do not become permission to close.
+- Regression evidence: untouched audited behavior failed 13 of 68 focused tests on stale reuse/delta/content/category cases while existing posted-only/base-amount controls remained green. Final independent replay passed129/129: Annual25, Journal HTTP54, Master HTTP17, admission27 and slip factory6.
+- Whole module: exact `./gradlew :closing:test` PASS in1m26s; Core315/API127/Batch98 =540 tests across54 suites, failures0/errors0/skipped0. `git diff --check`, conflict-marker scan, unmerged-path check and closing-only scope check pass.
+- Baseline compatibility: the first whole-module run exposed27 pre-existing admission fixture failures caused by direct DRAFT-to-APPROVED transitions. The test-only fixture now requests approval first and expects the canonical lowercase system actor; its27 assertions pass without production behavior changes.
+- Review: the first read-only review found the introduced Journal `accountCategory` contract assumption. The writer corrected it with the dated Master fallback and provider-shape tests. Final reviewer found no scoped P0–P3, mapped all acceptance criteria PASS and set the scoped delivery gate PASS.
+
+Changed implementation/test/guide paths; the three module-local records are additional:
+
+- `closing/README.md`
+- `closing/api/src/test/java/com/ho/account/closing/ClosingDevRuntimeContextTest.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/ClosingSlipNoFactory.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpClosingJournalAdapter.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpClosingMasterDataQueryAdapter.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/AnnualClosingServiceTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/ClosingJournalAdmissionIntegrationTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/external/HttpClosingJournalAdapterTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/external/HttpClosingMasterDataQueryAdapterTest.java`
+- `closing/docs/beginner-guide.md`
+- `closing/docs/local-run.md`
+- `closing/docs/process-flow.md`
 
 | 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
 | --- | --- | --- | --- | --- | --- |
-| Q1 | PASS | `ClosingCommandAuthority.java`, `ClosingController.java`; full516 and focused31 PASS | 해당 없음: inbound 코드 변경 | hosted current-head CI와 사람 리뷰 필요 | `/root/review_771`, 미해결 P0–P3 없음 |
-| Q2 | PASS | `closing/docs/process-flow.md`; Gateway actor → 401/400/403 → use case → audit/SoD 흐름 | 해당 없음: 보안 흐름 변경 | 실제 Gateway header 재생성·망 격리 미검증 | 구현·테스트·문서 대조 PASS |
-| Q3 | PASS | `closing/README.md`, `closing/docs/local-run.md`, `closing/docs/beginner-guide.md`; 역할·15 routes·50/80 제한·검증 명령 | 해당 없음: 공개 API 계약 변경 | 실 PostgreSQL·배포 smoke·부하 미검증 | 기능 문서 제약 확인 PASS |
-| Q4 | PASS | `ClosingCommandAuthority.java`의 영속 길이 호환 의도, `EodLifecycleController.java`의 80자 보존 주석, 실제 경계 통합 테스트 설명 | 해당 없음: 비자명 권한 경계 변경 | 향후 schema 변경 시 제한·주석 동기화 | 의도와 구현 일치 PASS |
+| Q1 | PASS | `AnnualClosingService.java:74,157,411`; focused129/full540 PASS | 해당 없음: 금융 계산·재실행 변경 | 실제 인증 원격 Journal/Master 및 동시 변경 검증 | `/root/issue775_review`, snapshot/sign/balance/status/duplicate 검토 PASS |
+| Q2 | PASS | `AnnualClosingService` application 정책과 `HttpClosingMasterDataQueryAdapter` outbound 기술 분리; `process-flow.md:362` | 해당 없음: 구조·흐름 변경 | summary/detail 및 unique account/date N+1, 비원자 snapshot | 독립 구현/경계/문서 대조 PASS |
+| Q3 | PASS | `README.md:16`, `beginner-guide.md:45`, `local-run.md:96`, `process-flow.md:362`; full540 PASS | 해당 없음: 기능 안내 변경 | 승인된 service-principal 계약 전 remote write HOLD | 독립 문서 사실성/한계 대조 PASS |
+| Q4 | PASS | snapshot TODO/lineage 길이/redirect 차단 의도 주석; provider-order·failure tests | 해당 없음: 비자명 로직 변경 | 36-bit slip discriminator 충돌은 full lineage 검증으로 fail-closed | 독립 주석/구현 일치 확인 PASS |
 
-Residual limits: tests supply synthetic trusted headers and do not prove deployed Gateway stripping/reconstruction or private API network isolation. No production data, live PostgreSQL, distributed fault/load test or deployment was used. Spring Batch scheduler authorization is intentionally outside this HTTP remediation. Rollback is a reviewed Closing-only revert with no migration/data reset.
-
-**권한 분리:** production/test/document writers used disjoint allowlists; `/root/review_771` was read-only; the parent Integrator alone owns records, commit, push and Draft publication. This procedural split is not human approval or runtime security isolation. Ready, merge, Issue close, deployment and branch/worktree deletion remain separate gates.
-
-### GH-771 Draft publication
-
-- Published [Draft PR #805](https://github.com/skyg547/account/pull/805), OPEN/DRAFT and initially MERGEABLE, with `Refs #771`, from `agent/771-closing-authority-boundary` to `main`. Verified implementation commit: `b941b29f313d618c002a4ec310e6571c11ce5edc`. Issue #771 remains OPEN / `status:needs-review`; the isolated worktree is retained.
-- Initial implementation-head hosted jobs did not start. GitHub annotations explicitly report failed recent account payments or a spending-limit restriction: [Module Validation](https://github.com/skyg547/account/actions/runs/36417503790), [Harness Validation](https://github.com/skyg547/account/actions/runs/36417503763), [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36417503806). These are infrastructure gates, not hosted code/test results. No billing settings were accessed or changed.
-- This publication append changes only the three Closing module records; verified production/test/guide contents are unchanged, so Java tests are not redundantly rerun for publication text. The PR body includes verification, Q1–Q4, rollback, residual Gateway/network risks and authority separation.
-- Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and Gateway/private-network prerequisites. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.
+Rollback: stop annual-close execution, preserve every posted/draft journal and lineage for reconciliation, then use a reviewed scoped revert. No migration or data reset is required. Existing old drafts must not be deleted automatically. Next owner after Draft publication is a human reviewer for current-head CI and the separate Journal service-authentication integration; Ready/merge/Issue close/deployment/cleanup are not authorized here.

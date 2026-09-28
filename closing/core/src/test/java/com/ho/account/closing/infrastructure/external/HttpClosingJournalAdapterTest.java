@@ -31,12 +31,17 @@ class HttpClosingJournalAdapterTest {
     private static final String APPROVE = "/api/journals/42/approve";
     private static final String POST = "/api/journals/42/post";
     private static final String LOOKUP = "/api/journals/CL-42";
+    private static final String DETAIL = "/api/journals/by-id/42";
     private static final String SUMMARIES = "/api/journals";
     private static final String DRAFT = "{\"journalEntryId\":42,\"slipNo\":\"CL-42\",\"status\":\"DRAFT\"}";
     private static final String VIEW = """
             {"id":42,"slipNo":"CL-42","slipDate":"2026-09-10","accountingDate":"2026-09-10",
              "status":"POSTED","entryType":"NORMAL","currencyCode":"KRW",
-             "lineageSourceType":"CLOSING","lineageSourceId":"20260910"}
+             "lineageSourceType":"CLOSING","lineageSourceId":"20260910",
+             "lines":[{"id":4201,"side":"CREDIT","accountCode":"41000",
+                       "amount":1000.00,"baseAmount":1000.00,
+                       "departmentCode":null,"businessPartnerCode":null,
+                       "description":"Source revenue"}]}
             """;
     private HttpServer server;
     private HttpClosingJournalAdapter adapter;
@@ -76,7 +81,7 @@ class HttpClosingJournalAdapterTest {
 
     static Stream<Arguments> redirectStages() {
         return IntStream.of(300, 301, 302, 303, 304, 307, 308).boxed()
-                .flatMap(status -> Stream.of(CREATE, APPROVE, POST, LOOKUP, SUMMARIES)
+                .flatMap(status -> Stream.of(CREATE, APPROVE, POST, LOOKUP, DETAIL, SUMMARIES)
                         .map(path -> Arguments.of(status, path)));
     }
 
@@ -106,8 +111,17 @@ class HttpClosingJournalAdapterTest {
         assertThat(summary.getLineageSourceType()).isEqualTo("CLOSING");
         assertThat(summary.getLineageSourceId()).isEqualTo("20260910");
         assertThat(adapter.getJournalSummaries(DATE, DATE)).hasSize(1);
-        assertThat(requests).extracting(Received::path).containsExactly(CREATE, APPROVE, POST, LOOKUP, SUMMARIES);
-        assertThat(requests).extracting(Received::method).containsExactly("POST", "POST", "POST", "GET", "GET");
+        var details = adapter.getJournalDetails(42L);
+        assertThat(details).singleElement().satisfies(detail -> {
+            assertThat(detail.getAccountCode()).isEqualTo("41000");
+            assertThat(detail.getAccountCategory()).isNull();
+            assertThat(detail.getAmount()).isEqualByComparingTo("1000.00");
+            assertThat(detail.getBaseAmount()).isEqualByComparingTo("1000.00");
+        });
+        assertThat(requests).extracting(Received::path)
+                .containsExactly(CREATE, APPROVE, POST, LOOKUP, SUMMARIES, DETAIL);
+        assertThat(requests).extracting(Received::method)
+                .containsExactly("POST", "POST", "POST", "GET", "GET", "GET");
         assertThat(requests.get(1).actor()).isEqualTo("closing-operator");
         assertThat(requests.get(2).actor()).isEqualTo("closing-operator");
         JsonNode json = new ObjectMapper()
@@ -125,7 +139,7 @@ class HttpClosingJournalAdapterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {CREATE, APPROVE, POST, LOOKUP, SUMMARIES})
+    @ValueSource(strings = {CREATE, APPROVE, POST, LOOKUP, DETAIL, SUMMARIES})
     void serverFailureIsSanitizedAndNeverRetried(String path) {
         failedPath = path;
         failureStatus = 503;
@@ -160,6 +174,7 @@ class HttpClosingJournalAdapterTest {
             }
             case APPROVE, POST -> adapter.approveAndPost(42L, "closing-operator");
             case LOOKUP -> adapter.findBySlipNo("CL-42");
+            case DETAIL -> adapter.getJournalDetails(42L);
             case SUMMARIES -> adapter.getJournalSummaries(DATE, DATE);
             default -> throw new AssertionError("Unknown test stage");
         }
