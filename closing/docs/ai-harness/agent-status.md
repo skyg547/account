@@ -141,3 +141,9 @@
 - Annual requests now contain only `year`. Exact-year approved configuration supplies the destination, approval metadata and explicit postability attestation; the Dec31 Master account must be the exact `EQUITY`/`CREDIT` account before any Journal access. Mapping identity joins #775's V2 snapshot, so configuration changes stale a pending draft while a financially complete posted close remains a no-op.
 - Limits: Master Data has no actual postability field and Journal has no legal-entity dimension. No live PostgreSQL/load/distributed-fault test, provider-side atomic snapshot or authenticated remote Journal write was performed. Configuration metadata is review evidence, not an authenticated maker/checker workflow.
 - Draft publication with `Refs #776` is authorized. Ready, merge, Issue close, deployment, branch/worktree deletion and billing/configuration changes remain separate gates.
+
+### GH-776 Draft publication
+
+- Published [Draft PR #807](https://github.com/skyg547/account/pull/807), OPEN/DRAFT and MERGEABLE, with `Refs #776`; base `agent/775-annual-close-stale-draft`, head `agent/776-retained-earnings-control`, verified implementation commit `5f49ae5942209a26c1b28ca1958fc3fd549765d2`. Issue #776 remains OPEN / `status:needs-review`; the isolated worktree is retained.
+- Initial implementation-head hosted jobs did not execute: [Harness Validation](https://github.com/skyg547/account/actions/runs/36427631648) and [Module Validation](https://github.com/skyg547/account/actions/runs/36427631554) contain zero-step failures whose annotations report failed recent account payments or a spending-limit restriction. These are infrastructure failures, not hosted code/test results; no billing setting was accessed or changed.
+- This publication append changes only the three Closing module records. Ready, merge, Issue close, deployment, branch/worktree deletion and billing/configuration changes were not performed.

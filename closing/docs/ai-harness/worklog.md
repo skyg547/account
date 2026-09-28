@@ -375,3 +375,9 @@ Changed implementation/test/guide paths; the three parent-owned module records a
 잔여 테스트 공백: 허용되는 최대 50자 계정 코드의 lineage가 정적으로 86자로 `VARCHAR(100)` 이내임은 독립 리뷰에서 확인했지만, 최대 길이를 직접 assertion하는 회귀 테스트는 없다.
 
 Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전표와 lineage를 보존·대사한다. 검토된 #776 delta만 revert하고 설정은 코드 rollback 뒤 제거한다. 이전 request-selected account 계약은 endpoint가 비활성화된 동안만 복원할 수 있으며, Journal 데이터 삭제·재작성이나 migration rollback은 하지 않는다. 다음 owner는 stacked Draft의 human reviewer와 #806 이후 current-main 통합 검증자다.
+
+### GH-776 Draft publication
+
+- [Draft PR #807](https://github.com/skyg547/account/pull/807)을 `agent/775-annual-close-stale-draft` → `agent/776-retained-earnings-control`로 발행했다. OPEN/DRAFT, MERGEABLE이며 `Refs #776`; 독립 리뷰를 받은 구현 commit은 `5f49ae5942209a26c1b28ca1958fc3fd549765d2`다.
+- 구현 head의 [Harness Validation](https://github.com/skyg547/account/actions/runs/36427631648)과 [Module Validation](https://github.com/skyg547/account/actions/runs/36427631554)은 step 없이 종료됐다. annotation의 원인은 최근 account payment 실패 또는 spending limit이며, 코드/테스트 실행 결과가 아니다. billing 설정은 읽거나 변경하지 않았다.
+- 이 publication append는 Closing 모듈 로컬 기록 3개만 변경한다. Issue #776은 OPEN / `status:needs-review`로 유지했고 Ready, merge, Issue close, deployment 및 branch/worktree 삭제를 수행하지 않았다.

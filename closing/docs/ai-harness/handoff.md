@@ -197,3 +197,9 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - 권한 분리: service/controller/config/test/documentation writers had disjoint Closing files; the Reviewer was read-only; the parent Integrator alone updates module records and performs commit/push/Draft publication. AI review is not human/GitHub approval.
 - Merge authority: this handoff authorizes only the requested Draft publication with `Refs #776`. Ready, merge, Issue close, deployment, billing/config changes and branch/worktree deletion remain separate human gates.
 - Next owner: human stacked-Draft reviewer, then the authorized integrator after #806 for current-main retarget/rebase and repeated verification. PR URL and observed hosted checks will be appended only after actual publication.
+
+### GH-776 publication result
+
+- [Draft PR #807](https://github.com/skyg547/account/pull/807) is OPEN/DRAFT and MERGEABLE from `agent/776-retained-earnings-control` to the required stacked base `agent/775-annual-close-stale-draft`; it contains `Refs #776`. Independently reviewed implementation commit: `5f49ae5942209a26c1b28ca1958fc3fd549765d2`.
+- Initial hosted [Harness Validation](https://github.com/skyg547/account/actions/runs/36427631648) and [Module Validation](https://github.com/skyg547/account/actions/runs/36427631554) did not start any steps. GitHub annotations identify failed recent account payments or a spending-limit restriction, so their failure status is an infrastructure gate rather than hosted code/test evidence. No billing setting was accessed or changed.
+- Issue #776 remains OPEN / `status:needs-review`; the branch and isolated worktree are retained. Ready conversion, merge, Issue close, deployment, billing/configuration changes and cleanup remain for separately authorized owners.
