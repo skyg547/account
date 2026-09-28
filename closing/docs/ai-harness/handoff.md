@@ -177,3 +177,9 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Deployment prerequisites: configure only verified service actors, keep Closing private behind a Gateway that strips/rebuilds identity headers, integrate actual trusted producers, and run real PostgreSQL concurrency plus payload/load checks. Header allowlisting is not mTLS or signed identity. Keep the Issue open until those operational gates and human review are satisfied.
 - Rollback after V53 must preserve evidence and transition lineage: drain writers, reconcile Master, and apply a forward corrective migration. Do not drop evidence tables or introduce a fail-open path.
 - 권한 분리: 구현/테스트 작성자와 독립 읽기 전용 리뷰어를 분리했고 부모 Integrator만 records·commit·push·Draft PR·Issue 상태를 처리합니다. 이는 절차적 분리이며 같은 실행 환경의 보안 격리나 사람 승인을 뜻하지 않습니다. Ready·merge·Issue close·deployment·branch/worktree 삭제는 별도 승인 대상입니다.
+
+### GH-778 Draft publication
+
+- [PR #809](https://github.com/skyg547/account/pull/809): OPEN/DRAFT, initially MERGEABLE, `Refs #778`; implementation commit `ad30e2e9dc0349b4b46f0ee0b936c2d17ec85613` on latest base `2d7b964eee4ea8d36f2cdabfb5a56df6ab6ca75d`.
+- Hosted Module/Harness/Merge Guard jobs were not started because GitHub reported an account payment or spending-limit restriction. Treat this as an external service gate, not a validation result.
+- Next owner: repository account owner to restore Actions, then human review and authorized Gateway/producer/PostgreSQL operational verification. Issue remains open; Ready/merge/close/deploy/delete are not authorized.

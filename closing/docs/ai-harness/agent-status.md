@@ -120,3 +120,9 @@
 - Evidence ingestion defaults deny-all and requires configured exact trusted submitter plus dedicated role. This is not cryptographic service identity; private Gateway routing/header rebuild and trusted producer deployment remain human/operational gates. No override was implemented.
 - Required full suite: 513 tests /57 suites, failures/errors/skips0; API/Batch bootJar PASS. Scope, whitespace, conflict and unmerged-index checks PASS. Independent read-only `/root/review_778`: no remaining P0–P3, Q1–Q4 PASS.
 - Parent Integrator may now commit, push and create the authorized Draft PR with `Refs #778`. Ready, merge, Issue close, deployment and cleanup remain prohibited without a later gate.
+
+### GH-778 Draft publication
+
+- [Draft PR #809](https://github.com/skyg547/account/pull/809) is OPEN/DRAFT and initially MERGEABLE, `Refs #778`, verified implementation commit `ad30e2e9dc0349b4b46f0ee0b936c2d17ec85613`, base `origin/main@2d7b964eee4ea8d36f2cdabfb5a56df6ab6ca75d`.
+- Rebased final-head rerun executed all tasks: Closing513/57 suites PASS; API/Batch bootJar PASS. Hosted jobs did not start because GitHub reported an account payment/spending-limit restriction; no hosted code/test pass is claimed.
+- Issue stays OPEN / `status:needs-review`; branch and worktree remain. Ready, merge, Issue close, deployment and cleanup were not performed.
