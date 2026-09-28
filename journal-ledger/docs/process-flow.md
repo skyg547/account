@@ -297,6 +297,41 @@ JDBC bulk 모드는 H2 기준 SQL 동작을 `JdbcLedgerBulkPersistenceAdapterTes
 5. 차대변은 `JournalSide` 타입으로 제한되어 잘못된 문자열을 저장 전에 차단합니다.
 6. 필수 표현식 값, 외화 환율이 없거나 금액이 0 이하이면 전표 생성을 중단합니다.
 
+### Kafka 미매칭 격리와 재생
+
+Kafka listener는 성공/실패를 로그만으로 결정하지 않습니다. 규칙이 하나도 일치하지 않으면
+V18의 `journal_event_quarantine`에 `(source_topic, source_partition, source_offset)`을 고유
+operation identity로 저장합니다. 같은 broker record의 재전달은 새 예외 행을 만들지 않습니다.
+일반 journal lineage는 한 원천이 여러 전표를 만들 수 있으므로 이 고유 키로 사용하지 않습니다.
+
+`ROLE_ACCOUNTING_ADMIN` 또는 `ROLE_ADMIN`은 `X-Auth-User`와 함께 다음 control API를 사용합니다.
+
+- `GET /api/journals/event-quarantine/summary`: 미해결/재생 완료 수와 가장 오래된 미해결 시각
+- `GET /api/journals/event-quarantine?status=QUARANTINED&limit=50`: 오래된 순 broker 좌표·상태
+- `POST /api/journals/event-quarantine/{id}/replay`: 현재 규칙으로 잠금 기반 재생
+
+목록과 응답은 원문 payload 및 Kafka key를 노출하지 않습니다. 재생은 quarantine 행을
+`FOR UPDATE`로 잠근 뒤 저장된 payload를 복원하고 기존 룰 엔진·검증 엔진·전표 저장 경로를
+그대로 호출합니다. 규칙이 여전히 없으면 HTTP 409이며 attempt/actor/time만 남고 계속
+`QUARANTINED`입니다. 규칙이 생겼으면 전표 insert와 `REPLAYED`, 연결 journal ID가 같은 DB
+트랜잭션으로 커밋됩니다. 두 replay가 경쟁하면 첫 요청만 전표를 만들고 다음 요청은 잠금 뒤
+이미 연결된 같은 전표를 반환합니다.
+
+목록 `limit`은 1~100만 허용하며 범위를 벗어나면 persistence 호출 전 HTTP 400입니다. 존재하지
+않는 quarantine replay만 전용 예외를 통해 404로 응답하고, 실제 DB/serialization/룰 처리 장애를
+404로 축소하지 않습니다. summary의 두 상태 count와 가장 오래된 미해결 시각은 세 번 조회하지
+않고 하나의 조건부 aggregate SQL로 읽어 READ_COMMITTED에서도 같은 statement snapshot을 봅니다.
+
+이 통제는 Kafka broker record에 한정됩니다. HTTP/contract/manual 생성의 범용 operation key와
+fingerprint를 정의하는 GL10(#765)은 별도 미해결 과제이며, 이 구현은 lineage 전체에 unique를
+추가하거나 null slip 번호 같은 불안정 fallback을 만들지 않습니다.
+
+룰 평가·검증·DB 예외처럼 quarantine 정상 처리가 아닌 실패는 설정된 `DefaultErrorHandler`가
+기본 1초 간격으로 2회 재시도합니다. 최초 시도를 포함한 세 번째 실패 뒤 같은 partition의
+`<source-topic>.DLT`로 발행하고, DLT 발행 자체가 실패하면 원본 record를 성공 처리하지 않습니다.
+운영 시작 전에 DLT가 원본보다 적지 않은 partition 수로 생성됐는지와 생산/소비 ACL을 확인해야
+합니다. local profile은 broker가 없어 listener auto-startup이 꺼져 있습니다.
+
 `JournalRuleEngine`은 `JournalRuleQueryPort`를 통해 규칙을 읽습니다. JPA 저장소 세부 구조와 조회 메서드는 `JournalRuleQueryAdapter` 뒤에 숨깁니다.
 거래통화는 `transactionCurrencyCode`, `currencyCode`, `currency`와 각각의 `transaction.*`
 형태만, 환율은 `transactionToBaseRate`, `exchangeRate`, `fxRate`와 각각의 `transaction.*`
@@ -319,8 +354,8 @@ binary floating-point인 `Double`이 아니라 `BigDecimal`로 만들며, JSON �
 `DECIMAL(19,2)` 계약을 `RoundingMode.UNNECESSARY`로 검사합니다. 따라서
 `900719925474099.11`은 센트까지 그대로 유지되고, `100.000000000000001`처럼 허용 범위를
 넘는 소수는 `100.00`으로 반올림되기 전에 HTTP 400 또는 Kafka 리스너 예외로 거부됩니다.
-Kafka 리스너는 이 예외를 소비 실패로 다시 던지며, 실제 재시도 횟수와 DLQ 라우팅은 배포별
-Kafka 오류 처리 설정의 책임입니다. 이 경계 설정은 정밀도를 보존할 뿐 금액을 확정하거나
+Kafka 리스너는 이 예외를 소비 실패로 다시 던지고, 위의 bounded retry/DLT 정책을 적용합니다.
+이 경계 설정은 정밀도를 보존할 뿐 금액을 확정하거나
 반올림하지 않으며, 금융 유효성 판단은 계속 core 도메인이 담당합니다.
 
 ## 미결 등록·반제 흐름

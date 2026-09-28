@@ -1,9 +1,13 @@
 package com.ho.account.journalledger.adapter.in.kafka;
 
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import lombok.RequiredArgsConstructor;
+import com.ho.account.journalledger.application.port.in.KafkaJournalEventUseCase;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -16,42 +20,90 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class KafkaTransactionListener {
 
     private static final String KAFKA_MAKER = "service:journal-kafka-maker";
 
-    private final JournalUseCase journalUseCase;
+    private final KafkaJournalEventUseCase kafkaJournalEventUseCase;
+    private final JournalUseCase compatibilityJournalUseCase;
+
+    /** Production construction requires the durable Kafka completeness use case. */
+    @Autowired
+    public KafkaTransactionListener(KafkaJournalEventUseCase kafkaJournalEventUseCase) {
+        this.kafkaJournalEventUseCase = kafkaJournalEventUseCase;
+        this.compatibilityJournalUseCase = null;
+    }
+
+    /**
+     * Source-compatible direct construction for older callers.
+     *
+     * <p>This path has no broker operation identity, so an unmatched event fails closed instead of
+     * pretending that it was durably quarantined.</p>
+     */
+    public KafkaTransactionListener(JournalUseCase journalUseCase) {
+        this.kafkaJournalEventUseCase = null;
+        this.compatibilityJournalUseCase = java.util.Objects.requireNonNull(journalUseCase);
+    }
 
     @KafkaListener(topics = "transaction-events", groupId = "journal-ledger-group")
-    public void listenTransactionEvent(Map<String, Object> event) {
-        log.info("Received transaction event: {}", event);
+    public void listenTransactionEvent(
+            @Payload Map<String, Object> event,
+            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset) {
+        log.info("Received transaction event: topic={}, partition={}, offset={}", topic, partition, offset);
 
         try {
-            // 이벤트에서 회계일자 추출 (없으면 오늘 날짜)
-            LocalDate accountingDate = LocalDate.now();
-            if (event.containsKey("accountingDate")) {
-                accountingDate = LocalDate.parse(event.get("accountingDate").toString());
+            LocalDate accountingDate = accountingDate(event);
+            Map<String, Object> trustedEvent = trustedEvent(event);
+            var result = kafkaJournalEventUseCase.process(
+                    new KafkaJournalEventUseCase.BrokerRecord(topic, partition, offset),
+                    trustedEvent,
+                    accountingDate);
+            switch (result.disposition()) {
+                case JOURNAL_CREATED -> log.info(
+                        "Generated journal {} for Kafka record {}-{}@{}",
+                        result.journalEntryId(), topic, partition, offset);
+                case QUARANTINED -> log.warn(
+                        "Quarantined unmatched journal event {} for Kafka record {}-{}@{}",
+                        result.quarantineId(), topic, partition, offset);
+                case ALREADY_QUARANTINED -> log.info(
+                        "Kafka record {}-{}@{} already has quarantine {}",
+                        topic, partition, offset, result.quarantineId());
             }
-
-            // 전표 자동 생성 시도
-            Map<String, Object> trustedEvent = new java.util.HashMap<>(event);
-            // Kafka has no Gateway headers; bind the entry to this listener's service principal.
-            trustedEvent.put("createdBy", KAFKA_MAKER);
-            trustedEvent.put("auditUser", KAFKA_MAKER);
-            journalUseCase.createJournalEntryFromEvent(trustedEvent, accountingDate)
-                    .ifPresentOrElse(
-                            entry -> log.info("Successfully generated journal entry: No={}, ID={}", entry.getSlipNo(), entry.getId()),
-                            () -> log.warn("No matching journal rule found for event: {}", event)
-                    );
-
-        } catch (Exception e) {
-            log.error("Failed to process transaction event: {}", event, e);
-            // T29 fixed: Handle Kafka listener failures with a DLQ strategy. 
-            // In a real Spring Kafka setup, this is often handled by DeadLetterPublishingRecoverer or a custom DLQ topic.
-            // Here, we ensure the error is logged observability and potentially throw a specific exception to trigger 
-            // Spring Kafka's built-in retry/DLQ mechanism instead of swallowing the exception.
+        } catch (RuntimeException e) {
+            log.error("Failed to process transaction event at {}-{}@{}", topic, partition, offset, e);
             throw new RuntimeException("Kafka message processing failed, triggering retry/DLQ fallback", e);
         }
+    }
+
+    /** Legacy direct-call contract retained for audited-source regression and source compatibility. */
+    public void listenTransactionEvent(Map<String, Object> event) {
+        if (compatibilityJournalUseCase == null) {
+            throw new IllegalStateException("Direct Kafka event calls require the compatibility constructor");
+        }
+        try {
+            var generated = compatibilityJournalUseCase.createJournalEntryFromEvent(
+                    trustedEvent(event), accountingDate(event));
+            if (generated.isEmpty()) {
+                throw new IllegalStateException(
+                        "Unmatched Kafka event cannot be acknowledged without broker coordinates");
+            }
+        } catch (RuntimeException exception) {
+            throw new RuntimeException("Kafka message processing failed, triggering retry/DLQ fallback", exception);
+        }
+    }
+
+    private LocalDate accountingDate(Map<String, Object> event) {
+        Object supplied = event.get("accountingDate");
+        return supplied == null ? LocalDate.now() : LocalDate.parse(supplied.toString());
+    }
+
+    private Map<String, Object> trustedEvent(Map<String, Object> event) {
+        Map<String, Object> trustedEvent = new java.util.HashMap<>(event);
+        // Kafka has no Gateway headers; payload identity never outranks the listener service principal.
+        trustedEvent.put("createdBy", KAFKA_MAKER);
+        trustedEvent.put("auditUser", KAFKA_MAKER);
+        return trustedEvent;
     }
 }

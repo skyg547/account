@@ -44,7 +44,9 @@ IntelliJ에서는 공유 실행 설정 `Journal Ledger Batch Reaggregation`을 �
 
 - **Kafka 기반 비동기 전표 처리**:
   - `KafkaTransactionListener`를 통해 `transaction-events` 토픽으로부터 다른 서브레저 모듈(예: 결산, 대사, 수납)의 회계 이벤트를 수신합니다.
-  - 전표 생성에 실패할 경우(예외 발생) 무음 처리하지 않고 명시적으로 `RuntimeException`을 던져, Spring Kafka의 기본 **DLQ(Dead Letter Queue)** 및 Retry 메커니즘을 유도하는 Fail-Safe 설계를 따릅니다.
+  - 적용 규칙이 없는 유효 이벤트는 V18 `journal_event_quarantine`에 broker topic/partition/offset과 payload를 저장한 뒤에만 소비를 완료합니다. 관리자 completeness API는 payload와 Kafka key를 노출하지 않고 미해결 수·최초 발생 시각·broker 좌표를 제공합니다.
+  - 규칙 보정 뒤 관리자 replay는 quarantine 행을 잠그고 전표 생성과 `REPLAYED + journal_entry_id`를 한 트랜잭션으로 커밋합니다. 같은 quarantine의 동시·순차 replay는 같은 전표로 수렴합니다.
+  - 그 밖의 처리 예외는 `DefaultErrorHandler`가 최초 시도 뒤 기본 2회 재시도하고, 소진 시 같은 partition의 `<source-topic>.DLT`로 발행합니다. DLT 발행 실패는 원본을 성공 처리하지 않습니다.
 - **Journal Rule Engine (자동 분개 룰 엔진)**:
   - 계정과 차대변은 활성 규칙으로 결정하지만 거래통화와 거래통화→KRW 환율은 이벤트의 명시적인 transaction provenance만 사용합니다. 통화는 `transactionCurrencyCode`/`currencyCode`/`currency`, 환율은 `transactionToBaseRate`/`exchangeRate`/`fxRate`와 각각의 `transaction.*` 형태만 허용하며 `company`, `functionalCurrency`, `reportingCurrency`, `accountingPolicy` 기준통화에서 추론하지 않습니다.
   - 지원 별칭이 여러 개 공급되면 통화는 trim·대문자 정규화 후, 환율은 숫자 비교 후 모두 같아야 합니다. 같은 값의 중복은 허용하고 충돌은 전표 생성 전에 거부합니다.
@@ -81,8 +83,8 @@ journal-ledger:
 루트 [docs/local-development.md](../../docs/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
 
 API local과 Batch local은 서로 다른 H2 메모리 DB를 사용하지만 둘 다 module-owned Flyway
-V1~V17을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블과
-V17 역분개 operation 관계도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
+V1~V18을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블,
+V17 역분개 operation 관계와 V18 event quarantine도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
 승인된 별도 migration-runner가 먼저 적용한 스키마를 validate합니다.
 
 ```powershell
