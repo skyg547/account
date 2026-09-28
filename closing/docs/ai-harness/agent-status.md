@@ -121,3 +121,8 @@
 - Required `./gradlew :closing:test`: PASS512 (API127/Batch100/Core285), failure/error/skip0. API/Batch bootJar PASS. Scope, whitespace, conflict, dependency and no-migration gates pass.
 - Independent read-only review returned APPROVE, no open P0–P3, Q1–Q4 PASS after maker-header and monolith ECL bean defects were fixed and rerun.
 - Parent Integrator now owns authorized commit/push/Draft PR/module-record publication. Ready, merge, Issue close, deployment and branch/worktree deletion remain unperformed. Next owner after Draft: human current-head/CI reviewer and authorized operations owner for real PostgreSQL/source freeze/deployed Journal gates.
+
+### GH-777 Draft published
+
+- [PR #808](https://github.com/skyg547/account/pull/808) is OPEN/DRAFT and initially MERGEABLE, `Refs #777`; implementation commit `8fa4d8fb`. Issue #777 remains OPEN / `status:needs-review`; worktree retained.
+- Hosted module/harness/merge-guard checks are initially QUEUED, so no remote pass/fail is claimed. Human current-head review and operational gates remain next.

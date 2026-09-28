@@ -318,3 +318,9 @@ Changed implementation/test/guide paths (the three parent-owned module records a
 | Q4 | PASS | cap+1 overflow, remote effects, validation rerun, callback/cursor and lineage comments; focused auth/cap/restart tests | 해당 없음: 비자명 금융·재시작 로직 변경 | 대량 성능·분산 장애 후속 게이트 | 동일 리뷰어 확인 |
 
 - Publication gate: authorized Closing-only commit/push/Draft PR with `Refs #777` follows. Ready, merge, Issue close, deployment and branch/worktree deletion are not authorized by this gate.
+
+### GH-777 Draft publication
+
+- Published [Draft PR #808](https://github.com/skyg547/account/pull/808), OPEN/DRAFT and initially MERGEABLE, `Refs #777`, from `agent/777-financial-run-evidence` to `main`. Verified implementation commit `8fa4d8fb`. Issue #777 remains OPEN and is labeled `status:needs-review`; the isolated worktree is retained.
+- The PR body contains the 512-test result, packaging/harness checks, Q1–Q4 evidence, rollback/remaining gates and explicit authority separation. Initial hosted Module Validation, Harness Validation and Merge Guard checks are QUEUED; no hosted result is claimed yet.
+- Ready, merge, Issue close, deployment and branch/worktree deletion were not performed. Next owner is a human current-head/CI reviewer, followed by authorized accounting/operations owners for the documented deployment gates.

@@ -179,3 +179,8 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Rollback: stop affected runs, reviewed Closing-only revert, preserve all history and posted Journal effects, and use lineage-based correction/reversal where needed. No database migration rollback.
 - 권한 분리: 구현·테스트 작성자와 독립 읽기 전용 리뷰어를 분리했고, 부모 Integrator만 module harness, commit, push, Draft PR을 수행합니다. AI 리뷰는 사람/GitHub 승인을 대체하지 않습니다. Ready·merge·Issue close·배포·branch/worktree 삭제는 수행하지 않습니다.
 - Next owner: human Draft/current-head CI reviewer, then authorized accounting/operations owner for source freeze, production profile, PostgreSQL capacity and deployed Journal validation.
+
+### GH-777 Draft publication
+
+- [Draft PR #808](https://github.com/skyg547/account/pull/808) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; verified implementation commit `8fa4d8fb`. Issue #777 remains OPEN / `status:needs-review`, and the isolated worktree remains available.
+- Hosted checks are initially QUEUED; no hosted success is claimed. Ready, merge, Issue close, deployment and resource deletion remain separate human/authorized-owner gates.
