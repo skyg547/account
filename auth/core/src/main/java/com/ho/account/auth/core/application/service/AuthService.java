@@ -105,7 +105,7 @@ public class AuthService implements AuthUseCase {
         if (user.getDepartmentCode() != null && !user.getDepartmentCode().isBlank()
                 && !departmentValidationPort.existsDepartmentCode(user.getDepartmentCode())) {
             loginAttemptPort.recordFailure(username, "INVALID_DEPARTMENT");
-            throw new UserAccessDeniedException("Department code is invalid: " + user.getDepartmentCode());
+            throw new UserAccessDeniedException("Department code is invalid");
         }
 
         verifySecondFactor(command, user.getUsername(), isLdap);

@@ -54,6 +54,44 @@ LDAP 요청은 사용자와 비밀번호 및 임시 잠금 정책을 확인한 �
 
 `AuthService`는 사용자 조회, master-data 원격 확인, 로그인 실패 저장 전체를 하나의 DB 트랜잭션으로 묶지 않습니다. JPA 조회/실패 기록 어댑터가 각각 짧은 read/write 트랜잭션을 소유해 외부 호출 중 DB 연결을 오래 잡거나 실패 기록이 readOnly 경계에 묻히는 일을 막습니다.
 
+### 원격 부서 검증과 로그인 차단
+
+`auth.master-data.enabled=true`이면 `AuthService`가 사용자에게 저장된 부서 코드를
+`DepartmentValidationPort`로 전달하고, 원격 어댑터가 `GET /api/basic/departments/{departmentCode}`를 호출합니다.
+정확히 HTTP 200이고 JSON 객체의 `code`가 문자열이며 요청 코드와 대소문자·공백까지 일치해야 검증에 성공합니다.
+본문 전체가 하나의 JSON 객체여야 하므로 객체 뒤의 공백만 허용하고, 추가 JSON 객체나 잘못된 문자열이 붙으면 거부합니다.
+중복 필드도 거부합니다. 특히 `code`가 두 번 나오면 값이 서로 같아도 부서 확인의 증거로 사용하지 않습니다.
+`name` 같은 추가 필드는 허용하지만 숫자를 문자열로 바꾸거나 다른 부서의 응답을 허용하지 않습니다.
+부서가 없는 사용자에 대한 기존 검사 생략과 명시적 로컬 어댑터의 동작은 그대로입니다.
+
+| 원격 결과 | 로그인 결과 |
+| --- | --- |
+| 200 + 요청 코드와 같은 문자열 `code`를 가진 객체 | OTP·유효 역할 검사로 진행하고 모든 검사가 성공해야 JWT 발급 |
+| 404 | `INVALID_DEPARTMENT` 실패 기록 후 403, `Department code is invalid` |
+| 401/403/5xx, 그 밖의 상태, 연결 실패 또는 timeout | 검증 불가 예외로 중단, 현재 API의 5xx 경로 사용 |
+| 빈 본문, 읽을 수 없는 JSON, 뒤따르는 추가 데이터, 중복 필드, 객체가 아닌 값, 누락/잘못된 자료형/불일치 `code` | 같은 검증 불가 예외로 중단 |
+
+검증 불가 예외 메시지는 항상 `Department validation is unavailable`이며 원격 예외를 cause나 suppressed로
+연결하지 않습니다. API가 예외를 로그에 남겨도 요청 부서, 원격 주소, 응답 본문이 노출되지 않게 하기 위해서입니다.
+404 공개 메시지에도 부서 코드를 넣지 않습니다. 검증 장애는 사용자 비밀번호 실패로 집계하지 않으며,
+JWT 발급과 로그인 성공 기록에 도달하지 않습니다. 원격 장애를 정상 부서로 간주하는 fallback은 없습니다.
+
+초보자 관점에서는 부서 명부 담당자가 정확한 소속을 확인해 줘야 출입증을 발급하는 절차입니다.
+명부를 읽지 못했거나 다른 부서의 답을 받았다면 확인될 때까지 발급을 멈춥니다.
+장애 전용 503 매핑은 후속 #800, 연결·응답 대기시간 상한 설정은 #801에서 다룹니다.
+현재 timeout 테스트는 예외를 모의한 것이며 실제 대기시간 상한을 검증하지 않습니다.
+
+JDK 17과 캐시된 Gradle 의존성이 있는 저장소 루트에서 다음 회귀 검증을 실행합니다.
+`MockRestServiceServer`와 실제 `AuthService`를 연결한 `MockMvc`를 사용하므로 외부 서비스, DB, 실제 credential이 필요 없습니다.
+
+```powershell
+./gradlew.bat :auth:core:test :auth:api:test :gateway:test --offline --no-daemon --console=plain --max-workers=2
+```
+
+기대 결과는 실패·오류·skip 0입니다. `MasterDataDepartmentValidationAdapterTest`는 상태와 본문 증명을,
+`DepartmentValidationLoginIntegrationTest`는 로그인 거부·발급 호출 없음·공개 응답과 애플리케이션 로그의 입력 비노출을 확인합니다.
+정상 응답에서는 같은 역할 스냅샷으로 발급 포트가 호출되는지도 확인합니다. 실제 네트워크나 배포 환경의 검증은 포함하지 않습니다.
+
 ## 역할 변경 멱등 반영 흐름
 
 ```mermaid
