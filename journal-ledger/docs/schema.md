@@ -11,6 +11,7 @@ erDiagram
     JOURNAL_REVERSAL_OPERATIONS ||--|| JOURNAL_ENTRIES : current_reversal
     JOURNAL_RULES ||--o{ JOURNAL_RULE_CONDITIONS : matches
     JOURNAL_RULES ||--o{ JOURNAL_RULE_DETAILS : creates
+    JOURNAL_EVENT_QUARANTINE }o--o| JOURNAL_ENTRIES : replay_creates
     JOURNAL_DETAILS ||--o{ UNSETTLED_ITEMS : opens
     JOURNAL_ENTRIES ||--o{ GL_ENTRIES : posts
     JOURNAL_ENTRIES ||--o{ SL_ENTRIES : posts
@@ -26,6 +27,7 @@ erDiagram
 | `journal_rules` | 적용 가능한 자동분개 규칙 | 규칙 코드, 우선순위, 유효기간 |
 | `journal_rule_conditions` | 규칙 적용 조건 | 필드, 연산자, 비교값 |
 | `journal_rule_details` | 규칙이 생성할 라인 명세 | `drcr_type`, 계정·금액·적요 표현식 |
+| `journal_event_quarantine` | 규칙 미매칭 Kafka 이벤트 completeness 예외와 replay 결과 | topic/partition/offset UK, payload, `QUARANTINED/REPLAYED`, 연결 전표 FK |
 
 `journal_rule_details.drcr_type`은 DB에는 문자열로 저장하지만 도메인에서는 `JournalSide` 열거형으로 제한합니다.
 
@@ -328,3 +330,22 @@ operation을 무시하므로 역분개 생성·승인·전기 writer를 복구 �
 
 잔여 위험은 JPA 콜백과 포트를 우회하는 직접 SQL writer, 운영 PostgreSQL에서 미검증한
 lock wait/분산 장애/부하, backfill 전에 조정해야 하는 기존 중복·손상 lineage입니다.
+
+## Kafka 이벤트 격리 (V18)
+
+`V18__journal_event_quarantine.sql`은 규칙이 없는 유효 Kafka 경제 이벤트를 삭제 대신 보존합니다.
+`(source_topic, source_partition, source_offset)` UNIQUE는 동일 broker record의 중복 exception을
+막고, `(status, first_seen_at)` index는 미해결 completeness 조회를 지원합니다. payload는 replay
+입력이라 `TEXT NOT NULL`로 보존하지만 control API에는 노출하지 않습니다.
+
+CHECK 제약은 `QUARANTINED`일 때 journal ID가 없고 `REPLAYED`일 때 반드시 존재하도록 강제하며,
+연결 ID는 `journal_entries` FK입니다. 서비스는 replay 전에 quarantine 행을 배타 잠그고 전표 insert와
+상태/FK 갱신을 같은 트랜잭션에 둡니다. V18은 기존 전표·규칙·원장 금액을 backfill하거나 변경하지
+않습니다. 테이블 cardinality는 미매칭률과 보존기간에 비례하므로 운영에서는 pending age/count,
+DLT와 replay 처리량을 함께 감시하고 승인된 보존 정책을 별도로 정해야 합니다.
+
+배포는 writer/listener 중지 → V18 migrate/validate → runtime role의 quarantine
+SELECT/INSERT/UPDATE 권한과 DLT topic/ACL 확인 → 새 listener 기동 순서입니다. application rollback이
+필요해도 적용된 V18을 삭제하거나 Flyway `repair`하지 않습니다. 이전 listener는 미매칭을 정상
+acknowledge하므로 rollback 상태에서는 Kafka listener를 재개하지 말고, 후속 forward fix와 기존
+quarantine/전표 대사를 마친 뒤 재개합니다.

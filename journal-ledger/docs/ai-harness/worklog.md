@@ -1,61 +1,59 @@
-# 2026-09-28 — GH-768 immutable reaggregation restart dates
+# 2026-09-28 — GH-769 unmatched Kafka event quarantine and replay
 
 ## Intake, isolation, and ownership
 
-- Confirmed live [Issue #768](https://github.com/skyg547/account/issues/768), moved it from `status:ready` to `status:in-progress`, and added `agent:codex`. The historical audit body still says no Issue existed; the live Issue and comments are the remote source of truth.
-- Preserved the dirty primary checkout. Fetched `origin/main`, created `agent/768-reaggregation-restart-dates`, and used isolated `/tmp/account-768-reaggregation-dates` at base `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
-- Created detached `/tmp/account-768-regression-proof` at exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`.
-- Applied `account-issue-loop`, `account-hexagonal-change`, the single-module/disjoint-owner form of `account-module-parallel`, and `account-review-handoff`, using `gpt-5.6-sol` at high reasoning.
-- Explorer and Reviewer were read-only. Batch production, test, and functional-documentation writers owned disjoint `journal-ledger/**` files. The parent Integrator alone owns these module-local records and Git/GitHub mutations.
-- Other modules, shared contracts, and repository-level shared harness/history records were frozen by the user allowlist.
+- Confirmed live [Issue #769](https://github.com/skyg547/account/issues/769), moved it from `status:ready` to `status:in-progress`, and claimed it for `agent:codex` execution.
+- Preserved the dirty primary checkout. Created `agent/769-unmatched-event-quarantine` and isolated `/tmp/account-769-unmatched-event-quarantine` from `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Used `account-issue-loop`, `account-hexagonal-change`, the single-module form of `account-module-parallel`, and `account-review-handoff` with the requested `gpt-5.6-sol` / high reasoning.
+- Scope is `journal-ledger/**`, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged under the user's explicit narrower rule.
+- The module writer owned production, tests, and functional documentation. `/root/review_769` was an independent read-only reviewer. The parent Integrator alone owns these records and Git/GitHub mutations.
 
-## Implementation and acceptance mapping
+## Implementation and completeness control
 
-- `BalanceReaggregationStartTasklet` receives the production `Clock.systemDefaultZone()` bean and is the only place that resolves the moving no-date fallback. It validates all supplied aliases before `BalanceReaggregationService.start`, so invalid requests cannot acquire the barrier or reach cleanup.
-- `BatchDateRangeParameterUtils` accepts complete start/end aliases, start-only as a one-day range, end-only as injected-clock yesterday through the end, `baseDate`/`targetDate`, no-date yesterday, and equal normalized duplicates. Malformed dates, conflicting semantic aliases, inverted ranges, and ambiguous single-date/range mixing fail closed.
-- Core range expansion from #766 is unchanged: after all-stripe locking, the effective end includes the latest GL/SL/POSTED date. The Start Step freezes that effective owner range in JobExecutionContext. Cleanup, step-scoped reader, writer, finalize, and same-JobInstance restart consume only the frozen range.
-- A real Spring Batch test runs without date parameters, commits one chunk, injects the next writer failure, advances the clock one day, and restarts the same JobInstance. Start/cleanup remain once, the checkpoint resumes, every service call uses the original interval, and the final debit is exact.
-- A second integration advances the clock immediately after Start resolution and proves cleanup/reader/writer/finalize stay on the initial date. Parameterized integration cases preserve an existing balance and V15 `OPEN` state when validation fails before `start`/`clean`.
-- Functional docs describe full/partial/single/no-date forms, identifying JobParameters, exact-parameter restart, new-instance rerun, midnight behavior, and operational restrictions.
+- `KafkaTransactionListener` supplies topic/partition/offset and delegates to a Kafka-specific application use case. A valid unmatched event now returns successfully only after the raw payload and accounting metadata are transactionally retained in `journal_event_quarantine`.
+- V18 adds durable `UNMATCHED`/`REPLAYED` state, a unique broker-coordinate key, journal linkage, timestamps, actor, attempts, reason, and optimistic version. The retained payload and Kafka key are never exposed by the control API.
+- Admin completeness endpoints list quarantines, return a one-statement aggregate snapshot, and replay by ID. Replay takes a pessimistic row lock, re-evaluates the repaired rule, creates the journal, and records `REPLAYED` plus the journal ID in one transaction. Concurrent and repeated replay of the same quarantined coordinate converges on one journal.
+- The Kafka container uses an explicit `DefaultErrorHandler`: initial delivery plus two retries, then same-partition `<topic>.DLT`. Recovery is complete only after the DLT send succeeds; send failure is propagated. Configuration tests prove retry and DLT behavior instead of treating a thrown listener exception as DLQ evidence.
+- Control endpoints require the existing trusted Gateway headers and `ROLE_ACCOUNTING_ADMIN` or `ROLE_ADMIN`. Invalid list limits return400 before persistence, typed missing quarantine returns404, and unrelated runtime/persistence failures remain500.
+- Generic GL10 identity across HTTP/contracts/manual creation is not claimed. Issue #765 is still OPEN/blocked outside this module-only allowlist. This change supplies exact-one convergence for quarantine replay by broker coordinate; a matching event's commit ambiguity remains documented until GL10 is delivered.
 
-## Audited RED/current GREEN evidence
+## Audited RED and fixed GREEN
 
-- The byte-identical `BatchDateRangeRestartRegressionTest` has SHA-256 `64aa4d1a9a794e289c721ee6e16db280aab2839948684b71e91b482f66f5302b` in both worktrees.
-- Audited command: `./gradlew :journal-ledger:batch:test --tests 'com.ho.account.journalledger.batch.support.BatchDateRangeRestartRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`.
-- Expected audited RED: exit1 in27s, 1 test/1 assertion failure. Switching the JVM default calendar from UTC-12 to UTC+14 made the audited helper resolve a different yesterday because cleanup/reader/restart recomputed the wall clock.
-- Current command with the same selector and source passes1/1. `git diff --exit-code -- journal-ledger/batch/src/main` in the proof worktree passed, confirming audited production was unchanged.
+- Added only `AuditedUnmatchedKafkaEventCompletenessRegressionTest` to detached `/tmp/account-769-regression-proof` at exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Proof and fixed fixtures are byte-identical, SHA-256 `be9936eebab8b2d42aab978d171f1b3fd46957124968e67bf39d6a1bf8ca769c`; audited production is unchanged.
+- Command: `./gradlew :journal-ledger:api:test --tests 'com.ho.account.journalledger.adapter.in.kafka.AuditedUnmatchedKafkaEventCompletenessRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`.
+- Audited RED is the expected 1/1 failure because the old listener returns normally without durable disposition. The identical regression passes1/1 after remediation.
 
-## Verification and corrected independent review
+## Verification and corrected review trail
 
-- Clean-base baseline `./gradlew :journal-ledger:batch:test --console=plain --max-workers=1` passed15/15, demonstrating the old suite did not detect GL14.
-- Final focused command covering `BatchDateRangeParameterUtilsTest`, `BatchDateRangeRestartRegressionTest`, and `BalanceReaggregationBatchConfigTest` passes35/35: utility20, audited regression1, integration14; failures/errors/skips0.
-- Final literal `./gradlew :journal-ledger:test` passes in1m21s: core34 suites/304 tests, API17/57, Batch5/37 =56 suites/398 tests, failures/errors/skips0.
-- An earlier post-correction aggregate attempt overlapped the independent reviewer's Gradle process and produced a core JUnit discovery `NoClassDefFoundError` for `GlBalance` from concurrently changing build outputs. It is not accepted verification evidence. After all subagent Gradle processes stopped, the standalone literal command above passed.
-- `node --test tools/ci/harness-quality-contract.test.cjs` passes32/32. `git diff --check`, anchored conflict-marker, unmerged-index, untracked-whitespace, and `journal-ledger/**` allowlist gates pass.
-- Initial independent review returned P1 because the first draft rejected previously supported start-only/end-only explicit inputs. Production, tests, and docs owners restored those exact fixed-clock semantics while retaining ambiguity checks.
-- Re-review returned P3 for a stale test name mentioning rejected partial ranges. The test owner renamed it and reran20/20 utility tests.
-- Final read-only review found no P0-P3, confirmed every acceptance criterion, and marked Q1-Q4 PASS.
+- Pre-change module baseline passed376 tests, failures/errors/skips0.
+- Parent final forced command: `./gradlew :journal-ledger:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`; BUILD SUCCESSFUL in2m58s with37/37 tasks executed.
+- The reviewer's focused run overwrote two API XML files after the module run, so the parent reran `./gradlew :journal-ledger:api:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1` to produce an unambiguous final aggregate: API71/core310/batch15 =396 tests across62 suites, failures/errors/skips0.
+- `./gradlew :journal-ledger:api:bootJar --offline --no-daemon --console=plain --max-workers=1` is BUILD SUCCESSFUL.
+- Initial independent review found P2 controller error masking/late limit validation and P3 a three-query inconsistent completeness snapshot. The original writer added early400 validation, typed404 mapping, and one native conditional aggregate with `OffsetDateTime -> Instant` conversion plus query-count coverage.
+- Final read-only re-review ran14 focused tests, marked both findings RESOLVED, found no new P0-P3, and confirmed the scoped acceptance criteria plus Q1-Q4 PASS.
+- `git diff --check`, untracked whitespace, anchored conflict-marker, unmerged-index, and `journal-ledger/**` allowlist gates pass.
 
 ## Q1-Q4 evidence
 
 | 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
 | --- | --- | --- | --- | --- | --- |
-| Q1 | PASS | `BatchDateRangeParameterUtils`, Start Tasklet, clear test names; focused35 and module398 PASS | 해당 없음: 코드 변경 적용 | 사람/Draft PR 리뷰 및 원격 CI | `/root/issue_768_review`: no P0-P3, PASS |
-| Q2 | PASS | 입력 검증→Start/barrier→유효 범위 고정→cleanup/chunk/finalize→동일 instance restart; RED1/GREEN1 | 해당 없음: 흐름 변경 적용 | 실제 process kill/PostgreSQL은 별도 | 독립 코드·문서·회귀 대조 PASS |
-| Q3 | PASS | `docs/README.md`, `docs/posting-concurrency.md`; 파라미터·식별·restart/rerun·제약 | 해당 없음: 사용자 계약 변경 적용 | 배포 runbook/스케줄러 파라미터 사람 확인 | 독립 문서 대조 PASS |
-| Q4 | PASS | validation-before-barrier와 expanded effective range freeze 근접 의도 주석 | 해당 없음: 비자명 로직 변경 적용 | clock/Batch 버전 변경 시 회귀 재검증 | 독립 source review PASS |
+| Q1 | PASS | Kafka use case, application service, quarantine aggregate/repository, persistence and inbound adapters; forced396/396 | 해당 없음: 코드 변경 적용 | 실 PostgreSQL/Kafka 환경 검증 | `/root/review_769`: no P0-P3, PASS |
+| Q2 | PASS | `docs/process-flow.md`의 수신→보관/재시도→DLT 또는 보관→잠금 재처리→journal/link 흐름 | 해당 없음: 흐름 변경 적용 | commit ambiguity는 GL10 후속 | 독립 코드·문서 대조 PASS |
+| Q3 | PASS | `README.md`, `docs/README.md`, process/schema 문서의 API, 보안, 배포, rollback, 제한 | 해당 없음: 운영 제어 변경 적용 | DLT ACL/retention과 quarantine 보존 정책 승인 | 독립 문서 대조 PASS |
+| Q4 | PASS | 단일 snapshot SQL과 좁은 HTTP 예외 매핑의 근접 의도 주석 | 해당 없음: 비자명 로직 변경 적용 | DB/provider 변경 시 projection 재검증 | 독립 source review PASS |
 
-## Rollback, limits, and publication
+## Rollback, limits, and handoff
 
-- Roll back by reviewed revert of this Issue-scoped module change. There is no migration or automated data repair. Reversion restores GL14, so affected no-date reaggregation must remain disabled without an equivalent immutable-date control.
-- No production data, live PostgreSQL, distributed process kill, production load, deployment, or historical repair was performed. H2 PostgreSQL mode proves Spring Batch metadata/checkpoint behavior locally but not production database/process behavior. JVM-default-zone semantics are preserved; a dedicated non-UTC Spring-context integration was not run.
-- Parent committed the reviewed implementation as `71546fec`, pushed `agent/768-reaggregation-restart-dates`, and opened [Draft PR #802](https://github.com/skyg547/account/pull/802) with `Refs #768`.
-- PR #802 records acceptance evidence, exact verification, rollback/limits, Q1-Q4, and explicit writer/reviewer/Integrator/human authority separation. Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
-- On publication head `963ba023`, Agent Merge Guard run `36408685328`, Harness Validation run `36408685417`, and Module Validation run `36408685493` failed before any entry-job steps ran; downstream jobs were skipped or failed as a consequence. Their annotations report failed recent account payments or a spending-limit prerequisite. This external condition is not an executed code/test/harness failure, and no remote CI PASS is claimed. The repository/account owner must resolve billing and rerun checks.
+- Deployment must apply V18 before the new binary and verify database privileges, payload retention/access/encryption, completeness alerts, and DLT topic/ACL/retention/partitioning. No live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment test was used.
+- Rollback requires quiescing consumers and a reviewed application revert while preserving applied V18 and every quarantine record. Dropping the table or retained evidence is not an approved rollback; reverting without equivalent protection restores silent ledger omission.
+- Reviewed implementation commit `90d4c307` is pushed and [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`. Its body records acceptance evidence, verification, Q1-Q4, limitations, rollback, and authority separation.
+- On publication head `87729d67`, Agent Merge Guard run `36413587998`, Harness Validation run `36413587500`, and Module Validation run `36413587552` failed before any job steps ran. Each entry-job annotation reports failed recent account payments or a spending-limit prerequisite. This external GitHub account condition is not an executed test failure, and no remote CI PASS is claimed.
+- Implementation was performed by the assigned module writer; independent review was read-only; the original writer corrected findings; the parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
 
 ---
 
-The following entries are retained history and are not current GH-768 evidence.
+The following entries are retained history and are not current GH-769 evidence.
 
 # 2026-09-25 — GH-763 foreign journal transaction-to-base conversion
 

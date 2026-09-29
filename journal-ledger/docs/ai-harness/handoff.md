@@ -1,23 +1,25 @@
-# GH-768 handoff
+# GH-769 handoff
 
-Issue #768 implementation, audited RED/current GREEN proof, requested verification, corrected independent review, and module-local records are complete. [Draft PR #802](https://github.com/skyg547/account/pull/802) is open with `Refs #768`; implementation commit `71546fec` is published.
+Issue #769 implementation, audited RED/current GREEN proof, required verification, corrected independent review, and module-local records are complete. [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`; reviewed implementation commit `90d4c307` is published.
 
-- Issue/branch/worktrees: [#768](https://github.com/skyg547/account/issues/768); `agent/768-reaggregation-restart-dates`; `/tmp/account-768-reaggregation-dates`; base `f128a5dd`; proof `/tmp/account-768-regression-proof@a97d10ab`.
+- Issue/branch/worktrees: [#769](https://github.com/skyg547/account/issues/769); `agent/769-unmatched-event-quarantine`; `/tmp/account-769-unmatched-event-quarantine`; base `f128a5dd`; proof `/tmp/account-769-regression-proof@a97d10ab`.
 - Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
-- Behavior: the Start Step validates aliases, resolves the JVM-default-zone fallback once, acquires the owner/effective range, and freezes it in JobExecutionContext. Cleanup, reader, writer, finalize, and a same-instance restart never re-read the wall clock. Existing start-only, end-only, full-range, `baseDate`, and `targetDate` behavior is preserved; malformed, inverted, conflicting, and single/range-mixed requests fail before deletion.
-- RED/GREEN: byte-identical SHA-256 `64aa4d1a9a794e289c721ee6e16db280aab2839948684b71e91b482f66f5302b` fails1/1 on exact audited production and passes1/1 on the branch.
-- Verification: literal `./gradlew :journal-ledger:test` passes core304/API57/batch37 =398 tests across56 suites, failures/errors/skips0. Focused restart/parser/audited selection passes35/35; quality contract32/32 and static gates pass.
-- Independent review: initial P1 compatibility and P3 naming findings were corrected by the original production/test/docs owners. Final read-only review reports no P0-P3 and Q1-Q4 PASS.
-- Remote CI: Agent Merge Guard, Harness Validation, and Module Validation entry jobs have zero executed steps and failed on the GitHub billing/spending-limit prerequisite. This is not an executed code-test failure; the account owner must resolve it and rerun checks.
-- Rollback: reviewed revert of the Issue-scoped module commits; no schema/data rollback. Reversion restores the wall-clock drift weakness, so no-date reaggregation must remain disabled without an equivalent immutable-date control.
-- Limits: synthetic H2 PostgreSQL-mode tests only; no live PostgreSQL, production data, distributed process kill, load, deployment, or historical repair. A dedicated non-UTC Spring-context integration was not run.
-- Authority: parent Integrator owns commits, push, these records, and Issue/PR mutations. Draft PR #802 remains Draft; human review owns Ready, merge, Issue close, deployment, and branch/worktree cleanup.
+- Behavior: a valid no-rule Kafka event is durably retained before successful return; admin completeness APIs show aggregate/list state without payload/key; repaired-rule replay locks the record and transactionally creates one journal/link; configured retries recover to a same-partition DLT only after a successful send.
+- RED/GREEN: byte-identical fixture SHA `be9936ee…69c` fails1/1 on exact audited production because the listener silently completes and passes1/1 after remediation.
+- Verification: final forced module run passes API71/core310/batch15 =396 tests, failures/errors/skips0; API bootJar and static gates pass.
+- Independent review: `/root/review_769` remained read-only. Initial P2/P3 error-mapping and snapshot-consistency findings were returned to the writer and corrected; final review reports no P0-P3 and Q1-Q4 PASS.
+- GL10 boundary: this PR gives broker-coordinate convergence for quarantine replay. Generic HTTP/contracts/manual idempotency and matching-event commit ambiguity remain with open/blocked #765 outside the allowlist.
+- Rollback/deployment: apply and retain V18, verify DB privileges/retention/alerts and Kafka DLT ACL/retention in the target environment. Quiesce consumers before reviewed application rollback and never discard quarantine evidence.
+- Limits: no live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment testing.
+- Remote CI prerequisite: the three entry workflows on head `87729d67` ran zero steps and failed with GitHub billing/spending-limit annotations. The account owner must resolve that prerequisite and rerun checks; this is neither a remote test pass nor an executed code-test failure.
+- Authority separation: module writer implemented; reviewer was read-only; the original writer corrected findings; parent Integrator owns records and Git/GitHub. User authorized Draft publication, but Ready, merge, Issue close, deployment, and cleanup remain human gates.
+- Next owner: a human reviewer owns remote CI and later Ready/merge/Issue-close/deployment gates. Both task and proof worktrees remain retained.
 
-Next owner: the repository/account owner resolves the GitHub billing prerequisite and reruns checks; a human reviewer evaluates Draft PR #802. Do not manually reopen a `REBUILDING` owner row or create a new JobInstance for failure recovery; restart with the exact original identifying parameter names and values.
+Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
 
 ---
 
-The following is retained historical handoff and is not a current GH-768 report.
+The following is retained historical handoff and is not a current GH-769 report.
 
 # GH-763 handoff
 
