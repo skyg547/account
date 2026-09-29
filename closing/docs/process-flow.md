@@ -12,6 +12,59 @@
 | Outbound Port | 기술 독립 외부 인터페이스 | `DailyClosingStatusPersistencePort`, `ClosingCalendarPersistencePort`, `EclAllowanceResultPort`, `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort` |
 | Infrastructure Adapter | JPA/JDBC/외부 시스템 실제 구현 | `JpaDailyClosingStatusPersistenceAdapter`, `ClosingCalendarRepository`, `JdbcEclAllowanceResultAdapter` |
 
+## 일반 변경 명령의 권한 경계 (GH-771)
+
+일반 Closing 변경 명령은 클라이언트가 주장하는 이름과 인증된 주체를 분리합니다.
+
+```mermaid
+sequenceDiagram
+    participant Client as 호출자
+    participant Gateway as Gateway/JWT
+    participant API as ClosingController
+    participant Service as Closing Use Case
+    participant Store as Persistence/Audit
+
+    Client->>Gateway: JWT + 업무 입력
+    Gateway->>Gateway: 외부 X-Auth-* 제거, 인증 결과로 재생성
+    Gateway->>API: X-Auth-User, X-Auth-Roles + 업무 입력
+    API->>API: actor와 허용 역할 검증
+    alt actor 누락
+        API-->>Client: HTTP 401
+    else actor 길이 초과
+        API-->>Client: HTTP 400, use case 호출 없음
+    else 역할 누락 또는 미허용
+        API-->>Client: HTTP 403
+    else 허용
+        API->>Service: 업무 입력 + 헤더 actor
+        Service->>Store: 상태와 같은 actor의 감사 정보 저장
+        Store-->>Client: 업무 결과
+    end
+```
+
+대상은 캘린더·태스크·게이트 생성과 상태 변경, 기간 잠금·해제, 재오픈 요청·결정,
+HTTP 평가·충당 실행, 결산 조정 등록, 마감 완료 판정, 연차 손익 대체를 포함한 모든 일반
+Closing mutation입니다. `X-Auth-User`가 비어 있으면 HTTP 401이고, `X-Auth-Roles`에
+`ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER` 중 하나가 없으면 HTTP 403입니다.
+영속 actor 컬럼과의 호환성을 위해 일반 Closing 명령과 월말 transition 조회·복구의 actor는
+trim 후 최대 50자입니다. 기존 EOD/BOD 경계는 80자를 유지합니다. 각 한도를 넘으면 use case를
+호출하기 전에 HTTP 400이며, 비어 있는 actor의 401과 허용 역할 부족의 403 계약은 그대로입니다.
+
+JSON이나 query의 `user`, `requestedBy`, `approvedBy`, `runBy` 등 actor처럼 보이는 필드는
+인증·권한·감사 주체가 아닙니다. 이런 입력은 공개 요청 계약에서 제거되거나 주체 판정에서
+무시되며, application service에 전달되고 감사 기록에 저장되는 actor는 Gateway가 재생성한
+`X-Auth-User`입니다. 재오픈 요청 시 이 헤더 주체가 요청자가 되고, 나중의 승인·반려 시점
+헤더 주체가 결정자가 됩니다. 두 주체가 같으면 도메인 규칙에 따라 거부합니다.
+
+기존 EOD/BOD 명령의 actor/role 검사와 상태 규칙은 그대로입니다. 이 변경은 일반 GET 조회나
+`GET /api/closing/admission`의 접근 범위를 넓히지 않습니다. 또한
+`POST /valuation-batches/run`, `POST /provision-batches/run`의 HTTP 권한 경계는 Spring Batch
+스케줄러, JobLauncher 또는 운영 Job 기동 권한과 별개입니다.
+
+API는 외부가 넣은 `X-Auth-*`를 제거하고 JWT에서 다시 만드는 Gateway 뒤의 사설 서비스로
+배포해야 합니다. Closing 내부 검사는 그 배포·네트워크 경계를 전제로 하며, 이 변경만으로
+Gateway 재작성 정책이나 API 포트의 외부 차단이 입증되지는 않습니다. 따라서 직접 API 포트에
+조작한 헤더를 보내 성공시키는 테스트는 컨트롤러 기능 검증일 뿐 보안 검증이 아닙니다.
+
 ## 일마감 EOD/BOD 흐름
 
 ```mermaid

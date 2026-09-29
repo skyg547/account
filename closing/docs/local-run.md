@@ -46,10 +46,17 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 기능 | 엔드포인트 |
 | --- | --- |
 | 결산 캘린더 생성 | `POST /api/closing/calendars` |
+| 결산 캘린더 상태 변경 | `PUT /api/closing/calendars/{id}/status` |
 | 태스크 생성 | `POST /api/closing/tasks` |
+| 태스크 상태 변경 | `PUT /api/closing/tasks/{id}/status` |
 | 게이트 생성 | `POST /api/closing/gates` |
+| 게이트 검사·통과 | `PUT /api/closing/gates/{id}/check` |
 | 기간 잠금 | `POST /api/closing/period-locks` |
+| 기간 잠금 해제 | `DELETE /api/closing/period-locks/{fiscalPeriodId}` |
 | 재오픈 요청 | `POST /api/closing/reopen-approvals` |
+| 재오픈 승인·반려 | `PUT /api/closing/reopen-approvals/{id}/status` |
+| HTTP 평가 실행 | `POST /api/closing/valuation-batches/run` |
+| HTTP 충당 실행 | `POST /api/closing/provision-batches/run` |
 | 결산 조정 등록 | `POST /api/closing/adjustments` |
 | 마감 완료 판정 | `POST /api/closing/calendars/determine-status` |
 | 연차 손익 대체 | `POST /api/closing/annual/perform-income-statement-closing` |
@@ -60,9 +67,60 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 다음 영업일 BOD 완료 | `POST /api/closing/eod/{businessDate}/bod/complete` |
 | 일마감 상태 조회 | `GET /api/closing/eod/{businessDate}` |
 
+## 일반 변경 API 권한 확인 (GH-771)
+
+위 표의 일반 Closing 변경 API에는 Gateway가 JWT에서 다시 만든 `X-Auth-User`와
+`X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`,
+`ROLE_CLOSING_MANAGER`입니다. actor 헤더가 없거나 공백이면 401, 역할 헤더가 없거나 허용
+역할이 하나도 없으면 403을 기대합니다. 요청 JSON/query의 `user`, `requestedBy`,
+`approvedBy`, `runBy` 같은 키는 신원 전달 수단이 아니므로 보내지 마십시오. 감사 actor는
+항상 `X-Auth-User`에서 가져옵니다.
+
+actor 길이는 영속 필드와 맞춰 진입점에서 먼저 검사합니다.
+
+| 경계 | trim 후 최대 길이 | 초과 시 결과 |
+| --- | ---: | --- |
+| 일반 Closing 변경, 월말 transition 조회·복구 | 50자 | use case 호출 전 HTTP 400 |
+| 기존 EOD/BOD 명령과 상태 조회 | 80자 | use case 호출 전 HTTP 400 |
+
+비어 있는 actor는 계속 401이고, 길이가 유효하지만 역할이 없거나 허용되지 않으면 403입니다.
+actor가 길이 한도도 넘고 역할도 잘못된 요청은 actor 검사가 먼저이므로 400입니다.
+
+다음 값은 실제 계정이나 자격 증명이 아닌 로컬 기능 확인용 예시입니다. 로컬 API가 실행된 뒤
+준비된 테스트 회계기간에 맞게 업무 입력만 바꿉니다.
+
+```bash
+curl -i -X POST 'http://localhost:8086/api/closing/calendars' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Auth-User: demo-closing-operator' \
+  -H 'X-Auth-Roles: ROLE_CLOSING_MANAGER' \
+  --data '{"fiscalYear":"2026","fiscalPeriod":"09"}'
+```
+
+권한이 통과하면 준비된 데이터에 따라 2xx 또는 업무 검증 오류가 반환됩니다. 헤더를 생략한 같은
+변경 요청은 401, `X-Auth-User`만 보내거나 허용되지 않은 역할을 보내면 403이어야 합니다.
+이 예시는 API 포트에 헤더를 직접 조작할 수 있으므로 보안 검증이 아닙니다. 배포에서는 API를
+외부에 공개하지 않고 Gateway가 외부 `X-Auth-*`를 제거·재생성하는지와 네트워크 격리를 별도로
+검증해야 합니다. 이 문서와 Issue #771 범위 자체는 그 Gateway/배포 통제가 완료됐음을 증명하지 않습니다.
+
+재오픈은 요청과 결정 호출을 서로 다른 인증 주체로 수행해야 합니다. 첫 호출의 헤더 actor가
+요청자, 승인·반려 호출의 헤더 actor가 결정자로 감사되며 같은 주체의 결정은 거부됩니다.
+HTTP 평가·충당 실행에 이 권한이 적용되어도 아래 Spring Batch Job의 스케줄러·운영 실행 권한이
+생기거나 검증되는 것은 아닙니다. 기존 EOD 검사와 일반 GET/admission 조회 계약도 바뀌지 않습니다.
+
+구현 검증 시 다음 명령을 실행하고 실제 결과를 별도로 기록합니다. 이 문서의 명령 표시는 실행 성공
+증거가 아닙니다.
+
+```bash
+./gradlew :closing:api:test --tests '*ClosingAuthorizationIntegrationTest' --tests '*ClosingControllerTest' --tests '*ClosingTransitionControllerTest' --tests '*EodLifecycleControllerTest'
+./gradlew :closing:api:test
+```
+
 로컬 API에서 실제 업무 데이터를 확인하려면 `master-data`의 회계기간과 `journal-ledger`의 전표/잔액 데이터가 함께 준비되어야 합니다.
 
-EOD 변경 명령에는 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다. 로컬에서 API 포트를 직접 호출할 때 이 헤더를 임의로 넣을 수 있으므로 해당 방식은 기능 확인용일 뿐 보안 검증이 아닙니다.
+EOD 변경 명령에는 기존과 같이 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가
+필요합니다. 허용 역할과 직접 API 호출의 한계는 일반 변경 API와 같지만, Issue #771은 EOD 상태
+규칙이나 조회 계약을 변경하지 않습니다.
 
 Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스, V52 월말 전이 기록을 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
 
@@ -103,6 +161,7 @@ Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journ
 복구는 Gateway가 검증해 넣은 `X-Auth-User`, `X-Auth-Roles`를 사용합니다.
 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다.
 조회와 복구 모두 이 권한을 요구하며, 사용자 헤더 누락은 401, 역할 부족은 403입니다.
+trim 후 50자를 넘는 actor는 transition use case 호출 전 400입니다.
 요청 본문에 처리자 이름을 넣어 권한을 대신하지 않습니다. Closing API를 외부에 직접 노출하지 않는
 기존 EOD와 같은 신뢰 경계를 전제로 합니다.
 

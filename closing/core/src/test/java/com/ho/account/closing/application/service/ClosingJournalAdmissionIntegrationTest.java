@@ -94,7 +94,7 @@ class ClosingJournalAdmissionIntegrationTest {
         post(systemPoster);
 
         assertThat(entry.getStatus()).isEqualTo(JournalEntryStatus.POSTED);
-        assertThat(entry.getAuditUser()).isEqualTo(systemPoster ? "SYSTEM" : "poster-1");
+        assertThat(entry.getAuditUser()).isEqualTo(systemPoster ? "system" : "poster-1");
         assertThat(JournalState.capture(entry).details()).isEqualTo(before.details());
         verify(journals).findByIdWithDetails(1L);
         verify(journals).save(entry);
@@ -181,6 +181,7 @@ class ClosingJournalAdmissionIntegrationTest {
     void stateChangedAfterApprovalIsReadAgainAtPosting(String changedState) {
         JournalEntry entry = draftEntry();
         assertThatCode(() -> filter.validate(entry)).doesNotThrowAnyException();
+        entry.requestApproval("journal-author");
         entry.approve("approver-1");
         switch (changedState) {
             case "lock" -> activeLock = lock(PeriodLockType.ALL_TRANSACTIONS);
@@ -247,6 +248,7 @@ class ClosingJournalAdmissionIntegrationTest {
 
     private JournalEntry approvedEntry() {
         JournalEntry entry = draftEntry();
+        entry.requestApproval("journal-author");
         entry.approve("approver-1");
         return entry;
     }

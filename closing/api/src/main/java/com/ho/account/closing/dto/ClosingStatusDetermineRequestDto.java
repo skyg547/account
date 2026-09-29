@@ -1,6 +1,5 @@
 package com.ho.account.closing.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -11,7 +10,4 @@ import lombok.Data;
 public class ClosingStatusDetermineRequestDto {
     @NotNull
     private Long calendarId;
-
-    @NotBlank
-    private String user;
 }
