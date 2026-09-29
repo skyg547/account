@@ -33,6 +33,21 @@ final class ClosingSlipNoFactory {
                 (long) year);
     }
 
+    static String annualClosing(
+            LocalDate closingDate,
+            int year,
+            String retainedEarningsAccountCode,
+            String snapshotIdentity) {
+        if (snapshotIdentity == null || snapshotIdentity.isBlank()) {
+            throw new IllegalArgumentException("snapshotIdentity must not be blank");
+        }
+        return build(
+                "ACL",
+                closingDate,
+                year + "|" + retainedEarningsAccountCode + "|" + snapshotIdentity.trim(),
+                (long) year);
+    }
+
     private static String build(String prefix, LocalDate date, String discriminator, Long batchId) {
         Objects.requireNonNull(date, "date must not be null");
         if (discriminator == null || discriminator.isBlank()) {
