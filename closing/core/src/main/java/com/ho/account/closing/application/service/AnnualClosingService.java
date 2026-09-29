@@ -1,6 +1,8 @@
 package com.ho.account.closing.application.service;
 
 import com.ho.account.closing.application.port.in.AnnualClosingUseCase;
+import com.ho.account.closing.application.port.out.RetainedEarningsMappingPort;
+import com.ho.account.closing.domain.ApprovedRetainedEarningsMapping;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
@@ -54,31 +56,35 @@ public class AnnualClosingService implements AnnualClosingUseCase {
     private final JournalQueryPort journalQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final MasterDataQueryPort masterDataQueryPort;
+    private final RetainedEarningsMappingPort retainedEarningsMappingPort;
 
     @Autowired
     public AnnualClosingService(
             JournalQueryPort journalQueryPort,
             JournalPostingPort journalPostingPort,
-            MasterDataQueryPort masterDataQueryPort) {
+            MasterDataQueryPort masterDataQueryPort,
+            RetainedEarningsMappingPort retainedEarningsMappingPort) {
         this.journalQueryPort = Objects.requireNonNull(journalQueryPort, "journalQueryPort must not be null");
         this.journalPostingPort = Objects.requireNonNull(journalPostingPort, "journalPostingPort must not be null");
         this.masterDataQueryPort = Objects.requireNonNull(
                 masterDataQueryPort, "masterDataQueryPort must not be null");
+        this.retainedEarningsMappingPort = Objects.requireNonNull(
+                retainedEarningsMappingPort, "retainedEarningsMappingPort must not be null");
     }
 
     /**
-     * 최신 전기 원천을 동결 식별한 뒤, 이미 전기된 연차 결산과의 잔여분만 임시 전표로 생성합니다.
+     * 승인 매핑과 결산일 계정 적격성을 먼저 검증하고 최신 전기 원천을 동결 식별한 뒤,
+     * 이미 전기된 연차 결산과의 잔여분만 임시 전표로 생성합니다.
      * 재시도는 헤더가 아니라 스냅샷 lineage와 전체 라인 내용이 모두 같을 때만 멱등합니다.
      */
     @Override
-    public void performIncomeStatementClosing(int year, String retainedEarningsAccountCode) {
+    public void performIncomeStatementClosing(int year) {
         validateYear(year);
-        if (retainedEarningsAccountCode == null || retainedEarningsAccountCode.isBlank()) {
-            throw new IllegalArgumentException("retainedEarningsAccountCode must not be blank");
-        }
-        String retainedAccount = retainedEarningsAccountCode.trim();
+        ApprovedRetainedEarningsMapping mapping = requireApprovedMapping(year);
+        String retainedAccount = mapping.accountCode();
         LocalDate startDate = LocalDate.of(year, 1, 1);
         LocalDate endDate = LocalDate.of(year, 12, 31);
+        validateRetainedEarningsDestination(mapping, endDate);
 
         List<JournalSummary> summaries = journalQueryPort.getJournalSummaries(startDate, endDate);
         if (summaries == null) {
@@ -98,7 +104,8 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         // Completion requires provider-side stable pagination, source identity projection, prior annual
         // exclusion, and a 100M-row PostgreSQL plan/load test without weakening this fail-closed check.
         SourceSnapshot source = loadSourceSnapshot(
-                sourceSummaries, startDate, endDate, year, retainedAccount, accountCategoryCache);
+                sourceSummaries, startDate, endDate, year, retainedAccount,
+                mapping.controlIdentity(), accountCategoryCache);
         List<AnnualEntry> annualEntries = loadAnnualEntries(
                 annualSummaries, endDate, year, retainedAccount, source.incomeCategories(),
                 accountCategoryCache);
@@ -160,6 +167,7 @@ public class AnnualClosingService implements AnnualClosingUseCase {
             LocalDate endDate,
             int year,
             String retainedAccount,
+            String mappingControlIdentity,
             Map<AccountLookupKey, String> accountCategoryCache) {
         Set<Long> summaryIds = new HashSet<>();
         Set<String> slipNumbers = new HashSet<>();
@@ -200,10 +208,13 @@ public class AnnualClosingService implements AnnualClosingUseCase {
             throw invalid("retained earnings account must not be an income statement account");
         }
         canonicalEntries.sort(Comparator.naturalOrder());
+        // Approved control evidence is fingerprinted with source journals so a configuration/audit
+        // change makes a pending draft stale without changing cumulative posted-balance no-op rules.
         String identity = sha256(canonical(
-                "ANNUAL_SOURCE_SNAPSHOT_V1",
+                "ANNUAL_SOURCE_SNAPSHOT_V2",
                 Integer.toString(year),
                 retainedAccount,
+                mappingControlIdentity,
                 String.join("", canonicalEntries)));
         return new SourceSnapshot(
                 identity,
@@ -558,6 +569,33 @@ public class AnnualClosingService implements AnnualClosingUseCase {
             throw invalid("journal detail accountCategory is unsupported: " + category);
         }
         return category;
+    }
+
+    private ApprovedRetainedEarningsMapping requireApprovedMapping(int year) {
+        ApprovedRetainedEarningsMapping mapping = retainedEarningsMappingPort.requireForYear(year);
+        if (mapping == null) {
+            throw invalid("approved retained earnings mapping is missing");
+        }
+        // Upstream master data exposes no postable flag; this explicit control-plane attestation
+        // must not be inferred from unrelated fixedAsset or unsettled account attributes.
+        if (mapping.fiscalYear() != year || !mapping.postable()) {
+            throw invalid("retained earnings mapping does not attest the requested fiscal year and postability");
+        }
+        return mapping;
+    }
+
+    private void validateRetainedEarningsDestination(
+            ApprovedRetainedEarningsMapping mapping,
+            LocalDate effectiveDate) {
+        String accountCode = mapping.accountCode();
+        AccountSubjectRef account = masterDataQueryPort.findAccountSubjectAt(accountCode, effectiveDate)
+                .orElseThrow(() -> invalid("approved retained earnings account is missing at fiscal year end"));
+        if (account.code() == null || !accountCode.equals(account.code().trim())) {
+            throw invalid("master-data returned a different retained earnings account");
+        }
+        if (!EQUITY.equals(account.accountCategory()) || !account.creditNormalBalance()) {
+            throw invalid("approved retained earnings account must be CREDIT-normal EQUITY");
+        }
     }
 
     private String lookupAccountCategory(String accountCode, LocalDate accountingDate) {

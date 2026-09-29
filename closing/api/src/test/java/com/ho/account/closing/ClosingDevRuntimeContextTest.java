@@ -1,6 +1,9 @@
 package com.ho.account.closing;
 
+import com.ho.account.closing.application.port.out.RetainedEarningsMappingPort;
 import com.ho.account.closing.config.ClosingMonolithConfiguration;
+import com.ho.account.closing.infrastructure.config.AnnualClosingConfigurationProperties;
+import com.ho.account.closing.infrastructure.config.ConfiguredRetainedEarningsMappingAdapter;
 import com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapter;
 import com.ho.account.closing.infrastructure.external.HttpClosingMasterDataQueryAdapter;
 import com.ho.account.closing.infrastructure.external.HttpFiscalPeriodControlAdapter;
@@ -44,7 +47,13 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.sql.init.mode=never",
                 "closing.master-data.remote.enabled=true",
                 "closing.master-data.base-url=http://master-data.test",
-                "closing.journal-ledger.base-url=http://journal-ledger.test"
+                "closing.journal-ledger.base-url=http://journal-ledger.test",
+                "account.closing.annual.legal-entity-code=ENTITY-TEST",
+                "account.closing.annual.mappings[0].fiscal-year=2026",
+                "account.closing.annual.mappings[0].account-code=35000",
+                "account.closing.annual.mappings[0].postable=true",
+                "account.closing.annual.mappings[0].approved-by=test-controller",
+                "account.closing.annual.mappings[0].change-reference=TEST-776"
         })
 class ClosingDevRuntimeContextTest {
     @Autowired ApplicationContext context;
@@ -75,6 +84,10 @@ class ClosingDevRuntimeContextTest {
                 .singleElement().isSameAs(context.getBean(JournalQueryPort.class));
         assertThat(context.getBeansOfType(MasterDataQueryPort.class).values())
                 .singleElement().isInstanceOf(HttpClosingMasterDataQueryAdapter.class);
+        assertThat(context.getBeansOfType(AnnualClosingConfigurationProperties.class).values())
+                .singleElement();
+        assertThat(context.getBeansOfType(RetainedEarningsMappingPort.class).values())
+                .singleElement().isInstanceOf(ConfiguredRetainedEarningsMappingAdapter.class);
         assertThat(context.getBeansOfType(ClosingMonolithConfiguration.class)).isEmpty();
         assertThat(context.getBeansOfType(ClosingLocalExternalPortConfiguration.class)).isEmpty();
     }

@@ -330,12 +330,11 @@ public class ClosingController {
      */
     @PostMapping("/annual/perform-income-statement-closing")
     public ResponseEntity<Void> performIncomeStatementClosing(
-            @RequestParam int year,
-            @RequestParam String retainedEarningsAccountCode,
+            @Valid @RequestBody AnnualClosingRequestDto requestDto,
             @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
             @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
         ClosingCommandAuthority.requireCommandAuthority(actor, roles);
-        annualClosingUseCase.performIncomeStatementClosing(year, retainedEarningsAccountCode);
+        annualClosingUseCase.performIncomeStatementClosing(requestDto.getYear());
         return ResponseEntity.ok().build();
     }
 }
