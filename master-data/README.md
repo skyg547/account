@@ -127,6 +127,7 @@ prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외�
 **연동 주의사항:**
 - 다른 모듈에서 마스터 데이터를 조회할 때는 반드시 `contracts`의 `MasterDataQueryPort`를 사용하세요.
 - SCD2 수정은 이전 버전에 `closeVersion()`을 호출하고 새 버전을 저장합니다. 업무상 비활성화에만 `terminate()`를 사용합니다.
+- 계정과목·부서·상품·거래처의 `CREATE`는 신규 업무 키에만 사용합니다. 오늘 활성 행이 없어도 미래 예약 또는 종료된 이력이 하나라도 있으면 같은 키의 직접 생성과 승인 반영을 HTTP 409 충돌로 거부합니다. 날짜가 서로 닿거나 완전히 떨어져 있어도 키 재생성은 허용하지 않습니다. 현재 활성 버전이 있는 키의 변경은 SCD2 `UPDATE`를 사용하며, 종료 이력만 있거나 미래 버전만 있는 키의 재활성화는 현재 지원하지 않습니다.
 - 승인된 변경 요청은 targetType별 applier가 실제 SCD2 반영을 수행한 뒤에만 `APPLIED`가 됩니다. 현재 `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT` typed applier가 구현되어 있습니다.
 - `requestedVersion`은 CREATE=1, UPDATE=현재 저장 이력 수+1, DEACTIVATE=현재 저장 이력 수입니다. 요청·승인·반영 직전에 반복 검증하므로 대기 중 다른 버전이 먼저 반영되면 오래된 요청은 실패합니다.
 - `DEACTIVATE`는 JSON payload 없이 실행되며 승인된 `effectiveDate`를 SCD2 종료일로 사용합니다. `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 typed applier와 버전 어댑터가 생기기 전까지 접수 단계에서 fail-closed 됩니다.

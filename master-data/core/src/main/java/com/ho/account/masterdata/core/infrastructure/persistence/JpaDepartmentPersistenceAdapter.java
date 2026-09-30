@@ -24,7 +24,7 @@ public class JpaDepartmentPersistenceAdapter implements DepartmentPersistencePor
 
     @Override
     public boolean existsByCode(String code) {
-        return departmentRepository.findCurrentByCode(code).isPresent();
+        return departmentRepository.existsByCode(code);
     }
 
     @Override
@@ -64,4 +64,3 @@ public class JpaDepartmentPersistenceAdapter implements DepartmentPersistencePor
         return departmentMapper.toDomain(saved);
     }
 }
-
