@@ -162,3 +162,8 @@
 - Remote HTTP auto-post is rejected before the first write. Direct remote approve/post is disabled; default remote DRAFT and the shared FX/ECL evidence policy remain. HTTP and shared adapters reject invalid or different-slip draft responses. Main #771/#775/#776 changes are integrated and conflict decisions are in [conflict-log](conflict-log.md).
 - Final Closing suite PASS597 (API141/Batch102/Core354; failures/errors/skips0); API/Batch bootJar PASS; Journal authorization MVC5 PASS; Node quality32 PASS. Diff scope, whitespace, marker and unmerged-index gates PASS. Independent read-only `/root/closing_777_review` returned Draft-ready and Q1–Q4 PASS.
 - Ready/deployment risks: trusted Journal service authentication, same-slip concurrent provider dedupe, source freeze, live PostgreSQL/load and distributed faults. Next owner is human Draft/current-head reviewer, then authorized accounting/operations owner. No Ready, merge, Issue close, deployment or resource cleanup.
+
+### GH-777 Draft #819 published
+
+- [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
+- Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.

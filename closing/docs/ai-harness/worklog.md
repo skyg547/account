@@ -427,3 +427,10 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 | Q2 | PASS | `docs/process-flow.md:520`; FX/ECL preflight→DRAFT/FAILED→대사, full597 및 Journal5 PASS | 해당 없음: 실패·재실행 흐름 변경 | 실 원격 장애와 원천 동시 변경 미검증 | 동일 리뷰어 코드·문서 대조 |
 | Q3 | PASS | `docs/local-run.md:307,430`; `docs/beginner-guide.md:111`; API JSON·원격 auth 한계, API141 PASS | 해당 없음: 사용자 실행 의미 변경 | 운영 service principal/실 PostgreSQL 별도 | 동일 리뷰어 문서와 DTO 대조 |
 | Q4 | PASS | `core/infrastructure/external/HttpClosingJournalAdapter.java:114,146`; `JournalLedgerClosingJournalEntryAdapter.java:65`; HTTP46/Batch adapter6 PASS | 해당 없음: 비자명 원격 경계 변경 | 같은 slip 동시 dedupe는 provider 통제 필요 | 동일 리뷰어 의도 주석과 회귀 대조 |
+
+### GH-777 corrected Draft PR #819 publication
+
+- Published [Draft PR #819](https://github.com/skyg547/account/pull/819), OPEN/DRAFT and initially MERGEABLE, `Refs #777`, from `agent/777-financial-run-evidence` to `main`. Initial publication head `5e4c428e`; Issue #777 remains OPEN and now carries `status:needs-review`. The isolated worktree remains available; PR #808 stays CLOSED.
+- The PR body includes the final 597-test XML breakdown, bootJar and Journal/harness checks, Q1–Q4 independent review, rollback, residual gates and explicit implementation/review/Integrator/human authority separation.
+- Initial hosted [Module Validation](https://github.com/skyg547/account/actions/runs/36764864113), [Harness Validation](https://github.com/skyg547/account/actions/runs/36764864173), and [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36764864117) did not start test jobs. Each run annotation reports failed recent account payments or spending-limit restriction. These are external infrastructure failures, not code/test results or hosted PASS; no billing settings were accessed or changed. The final record-only head will be checked again after push.
+- Next owner: repository account owner to restore hosted Actions availability, then human current-head reviewer and authorized accounting/operations owners for the documented trusted Journal and production-data gates. Ready, merge, Issue close, deployment and resource deletion were not performed.
