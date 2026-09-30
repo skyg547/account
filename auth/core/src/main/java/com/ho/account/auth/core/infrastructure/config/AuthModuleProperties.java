@@ -56,6 +56,11 @@ public class AuthModuleProperties {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: JWT issuer and audience must be configured.");
         }
+        // A one-second configured TTL can round down to less than one usable JWT second.
+        if (jwt.getExpirationSeconds() < 2) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.jwt.expiration-seconds' must be at least 2.");
+        }
         if (internalApi.getToken() == null || internalApi.getToken().isBlank()) {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");

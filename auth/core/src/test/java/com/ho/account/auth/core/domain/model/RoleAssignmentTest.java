@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class RoleAssignmentTest {
@@ -23,6 +24,23 @@ class RoleAssignmentTest {
         assertThat(assignment.isEffectiveAt(START)).isTrue();
         assertThat(assignment.isEffectiveAt(END.minusNanos(1))).isTrue();
         assertThat(assignment.isEffectiveAt(END)).isFalse();
+    }
+
+    @Test
+    void userSnapshotExcludesExpiredAdminAndIncludesNewGrantAtSharedBoundary() {
+        RoleAssignment user = RoleAssignment.approved("ROLE_USER");
+        RoleAssignment admin = new RoleAssignment("ROLE_ADMIN", "FIN", START, END, true);
+        RoleAssignment auditor = new RoleAssignment("ROLE_AUDITOR", "FIN", END, null, true);
+        AuthUser authUser = new AuthUser(
+                "admin", "stored", "FIN", true, false, List.of(user, admin, auditor), 7L);
+
+        assertThat(authUser.effectiveRolesAt(END.minusNanos(1)))
+                .containsExactly("ROLE_USER", "ROLE_ADMIN");
+        assertThat(authUser.effectiveRolesAt(END))
+                .containsExactly("ROLE_USER", "ROLE_AUDITOR");
+        assertThat(authUser.effectiveRolesAt(END.plusSeconds(1)))
+                .containsExactly("ROLE_USER", "ROLE_AUDITOR");
+        assertThat(authUser.getRoleVersion()).isEqualTo(7L);
     }
 
     @Test

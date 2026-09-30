@@ -85,7 +85,7 @@ erDiagram
 | `AUTH_LOGIN_SECURITY_STORE` | `memory` | 로그인 실패 저장소. 운영 다중 인스턴스는 `jpa` |
 | `AUTH_JWT_SECRET` | 없음(필수 실행 입력) | JWT 서명키. local도 실행 시 임시 값을 주입하며 HS256 기준 32바이트 이상 필요 |
 | `AUTH_JWT_ISSUER` | `auth-service` | JWT issuer |
-| `AUTH_JWT_EXPIRATION_SECONDS` | `3600` | 토큰 만료 시간 |
+| `AUTH_JWT_EXPIRATION_SECONDS` | `3600` | JWT 최대 수명. 2초 이상 필수. 포함된 역할의 가장 이른 `validTo`가 더 빠르면 그 시각으로 단축 |
 
 ## 상태와 정합성 정책
 

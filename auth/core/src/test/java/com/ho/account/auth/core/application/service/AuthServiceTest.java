@@ -19,10 +19,18 @@ import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import com.ho.account.auth.core.infrastructure.security.InMemoryLoginAttemptAdapter;
+import com.ho.account.auth.core.infrastructure.security.JwtTokenIssuer;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +78,125 @@ class AuthServiceTest {
         assertThat(issuedSubject.get().effectiveRoleAssignments()).containsExactly(effective);
         assertThat(attempts.successes).containsExactly("admin");
         assertThat(attempts.failures).isEmpty();
+    }
+
+    @Test
+    void reloginUsesNewlyEffectiveRolesAfterTemporaryAdminGrantEnds() {
+        Instant adminExpiry = AUTHENTICATED_AT.plusSeconds(120);
+        Instant auditorStart = AUTHENTICATED_AT.plusSeconds(180);
+        AuthUser user = new AuthUser("admin", "stored", "FIN", true, false, List.of(
+                RoleAssignment.approved("ROLE_USER"),
+                new RoleAssignment("ROLE_ADMIN", "GLOBAL", null, adminExpiry, true),
+                new RoleAssignment("ROLE_AUDITOR", "GLOBAL", auditorStart, null, true)), 7L);
+        MutableClock clock = new MutableClock(AUTHENTICATED_AT);
+        AuthModuleProperties properties = new AuthModuleProperties();
+        properties.getJwt().setSecret("test-secret-key-that-is-at-least-32-bytes-long!");
+        properties.getJwt().setIssuer("auth-test");
+        properties.getJwt().setExpirationSeconds(600L);
+        AuthService service = new AuthService(
+                users(Map.of("admin", user)), code -> true, validPasswordVerifier(), noOtp(),
+                rejectingSso(), new JwtTokenIssuer(properties), new RecordingLoginAttemptPort(), clock);
+
+        AuthenticationResult first = service.login(normal("admin", null));
+        assertThat(first.roles()).containsExactly("ROLE_USER", "ROLE_ADMIN");
+        assertThat(first.expiresInSeconds()).isEqualTo(120L);
+        assertThat(service.validateTokenVersion("admin", 7L)).isTrue();
+
+        clock.set(adminExpiry);
+        // USER keeps version validation true; Gateway still needs a strict expiry check to fence ADMIN.
+        assertThat(service.validateTokenVersion("admin", 7L)).isTrue();
+        assertThatThrownBy(() -> parseRoles(first.accessToken(), properties, adminExpiry.plusSeconds(1)))
+                .isInstanceOf(ExpiredJwtException.class);
+        AuthenticationResult second = service.login(normal("admin", null));
+        assertThat(second.roles()).containsExactly("ROLE_USER");
+        assertThat(second.roleVersion()).isEqualTo(7L);
+        assertThat(second.expiresInSeconds()).isEqualTo(600L);
+
+        clock.set(auditorStart);
+        assertThat(parseRoles(second.accessToken(), properties, clock.instant()))
+                .containsExactly("ROLE_USER");
+        AuthenticationResult third = service.login(normal("admin", null));
+        assertThat(third.roles()).containsExactly("ROLE_USER", "ROLE_AUDITOR");
+        assertThat(third.roleVersion()).isEqualTo(7L);
+        assertThat(parseRoles(third.accessToken(), properties, clock.instant()))
+                .containsExactly("ROLE_USER", "ROLE_AUDITOR");
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {750L, 1000L})
+    @SuppressWarnings("unchecked")
+    void loginOmitsAdminWhenItsRemainingGrantCannotProducePositiveJwtLifetime(long expiryMillis) {
+        Instant issuedAt = AUTHENTICATED_AT.plusMillis(500);
+        RoleAssignment admin = new RoleAssignment(
+                "ROLE_ADMIN", "GLOBAL", null, AUTHENTICATED_AT.plusMillis(expiryMillis), true);
+        AuthModuleProperties properties = jwtProperties();
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService service = jwtBackedServiceAt(
+                List.of(RoleAssignment.approved("ROLE_USER"), admin), issuedAt, properties, attempts);
+
+        AuthenticationResult result = service.login(normal("admin", null));
+
+        assertThat(result.roles()).containsExactly("ROLE_USER");
+        assertThat(result.expiresInSeconds()).isPositive();
+        Claims claims = parseClaims(result.accessToken(), properties, issuedAt);
+        assertThat(claims.get("roles", List.class)).containsExactly("ROLE_USER");
+        assertThat(claims.get("roleAssignments", List.class))
+                .containsExactly(Map.of("roleCode", "ROLE_USER", "dataScope", "GLOBAL"));
+        assertThat(attempts.successes).containsExactly("admin");
+        assertThat(attempts.failures).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {750L, 1000L})
+    void loginDeniesWhenOnlyAdminGrantHasNoIssuableJwtLifetime(long expiryMillis) {
+        Instant issuedAt = AUTHENTICATED_AT.plusMillis(500);
+        RoleAssignment admin = new RoleAssignment(
+                "ROLE_ADMIN", "GLOBAL", null, AUTHENTICATED_AT.plusMillis(expiryMillis), true);
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService service = jwtBackedServiceAt(
+                List.of(admin), issuedAt, jwtProperties(), attempts);
+
+        assertThatThrownBy(() -> service.login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("no approved effective roles");
+        assertThat(attempts.failures).containsExactly("admin:NO_EFFECTIVE_ROLE");
+        assertThat(attempts.successes).isEmpty();
+    }
+
+    private AuthService jwtBackedServiceAt(
+            List<RoleAssignment> assignments,
+            Instant issuedAt,
+            AuthModuleProperties properties,
+            RecordingLoginAttemptPort attempts) {
+        AuthUser user = new AuthUser("admin", "stored", "FIN", true, false, assignments, 7L);
+        return new AuthService(
+                users(Map.of("admin", user)), code -> true, validPasswordVerifier(), noOtp(),
+                rejectingSso(), new JwtTokenIssuer(properties), attempts,
+                Clock.fixed(issuedAt, ZoneOffset.UTC));
+    }
+
+    private AuthModuleProperties jwtProperties() {
+        AuthModuleProperties properties = new AuthModuleProperties();
+        properties.getJwt().setSecret("test-secret-key-that-is-at-least-32-bytes-long!");
+        properties.getJwt().setIssuer("auth-test");
+        properties.getJwt().setExpirationSeconds(600L);
+        return properties;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> parseRoles(String token, AuthModuleProperties properties, Instant parsedAt) {
+        return parseClaims(token, properties, parsedAt).get("roles", List.class);
+    }
+
+    private Claims parseClaims(String token, AuthModuleProperties properties, Instant parsedAt) {
+        return Jwts.parserBuilder()
+                .setClock(() -> Date.from(parsedAt))
+                .setAllowedClockSkewSeconds(0)
+                .setSigningKey(Keys.hmacShaKeyFor(
+                        properties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8)))
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     @Test
@@ -542,6 +669,33 @@ class AuthServiceTest {
         private String lastFailureReason() {
             String failure = failures.get(failures.size() - 1);
             return failure.substring(failure.indexOf(':') + 1);
+        }
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant now;
+
+        private MutableClock(Instant initial) {
+            now = initial;
+        }
+
+        private void set(Instant next) {
+            now = next;
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return Clock.fixed(now, zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
         }
     }
 }
