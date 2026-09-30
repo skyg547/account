@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -87,6 +88,25 @@ class EodLifecycleControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(useCase, never()).completeEod(any(), any());
+    }
+
+    @Test
+    void commandAcceptsEightyCharacterActorButRejectsEightyOneBeforeAdditionalUseCaseCall() throws Exception {
+        String maximumActor = "a".repeat(80);
+        DailyClosingStatus prepared = mockStatus(EodState.PRE_CLOSING);
+        when(useCase.prepareEod(BUSINESS_DATE, maximumActor)).thenReturn(prepared);
+
+        mockMvc.perform(post("/api/closing/eod/2026-07-30/eod/prepare")
+                        .header(EodLifecycleController.AUTH_USER_HEADER, maximumActor)
+                        .header(EodLifecycleController.AUTH_ROLES_HEADER, "CLOSING_MANAGER"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/closing/eod/2026-07-30/eod/prepare")
+                        .header(EodLifecycleController.AUTH_USER_HEADER, "b".repeat(81))
+                        .header(EodLifecycleController.AUTH_ROLES_HEADER, "CLOSING_MANAGER"))
+                .andExpect(status().isBadRequest());
+
+        verify(useCase).prepareEod(BUSINESS_DATE, maximumActor);
+        verifyNoMoreInteractions(useCase);
     }
 
     @Test

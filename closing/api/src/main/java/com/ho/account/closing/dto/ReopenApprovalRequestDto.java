@@ -14,10 +14,6 @@ public class ReopenApprovalRequestDto {
     private Long fiscalPeriodId;
 
     @NotBlank
-    @Size(max = 50)
-    private String requestedBy;
-
-    @NotBlank
     @Size(max = 1000)
     private String reason;
 }

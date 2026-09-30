@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
  * 결산 기간 오픈, 재오픈, 결산 평가 자동 분개 등 외부 시스템이나 사용자가 
  * 애플리케이션으로 명령을 보내는 유일한 관문(Web API)입니다.
  * HTTP 요청(Request Dto)을 받아, 애플리케이션이 이해할 수 있는 명령으로 변환 후 `ClosingUseCase`에 전달합니다.
+ * Gateway가 검증해 다시 만든 identity 헤더만 명령의 actor로 신뢰하며, API 포트의 직접 외부 공개는 지원하지 않습니다.
  */
 @RestController
 @RequestMapping("/api/closing")
@@ -39,8 +40,13 @@ public class ClosingController {
      * @return 생성된 결산 캘린더 정보
      */
     @PostMapping("/calendars")
-    public ResponseEntity<ClosingCalendarDto> createClosingCalendar(@Valid @RequestBody ClosingCalendarRequestDto requestDto) {
+    public ResponseEntity<ClosingCalendarDto> createClosingCalendar(
+            @Valid @RequestBody ClosingCalendarRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
         ClosingCalendar calendar = requestDto.toEntity();
+        calendar.setAuditUser(trustedActor);
         ClosingCalendar createdCalendar = closingUseCase.createClosingCalendar(calendar);
         return new ResponseEntity<>(ClosingCalendarDto.fromEntity(createdCalendar), HttpStatus.CREATED);
     }
@@ -71,12 +77,18 @@ public class ClosingController {
     /**
      * 결산 캘린더의 상태를 업데이트합니다.
      * @param id 결산 캘린더 ID
-     * @param requestDto 업데이트할 상태 및 사용자 정보
+     * @param requestDto 업데이트할 상태 정보
      * @return 업데이트된 결산 캘린더 정보
      */
     @PutMapping("/calendars/{id}/status")
-    public ResponseEntity<ClosingCalendarDto> updateClosingCalendarStatus(@PathVariable("id") Long id, @Valid @RequestBody ClosingCalendarStatusUpdateDto requestDto) {
-        ClosingCalendar updatedCalendar = closingUseCase.updateClosingCalendarStatus(id, requestDto.getStatus(), requestDto.getUser());
+    public ResponseEntity<ClosingCalendarDto> updateClosingCalendarStatus(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ClosingCalendarStatusUpdateDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ClosingCalendar updatedCalendar = closingUseCase.updateClosingCalendarStatus(
+                id, requestDto.getStatus(), trustedActor);
         return ResponseEntity.ok(ClosingCalendarDto.fromEntity(updatedCalendar));
     }
 
@@ -101,10 +113,15 @@ public class ClosingController {
      * @return 생성된 결산 태스크 정보
      */
     @PostMapping("/tasks")
-    public ResponseEntity<ClosingTaskDto> createClosingTask(@Valid @RequestBody ClosingTaskRequestDto requestDto) {
+    public ResponseEntity<ClosingTaskDto> createClosingTask(
+            @Valid @RequestBody ClosingTaskRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
         ClosingCalendar calendar = closingUseCase.findClosingCalendarById(requestDto.getCalendarId());
         ClosingTask task = requestDto.toEntity();
         task.setClosingCalendar(calendar);
+        task.setAuditUser(trustedActor);
         ClosingTask createdTask = closingUseCase.createClosingTask(task);
         return new ResponseEntity<>(ClosingTaskDto.fromEntity(createdTask), HttpStatus.CREATED);
     }
@@ -112,12 +129,17 @@ public class ClosingController {
     /**
      * 결산 태스크의 상태를 업데이트합니다.
      * @param id 결산 태스크 ID
-     * @param requestDto 업데이트할 상태 및 사용자 정보
+     * @param requestDto 업데이트할 상태 정보
      * @return 업데이트된 결산 태스크 정보
      */
     @PutMapping("/tasks/{id}/status")
-    public ResponseEntity<ClosingTaskDto> updateClosingTaskStatus(@PathVariable("id") Long id, @Valid @RequestBody ClosingTaskStatusUpdateDto requestDto) {
-        ClosingTask updatedTask = closingUseCase.updateClosingTaskStatus(id, requestDto.getStatus(), requestDto.getUser());
+    public ResponseEntity<ClosingTaskDto> updateClosingTaskStatus(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ClosingTaskStatusUpdateDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ClosingTask updatedTask = closingUseCase.updateClosingTaskStatus(id, requestDto.getStatus(), trustedActor);
         return ResponseEntity.ok(ClosingTaskDto.fromEntity(updatedTask));
     }
 
@@ -129,10 +151,15 @@ public class ClosingController {
      * @return 생성된 결산 게이트 정보
      */
     @PostMapping("/gates")
-    public ResponseEntity<ClosingGateDto> createClosingGate(@Valid @RequestBody ClosingGateRequestDto requestDto) {
+    public ResponseEntity<ClosingGateDto> createClosingGate(
+            @Valid @RequestBody ClosingGateRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
         ClosingCalendar calendar = closingUseCase.findClosingCalendarById(requestDto.getCalendarId());
         ClosingGate gate = requestDto.toEntity();
         gate.setClosingCalendar(calendar);
+        gate.setAuditUser(trustedActor);
         ClosingGate createdGate = closingUseCase.createClosingGate(gate);
         return new ResponseEntity<>(ClosingGateDto.fromEntity(createdGate), HttpStatus.CREATED);
     }
@@ -140,12 +167,15 @@ public class ClosingController {
     /**
      * 결산 게이트의 통과 조건을 확인하고 상태를 업데이트합니다.
      * @param id 결산 게이트 ID
-     * @param user 요청 사용자
      * @return 업데이트된 결산 게이트 정보
      */
     @PutMapping("/gates/{id}/check")
-    public ResponseEntity<ClosingGateDto> checkAndPassClosingGate(@PathVariable("id") Long id, @RequestParam("user") String user) {
-        ClosingGate updatedGate = closingUseCase.checkAndPassClosingGate(id, user);
+    public ResponseEntity<ClosingGateDto> checkAndPassClosingGate(
+            @PathVariable("id") Long id,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ClosingGate updatedGate = closingUseCase.checkAndPassClosingGate(id, trustedActor);
         return ResponseEntity.ok(ClosingGateDto.fromEntity(updatedGate));
     }
 
@@ -157,20 +187,28 @@ public class ClosingController {
      * @return 생성된 기간 잠금 정보
      */
     @PostMapping("/period-locks")
-    public ResponseEntity<PeriodLockDto> lockPeriod(@Valid @RequestBody PeriodLockRequestDto requestDto) {
-        PeriodLock periodLock = closingUseCase.lockPeriod(requestDto.getFiscalPeriodId(), requestDto.getLockType(), requestDto.getUser(), requestDto.getReason());
+    public ResponseEntity<PeriodLockDto> lockPeriod(
+            @Valid @RequestBody PeriodLockRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        PeriodLock periodLock = closingUseCase.lockPeriod(
+                requestDto.getFiscalPeriodId(), requestDto.getLockType(), trustedActor, requestDto.getReason());
         return new ResponseEntity<>(PeriodLockDto.fromEntity(periodLock), HttpStatus.CREATED);
     }
 
     /**
      * 특정 회계 기간의 잠금을 해제합니다.
      * @param fiscalPeriodId 잠금을 해제할 회계 기간 ID
-     * @param user 해제 요청 사용자
      * @return 응답 없음
      */
     @DeleteMapping("/period-locks/{fiscalPeriodId}")
-    public ResponseEntity<Void> unlockPeriod(@PathVariable("fiscalPeriodId") Long fiscalPeriodId, @RequestParam("user") String user) {
-        closingUseCase.unlockPeriod(fiscalPeriodId, user);
+    public ResponseEntity<Void> unlockPeriod(
+            @PathVariable("fiscalPeriodId") Long fiscalPeriodId,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        closingUseCase.unlockPeriod(fiscalPeriodId, trustedActor);
         return ResponseEntity.noContent().build();
     }
 
@@ -182,20 +220,31 @@ public class ClosingController {
      * @return 생성된 재오픈 승인 요청 정보
      */
     @PostMapping("/reopen-approvals")
-    public ResponseEntity<ReopenApprovalDto> requestPeriodReopen(@Valid @RequestBody ReopenApprovalRequestDto requestDto) {
-        ReopenApproval approval = closingUseCase.requestPeriodReopen(requestDto.getFiscalPeriodId(), requestDto.getRequestedBy(), requestDto.getReason());
+    public ResponseEntity<ReopenApprovalDto> requestPeriodReopen(
+            @Valid @RequestBody ReopenApprovalRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ReopenApproval approval = closingUseCase.requestPeriodReopen(
+                requestDto.getFiscalPeriodId(), trustedActor, requestDto.getReason());
         return new ResponseEntity<>(ReopenApprovalDto.fromEntity(approval), HttpStatus.CREATED);
     }
 
     /**
      * 기간 재오픈 요청을 승인 또는 거절합니다.
      * @param id 재오픈 승인 ID
-     * @param requestDto 업데이트할 상태 및 승인자 정보
+     * @param requestDto 업데이트할 상태 정보
      * @return 업데이트된 재오픈 승인 요청 정보
      */
     @PutMapping("/reopen-approvals/{id}/status")
-    public ResponseEntity<ReopenApprovalDto> updateReopenApprovalStatus(@PathVariable("id") Long id, @Valid @RequestBody ReopenApprovalStatusUpdateDto requestDto) {
-        ReopenApproval updatedApproval = closingUseCase.updateReopenApprovalStatus(id, requestDto.getStatus(), requestDto.getApprovedBy());
+    public ResponseEntity<ReopenApprovalDto> updateReopenApprovalStatus(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ReopenApprovalStatusUpdateDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ReopenApproval updatedApproval = closingUseCase.updateReopenApprovalStatus(
+                id, requestDto.getStatus(), trustedActor);
         return ResponseEntity.ok(ReopenApprovalDto.fromEntity(updatedApproval));
     }
 
@@ -207,8 +256,13 @@ public class ClosingController {
      * @return 생성된 평가 배치 기록 정보
      */
     @PostMapping("/valuation-batches/run")
-    public ResponseEntity<ValuationBatchDto> runValuationBatch(@Valid @RequestBody ValuationBatchRequestDto requestDto) {
-        ValuationBatch batch = closingUseCase.runValuationBatch(requestDto.getFiscalPeriodId(), requestDto.getValuationType(), requestDto.getRunBy());
+    public ResponseEntity<ValuationBatchDto> runValuationBatch(
+            @Valid @RequestBody ValuationBatchRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ValuationBatch batch = closingUseCase.runValuationBatch(
+                requestDto.getFiscalPeriodId(), requestDto.getValuationType(), trustedActor);
         return new ResponseEntity<>(ValuationBatchDto.fromEntity(batch), HttpStatus.CREATED);
     }
 
@@ -220,8 +274,13 @@ public class ClosingController {
      * @return 생성된 충당/손상 배치 기록 정보
      */
     @PostMapping("/provision-batches/run")
-    public ResponseEntity<ProvisionBatchDto> runProvisionBatch(@Valid @RequestBody ProvisionBatchRequestDto requestDto) {
-        ProvisionBatch batch = closingUseCase.runProvisionBatch(requestDto.getFiscalPeriodId(), requestDto.getProvisionType(), requestDto.getRunBy());
+    public ResponseEntity<ProvisionBatchDto> runProvisionBatch(
+            @Valid @RequestBody ProvisionBatchRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ProvisionBatch batch = closingUseCase.runProvisionBatch(
+                requestDto.getFiscalPeriodId(), requestDto.getProvisionType(), trustedActor);
         return new ResponseEntity<>(ProvisionBatchDto.fromEntity(batch), HttpStatus.CREATED);
     }
 
@@ -233,13 +292,17 @@ public class ClosingController {
      * @return 생성된 결산 조정 기록 정보
      */
     @PostMapping("/adjustments")
-    public ResponseEntity<ClosingAdjustmentDto> createClosingAdjustment(@Valid @RequestBody ClosingAdjustmentRequestDto requestDto) {
+    public ResponseEntity<ClosingAdjustmentDto> createClosingAdjustment(
+            @Valid @RequestBody ClosingAdjustmentRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
         ClosingAdjustment adjustment = closingUseCase.createClosingAdjustment(
                 requestDto.getFiscalPeriodId(),
                 requestDto.getJournalEntryId(),
                 requestDto.getAdjustmentType(),
                 requestDto.getDescription(),
-                requestDto.getApprovedBy()
+                trustedActor
         );
         return new ResponseEntity<>(ClosingAdjustmentDto.fromEntity(adjustment), HttpStatus.CREATED);
     }
@@ -248,12 +311,17 @@ public class ClosingController {
 
     /**
      * 특정 결산 캘린더의 마감 완료/실패 여부를 시스템이 판정합니다.
-     * @param requestDto 결산 캘린더 ID 및 판정 요청 사용자 정보
+     * @param requestDto 결산 캘린더 ID
      * @return 업데이트된 결산 캘린더 정보 (CLOSED 또는 IN_PROGRESS/FAILED)
      */
     @PostMapping("/calendars/determine-status")
-    public ResponseEntity<ClosingCalendarDto> determineClosingStatus(@Valid @RequestBody ClosingStatusDetermineRequestDto requestDto) {
-        ClosingCalendar updatedCalendar = closingUseCase.determineClosingStatus(requestDto.getCalendarId(), requestDto.getUser());
+    public ResponseEntity<ClosingCalendarDto> determineClosingStatus(
+            @Valid @RequestBody ClosingStatusDetermineRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        ClosingCalendar updatedCalendar = closingUseCase.determineClosingStatus(
+                requestDto.getCalendarId(), trustedActor);
         return ResponseEntity.ok(ClosingCalendarDto.fromEntity(updatedCalendar));
     }
 
@@ -261,8 +329,12 @@ public class ClosingController {
      * 연차 결산(손익 대체 분개 생성)을 수행합니다.
      */
     @PostMapping("/annual/perform-income-statement-closing")
-    public ResponseEntity<Void> performIncomeStatementClosing(@RequestParam int year, @RequestParam String retainedEarningsAccountCode) {
-        annualClosingUseCase.performIncomeStatementClosing(year, retainedEarningsAccountCode);
+    public ResponseEntity<Void> performIncomeStatementClosing(
+            @Valid @RequestBody AnnualClosingRequestDto requestDto,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        annualClosingUseCase.performIncomeStatementClosing(requestDto.getYear());
         return ResponseEntity.ok().build();
     }
 }

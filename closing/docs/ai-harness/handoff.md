@@ -169,6 +169,35 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
 
+## GH-775 — verified implementation handoff
+
+- Issue [#775](https://github.com/skyg547/account/issues/775), CL05; branch `agent/775-annual-close-stale-draft`; worktree `/tmp/account-775-annual-close-stale-draft`; base/current main `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- All 16 final paths, including these three records, are under `closing/**`. No shared harness, other module, shared contract, migration or production data changed.
+- Behavior: exact source-snapshot draft retry, stale/malformed fail-closed, full annual content/lineage validation, and cumulative posted-close residual delta after new posted activity. Dated Master Data supplies missing Journal classifications; the lookup is cached per account/date within one run.
+- Evidence: audited focused RED13/68; independent focused129/129 PASS; exact `./gradlew :closing:test` Core315/API127/Batch98 =540/540 PASS, failures/errors/skips0; diff/marker/unmerged/scope checks PASS. Independent reviewer: no scoped P0–P3, acceptance1–4 PASS, Q1–Q4 PASS.
+- Limits: no live PostgreSQL/load/distributed-fault/provider-side atomic snapshot proof. `AnnualClosingService` does not itself validate the reopen approval. The standalone Journal write adapter still lacks the separately approved `X-Auth-User`/`X-Auth-Roles` service-principal contract, so live remote write verification is HOLD.
+- Rollback: suspend annual close, preserve and reconcile existing journals/lineage, then reviewed scoped revert; no schema/data reset. Legacy/stale drafts require approved Journal correction rather than automatic deletion.
+- 권한 분리: service/test/documentation writers had disjoint files, the independent reviewer was read-only, and only the parent Integrator updates records and performs commit/push/Draft publication. This procedural separation is not human approval or a security boundary.
+- Draft PR publication is pending. Use `Refs #775`; keep Issue open. Ready, merge, Issue close, deployment and branch/worktree deletion require later gates.
+
+### GH-775 Draft publication
+
+- Published [Draft PR #806](https://github.com/skyg547/account/pull/806), OPEN/DRAFT, initially MERGEABLE, `Refs #775`, branch `agent/775-annual-close-stale-draft` to `main`. Verified implementation commit `1200064ad77dbb44925641d359a73924e4c212bc`; Issue #775 remains OPEN / `status:needs-review`; worktree retained.
+- Initial implementation-head hosted jobs did not execute because GitHub annotations report failed recent account payments or a spending-limit restriction: [Module Validation](https://github.com/skyg547/account/actions/runs/36423379589), [Harness Validation](https://github.com/skyg547/account/actions/runs/36423379826), and [Merge Guard](https://github.com/skyg547/account/actions/runs/36423379805). These are infrastructure gates, not code/test failures. No billing setting was accessed or changed.
+- This append modifies only the three module-local records; production and test content remains at the independently reviewed implementation commit. Next owner is the repository account owner for Actions availability and then the human Draft reviewer. Ready, merge, Issue close, deployment, and branch/worktree deletion were not performed.
+
+## GH-776 — verified stacked Draft handoff
+
+- Issue [#776](https://github.com/skyg547/account/issues/776), CL06; `agent/776-retained-earnings-control`; `/tmp/account-776-retained-earnings-control`; original base `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Hard dependency: this branch stacks on `agent/775-annual-close-stale-draft@a1b108f7f5e4c18a9e384139c5e93c7b3b151d68` / Draft PR #806. Publish #776 as a Draft against that branch. After #806 merges, retarget/rebase onto current `main` and rerun the full/current-head gates before Ready consideration.
+- Behavior: the API accepts only the year. A configuration-backed outbound port resolves an exact-year approved retained-earnings mapping, and the Dec31 Master account must be the exact CREDIT-normal `EQUITY` destination before Journal access. Approval metadata and explicit postability attestation enter #775's V2 snapshot identity; stale pending drafts fail and posted-complete retries remain no-op.
+- Evidence: intentional RED1; focused Core60/API9 PASS; exact required full Core344/API132/Batch98 =574 PASS, failures/errors/skips0; API/Batch bootJar PASS; allowlist/diff/marker/unmerged checks PASS. Independent read-only `/root/review_776` forced69 focused tests, found no P0–P3 and marked Q1–Q4 PASS.
+- Limits: no live PostgreSQL/load/distributed fault/provider atomic snapshot. Master has no actual postability field; Journal has no legal-entity dimension; remote Journal service-principal write remains HOLD. Configuration review metadata is not an authenticated approval workflow.
+- Rollback: suspend annual closing, preserve/reconcile every draft/posted journal and lineage, then revert only the reviewed #776 delta. No schema/data reset. Do not restore request-selected destinations on an enabled endpoint.
+- 권한 분리: service/controller/config/test/documentation writers had disjoint Closing files; the Reviewer was read-only; the parent Integrator alone updates module records and performs commit/push/Draft publication. AI review is not human/GitHub approval.
+- Merge authority: this handoff authorizes only the requested Draft publication with `Refs #776`. Ready, merge, Issue close, deployment, billing/config changes and branch/worktree deletion remain separate human gates.
+- Next owner: human stacked-Draft reviewer, then the authorized integrator after #806 for current-main retarget/rebase and repeated verification. PR URL and observed hosted checks will be appended only after actual publication.
+
 ## GH-777 — evidence-backed valuation/provision runs
 
 - Delivery: Closing-only verified implementation for Issue #777. API valuation supports `FX_RATE`; provision supports `ECL`. Both use actual posted-ledger/rate/finalized-summary evidence and the same core policy as Batch. The configured fixed-amount workflow was removed rather than renamed.
@@ -182,5 +211,12 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 
 ### GH-777 Draft publication
 
-- [Draft PR #808](https://github.com/skyg547/account/pull/808) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; verified implementation commit `8fa4d8fb`. Issue #777 remains OPEN / `status:needs-review`, and the isolated worktree remains available.
+- [Draft PR #808](https://github.com/skyg547/account/pull/808) was initially MERGEABLE with `Refs #777` and was later CLOSED after the independent P1 Journal review; initial implementation commit `8fa4d8fb`. Issue #777 remains OPEN, and the isolated worktree remains available.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report failed recent account payments or a spending-limit restriction; no hosted code/test result is claimed. Ready, merge, Issue close, deployment and resource deletion remain separate human/authorized-owner gates.
+
+## GH-777 — 2026-10-01 corrected Draft handoff
+
+- Old Draft PR #808 is CLOSED after a confirmed P1 remote Journal transition defect. The current Closing-only branch `agent/777-financial-run-evidence` in `/tmp/account-777-financial-run-evidence` integrates `main@b06e7de3` and fails remote auto-post before any write, while preserving default DRAFT and the previously verified FX/ECL source-evidence calculation. The common adapter validates ID, slip and DRAFT response across API and Batch.
+- Evidence: final `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` PASS597/0 failures/errors/skips; Journal authorization MVC5 and Node quality32 PASS; independent read-only Q1–Q4 PASS. See [worklog](worklog.md#2026-10-01--gh-777-remote-journal-control-remediation-and-current-main-integration) and [conflict log](conflict-log.md).
+- Rollback and recovery: suspend affected runs; revert the Closing delta only after review. Preserve all existing DRAFT/POSTED Journal and run history. On `FAILED` or ambiguous HTTP response, reconcile deterministic slip, lineage, status and complete lines before any human-authorized correction or retry. No automatic deletion or blind replay.
+- Remaining gates: human review of new Draft/current-head CI; authenticated Journal maker/checker/poster integration before any remote auto-post; provider-side atomic content idempotency for concurrent same-slip retries; live PostgreSQL/load/distributed fault and source-freeze verification before Ready/deployment. AI implementation and independent read-only review are separate; the parent Integrator owns records and Draft publication. Ready, merge, Issue close, deployment and branch/worktree deletion are not performed.

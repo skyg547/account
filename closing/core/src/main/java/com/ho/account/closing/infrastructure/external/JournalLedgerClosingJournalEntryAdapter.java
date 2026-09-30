@@ -62,6 +62,12 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
                 command.slipNo(),
                 command.lines().stream().map(this::toJournalLine).toList());
         JournalPostingResult result = journalPostingPort.createDraftEntry(journalCommand);
+        // Journal may deduplicate by lineage before honoring the requested slip. A reply for
+        // another draft must not be recorded as this FX/ECL adjustment or auto-posted by ID.
+        if (result == null || result.journalEntryId() == null || result.journalEntryId() < 1
+                || !command.slipNo().equals(result.slipNo()) || !"DRAFT".equals(result.status())) {
+            throw new IllegalStateException("Journal returned a different or invalid Closing draft");
+        }
         return new ClosingJournalEntryResult(result.journalEntryId(), result.slipNo());
     }
 

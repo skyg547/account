@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.converter.RecordMessageConverter;
 import org.springframework.messaging.Message;
 import org.springframework.test.context.ActiveProfiles;
@@ -47,6 +48,9 @@ class KafkaTransactionListenerPrecisionTest {
     @Autowired
     @Qualifier("kafkaListenerContainerFactory")
     private ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory;
+
+    @Autowired
+    private DefaultErrorHandler journalKafkaErrorHandler;
 
     @Autowired
     private ApplicationContext applicationContext;
@@ -85,6 +89,9 @@ class KafkaTransactionListenerPrecisionTest {
         Object factoryConverter = new DirectFieldAccessor(kafkaListenerContainerFactory)
                 .getPropertyValue("recordMessageConverter");
         assertThat(factoryConverter).isSameAs(recordMessageConverter);
+        Object factoryErrorHandler = new DirectFieldAccessor(kafkaListenerContainerFactory)
+                .getPropertyValue("commonErrorHandler");
+        assertThat(factoryErrorHandler).isSameAs(journalKafkaErrorHandler);
     }
 
     @Test

@@ -18,21 +18,35 @@
 `journal-ledger:batch`는 API 서버가 아니라 Spring Batch 실행 모듈입니다. 현재 대표 Job은 `dailyBalanceReaggregationJob`이며, 과거 전표 수정이나 누락 전표 전기 후 GL/SL 잔액을 특정 기간 기준으로 다시 계산할 때 사용합니다.
 
 - batch config: Job/Step 연결만 담당합니다.
-- 시작 Step은 입력 별칭을 한 번 정규화해 JobExecutionContext에 고정하고, 256개 stripe를 모두 잡은 뒤 V15 제어를 `REBUILDING(owner JobInstance ID, range, epoch)`으로 전환합니다.
+- 시작 Step은 날짜 입력 전체를 검증한 뒤 요청 범위를 한 번 정규화합니다. 완전한 `startDate/endDate` 또는 `fromDate/toDate` 범위와 `baseDate/targetDate` 단일일을 받으며, 같은 날짜로 정규화되는 중복 별칭도 허용합니다. 시작 별칭 `startDate/fromDate`만 있으면 해당 날짜 하루, 종료 별칭 `endDate/toDate`만 있으면 시작 Step의 JVM 기본 시간대 전일부터 지정 종료일까지로 해석합니다. 충돌 별칭, 역전·형식 오류, 단일일과 범위의 혼용은 owner barrier 획득이나 잔액 삭제 전에 실패합니다.
+- 날짜 입력이 없으면 시작 시점 JVM 기본 시간대의 전일을 한 번 선택합니다. 시작 Step은 256개 stripe를 잡고 요청 종료일을 필요한 후속일까지 확장한 유효 범위를 V15 `REBUILDING(owner JobInstance ID, range, epoch)`과 JobExecutionContext에 함께 고정합니다.
 - owner cleanup 뒤 `JpaPagingItemReader`가 POSTED 상세를 날짜/ID 순으로 100건씩 읽습니다. owner writer만 barrier 안에서 쓸 수 있어 성공 chunk와 checkpoint가 함께 커밋됩니다.
-- 장애 시 cleanup을 다시 실행하지 않고 같은 JobInstance를 재시작합니다. 다른 인스턴스, 전기, 수동 cleanup, 잔액 조회는 거부됩니다.
+- 장애 시 같은 식별 JobParameters로 같은 JobInstance를 재시작합니다. 다음 날이나 자정 이후여도 저장된 owner 유효 범위와 JobExecutionContext를 재사용하며, 완료된 cleanup과 이미 커밋된 chunk checkpoint는 유지됩니다. 다른 인스턴스, 전기, 수동 cleanup, 잔액 조회는 거부됩니다.
 - 마지막 Step은 안정된 POSTED 입력과 GL/SL의 날짜·전체 key·nullable BP/부서·일별 차대·기초/기말을 compact DB 집계로 대사합니다. 정확히 일치할 때만 `OPEN`/새 epoch로 공개합니다.
+
+초보자 설명: Spring Batch의 JobInstance는 Job 이름과 **식별(identifying) JobParameters** 조합으로
+구분합니다. 아래처럼 launcher에 전달한 날짜 파라미터는 별도 non-identifying 지정이 없으면 식별값입니다.
+실패 복구에는 파라미터 이름과 값을 그대로 다시 사용해야 하며, 같은 날짜라도 별칭을 바꾸거나
+`run.id`/timestamp 같은 새 식별값을 더하면 새 JobInstance가 되어 cleanup부터 다시 실행됩니다.
+완료된 JobInstance를 의도적으로 다시 돌릴 때도 새 식별값이 필요합니다. 날짜 파라미터가 없는 실행도
+같은 원칙이므로, 실패 restart는 최초에 고정된 전일을 재사용하고 새 인스턴스만 새 시작 시점의 전일을 선택합니다.
 
 ```powershell
 .\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30" --console=plain
 ```
 
 IntelliJ에서는 공유 실행 설정 `Journal Ledger Batch Reaggregation`을 사용할 수 있습니다.
+
+날짜 형식은 ISO `yyyy-MM-dd`입니다. 세부 실패·재시작·운영 제한은
+[posting-concurrency.md](posting-concurrency.md#재집계와-이월-경계)를 참고합니다.
+
 ## 주요 특징 및 구현 기준 (Phase 1, 4 반영)
 
 - **Kafka 기반 비동기 전표 처리**:
   - `KafkaTransactionListener`를 통해 `transaction-events` 토픽으로부터 다른 서브레저 모듈(예: 결산, 대사, 수납)의 회계 이벤트를 수신합니다.
-  - 전표 생성에 실패할 경우(예외 발생) 무음 처리하지 않고 명시적으로 `RuntimeException`을 던져, Spring Kafka의 기본 **DLQ(Dead Letter Queue)** 및 Retry 메커니즘을 유도하는 Fail-Safe 설계를 따릅니다.
+  - 적용 규칙이 없는 유효 이벤트는 V18 `journal_event_quarantine`에 broker topic/partition/offset과 payload를 저장한 뒤에만 소비를 완료합니다. 관리자 completeness API는 payload와 Kafka key를 노출하지 않고 미해결 수·최초 발생 시각·broker 좌표를 제공합니다.
+  - 규칙 보정 뒤 관리자 replay는 quarantine 행을 잠그고 전표 생성과 `REPLAYED + journal_entry_id`를 한 트랜잭션으로 커밋합니다. 같은 quarantine의 동시·순차 replay는 같은 전표로 수렴합니다.
+  - 그 밖의 처리 예외는 `DefaultErrorHandler`가 최초 시도 뒤 기본 2회 재시도하고, 소진 시 같은 partition의 `<source-topic>.DLT`로 발행합니다. DLT 발행 실패는 원본을 성공 처리하지 않습니다.
 - **Journal Rule Engine (자동 분개 룰 엔진)**:
   - 계정과 차대변은 활성 규칙으로 결정하지만 거래통화와 거래통화→KRW 환율은 이벤트의 명시적인 transaction provenance만 사용합니다. 통화는 `transactionCurrencyCode`/`currencyCode`/`currency`, 환율은 `transactionToBaseRate`/`exchangeRate`/`fxRate`와 각각의 `transaction.*` 형태만 허용하며 `company`, `functionalCurrency`, `reportingCurrency`, `accountingPolicy` 기준통화에서 추론하지 않습니다.
   - 지원 별칭이 여러 개 공급되면 통화는 trim·대문자 정규화 후, 환율은 숫자 비교 후 모두 같아야 합니다. 같은 값의 중복은 허용하고 충돌은 전표 생성 전에 거부합니다.
@@ -69,8 +83,8 @@ journal-ledger:
 루트 [docs/local-development.md](../../docs/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
 
 API local과 Batch local은 서로 다른 H2 메모리 DB를 사용하지만 둘 다 module-owned Flyway
-V1~V17을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블과
-V17 역분개 operation 관계도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
+V1~V18을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블,
+V17 역분개 operation 관계와 V18 event quarantine도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
 승인된 별도 migration-runner가 먼저 적용한 스키마를 validate합니다.
 
 ```powershell

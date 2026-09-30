@@ -102,6 +102,7 @@ class JournalLedgerApiLocalProfileTest {
                 .extracting(type -> type.getJavaType().getName())
                 .contains(
                         "com.ho.account.journalledger.domain.journal.domain.JournalEntry",
+                        "com.ho.account.journalledger.domain.journal.domain.JournalEventQuarantine",
                         "com.ho.account.journalledger.domain.ledger.domain.GlBalance",
                         "com.ho.account.journalledger.domain.unsettled.UnsettledItem"
                 );

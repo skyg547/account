@@ -50,8 +50,9 @@ class JournalLedgerPostgresqlSchemaContextTest {
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM flyway_schema_history
-                WHERE version IN ('1', '10', '11', '12', '13', '14', '15') AND success = TRUE
-                """, Integer.class)).isEqualTo(7);
+                WHERE version IN ('1', '10', '11', '12', '13', '14', '15', '16', '17', '18')
+                  AND success = TRUE
+                """, Integer.class)).isEqualTo(10);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ledger_balance_locks", Integer.class))
                 .isEqualTo(256);
         assertThat(jdbcTemplate.queryForObject(
@@ -65,8 +66,9 @@ class JournalLedgerPostgresqlSchemaContextTest {
                     'journal_entries', 'journal_details', 'journal_rules',
                     'journal_rule_conditions', 'journal_rule_details',
                     'gl_entries', 'sl_entries', 'gl_balances', 'sl_balances', 'unsettled_items',
-                    'unsettled_item_settlement_references')
-                """, Integer.class)).isEqualTo(11);
+                    'unsettled_item_settlement_references', 'journal_reversal_operations',
+                    'journal_event_quarantine')
+                """, Integer.class)).isEqualTo(13);
         assertThat(journalEntryRepository.count()).isZero();
         assertThat(glBalanceRepository.count()).isZero();
     }

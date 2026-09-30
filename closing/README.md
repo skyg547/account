@@ -13,6 +13,20 @@ GL07/#762 커밋 동시성 통합 전에는 #772 전체 해결로 간주할 수 
 불명확하면 영속 전이 기록을 유지하고 자동 재전송하지 않습니다.
 [월말 동시 결정과 복구](docs/process-flow.md#월말-동시-결정과-복구-gh-774)를 참고하세요.
 
+연차 손익 대체 API는 연도만 받고, 이익잉여금 목적지는 배포 검토를 거친
+`account.closing.annual`의 단일 법인·정확한 연도 규칙으로 결정합니다. 규칙은 계정 코드,
+`postable: true` 승인 표시, 승인자, 변경 참조를 모두 갖추어야 하며, 12월 31일 기준
+Master Data가 같은 계정을 `EQUITY`/`CREDIT`로 반환해야 Journal 조회로 넘어갑니다.
+Master Data에 실제 postability 필드가 없으므로 `postable`은 검증된 Master 속성이 아니라
+통제 평면의 승인 확인입니다. Journal 계약에도 법인 차원이 없어 하나의 런타임은 여러
+법인을 서비스하면 안 됩니다.
+
+해당 연도의 `POSTED` 원천 헤더·상세와 설정 통제 identity는 #775 source snapshot에
+함께 들어갑니다. 현재 원천·설정과 헤더·라인 전체가 같은 `DRAFT`만 재사용하고,
+재오픈 뒤 추가 전기가 있으면 검증된 `POSTED` 결산을 뺀 잔여분만 별도 초안으로 만듭니다.
+설정을 개정하면 기존 pending 초안은 stale 충돌이 되며 자동 교체하지 않습니다. 상세 규칙과
+운영 한계는 [연차 손익 대체](docs/process-flow.md#연차-손익-대체-gh-775-gh-776)를 참고하세요.
+
 ---
 
 ## 0. 📚 문서 읽기 순서
@@ -170,6 +184,10 @@ ECL 충당 Job 예시:
 - API 실행 이력은 전표가 0건이거나 자동 전기이면 `COMPLETED`, DRAFT가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 전표가 여러 건이면 단일 `generated_journal_entry_id`에는 `null`을 기록합니다.
 - FX Batch는 쓰기 없는 전체 source validation step을 먼저 실행한 뒤 기존 partition/cursor/chunk 전기를 수행합니다. 재시작 때 validation도 다시 실행합니다. 두 단계 사이의 분산 snapshot을 제공하지 않으므로 원장·환율·정책을 운영 절차로 동결해야 합니다.
 - `dev` profile은 `closing.sources.enabled=false` 또는 미설정일 때 외부 source/Journaling을 fail-closed합니다.
+- 연차 API 본문에는 `year`만 넣습니다. 이익잉여금 계정과 법인을 요청으로 선택할 수 없으며, `account.closing.annual`에 연도별 승인 규칙이 없거나 `postable`/`approvedBy`/`changeReference` 증빙이 부족하면 실패합니다. 설정은 버전 관리·동료 검토된 배포 입력으로 관리하고, 변경 시 연차 호출을 drain한 뒤 모든 instance를 재시작합니다.
+- 이익잉여금 계정은 매호출 12월 31일 Master Data에서 정확한 코드·`EQUITY`·`CREDIT`를 검증합니다. 자산·부채·수익·비용·알 수 없는 분류, 차변 정상잔액은 Journal 조회·생성 전에 거부합니다. 순이익·순손실·순액 0 모두 이 검증을 우회하지 않습니다.
+- 원천 라인 분류는 Journal 상세의 지원 `accountCategory`를 우선 사용하고, 값이 없으면 계정 코드와 상세 회계일자로 Master Data를 조회합니다. 조회 누락·계정 불일치·빈 값·미지원 분류는 실패하며, 수익·비용만 금액 대체 대상이지만 다른 지원 분류도 source snapshot 식별에 포함됩니다.
+- 현재 연차 구현은 원천 전표별 상세 조회(N+1)이며 원격 조회와 초안 생성은 분산 원자적 snapshot이 아닙니다. `HttpClosingJournalAdapter`의 maker 헤더 전달만으로 신뢰된 서비스 주체가 성립하지 않으므로, 별도 승인된 인증 통합 전에는 독립 Journal 원격 초안 생성을 배포 검증된 경로로 간주하면 안 됩니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.
 - Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49의 10개 Closing 소유 테이블 baseline을 적용하고, V50으로 EOD/BOD 상태를 승격한 뒤 V51로 운영 조회 인덱스를 수렴시키고 V52로 월말 전이 기록을 추가합니다. 기존 legacy DB는 runner가 전체 컬럼 타입·길이·nullability·identity·PK/FK/기간 unique를 확인한 경우에만 49 baseline을 기록하고 V50/V51/V52를 forward 적용합니다. V52는 미완료 월말 전이 기록을 추가하며 새 버전 기동 전에 적용해야 합니다.

@@ -80,20 +80,41 @@ NULL이어도 같은 순서가 필요합니다.
 
 `dailyBalanceReaggregationJob`은 다음 fail-closed 프로토콜을 사용합니다.
 
-1. start Step이 JobParameter의 `startDate/endDate`, 별칭, `baseDate/targetDate`를 정규화합니다.
-   256개 stripe를 먼저 획득한 뒤 요청 종료일, GL/SL 최종 잔액일, 최신 `POSTED` 회계일의
-   최댓값으로 유효 종료일을 확장합니다. V15 singleton을
-   `REBUILDING(owner JobInstance ID, effective range)`으로 바꾸고 같은 유효 범위를
-   JobExecutionContext에 문자열로 고정하며 epoch를 증가시킵니다.
-2. owner cleanup과 100-detail chunk만 닫힌 상태에서 쓸 수 있습니다. 성공한 cleanup은 같은
+1. start Step은 완전한 `startDate/endDate` 또는 `fromDate/toDate` 범위와 `baseDate/targetDate`
+   단일일을 받습니다. trim 후 ISO `yyyy-MM-dd` 날짜로 정규화했을 때 같은 중복 별칭은 허용합니다.
+   `startDate` 또는 `fromDate`만 있으면 그 날짜를 시작과 종료로 쓰는 하루 범위입니다.
+   `endDate` 또는 `toDate`만 있으면 start Step에 주입된 clock(JVM 기본 시간대)의 전일을 시작으로
+   쓰고 지정일을 종료로 사용한 뒤, 종료일이 시작일보다 이르면 거부합니다. 서로 다른 중복 별칭,
+   형식 오류, 단일일과 범위 별칭의 혼용도 모두 256개 stripe와 owner barrier를 얻거나 cleanup으로
+   잔액을 삭제하기 전에 실패합니다.
+2. 날짜 별칭이 하나도 없으면 같은 clock의 전일을 단일일로 한 번 결정합니다. 이어서 256개
+   stripe를 획득하고 요청 종료일, GL/SL 최종 잔액일, 최신 `POSTED` 회계일의 최댓값으로 유효
+   종료일을 확장합니다. V15 singleton을
+   `REBUILDING(owner JobInstance ID, effective range)`으로 바꾸고 같은 유효 범위를 owner 행과
+   JobExecutionContext에 고정하며 epoch를 증가시킵니다.
+3. owner cleanup과 100-detail chunk만 닫힌 상태에서 쓸 수 있습니다. 성공한 cleanup은 같은
    JobInstance 재시작에서 다시 실행되지 않고, chunk의 저장과 reader checkpoint는 같은
    트랜잭션으로 커밋됩니다. 실패 listener/`afterJob`은 제어를 열지 않습니다.
-3. 일반 전기는 영향 계정 stripe를 잡은 뒤 `OPEN`을 확인하므로 start보다 먼저 온 전기는
+4. 일반 전기는 영향 계정 stripe를 잡은 뒤 `OPEN`을 확인하므로 start보다 먼저 온 전기는
    POSTED 입력에 한 번 포함되고, 나중 전기는 상태/엔트리/잔액 전체가 롤백됩니다.
-4. 마지막 Step은 모든 stripe를 다시 잡고 owner를 확인한 뒤 안정된 POSTED source와 GL/SL을
+5. 마지막 Step은 모든 stripe를 다시 잡고 owner를 확인한 뒤 안정된 POSTED source와 GL/SL을
    날짜, 전체 key, nullable BP/부서, 일별 차변/대변, 기초/기말까지 대사합니다. 누락·추가·금액
    불일치는 트랜잭션을 롤백해 계속 `REBUILDING`으로 남깁니다. 일치할 때만 `OPEN`으로 바꾸고
    epoch를 다시 증가시킵니다.
+
+Spring Batch에서 JobInstance는 Job 이름과 식별 JobParameters의 조합입니다. 일반 launcher가
+전달한 날짜 값은 별도 non-identifying 지정이 없으면 식별값이므로, 장애 복구에는 최초 실행과
+파라미터 이름·값이 모두 같은 요청을 사용합니다. 정규화 결과가 같은 날짜라도 별칭을 바꾸거나
+중복 별칭, `run.id`, timestamp 등 식별 파라미터를 추가하면 Spring Batch 관점에서는 새
+JobInstance입니다. 새 인스턴스는 start와 cleanup부터 실행하므로 장애 복구 수단으로 사용하지
+않습니다. 반대로 완료된 인스턴스를 의도적으로 전 범위 재실행하려면 새 식별값으로 새 인스턴스를
+만들어야 합니다.
+
+같은 JobInstance restart에서는 start와 cleanup의 완료 상태, JobExecutionContext의 유효 범위,
+reader checkpoint를 이어받습니다. 따라서 종료 별칭만 있거나 날짜 입력이 없던 실행도 재시작
+시점이 다음 날이거나 자정을 지났다는 이유로 전일을 다시 계산하지 않으며, owner 행에 저장된
+기간과 동일한 범위에서 이미 커밋된 chunk 다음부터 계속합니다. 새 JobInstance만 그 시작 시점의
+전일을 새로 결정합니다.
 
 잔액 조회는 긴 shared lock 대신 조회 전 `OPEN+epoch`, materialize/집계 후 같은
 `OPEN+epoch`를 확인합니다. 중간에 재집계가 시작되거나 끝났으면 결과를 반환하지 않습니다.
@@ -138,7 +159,9 @@ SELECT COUNT(*), MIN(lock_id), MAX(lock_id) FROM ledger_balance_locks;
 
 장애 후 `REBUILDING`이면 행을 수동 OPEN으로 바꾸거나 새 JobInstance를 만들지 않습니다.
 동일한 식별 JobParameters로 같은 JobInstance를 재시작하여 저장된 기간/checkpoint와 출력이
-계속 맞도록 합니다. 최종 대사 실패는 원천·잔액을 조사한 뒤 같은 인스턴스를 재개합니다.
+계속 맞도록 합니다. 날짜 별칭을 같은 의미의 다른 이름으로 바꾸는 것도 새 JobInstance가 되므로
+복구 요청에서는 최초 파라미터 이름까지 유지합니다. 최종 대사 실패는 원천·잔액을 조사한 뒤
+같은 인스턴스를 재개합니다.
 코드 롤백도 모든 writer를 중지한 상태에서 수행하며 V15 migration과 제어 행은 보존합니다.
 구버전은 barrier를 사용하지 않으므로 복구 전까지 전기/재집계/잔액 조회 트래픽을 열지 않습니다.
 

@@ -43,6 +43,31 @@ erDiagram
 
 월·연 기간 상태는 `closing_calendars`와 Master Data의 `fiscal_periods`가 권위 모델입니다. 별도 `closing_period` 테이블과 setter 기반 병렬 엔티티는 사용하지 않습니다. 연차 손익 대체는 `AnnualClosingService`가 담당합니다.
 
+## 연차 이익잉여금 설정 모델 (GH-776)
+
+연차 목적지는 DB 테이블이 아니라 버전 관리·동료 검토된
+`account.closing.annual` 배포 설정입니다. 따라서 #776은 스키마 변경, backfill, Flyway
+migration을 추가하지 않습니다. 설정 변경 이력과 승인 근거는 배포 저장소의 변경 검토로
+관리합니다.
+
+| 설정 요소 | 카디널리티 | 의미 |
+| --- | --- | --- |
+| `legal-entity-code` | 런타임당 1개 | Journal에 법인 차원이 없으므로 하나의 런타임이 대표하는 법인 |
+| `mappings[].fiscal-year` | 연도당 정확히 1개 | fallback 없이 API `year`와 일치할 회계연도 |
+| `mappings[].account-code` | 연도당 1개 | 12월 31일 Master Data에서 재검증할 이익잉여금 계정 |
+| `mappings[].postable` | 반드시 `true` | Master 사실이 아닌, 검토된 control-plane 전기 가능 승인 표시 |
+| `mappings[].approved-by` | 비어 있지 않음 | 설정 규칙 승인자 식별자 |
+| `mappings[].change-reference` | 비어 있지 않음 | 버전 관리·승인 변경 참조 |
+
+`AccountSubjectRef`는 계정 코드, 분류, 정상잔액 방향은 제공하지만 postability는 제공하지
+않습니다. `postable: true`를 Master 데이터로 오해하거나 `fixedAsset`/`unsettled`로 추론하면
+안 됩니다. 서비스는 별도로 연말 계정이 정확히 `EQUITY`/`CREDIT`인지 검증합니다.
+
+설정의 법인·연도·계정·`postable`·승인자·변경 참조는 정규화된 통제 identity로
+#775 source snapshot hash에 포함됩니다. 그러므로 pending 초안 후 설정이 바뀌면 stale로
+거부됩니다. 이 identity는 새 DB 컬럼이 아니라 기존 64자 source snapshot digest에
+들어가므로 기존 Journal lineage 길이 계약을 변경하지 않습니다.
+
 ## 월말 전이 기록 (GH-774)
 
 V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 캘린더는 전이가 없는 상태로 유지됩니다.
@@ -115,12 +140,14 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `account.closing.accounting.fx-valuation-policies` | 빈 목록; 실행 전 명시 필요 | 계정별 `account-code`, 양 끝 포함 `effective-from`/`effective-to`, `treatment` (`MONETARY`/`HISTORICAL_COST`). 정책 누락·기간 중복은 실패 |
 | `account.closing.accounting.fx-translation-gain-account-code` | `72000` | 외화환산이익 계정 |
 | `account.closing.accounting.fx-translation-loss-account-code` | `92000` | 외화환산손실 계정 |
-| `account.closing.accounting.auto-post-adjustments` | `false` | 결산 조정 전표 자동 승인/전기 여부 |
+| `account.closing.accounting.auto-post-adjustments` | `false` | 원격 HTTP Journal 연결에서 `true`는 첫 전표 쓰기 전에 실패; 기본 DRAFT 검토 |
 | `account.closing.accounting.api-financial-run-max-evidence-rows` | `10000` | API FX source evidence hard cap |
 | `account.closing.accounting.api-financial-run-max-journal-commands` | `1000` | API FX/ECL 전표 command hard cap; ECL source도 cap+1 그룹까지만 조회해 초과를 fail-closed |
 | `account.closing.accounting.provision-rules.ECL.debit-account-code` | 운영 설정 필요 | ECL 비용 계정 fallback mapping |
 | `account.closing.accounting.provision-rules.ECL.credit-account-code` | 운영 설정 필요 | ECL 충당금 계정 fallback mapping |
 | `closing.sources.enabled` (`dev`) | `false`/미설정 | `true`일 때만 승인된 외부 source/Journaling 구성; 그 외 금융 실행 fail-closed |
+| `account.closing.annual.legal-entity-code` | 사용 가능한 기본값 없음 | 이 Closing 런타임이 전담하는 단일 법인 |
+| `account.closing.annual.mappings[]` | 사용 가능한 기본값 없음 | 정확한 연도별 `account-code`, `postable`, `approved-by`, `change-reference` |
 | `account.closing.batch.fx.chunk-size` | `1000` | FX Cursor 처리와 트랜잭션 checkpoint 단위 |
 | `account.closing.batch.fx.grid-size` | `4` | FX 병렬 계정 범위와 동시 실행 상한 |
 

@@ -46,10 +46,17 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 기능 | 엔드포인트 |
 | --- | --- |
 | 결산 캘린더 생성 | `POST /api/closing/calendars` |
+| 결산 캘린더 상태 변경 | `PUT /api/closing/calendars/{id}/status` |
 | 태스크 생성 | `POST /api/closing/tasks` |
+| 태스크 상태 변경 | `PUT /api/closing/tasks/{id}/status` |
 | 게이트 생성 | `POST /api/closing/gates` |
+| 게이트 검사·통과 | `PUT /api/closing/gates/{id}/check` |
 | 기간 잠금 | `POST /api/closing/period-locks` |
+| 기간 잠금 해제 | `DELETE /api/closing/period-locks/{fiscalPeriodId}` |
 | 재오픈 요청 | `POST /api/closing/reopen-approvals` |
+| 재오픈 승인·반려 | `PUT /api/closing/reopen-approvals/{id}/status` |
+| HTTP 평가 실행 | `POST /api/closing/valuation-batches/run` |
+| HTTP 충당 실행 | `POST /api/closing/provision-batches/run` |
 | 결산 조정 등록 | `POST /api/closing/adjustments` |
 | 마감 완료 판정 | `POST /api/closing/calendars/determine-status` |
 | 연차 손익 대체 | `POST /api/closing/annual/perform-income-statement-closing` |
@@ -60,9 +67,60 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 다음 영업일 BOD 완료 | `POST /api/closing/eod/{businessDate}/bod/complete` |
 | 일마감 상태 조회 | `GET /api/closing/eod/{businessDate}` |
 
+## 일반 변경 API 권한 확인 (GH-771)
+
+위 표의 일반 Closing 변경 API에는 Gateway가 JWT에서 다시 만든 `X-Auth-User`와
+`X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`,
+`ROLE_CLOSING_MANAGER`입니다. actor 헤더가 없거나 공백이면 401, 역할 헤더가 없거나 허용
+역할이 하나도 없으면 403을 기대합니다. 요청 JSON/query의 `user`, `requestedBy`,
+`approvedBy`, `runBy` 같은 키는 신원 전달 수단이 아니므로 보내지 마십시오. 감사 actor는
+항상 `X-Auth-User`에서 가져옵니다.
+
+actor 길이는 영속 필드와 맞춰 진입점에서 먼저 검사합니다.
+
+| 경계 | trim 후 최대 길이 | 초과 시 결과 |
+| --- | ---: | --- |
+| 일반 Closing 변경, 월말 transition 조회·복구 | 50자 | use case 호출 전 HTTP 400 |
+| 기존 EOD/BOD 명령과 상태 조회 | 80자 | use case 호출 전 HTTP 400 |
+
+비어 있는 actor는 계속 401이고, 길이가 유효하지만 역할이 없거나 허용되지 않으면 403입니다.
+actor가 길이 한도도 넘고 역할도 잘못된 요청은 actor 검사가 먼저이므로 400입니다.
+
+다음 값은 실제 계정이나 자격 증명이 아닌 로컬 기능 확인용 예시입니다. 로컬 API가 실행된 뒤
+준비된 테스트 회계기간에 맞게 업무 입력만 바꿉니다.
+
+```bash
+curl -i -X POST 'http://localhost:8086/api/closing/calendars' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Auth-User: demo-closing-operator' \
+  -H 'X-Auth-Roles: ROLE_CLOSING_MANAGER' \
+  --data '{"fiscalYear":"2026","fiscalPeriod":"09"}'
+```
+
+권한이 통과하면 준비된 데이터에 따라 2xx 또는 업무 검증 오류가 반환됩니다. 헤더를 생략한 같은
+변경 요청은 401, `X-Auth-User`만 보내거나 허용되지 않은 역할을 보내면 403이어야 합니다.
+이 예시는 API 포트에 헤더를 직접 조작할 수 있으므로 보안 검증이 아닙니다. 배포에서는 API를
+외부에 공개하지 않고 Gateway가 외부 `X-Auth-*`를 제거·재생성하는지와 네트워크 격리를 별도로
+검증해야 합니다. 이 문서와 Issue #771 범위 자체는 그 Gateway/배포 통제가 완료됐음을 증명하지 않습니다.
+
+재오픈은 요청과 결정 호출을 서로 다른 인증 주체로 수행해야 합니다. 첫 호출의 헤더 actor가
+요청자, 승인·반려 호출의 헤더 actor가 결정자로 감사되며 같은 주체의 결정은 거부됩니다.
+HTTP 평가·충당 실행에 이 권한이 적용되어도 아래 Spring Batch Job의 스케줄러·운영 실행 권한이
+생기거나 검증되는 것은 아닙니다. 기존 EOD 검사와 일반 GET/admission 조회 계약도 바뀌지 않습니다.
+
+구현 검증 시 다음 명령을 실행하고 실제 결과를 별도로 기록합니다. 이 문서의 명령 표시는 실행 성공
+증거가 아닙니다.
+
+```bash
+./gradlew :closing:api:test --tests '*ClosingAuthorizationIntegrationTest' --tests '*ClosingControllerTest' --tests '*ClosingTransitionControllerTest' --tests '*EodLifecycleControllerTest'
+./gradlew :closing:api:test
+```
+
 로컬 API에서 실제 업무 데이터를 확인하려면 `master-data`의 회계기간과 `journal-ledger`의 전표/잔액 데이터가 함께 준비되어야 합니다.
 
-EOD 변경 명령에는 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다. 로컬에서 API 포트를 직접 호출할 때 이 헤더를 임의로 넣을 수 있으므로 해당 방식은 기능 확인용일 뿐 보안 검증이 아닙니다.
+EOD 변경 명령에는 기존과 같이 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가
+필요합니다. 허용 역할과 직접 API 호출의 한계는 일반 변경 API와 같지만, Issue #771은 EOD 상태
+규칙이나 조회 계약을 변경하지 않습니다.
 
 Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스, V52 월말 전이 기록을 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
 
@@ -93,6 +151,91 @@ HTTP 오류, 응답 부재, 역직렬화 실패를 전표 허용으로 해석하
 이 명령은 부모 프로젝트의 빈 테스트 태스크뿐 아니라 Core/API/Batch 테스트를 모두 실행합니다.
 Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journal이 추가되지 않습니다.
 
+## 연차 손익 대체 설정과 재실행 확인 (GH-775, GH-776)
+
+연차 API는 계정과 법인을 요청자가 선택하지 못하게 하고 연도만 받습니다.
+
+```http
+POST /api/closing/annual/perform-income-statement-closing
+Content-Type: application/json
+
+{"year": 2026}
+```
+
+본문의 `year`는 필수이고 1900~9999여야 합니다. `retainedEarningsAccountCode`나 법인 선택값 등
+어떤 추가 필드도 HTTP 400으로 거부되며 use case로 전달되지 않습니다. 성공은 HTTP 200
+빈 본문입니다. 생성되는 Journal 명령의
+`createdBy`/`auditUser`는 기존과 같이 `SYSTEM`입니다. 이는 사람의 승인·전기 증거가 아니므로 새
+`DRAFT`는 Journal의 통제된 검토 절차를 따라야 합니다.
+
+### 배포 설정 예시
+
+다음은 형태만 보여 주는 합성 예시입니다. 실제 법인·계정·승인자·변경 번호를 그대로 사용하지
+말고, 민감한 인증정보나 실제 URL을 넣지 않습니다.
+
+```yaml
+account:
+  closing:
+    annual:
+      legal-entity-code: "ENTITY-EXAMPLE"
+      mappings:
+        - fiscal-year: 2026
+          account-code: "31000"
+          postable: true
+          approved-by: "reviewer-example"
+          change-reference: "CHANGE-EXAMPLE-2026"
+```
+
+- 런타임 하나에 `legal-entity-code` 하나만 사용합니다. Journal 계약에 법인 차원이 없으므로 여러 법인을 같은 런타임에 섞지 않습니다.
+- 설정된 모든 `mappings` 행은 1900~9999의 중복 없는 `fiscal-year`, `account-code`, 명시적 `postable: true`, 비어 있지 않은 `approved-by`/`change-reference`를 갖추어야 합니다. 요청 연도와 정확히 일치하는 행이 없으면 실패합니다.
+- `postable`은 Master Data가 제공하는 필드가 아니라 승인된 배포 설정의 control-plane attestation입니다. 실제 계정의 효력·분류·정상잔액은 연도 12월 31일 Master 조회로 따로 검증합니다.
+- 설정 adapter는 Spring bean 생성 시점의 값을 snapshot합니다. 변경은 동료 검토·버전 승인된 배포 설정으로 만들고, 연차 호출을 drain한 뒤 모든 instance를 재시작합니다. 혼합 버전 instance를 동시 writer로 운영하지 않습니다.
+- 데이터베이스에 설정 테이블을 추가하지 않으므로 #776은 schema migration을 요구하지 않습니다.
+
+아래 순서는 단위/통제 포트 회귀 테스트로 확인한 기대 동작이며, 실제 배포 API를 순서대로 호출했다는
+증거가 아닙니다.
+
+1. 2026년 설정 규칙과 2026-12-31 기준으로 정확한 코드·`EQUITY`·`CREDIT`인 Master 계정을 준비합니다. 설정 누락/중복, `postable` 미승인, 증빙 누락, Master 조회 누락/코드 불일치, 자산·부채·수익·비용·알 수 없는 분류, 차변 정상잔액은 Journal 조회 전에 실패해야 합니다.
+2. 2026년 `POSTED` 매출 1,000을 준비하고, 상세에 지원 `accountCategory`를 넣거나 같은 계정·회계일자의 Master Data 분류를 준비합니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
+3. 원천과 설정을 바꾸지 않고 다시 호출합니다. 헤더·lineage·모든 라인이 같은 초안이면 HTTP 200이고 두 번째 초안은 생기지 않습니다.
+4. pending 초안 상태에서 원천 금액·계정·분류, 설정의 법인·계정·`postable`·승인자·변경 참조, 또는 초안 헤더/라인을 바꾸면 HTTP 409와 `WORKFLOW_STATE_CONFLICT`가 기대 결과입니다. 설정 identity도 #775 source snapshot에 들어가므로 오래된 초안은 자동 교체하지 않습니다.
+5. 최초 초안을 승인·전기하고 기존 승인 흐름으로 연도를 재오픈한 뒤 `POSTED` 매출 500을 추가해 다시 호출합니다. 기존 1,000이 아니라 매출 차변 500, 이익잉여금 대변 500의 별도 delta `DRAFT`가 기대 결과입니다. 연차 서비스가 `ReopenApproval`을 직접 조회·검증하지는 않습니다.
+6. delta도 전기한 뒤 같은 입력으로 호출하면 새 전표 없이 HTTP 200입니다. 완전한 `POSTED` 누계가 있는 상태에서 승인 metadata만 바꾸더라도 잔여가 0이면 새 금액 delta는 생성하지 않습니다.
+7. 순손실과 순액 0 케이스도 같은 설정·연말 Master 검증을 먼저 합니다. 순액 0이면 검증을 통과한 후 새 전표만 만들지 않습니다.
+
+지원 `accountCategory`는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`,
+`NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 상세가 이 값을 제공하면 우선 사용하고, 없으면
+계정 코드와 상세 회계일자로 Master Data의 유효 계정을 조회합니다. dev에서는
+`closing.master-data.remote.enabled=true`일 때 `HttpClosingMasterDataQueryAdapter`가
+`closing.master-data.base-url`의 날짜 지정 조회를 사용합니다. 계정 조회 누락·다른 계정 반환·빈 값·
+미지원 분류와 연차 라인의 원천 분류 불일치는 실패합니다. 실제 손익 대체 금액에는
+`REVENUE`/`EXPENSES`만 포함됩니다. legacy `lineageSourceId=2026` 연차 전표는 헤더·라인이 모두
+유효한 `POSTED`일 때만 누계로 인정됩니다. 연차 후보가 `APPROVED`, `REJECTED`, `REVERSED` 또는
+알 수 없는 상태이면 실패합니다.
+
+409가 나면 권한 있는 회계 운영자가 현재 원천 snapshot과 기존 연차 전표의 lineage·헤더·상세·상태를
+대사하고 Journal의 승인된 취소/정정 절차로 해결한 뒤 재실행합니다. Closing API에는 기존 전표를
+자동 삭제·반려·역분개하는 경로가 없습니다.
+
+회귀 검증:
+
+```bash
+./gradlew :closing:test
+```
+
+이 문서는 위 명령의 실행 성공을 주장하지 않습니다. 실제 종료 코드와 실패 0을 별도 검증 기록으로
+남겨야 합니다. 이 테스트는 통제된 포트/로컬 어댑터 근거이며, summary 조회 뒤
+전표별 상세를 읽는 현재 N+1 흐름의 실제 PostgreSQL 실행계획·운영 부하를 검증하지 않습니다. 공급자
+측 원자적 snapshot이나 조회와 원격 초안 생성 사이의 분산 원자성, 운영 데이터 및 장애 복구도 증명하지
+않으므로 실행 전후 대사가 필요합니다. 실제 법인 차원이 없는 Journal에서 여러 법인 운영을
+증명하지도 않으므로 법인별 런타임 분리를 유지합니다.
+
+추가로 독립 Journal의 쓰기 API는 신뢰된 service principal의 `X-Auth-User`와 `X-Auth-Roles`를
+요구합니다. 현재 `HttpClosingJournalAdapter`는 maker 헤더를 전달하지만, 이것만으로 신뢰된
+주체의 인증을 증명하지 못합니다. loopback 어댑터 테스트도 실제 원격 `DRAFT` 쓰기를 증명하지
+않습니다. 비운영/운영 원격 실행 전에
+별도 승인된 인증·권한 전파를 구현하고 Journal과의 통합 테스트를 통과해야 합니다.
+
 ## 월말 전이 조회와 복구 (GH-774)
 
 | 기능 | 엔드포인트 |
@@ -103,6 +246,7 @@ Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journ
 복구는 Gateway가 검증해 넣은 `X-Auth-User`, `X-Auth-Roles`를 사용합니다.
 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다.
 조회와 복구 모두 이 권한을 요구하며, 사용자 헤더 누락은 401, 역할 부족은 403입니다.
+trim 후 50자를 넘는 actor는 transition use case 호출 전 400입니다.
 요청 본문에 처리자 이름을 넣어 권한을 대신하지 않습니다. Closing API를 외부에 직접 노출하지 않는
 기존 EOD와 같은 신뢰 경계를 전제로 합니다.
 
@@ -156,8 +300,9 @@ Batch 조합 루트에만 명시적으로 연결됩니다. 이 포트는 로컬 
 실제 Journal 연동을 가리지 않습니다. Batch 조합 루트도 FX 평가에 필요한 환율 조회와 Closing이
 사용하는 Master Data 포트 및 최소 persistence adapter/mapper만 명시 import합니다.
 
-따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용하지 말고 승인된
-개발 환경의 실제 Journal 어댑터 구성을 사용해야 합니다.
+따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용할 수 없습니다.
+`HttpClosingJournalAdapter`는 maker 헤더를 보내지만, 이 헤더만으로 신뢰된 서비스 주체가
+성립하지 않으므로 별도 승인된 인증 통합 전에는 개발 환경의 원격 쓰기도 배포 검증된 경로가 아닙니다.
 
 `dev` 원격 Journal 연결의 전제는 `account.closing.accounting.auto-post-adjustments=false`입니다.
 `true`이면 어댑터가 첫 원격 전표 쓰기 전에 명시적으로 실패합니다. Journal의 DRAFT는
@@ -172,6 +317,7 @@ maker 승인 요청, 별도 checker 승인, poster 전기를 거쳐야 하지만
 이력이 `FAILED`이면 전표번호·lineage로 원격 상태와 상세를 확인하고 담당자가 대사한 뒤
 재실행 또는 승인·정정 절차를 결정합니다. 이미 생긴 DRAFT를 자동 삭제하거나 맹목적으로
 재전송하지 않습니다.
+본문 actor는 인증된 서비스 주체를 대신하지 않습니다.
 
 ```bash
 bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --console=plain --max-workers=1 --no-daemon
@@ -281,13 +427,15 @@ account:
 `POST /api/closing/provision-batches/run`은 `provisionType=ECL`만 지원합니다. 요청에는 금액이
 없으며, 두 경로 모두 Batch와 같은 core 정책 및 posted-journal SQL에서 금융 근거를 읽습니다.
 FX 환율이나 확정 ECL summary, 필수 계정 매핑이 없으면 Journal 호출 전에 실패합니다.
+요청 본문에는 실행자를 넣지 않습니다. Gateway가 검증한 `X-Auth-User`와 허용된
+`X-Auth-Roles`가 실행자와 권한의 근거입니다.
 
 ```json
-{"fiscalPeriodId": 1, "valuationType": "FX_RATE", "runBy": "CLOSING_OPERATOR"}
+{"fiscalPeriodId": 1, "valuationType": "FX_RATE"}
 ```
 
 ```json
-{"fiscalPeriodId": 1, "provisionType": "ECL", "runBy": "CLOSING_OPERATOR"}
+{"fiscalPeriodId": 1, "provisionType": "ECL"}
 ```
 
 ```yaml

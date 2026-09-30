@@ -87,6 +87,8 @@ class ClosingAggregateConcurrencyIntegrationTest {
             Future<MvcResult> reject = workers.submit(() -> {
                 Thread.currentThread().setName("reject-losing-decision");
                 return http.perform(put("/api/closing/reopen-approvals/{id}/status", fixture.approvalId())
+                        .header("X-Auth-User", "rejector")
+                        .header("X-Auth-Roles", "CLOSING_MANAGER")
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"REJECTED\",\"approvedBy\":\"rejector\"}")).andReturn();
             });

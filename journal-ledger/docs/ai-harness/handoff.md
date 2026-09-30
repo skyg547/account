@@ -1,3 +1,26 @@
+# GH-769 handoff
+
+Issue #769 implementation, audited RED/current GREEN proof, required verification, corrected independent review, and module-local records are complete. [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`; reviewed implementation commit `90d4c307` is published.
+
+- Issue/branch/worktrees: [#769](https://github.com/skyg547/account/issues/769); `agent/769-unmatched-event-quarantine`; `/tmp/account-769-unmatched-event-quarantine`; base `f128a5dd`; proof `/tmp/account-769-regression-proof@a97d10ab`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Behavior: a valid no-rule Kafka event is durably retained before successful return; admin completeness APIs show aggregate/list state without payload/key; repaired-rule replay locks the record and transactionally creates one journal/link; configured retries recover to a same-partition DLT only after a successful send.
+- RED/GREEN: byte-identical fixture SHA `be9936ee…69c` fails1/1 on exact audited production because the listener silently completes and passes1/1 after remediation.
+- Verification: final forced module run passes API71/core310/batch15 =396 tests, failures/errors/skips0; API bootJar and static gates pass.
+- Independent review: `/root/review_769` remained read-only. Initial P2/P3 error-mapping and snapshot-consistency findings were returned to the writer and corrected; final review reports no P0-P3 and Q1-Q4 PASS.
+- GL10 boundary: this PR gives broker-coordinate convergence for quarantine replay. Generic HTTP/contracts/manual idempotency and matching-event commit ambiguity remain with open/blocked #765 outside the allowlist.
+- Rollback/deployment: apply and retain V18, verify DB privileges/retention/alerts and Kafka DLT ACL/retention in the target environment. Quiesce consumers before reviewed application rollback and never discard quarantine evidence.
+- Limits: no live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment testing.
+- Remote CI prerequisite: the three entry workflows on head `87729d67` ran zero steps and failed with GitHub billing/spending-limit annotations. The account owner must resolve that prerequisite and rerun checks; this is neither a remote test pass nor an executed code-test failure.
+- Authority separation: module writer implemented; reviewer was read-only; the original writer corrected findings; parent Integrator owns records and Git/GitHub. User authorized Draft publication, but Ready, merge, Issue close, deployment, and cleanup remain human gates.
+- Next owner: a human reviewer owns remote CI and later Ready/merge/Issue-close/deployment gates. Both task and proof worktrees remain retained.
+
+Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-769 report.
+
 # GH-763 handoff
 
 Issue #763 implementation, audited RED/current GREEN proof, requested verification, corrected independent review, and module-local records are complete. [Draft PR #796](https://github.com/skyg547/account/pull/796) is open with `Refs #763`; reviewed implementation/record commit `1c502c65` is published.

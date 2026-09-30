@@ -290,6 +290,92 @@ Changed implementation/test/guide paths (the three parent-owned module records a
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
 
+## 2026-09-28 — GH-775 annual close stale-draft remediation
+
+- Contract: [Issue #775](https://github.com/skyg547/account/issues/775), `agent/775-annual-close-stale-draft`, `/tmp/account-775-annual-close-stale-draft`, base/current main `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`, allowlist `closing/**`, Draft delivery with `Refs #775`.
+- Architecture: `AnnualClosingService` remains the core application coordinator. It canonicalizes sorted posted source summaries/details into a SHA-256 snapshot, uses an 86-character `year|retainedHash|snapshotHash` lineage and 20-character snapshot-derived slip, validates every annual header/detail/status/lineage, and calculates `required closing - cumulative POSTED annual closing` by signed `BigDecimal` base amount. No schema, shared contract, API shape or Batch flow changed.
+- Retry policy: only a single exact `DRAFT` for the current snapshot and residual is reusable. Stale, malformed, legacy-draft, unsupported-status or duplicate pending candidates fail closed. Fully validated legacy year-only `POSTED` entries remain cumulative history. A posted close plus new posted activity creates only the residual delta; posting that delta makes the same input a no-op.
+- Classification: Journal-provided supported categories are used when present. Missing values resolve through `MasterDataQueryPort.findAccountSubjectAt(account,date)` with a per-run account/date cache. Dev remote composition adds `HttpClosingMasterDataQueryAdapter`; invalid, missing, mismatched, redirected or failed responses do not become permission to close.
+- Regression evidence: untouched audited behavior failed 13 of 68 focused tests on stale reuse/delta/content/category cases while existing posted-only/base-amount controls remained green. Final independent replay passed129/129: Annual25, Journal HTTP54, Master HTTP17, admission27 and slip factory6.
+- Whole module: exact `./gradlew :closing:test` PASS in1m26s; Core315/API127/Batch98 =540 tests across54 suites, failures0/errors0/skipped0. `git diff --check`, conflict-marker scan, unmerged-path check and closing-only scope check pass.
+- Baseline compatibility: the first whole-module run exposed27 pre-existing admission fixture failures caused by direct DRAFT-to-APPROVED transitions. The test-only fixture now requests approval first and expects the canonical lowercase system actor; its27 assertions pass without production behavior changes.
+- Review: the first read-only review found the introduced Journal `accountCategory` contract assumption. The writer corrected it with the dated Master fallback and provider-shape tests. Final reviewer found no scoped P0–P3, mapped all acceptance criteria PASS and set the scoped delivery gate PASS.
+
+Changed implementation/test/guide paths; the three module-local records are additional:
+
+- `closing/README.md`
+- `closing/api/src/test/java/com/ho/account/closing/ClosingDevRuntimeContextTest.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/ClosingSlipNoFactory.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpClosingJournalAdapter.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpClosingMasterDataQueryAdapter.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/AnnualClosingServiceTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/ClosingJournalAdmissionIntegrationTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/external/HttpClosingJournalAdapterTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/external/HttpClosingMasterDataQueryAdapterTest.java`
+- `closing/docs/beginner-guide.md`
+- `closing/docs/local-run.md`
+- `closing/docs/process-flow.md`
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `AnnualClosingService.java:74,157,411`; focused129/full540 PASS | 해당 없음: 금융 계산·재실행 변경 | 실제 인증 원격 Journal/Master 및 동시 변경 검증 | `/root/issue775_review`, snapshot/sign/balance/status/duplicate 검토 PASS |
+| Q2 | PASS | `AnnualClosingService` application 정책과 `HttpClosingMasterDataQueryAdapter` outbound 기술 분리; `process-flow.md:362` | 해당 없음: 구조·흐름 변경 | summary/detail 및 unique account/date N+1, 비원자 snapshot | 독립 구현/경계/문서 대조 PASS |
+| Q3 | PASS | `README.md:16`, `beginner-guide.md:45`, `local-run.md:96`, `process-flow.md:362`; full540 PASS | 해당 없음: 기능 안내 변경 | 승인된 service-principal 계약 전 remote write HOLD | 독립 문서 사실성/한계 대조 PASS |
+| Q4 | PASS | snapshot TODO/lineage 길이/redirect 차단 의도 주석; provider-order·failure tests | 해당 없음: 비자명 로직 변경 | 36-bit slip discriminator 충돌은 full lineage 검증으로 fail-closed | 독립 주석/구현 일치 확인 PASS |
+
+Rollback: stop annual-close execution, preserve every posted/draft journal and lineage for reconciliation, then use a reviewed scoped revert. No migration or data reset is required. Existing old drafts must not be deleted automatically. Next owner after Draft publication is a human reviewer for current-head CI and the separate Journal service-authentication integration; Ready/merge/Issue close/deployment/cleanup are not authorized here.
+
+### GH-775 Draft publication
+
+- [Draft PR #806](https://github.com/skyg547/account/pull/806) is OPEN/DRAFT, `Refs #775`, from `agent/775-annual-close-stale-draft` to `main`; initial mergeability was MERGEABLE. Verified implementation commit: `1200064ad77dbb44925641d359a73924e4c212bc`. Issue #775 is OPEN / `status:needs-review`; worktree retained.
+- The implementation-head [Module Validation](https://github.com/skyg547/account/actions/runs/36423379589), [Harness Validation](https://github.com/skyg547/account/actions/runs/36423379826), and [Merge Guard](https://github.com/skyg547/account/actions/runs/36423379805) jobs did not start. Each GitHub annotation identifies failed recent account payments or a spending-limit restriction. No hosted code/test pass is claimed, and no billing setting was accessed or changed.
+- Publication changes after the verified implementation commit are limited to `agent-status.md`, `worklog.md`, and `handoff.md`. Next owner: repository account owner for Actions availability, then a human reviewer for current-head CI and the documented Journal authentication/operational gates. Ready, merge, Issue close, deployment, and cleanup remain unperformed.
+
+## 2026-09-28 — GH-776 retained-earnings destination control
+
+- Contract: [Issue #776](https://github.com/skyg547/account/issues/776), `agent/776-retained-earnings-control`, `/tmp/account-776-retained-earnings-control`, allowlist `closing/**`, Draft delivery with `Refs #776`. The branch began at `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65` and was fast-forwarded to reviewed #775 Draft head `a1b108f7f5e4c18a9e384139c5e93c7b3b151d68`; #776 is therefore a stacked Draft dependency on PR #806.
+- API and architecture: the annual endpoint accepts only JSON `year`; account and entity selectors are rejected as unknown fields before use-case delegation. `RetainedEarningsMappingPort` keeps the core independent of Spring configuration, while `ConfiguredRetainedEarningsMappingAdapter` resolves one runtime legal entity and one exact fiscal-year rule.
+- Control input: every configured rule requires account code, `postable: true`, nonblank `approvedBy` and `changeReference`. There is no usable default and all rows are checked for invalid/duplicate years and missing evidence. Configuration is snapshotted at bean construction, so changes require a drained annual-close path and full runtime restart.
+- Financial gate: before Journal reads, the configured account is looked up on Dec31 and must return the exact code, `EQUITY` category and CREDIT normal balance. Asset, liability, revenue, expense, unknown/missing, mismatched-code, blank-category and debit-normal equity cases fail before any Journal read/write. Profit, loss and zero-net-income paths all cross this gate.
+- Audit/retry: the normalized entity/year/account/postable/approver/change-reference identity joins the #775 source content in `ANNUAL_SOURCE_SNAPSHOT_V2`. A metadata change makes a pending draft stale. Fully validated posted balances are still subtracted before a new write, so an already complete close does not create a financial delta merely because audit metadata changed. Existing #775 full-header/line/status/lineage, cumulative delta, ordering, BigDecimal and legacy-posted controls remain.
+- RED: on the stacked #775 source, the P17-style regression supplied dated cash account `10100`/`ASSETS` and posted revenue 1,000. The test compiled and failed because `createDraftEntry` was reached; 1 test, 1 intended failure. This proves the defect rather than a fixture/compiler failure.
+- Focused GREEN: Core60 (Annual29, destination9, configuration16, slip6) and API9 (controller7, dev context2), failures/errors/skips0. Independent reviewer forced the same69 relevant tests with offline/rerun/single-worker settings and obtained failures/errors/skips0.
+- Required full verification: exact `./gradlew :closing:test` PASS in1m25s. XML totals Core344/API132/Batch98 =574 tests across25/17/14 =56 suites, failures0/errors0/skipped0. `./gradlew :closing:api:bootJar :closing:batch:bootJar --console=plain --max-workers=1 --no-daemon` PASS in16s. Scope, whitespace, conflict-marker and unmerged-index checks pass.
+- Review: independent read-only `/root/review_776` found no P0–P3 and marked Q1–Q4 PASS. Draft publication is safe only against `agent/775-annual-close-stale-draft`; #806 must merge before retargeting/rebasing #776 to current `main` and repeating current-head verification.
+
+Changed implementation/test/guide paths; the three parent-owned module records are additional:
+
+- `closing/README.md`
+- `closing/api/src/main/java/com/ho/account/closing/dto/AnnualClosingRequestDto.java`
+- `closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java`
+- `closing/api/src/test/java/com/ho/account/closing/ClosingDevRuntimeContextTest.java`
+- `closing/api/src/test/java/com/ho/account/closing/web/ClosingControllerTest.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/in/AnnualClosingUseCase.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/out/RetainedEarningsMappingPort.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java`
+- `closing/core/src/main/java/com/ho/account/closing/domain/ApprovedRetainedEarningsMapping.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/config/AnnualClosingConfigurationProperties.java`
+- `closing/core/src/main/java/com/ho/account/closing/infrastructure/config/ConfiguredRetainedEarningsMappingAdapter.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/AnnualClosingDestinationControlRegressionTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/AnnualClosingServiceTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/infrastructure/config/ConfiguredRetainedEarningsMappingAdapterTest.java`
+- `closing/docs/beginner-guide.md`
+- `closing/docs/local-run.md`
+- `closing/docs/process-flow.md`
+- `closing/docs/schema.md`
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `AnnualClosingService.java:80`, `ApprovedRetainedEarningsMapping.java:10`, `ConfiguredRetainedEarningsMappingAdapter.java:20`; full574/independent69 PASS | 해당 없음: 금융 목적지·API·설정 경계 변경 | 실제 provider 동시성·원격 쓰기 미검증 | `/root/review_776`, P0–P3 없음 |
+| Q2 | PASS | `process-flow.md:362`; year→mapping→Dec31 Master→snapshot→draft/delta와 실패·재시작 흐름 | 해당 없음: 입력·처리·출력·재실행 변경 | provider-side 원자 snapshot 없음 | 독립 구현/문서/테스트 대조 PASS |
+| Q3 | PASS | `README.md:16`, `beginner-guide.md:45`, `local-run.md:96`, `schema.md:46`; 합성 YAML과 운영 제약 | 해당 없음: API·설정·운영 계약 변경 | 배포 설정 review와 실제 원격 write는 운영 게이트 | 독립 문서 사실성/제약 대조 PASS |
+| Q4 | PASS | `ApprovedRetainedEarningsMapping.java:3-7`, `ConfiguredRetainedEarningsMappingAdapter.java:70-76`, `AnnualClosingService.java:211-218`, `AnnualClosingService.java:579-580`, `AnnualClosingRequestDto.java:21-27`; postability attestation, 단일 법인, 설정 identity fingerprint, Master 한계, unknown-field fail-closed 의도 주석 | 해당 없음: 비자명 통제 로직 변경 | upstream 계약이 확장되면 주석/정책 갱신 필요 | 독립 의도/구현 일치 확인 |
+
+잔여 테스트 공백: 허용되는 최대 50자 계정 코드의 lineage가 정적으로 86자로 `VARCHAR(100)` 이내임은 독립 리뷰에서 확인했지만, 최대 길이를 직접 assertion하는 회귀 테스트는 없다.
+
+Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전표와 lineage를 보존·대사한다. 검토된 #776 delta만 revert하고 설정은 코드 rollback 뒤 제거한다. 이전 request-selected account 계약은 endpoint가 비활성화된 동안만 복원할 수 있으며, Journal 데이터 삭제·재작성이나 migration rollback은 하지 않는다. 다음 owner는 stacked Draft의 human reviewer와 #806 이후 current-main 통합 검증자다.
+
 ## 2026-09-28 — GH-777 evidence-backed financial run APIs
 
 - Issue [#777](https://github.com/skyg547/account/issues/777), CL07/P1. Branch `agent/777-financial-run-evidence`, isolated worktree `/tmp/account-777-financial-run-evidence`, base `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`. Scope is `closing/**`; no shared harness, other module, migration or production data changed.
@@ -321,6 +407,23 @@ Changed implementation/test/guide paths (the three parent-owned module records a
 
 ### GH-777 Draft publication
 
-- Published [Draft PR #808](https://github.com/skyg547/account/pull/808), OPEN/DRAFT and initially MERGEABLE, `Refs #777`, from `agent/777-financial-run-evidence` to `main`. Verified implementation commit `8fa4d8fb`. Issue #777 remains OPEN and is labeled `status:needs-review`; the isolated worktree is retained.
+- Published [Draft PR #808](https://github.com/skyg547/account/pull/808) with `Refs #777` from `agent/777-financial-run-evidence` to `main`; it was initially MERGEABLE and was later CLOSED after the independent P1 Journal review. Initial implementation commit `8fa4d8fb`. Issue #777 remains OPEN; the isolated worktree is retained.
 - The PR body contains the 512-test result, packaging/harness checks, Q1–Q4 evidence, rollback/remaining gates and explicit authority separation. Hosted [Module Validation](https://github.com/skyg547/account/actions/runs/36434457290), [Harness Validation](https://github.com/skyg547/account/actions/runs/36434457468) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36434457280) did not start jobs: GitHub annotations report failed recent account payments or a spending-limit restriction. These are external infrastructure failures, not executed code/test results; no billing settings were accessed or changed.
 - Ready, merge, Issue close, deployment and branch/worktree deletion were not performed. Next owner is a human current-head/CI reviewer, followed by authorized accounting/operations owners for the documented deployment gates.
+
+## 2026-10-01 — GH-777 remote Journal control remediation and current-main integration
+
+- Issue #777 / CL07/P1, `agent/777-financial-run-evidence`, `/tmp/account-777-financial-run-evidence`; original base `f128a5dd`, integrated `origin/main@b06e7de3`. Old Draft PR #808 was closed after an independent P1 finding: it called remote `/approve` and `/post` directly after DRAFT without maker request, distinct checker, poster role, or reliable uncertain-response recovery. This is a review correction of the same Issue, not an assertion that #808 passed.
+- Resolution: the `dev` HTTP Journal adapter binds `account.closing.accounting.auto-post-adjustments` and rejects `true` before `createDraftEntry` sends any HTTP write. `approveAndPost` cannot send a remote request, including for an existing DRAFT/REQUESTED/APPROVED/POSTED slip. With the default `false`, it creates only a validated DRAFT for separate human Journal review. A returned draft must have a positive ID, DRAFT status and the requested deterministic slip. The shared Journal adapter checks the same response contract, including monolith/Batch providers, because Journal may deduplicate by lineage and return a different existing slip.
+- Existing #777 calculation path remains: FX/ECL API and Batch use the same core financial policy and posted-journal evidence; missing FX rate/ECL summary fails before Journal; fixed configured amounts and the manual fixed workflow are absent. The API source caps, Batch validation/restart, period/approval controls and deterministic slip/lineage remain. This change does not add an automatic maker/checker/poster service-principal workflow.
+- Merge conflicts with #771/#775/#776 were resolved in Closing only. The two financial request DTOs retain positive period IDs, `ClosingDevRuntimeContextTest` retains both read-only source and approved annual configuration, core HTTP detail/accountCategory tests and annual docs are retained, and stale direct-approval stubs were removed. [Conflict decisions](conflict-log.md) record the affected files. No shared harness, other authored module, migration or production data change is in the PR diff.
+- Focused verification: core HTTP loopback contract 46/46; API HTTP adapter 20/20; shared Journal adapter 6/6. Final `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` PASS in 1m30s, XML API141/Batch102/Core354 = 597 tests in58 suites, failures/errors/skips0; both executable JARs built. Journal authorization MVC `--rerun-tasks` PASS5/5; Node harness quality PASS32/32. Scope `git diff --name-only origin/main` is exclusively `closing/**`; `git diff --check`, staged diff check, marker scan and unmerged-index scan PASS.
+- Independent read-only `/root/closing_777_review` inspected the final integrated diff, reran XML reconciliation and returned Draft-ready, no open scoped P0/P1 findings, Q1–Q4 PASS. It found and returned a mismatch-response slip P2, which the writer corrected. Same-slip concurrent lineage dedupe without provider-side atomic content comparison is an existing P2 Ready/deployment risk; a readback per journal would raise Batch I/O and still not make provider creation atomic. Journal-side idempotency/content control needs a separate authorized change.
+- Rollback: stop affected FX/ECL runs, revert the reviewed Closing-only delta, preserve any existing DRAFT/POSTED Journal and local run history, and reconcile by deterministic slip/lineage. Do not delete remote financial entries or blindly replay an uncertain request. Remaining gates: trusted Journal service authentication and role-separated workflow, live PostgreSQL/scale, concurrent provider dedupe, distributed faults/source freeze and human current-head CI review. Ready, merge, Issue close, deployment and branch/worktree deletion are outside this Draft handoff.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `core/application/service/FinancialClosingCalculationService.java:32`; `core/infrastructure/external/JournalLedgerClosingJournalEntryAdapter.java:64`; full Closing597 PASS | 해당 없음: 금융 실행·어댑터 변경 | provider 원자 멱등성은 후속 | `/root/closing_777_review`, core/API/Batch 경계와 diff 확인 |
+| Q2 | PASS | `docs/process-flow.md:520`; FX/ECL preflight→DRAFT/FAILED→대사, full597 및 Journal5 PASS | 해당 없음: 실패·재실행 흐름 변경 | 실 원격 장애와 원천 동시 변경 미검증 | 동일 리뷰어 코드·문서 대조 |
+| Q3 | PASS | `docs/local-run.md:307,430`; `docs/beginner-guide.md:111`; API JSON·원격 auth 한계, API141 PASS | 해당 없음: 사용자 실행 의미 변경 | 운영 service principal/실 PostgreSQL 별도 | 동일 리뷰어 문서와 DTO 대조 |
+| Q4 | PASS | `core/infrastructure/external/HttpClosingJournalAdapter.java:114,146`; `JournalLedgerClosingJournalEntryAdapter.java:65`; HTTP46/Batch adapter6 PASS | 해당 없음: 비자명 원격 경계 변경 | 같은 slip 동시 dedupe는 provider 통제 필요 | 동일 리뷰어 의도 주석과 회귀 대조 |

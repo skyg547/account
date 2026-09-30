@@ -69,6 +69,44 @@ class JournalLedgerClosingJournalEntryAdapterTest {
     }
 
     @Test
+    void lineageDedupeReturningAnotherSlipFailsInsteadOfRecordingWrongJournal() {
+        JournalPostingPort postingPort = mock(JournalPostingPort.class);
+        JournalQueryPort queryPort = mock(JournalQueryPort.class);
+        JournalLedgerClosingJournalEntryAdapter adapter =
+                new JournalLedgerClosingJournalEntryAdapter(postingPort, queryPort);
+        ClosingJournalEntryCommand command = command();
+        when(queryPort.findBySlipNo(command.slipNo())).thenReturn(Optional.empty());
+        when(postingPort.createDraftEntry(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new JournalPostingResult(77L, "OTHER-SLIP", "DRAFT"));
+
+        assertThatThrownBy(() -> adapter.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Journal returned a different or invalid Closing draft");
+        verify(queryPort).findBySlipNo(command.slipNo());
+        verify(postingPort).createDraftEntry(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void postingResponseMustContainPositiveIdAndDraftStatus() {
+        JournalPostingPort postingPort = mock(JournalPostingPort.class);
+        JournalQueryPort queryPort = mock(JournalQueryPort.class);
+        JournalLedgerClosingJournalEntryAdapter adapter =
+                new JournalLedgerClosingJournalEntryAdapter(postingPort, queryPort);
+        ClosingJournalEntryCommand command = command();
+        when(queryPort.findBySlipNo(command.slipNo())).thenReturn(Optional.empty());
+        when(postingPort.createDraftEntry(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new JournalPostingResult(0L, command.slipNo(), "DRAFT"))
+                .thenReturn(new JournalPostingResult(77L, command.slipNo(), "POSTED"));
+
+        assertThatThrownBy(() -> adapter.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Journal returned a different or invalid Closing draft");
+        assertThatThrownBy(() -> adapter.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Journal returned a different or invalid Closing draft");
+    }
+
+    @Test
     void existingSlipWithDifferentLineageFailsClosed() {
         JournalPostingPort postingPort = mock(JournalPostingPort.class);
         JournalQueryPort queryPort = mock(JournalQueryPort.class);

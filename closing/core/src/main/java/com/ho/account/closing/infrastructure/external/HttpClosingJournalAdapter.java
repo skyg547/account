@@ -126,6 +126,7 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
                     .body(PostingResponse.class);
             if (response == null || response.journalEntryId() == null
                     || response.journalEntryId() < 1 || isBlank(response.slipNo())
+                    || (command.slipNo() != null && !command.slipNo().equals(response.slipNo()))
                     || !"DRAFT".equals(response.status())) {
                 throw new IllegalStateException("Journal Ledger posting returned an invalid response");
             }
@@ -232,6 +233,7 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
         detail.setId(line.id());
         detail.setSide(JournalSide.valueOf(line.side()));
         detail.setAccountCode(line.accountCode());
+        detail.setAccountCategory(line.accountCategory());
         detail.setAmount(line.amount());
         detail.setBaseAmount(line.baseAmount());
         detail.setDepartmentCode(line.departmentCode());
@@ -340,7 +342,7 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record JournalLineResponse(Long id, String side, String accountCode,
+    private record JournalLineResponse(Long id, String side, String accountCode, String accountCategory,
             java.math.BigDecimal amount, java.math.BigDecimal baseAmount,
             String departmentCode, String businessPartnerCode, String description) {
     }

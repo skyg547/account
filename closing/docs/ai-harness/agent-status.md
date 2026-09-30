@@ -113,6 +113,35 @@
 - This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
 
+## GH-775 — annual close source snapshot and delta
+
+- Issue [#775](https://github.com/skyg547/account/issues/775), CL05; claim [5869470536](https://github.com/skyg547/account/issues/775#issuecomment-5869470536).
+- Branch `agent/775-annual-close-stale-draft`; isolated worktree `/tmp/account-775-annual-close-stale-draft`; base and current `origin/main` `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Scope is `closing/**` only. Shared harness and all other modules remain unchanged; these records are module-local under the user's explicit restriction.
+- Requested execution tier: `gpt-5.6-sol` / high. Service, test, documentation and independent read-only reviewer roles used disjoint ownership; the parent Integrator alone owns module records and Git/GitHub publication.
+- Status: implementation frozen and scoped review PASS. The audited behavior produced 13 expected failures in a 68-test focused RED run. Independent focused replay passed129/129. Exact required `./gradlew :closing:test` passed Core315/API127/Batch98 =540 tests in54 suites, failures/errors/skips0.
+- Annual close now fingerprints validated posted source content, reuses only an exact current draft, validates full annual header/lineage/lines, and subtracts cumulative valid posted closes to create only a reopened-year residual delta. Missing Journal classifications use a dated Master Data lookup cached by account/date.
+- Independent Q1–Q4 and all four Issue acceptance criteria are PASS; no remaining scoped P0–P3. Draft PR publication is pending this record commit.
+- Deployment/live remote gate remains HOLD: no live PostgreSQL/load/distributed-fault proof, provider-side atomic snapshot, or approved Journal `X-Auth-User`/`X-Auth-Roles` service-principal integration. Ready, merge, Issue close, deployment and resource deletion remain separate gates.
+
+### GH-775 Draft publication
+
+- Published [Draft PR #806](https://github.com/skyg547/account/pull/806), OPEN/DRAFT and initially MERGEABLE, with `Refs #775`; verified implementation commit `1200064ad77dbb44925641d359a73924e4c212bc`. Issue #775 remains OPEN and is labeled `status:needs-review`; the isolated worktree is retained.
+- Initial implementation-head GitHub Actions did not execute jobs because annotations report failed recent account payments or a spending-limit restriction: [Module Validation](https://github.com/skyg547/account/actions/runs/36423379589), [Harness Validation](https://github.com/skyg547/account/actions/runs/36423379826), and [Merge Guard](https://github.com/skyg547/account/actions/runs/36423379805). These are infrastructure failures, not hosted code/test results; no billing setting was accessed or changed.
+- This publication append changes only the three Closing module records. The PR body contains full540 and independent129 verification, Q1–Q4, rollback, residual risks, and authority separation. Ready, merge, Issue close, deployment, and resource deletion were not performed.
+
+## GH-776 — approved retained-earnings destination
+
+- Issue [#776](https://github.com/skyg547/account/issues/776), CL06; claim [5870076119](https://github.com/skyg547/account/issues/776#issuecomment-5870076119). Branch `agent/776-retained-earnings-control`; isolated worktree `/tmp/account-776-retained-earnings-control`; original base `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- #776 is a stacked change on `agent/775-annual-close-stale-draft@a1b108f7f5e4c18a9e384139c5e93c7b3b151d68` / Draft PR #806 because both Issues change `AnnualClosingService`. Its Draft must initially target that branch so the #776 delta stays reviewable. After #806 merges, retarget/rebase to current `main` and rerun current-head verification.
+- Scope is `closing/**` only. The user's shared-harness prohibition is honored by updating only these module-local records. No other module, shared contract, schema, migration or production data changed.
+- Requested tier: `gpt-5.6-sol` / high. Planner, service, controller, configuration, test and documentation roles used disjoint file ownership; the independent reviewer was read-only. The parent Integrator alone owns records and Git/GitHub publication.
+- Status: implementation frozen; Issue is OPEN / `status:needs-review`. P17-style RED proved a dated `ASSETS` destination crossed into `createDraftEntry`. Final required `./gradlew :closing:test` passed Core344/API132/Batch98 =574 tests across56 suites, failures/errors/skips0; API/Batch bootJar PASS.
+- Independent `/root/review_776` forced69 focused tests (Core60/API9), failures/errors/skips0, and found no P0–P3. Q1–Q4 PASS. All18 implementation/test/guide paths stay in Closing; whitespace, conflict-marker and unmerged-index checks pass.
+- Annual requests now contain only `year`. Exact-year approved configuration supplies the destination, approval metadata and explicit postability attestation; the Dec31 Master account must be the exact `EQUITY`/`CREDIT` account before any Journal access. Mapping identity joins #775's V2 snapshot, so configuration changes stale a pending draft while a financially complete posted close remains a no-op.
+- Limits: Master Data has no actual postability field and Journal has no legal-entity dimension. No live PostgreSQL/load/distributed-fault test, provider-side atomic snapshot or authenticated remote Journal write was performed. Configuration metadata is review evidence, not an authenticated maker/checker workflow.
+- Draft publication with `Refs #776` is authorized. Ready, merge, Issue close, deployment, branch/worktree deletion and billing/configuration changes remain separate gates.
+
 ## GH-777 — verified, awaiting Draft publication
 
 - Issue #777 / CL07, branch `agent/777-financial-run-evidence`, worktree `/tmp/account-777-financial-run-evidence`, base `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
@@ -124,5 +153,12 @@
 
 ### GH-777 Draft published
 
-- [PR #808](https://github.com/skyg547/account/pull/808) is OPEN/DRAFT and initially MERGEABLE, `Refs #777`; implementation commit `8fa4d8fb`. Issue #777 remains OPEN / `status:needs-review`; worktree retained.
+- [PR #808](https://github.com/skyg547/account/pull/808) was initially MERGEABLE as a Draft with `Refs #777` and was later CLOSED after the independent P1 Journal review; initial implementation commit `8fa4d8fb`. Issue #777 remains OPEN; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. This is an external service gate, not a code/test result. Human current-head review and operational gates remain next.
+
+## GH-777 — 2026-10-01 remediation verified for new Draft
+
+- Branch/worktree `agent/777-financial-run-evidence` / `/tmp/account-777-financial-run-evidence`; original Issue base `f128a5dd`, latest integrated `main@b06e7de3`. Old PR #808 is CLOSED after P1 Journal review; Issue #777 is OPEN.
+- Remote HTTP auto-post is rejected before the first write. Direct remote approve/post is disabled; default remote DRAFT and the shared FX/ECL evidence policy remain. HTTP and shared adapters reject invalid or different-slip draft responses. Main #771/#775/#776 changes are integrated and conflict decisions are in [conflict-log](conflict-log.md).
+- Final Closing suite PASS597 (API141/Batch102/Core354; failures/errors/skips0); API/Batch bootJar PASS; Journal authorization MVC5 PASS; Node quality32 PASS. Diff scope, whitespace, marker and unmerged-index gates PASS. Independent read-only `/root/closing_777_review` returned Draft-ready and Q1–Q4 PASS.
+- Ready/deployment risks: trusted Journal service authentication, same-slip concurrent provider dedupe, source freeze, live PostgreSQL/load and distributed faults. Next owner is human Draft/current-head reviewer, then authorized accounting/operations owner. No Ready, merge, Issue close, deployment or resource cleanup.

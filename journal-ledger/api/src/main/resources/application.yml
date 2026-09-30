@@ -15,6 +15,12 @@ server:
   port: ${SERVER_PORT:8081}
 
 journal-ledger:
+  kafka:
+    recovery:
+      # Two retries follow the initial delivery; exhausted records publish to <source-topic>.DLT.
+      retry-interval-ms: ${JOURNAL_KAFKA_RETRY_INTERVAL_MS:1000}
+      max-retries: ${JOURNAL_KAFKA_MAX_RETRIES:2}
+      dlt-suffix: ${JOURNAL_KAFKA_DLT_SUFFIX:.DLT}
   master-data:
     local-adapter:
       enabled: true

@@ -1,3 +1,60 @@
+# 2026-09-28 — GH-769 unmatched Kafka event quarantine and replay
+
+## Intake, isolation, and ownership
+
+- Confirmed live [Issue #769](https://github.com/skyg547/account/issues/769), moved it from `status:ready` to `status:in-progress`, and claimed it for `agent:codex` execution.
+- Preserved the dirty primary checkout. Created `agent/769-unmatched-event-quarantine` and isolated `/tmp/account-769-unmatched-event-quarantine` from `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Used `account-issue-loop`, `account-hexagonal-change`, the single-module form of `account-module-parallel`, and `account-review-handoff` with the requested `gpt-5.6-sol` / high reasoning.
+- Scope is `journal-ledger/**`, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged under the user's explicit narrower rule.
+- The module writer owned production, tests, and functional documentation. `/root/review_769` was an independent read-only reviewer. The parent Integrator alone owns these records and Git/GitHub mutations.
+
+## Implementation and completeness control
+
+- `KafkaTransactionListener` supplies topic/partition/offset and delegates to a Kafka-specific application use case. A valid unmatched event now returns successfully only after the raw payload and accounting metadata are transactionally retained in `journal_event_quarantine`.
+- V18 adds durable `UNMATCHED`/`REPLAYED` state, a unique broker-coordinate key, journal linkage, timestamps, actor, attempts, reason, and optimistic version. The retained payload and Kafka key are never exposed by the control API.
+- Admin completeness endpoints list quarantines, return a one-statement aggregate snapshot, and replay by ID. Replay takes a pessimistic row lock, re-evaluates the repaired rule, creates the journal, and records `REPLAYED` plus the journal ID in one transaction. Concurrent and repeated replay of the same quarantined coordinate converges on one journal.
+- The Kafka container uses an explicit `DefaultErrorHandler`: initial delivery plus two retries, then same-partition `<topic>.DLT`. Recovery is complete only after the DLT send succeeds; send failure is propagated. Configuration tests prove retry and DLT behavior instead of treating a thrown listener exception as DLQ evidence.
+- Control endpoints require the existing trusted Gateway headers and `ROLE_ACCOUNTING_ADMIN` or `ROLE_ADMIN`. Invalid list limits return400 before persistence, typed missing quarantine returns404, and unrelated runtime/persistence failures remain500.
+- Generic GL10 identity across HTTP/contracts/manual creation is not claimed. Issue #765 is still OPEN/blocked outside this module-only allowlist. This change supplies exact-one convergence for quarantine replay by broker coordinate; a matching event's commit ambiguity remains documented until GL10 is delivered.
+
+## Audited RED and fixed GREEN
+
+- Added only `AuditedUnmatchedKafkaEventCompletenessRegressionTest` to detached `/tmp/account-769-regression-proof` at exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Proof and fixed fixtures are byte-identical, SHA-256 `be9936eebab8b2d42aab978d171f1b3fd46957124968e67bf39d6a1bf8ca769c`; audited production is unchanged.
+- Command: `./gradlew :journal-ledger:api:test --tests 'com.ho.account.journalledger.adapter.in.kafka.AuditedUnmatchedKafkaEventCompletenessRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`.
+- Audited RED is the expected 1/1 failure because the old listener returns normally without durable disposition. The identical regression passes1/1 after remediation.
+
+## Verification and corrected review trail
+
+- Pre-change module baseline passed376 tests, failures/errors/skips0.
+- Parent final forced command: `./gradlew :journal-ledger:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`; BUILD SUCCESSFUL in2m58s with37/37 tasks executed.
+- The reviewer's focused run overwrote two API XML files after the module run, so the parent reran `./gradlew :journal-ledger:api:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1` to produce an unambiguous final aggregate: API71/core310/batch15 =396 tests across62 suites, failures/errors/skips0.
+- `./gradlew :journal-ledger:api:bootJar --offline --no-daemon --console=plain --max-workers=1` is BUILD SUCCESSFUL.
+- Initial independent review found P2 controller error masking/late limit validation and P3 a three-query inconsistent completeness snapshot. The original writer added early400 validation, typed404 mapping, and one native conditional aggregate with `OffsetDateTime -> Instant` conversion plus query-count coverage.
+- Final read-only re-review ran14 focused tests, marked both findings RESOLVED, found no new P0-P3, and confirmed the scoped acceptance criteria plus Q1-Q4 PASS.
+- `git diff --check`, untracked whitespace, anchored conflict-marker, unmerged-index, and `journal-ledger/**` allowlist gates pass.
+
+## Q1-Q4 evidence
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Kafka use case, application service, quarantine aggregate/repository, persistence and inbound adapters; forced396/396 | 해당 없음: 코드 변경 적용 | 실 PostgreSQL/Kafka 환경 검증 | `/root/review_769`: no P0-P3, PASS |
+| Q2 | PASS | `docs/process-flow.md`의 수신→보관/재시도→DLT 또는 보관→잠금 재처리→journal/link 흐름 | 해당 없음: 흐름 변경 적용 | commit ambiguity는 GL10 후속 | 독립 코드·문서 대조 PASS |
+| Q3 | PASS | `README.md`, `docs/README.md`, process/schema 문서의 API, 보안, 배포, rollback, 제한 | 해당 없음: 운영 제어 변경 적용 | DLT ACL/retention과 quarantine 보존 정책 승인 | 독립 문서 대조 PASS |
+| Q4 | PASS | 단일 snapshot SQL과 좁은 HTTP 예외 매핑의 근접 의도 주석 | 해당 없음: 비자명 로직 변경 적용 | DB/provider 변경 시 projection 재검증 | 독립 source review PASS |
+
+## Rollback, limits, and handoff
+
+- Deployment must apply V18 before the new binary and verify database privileges, payload retention/access/encryption, completeness alerts, and DLT topic/ACL/retention/partitioning. No live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment test was used.
+- Rollback requires quiescing consumers and a reviewed application revert while preserving applied V18 and every quarantine record. Dropping the table or retained evidence is not an approved rollback; reverting without equivalent protection restores silent ledger omission.
+- Reviewed implementation commit `90d4c307` is pushed and [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`. Its body records acceptance evidence, verification, Q1-Q4, limitations, rollback, and authority separation.
+- On publication head `87729d67`, Agent Merge Guard run `36413587998`, Harness Validation run `36413587500`, and Module Validation run `36413587552` failed before any job steps ran. Each entry-job annotation reports failed recent account payments or a spending-limit prerequisite. This external GitHub account condition is not an executed test failure, and no remote CI PASS is claimed.
+- Implementation was performed by the assigned module writer; independent review was read-only; the original writer corrected findings; the parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
+
+---
+
+The following entries are retained history and are not current GH-769 evidence.
+
 # 2026-09-25 — GH-763 foreign journal transaction-to-base conversion
 
 ## Intake, isolation, and ownership

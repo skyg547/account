@@ -13,7 +13,7 @@
 1. **전표 (`JournalEntry`):** 회계 처리 한 건의 헤더 ("2026-04-13 대출 실행 전표")
 2. **전표 라인 (`JournalDetail`):** 실제 차변/대변 상세 줄.
 3. **상태 변화:** 작성 중(`DRAFT`) -> 승인 요청(`REQUESTED`) -> 승인됨(`APPROVED`) -> 원장 반영 완료(**`POSTED`**)
-4. **GL / SL:** 
+4. **GL / SL:**
    - `GL (총계정원장)`: 계정과목 중심의 큰 장부
    - `SL (보조원장)`: 거래처, 부서 등 상세 차원을 포함한 보조 장부
 5. **Lineage (추적 키):** 이 전표가 시스템의 어떤 원천 문서(지출결의서 등)에서 왔는지 알려주는 꼬리표(`lineageSourceType`, `lineageSourceId`). 드릴다운(Drill-down)의 핵심입니다.
@@ -110,6 +110,7 @@ erDiagram
 - 전표 생성 전 반드시 `contracts` 모듈의 Port를 통해 계정 코드와 마감 여부를 확인해야 합니다.
 - 전표 헤더의 `currencyCode`와 `exchangeRate`가 현재 계약에서 환산 근거입니다. `currencyCode`의 `null`/공백은 호환성을 위해 KRW로 취급하고, KRW는 환율 생략 또는 1만 허용합니다. 외화는 명시적인 양수 환율과 라인별 `baseAmount`가 필요합니다. 수동 HTTP는 통화와 무관하게 `baseAmount`가 필수입니다. Contract는 null/공백/KRW와 환율 생략 또는 1인 동일단위 입력에 한해서만 누락된 `baseAmount`를 `amount`로 채우며, 외화 누락이나 공급값 불일치는 저장 전에 거부합니다. 자동분개 이벤트는 거래통화 키(`transactionCurrencyCode`, `currencyCode`, `currency`)와 거래통화→기준통화 환율 키(`transactionToBaseRate`, `exchangeRate`, `fxRate`)만 사용하고, 여러 별칭이 함께 있으면 정규화 후 모두 같아야 합니다. 상세 반올림과 잔여 배분은 [업무 흐름 문서](docs/process-flow.md#거래통화에서-기준통화krw로-환산)를 확인하세요.
 - **GL/SL 잔액 조회:** 외부 모듈은 `LedgerQueryPort`를 통해 journal-ledger 엔티티 구조를 모르고도 잔액을 조회할 수 있습니다.
+- Kafka 자동분개에서 적용 규칙이 없으면 V18 quarantine에 topic/partition/offset과 payload를 영속 보존합니다. accounting admin은 payload/key를 노출하지 않는 completeness API로 pending age/count와 broker 좌표를 확인하고, 규칙 보정 뒤 행 잠금 기반 replay를 실행합니다. 다른 처리 예외는 기본 2회 재시도 후 같은 partition의 `<topic>.DLT`로 보내며 DLT 발행 실패는 fail-closed합니다. 자세한 흐름과 GL10 범위 제한은 [업무 흐름 문서](docs/process-flow.md#kafka-미매칭-격리와-재생)를 확인하세요.
 - 전표 HTTP API는 도메인 엔티티를 직접 노출하지 않고 전용 요청/응답 DTO를 사용합니다. 쓰기 명령은 Gateway가 JWT에서 다시 만든 `X-Auth-User`와 `X-Auth-Roles`만 사용하며, maker 작성/승인요청 → 별도 approver 승인 → poster 전기 순서를 강제합니다. 역할과 오류는 [업무 흐름 문서](docs/process-flow.md#maker-checker-승인과-http-권한)를 확인하세요.
 - 공개 `POST /api/journals`의 `entryType`에 caller가 `REVERSAL`을 지정하면 HTTP `400`을 반환합니다. 주변 공백이나 대소문자를 바꾸어도 같게 거부됩니다. 역분개는 원본 잠금과 operation 저장을 함께 수행하는 관리형 `reverseJournalEntry` 유스케이스로만 생성합니다.
 - 미결 반제 요청은 `settlementReference`와 `X-User-ID`를 함께 저장합니다. 동일 참조번호가 재전송되면 금액을 중복 반영하지 않습니다.
@@ -158,7 +159,7 @@ KRW로 고정되어 있고 환율 공급자·환율 출처·적용일 필드는 
 fail-closed하므로 승인된 정정 절차가 필요합니다.
 
 프로파일을 생략하면 API와 Batch 모두 `local`이 선택되어 각자의 전용 H2 PostgreSQL mode DB에
-모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17을 적용하고 Hibernate가 스키마를 검증합니다.
+모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17/V18을 적용하고 Hibernate가 스키마를 검증합니다.
 `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
 애플리케이션 Flyway와 SQL/Batch 자동 초기화를 끕니다. 배포 전 migration은 별도
 `migration-runner`만 수행합니다. Journal의 Master Data 조회는 local에서 명시적인 local
