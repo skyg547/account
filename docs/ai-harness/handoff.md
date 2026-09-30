@@ -4021,7 +4021,7 @@
 
 ## 2026-10-01 GH-747 PAT authority handoff
 
-- Issue #747 / `agent/747-pat-authority` / `/tmp/account-747-pat-authority` / `origin/main@b06e7de3`; Draft PR to be created from the verified commit. The branch changes only `auth/**` and the three user-requested parent AI-harness records.
+- Issue #747 / `agent/747-pat-authority` / `/tmp/account-747-pat-authority` / `origin/main@b06e7de3`; [Draft PR #814](https://github.com/skyg547/account/pull/814) is open with `Refs #747`. The branch changes only `auth/**` and the three user-requested parent AI-harness records.
 - All PAT management methods now verify the login Bearer JWT and current exact AuthUser before DB access. Owner endpoints cannot use caller-supplied identities; administrator actions require current verified system-admin role. V74 widens PAT owner name to 80 and adds actor-attributed lifecycle rows. Revocation uses a conditional database transition so repeat/competing calls do not create another audit row.
 - Local gates: auth core143/API52/Gateway74 tests PASS, PAT full HTTP9 and H2 conditional JPA1 PASS, auth API bootJar PASS, harness quality32 PASS, diff/markers clean. Independent `/root/pat_review` found no blocking findings and Q1–Q4 PASS. No PostgreSQL runtime/concurrent-request, deployment, or real credentials used.
 - Rollback: reviewed Issue-scoped code revert; use a reviewed forward migration for schema correction and preserve audit rows. Next owner is human PR reviewer and PostgreSQL/CI integration gate before Ready or merge. Issue closure and worktree/branch removal remain separate gates.
