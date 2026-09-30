@@ -42,7 +42,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
   - `V70__auth_user_role_schema.sql`: 사용자와 역할 할당
   - `V71__auth_login_attempts.sql`: 공유 로그인 실패/잠금
   - `V72__auth_role_assignment_apply_log.sql`: Governance 승인 반영 멱등 이력
-- memory와 JPA 모드 모두 역할의 `dataScope`, `validFrom`, `validTo`를 보존합니다.
+- memory와 JPA 모드 모두 역할의 `dataScope`, `validFrom`, `validTo`를 보존합니다. JPA에서 읽은 기존 null·공백 범위도 전역으로 바꾸지 않고 미지원 범위로 취급합니다.
 - 현재 Auth의 범위 정책은 명시적이고 대소문자까지 정확한 `GLOBAL`만 지원합니다. 기존 저장값의 공백·대소문자 변형이나 지원하지 않는 범위를 `GLOBAL`로 자동 변환하지 않습니다.
 
 ### 📌 토큰 Role Version 검증
@@ -71,7 +71,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 ### 📌 관리자 사용자 목록과 범위 제한
 
 - `GET /api/admin/users`는 Gateway가 만든 `X-Auth-Roles`의 시스템 관리자 역할과 `X-Auth-User`의 사용자명이 모두 필요합니다.
-- Auth는 헤더만 믿고 전체 목록을 반환하지 않습니다. 저장된 호출자 계정을 다시 조회해 활성·잠금 상태와 현재 유효한 역할을 확인합니다. 저장된 모든 할당이 정확한 `GLOBAL`이고 현재 유효한 `ROLE_SYSTEM_ADMIN`이 있어야 전체 사용자 목록을 반환합니다. 만료·비활성인 미지원 할당이 있어도 403입니다.
+- Auth는 헤더만 믿고 전체 목록을 반환하지 않습니다. 저장된 호출자 계정을 다시 조회해 활성·잠금 상태와 현재 유효한 역할을 확인합니다. 저장된 모든 할당이 정확한 `GLOBAL`이고 현재 유효한 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN` 역할이 있어야 전체 사용자 목록을 반환합니다. 역할 이름은 대소문자를 구분하지 않지만 `ROLE_ADMIN`만으로는 권한을 부여하지 않습니다. 만료·비활성인 미지원 할당이 있어도 403입니다.
 - Auth 범위 내에서는 범위별 사용자 목록 필터, 부서 질의 필터, master-data의 범위별 쓰기 권한을 구현하지 않았습니다. 이 목록은 승인된 전역 관리자에게만 제공되는 전체 목록입니다.
 
 ### 📌 통합 비밀번호 인코딩 정책 (PasswordEncoderPolicy)

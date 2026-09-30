@@ -121,6 +121,40 @@ class AdminUserQueryServiceTest {
                 .containsExactly("member");
     }
 
+    @ParameterizedTest
+    @MethodSource("storedAdministratorAliases")
+    void storedSystemAdministratorAliasCanListUsers(String roleCode) {
+        AuthUser administrator = user("admin", true, false, "FIN", List.of(
+                RoleAssignment.approved(roleCode)));
+
+        assertThat(service(List.of(user("member", true, false, null,
+                List.of(RoleAssignment.approved("ROLE_USER")))), administrator)
+                .findAllUsers("admin"))
+                .extracting(AdminUserView::email)
+                .containsExactly("member");
+    }
+
+    @Test
+    void legacyRoleAdminAliasCannotListUsers() {
+        AuthUser administrator = user("admin", true, false, "FIN", List.of(
+                RoleAssignment.approved("ROLE_ADMIN")));
+
+        assertThatThrownBy(() -> service(List.of(), administrator).findAllUsers("admin"))
+                .isInstanceOf(UserAccessDeniedException.class);
+    }
+
+    @Test
+    void unrelatedUserWithUnsupportedScopeDoesNotAbortGlobalAdministratorListing() {
+        AuthUser malformedUser = user("legacy", true, false, "FIN", List.of(
+                new RoleAssignment("ROLE_USER", "GLOBAL ", null, null, true)));
+        AuthUser validUser = user("member", true, false, null,
+                List.of(RoleAssignment.approved("ROLE_USER")));
+
+        assertThat(service(List.of(validUser, malformedUser)).findAllUsers("admin"))
+                .extracting(AdminUserView::email)
+                .containsExactly("legacy", "member");
+    }
+
     @Test
     void globalAdministratorRoleCannotMaskAnotherEffectiveScopedRole() {
         AuthUser mixedAdmin = user("admin", true, false, "FIN", List.of(
@@ -184,5 +218,12 @@ class AdminUserQueryServiceTest {
                 Arguments.of("ROLE_AUDITOR", "AUDITOR"),
                 Arguments.of("ROLE_USER", "USER"),
                 Arguments.of("ROLE_UNKNOWN", "USER"));
+    }
+
+    private static Stream<Arguments> storedAdministratorAliases() {
+        return Stream.of(
+                Arguments.of("SYSTEM_ADMIN"),
+                Arguments.of("system_admin"),
+                Arguments.of("SyStEm_AdMiN"));
     }
 }

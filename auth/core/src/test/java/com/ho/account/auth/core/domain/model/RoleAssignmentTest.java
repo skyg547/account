@@ -55,9 +55,10 @@ class RoleAssignmentTest {
     @NullSource
     @ValueSource(strings = {"", " ", "\t"})
     void missingScopeCannotBePromotedToGlobal(String scope) {
-        assertThatThrownBy(() -> new RoleAssignment("ROLE_SYSTEM_ADMIN", scope, null, null, true))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("dataScope");
+        RoleAssignment legacy = new RoleAssignment("ROLE_SYSTEM_ADMIN", scope, null, null, true);
+
+        assertThat(legacy.dataScope()).isEqualTo(scope);
+        assertThat(legacy.hasSupportedScope()).isFalse();
     }
 
     @Test

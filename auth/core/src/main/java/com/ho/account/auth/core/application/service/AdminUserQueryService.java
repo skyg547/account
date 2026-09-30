@@ -44,8 +44,7 @@ public class AdminUserQueryService implements AdminUserQueryUseCase {
                 || caller.isLocked()
                 || effectiveAssignments.isEmpty()
                 || caller.getRoleAssignments().stream().anyMatch(assignment -> !assignment.hasSupportedScope())
-                || effectiveAssignments.stream().noneMatch(assignment ->
-                        "ROLE_SYSTEM_ADMIN".equals(assignment.roleCode()))) {
+                || effectiveAssignments.stream().noneMatch(this::isSystemAdministrator)) {
             throw new UserAccessDeniedException("Global system administrator role is required.");
         }
         return authUserQueryPort.findAllUsers().stream()
@@ -84,6 +83,12 @@ public class AdminUserQueryService implements AdminUserQueryUseCase {
             case "ROLE_USER", "USER" -> "USER";
             default -> DEFAULT_ROLE;
         };
+    }
+
+    private boolean isSystemAdministrator(RoleAssignment assignment) {
+        // Match the API gate's two administrator aliases without granting the broader ROLE_ADMIN alias.
+        String roleCode = assignment.roleCode().toUpperCase(Locale.ROOT);
+        return "ROLE_SYSTEM_ADMIN".equals(roleCode) || "SYSTEM_ADMIN".equals(roleCode);
     }
 
     /**

@@ -24,11 +24,8 @@ public record RoleAssignment(
         if (roleCode.length() > 80) {
             throw new IllegalArgumentException("roleCode must be at most 80 characters.");
         }
-        if (dataScope == null || dataScope.isBlank()) {
-            throw new IllegalArgumentException("dataScope is required.");
-        }
-        // Preserve legacy scope text so casing or padding cannot silently acquire GLOBAL authority.
-        if (dataScope.length() > 80) {
+        // Preserve missing and malformed legacy scope text so reads can deny authority without failing hydration.
+        if (dataScope != null && dataScope.length() > 80) {
             throw new IllegalArgumentException("dataScope must be at most 80 characters.");
         }
         if (validFrom != null && validTo != null && !validFrom.isBefore(validTo)) {

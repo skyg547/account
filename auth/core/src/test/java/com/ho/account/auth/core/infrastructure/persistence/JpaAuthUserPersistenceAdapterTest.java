@@ -3,11 +3,18 @@ package com.ho.account.auth.core.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
+import com.ho.account.auth.core.application.port.in.AuthUseCase;
+import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
+import com.ho.account.auth.core.application.port.out.OtpVerificationPort;
 import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersistencePort.RoleAssignmentReplacement;
+import com.ho.account.auth.core.application.service.AdminUserQueryService;
+import com.ho.account.auth.core.application.service.AuthService;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
+import jakarta.persistence.EntityManager;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
@@ -45,6 +52,9 @@ class JpaAuthUserPersistenceAdapterTest {
     @Autowired
     private RoleAssignmentApplyLogJpaRepository applyLogRepository;
 
+    @Autowired
+    private EntityManager entityManager;
+
     @Test
     void findByUsernameLoadsApprovedEffectiveRoleAssignments() {
         userRepository.save(userWithRoles());
@@ -81,6 +91,71 @@ class JpaAuthUserPersistenceAdapterTest {
                 .containsExactly("admin", "teller");
         assertThat(users.get(0).effectiveRolesAt(NOW)).containsExactly("ROLE_ADMIN");
         assertThat(users.get(1).getRoleAssignments()).hasSize(3);
+    }
+
+    @Test
+    void blankLegacyScopeDeniesAuthenticationWithoutBreakingUnrelatedAdministratorListing() {
+        AuthUserJpaEntity legacy = new AuthUserJpaEntity(
+                "legacy", dynamicPassword, null, true, false, 1L);
+        legacy.addRoleAssignment(RoleAssignmentJpaEntity.from(RoleAssignment.approved("ROLE_SYSTEM_ADMIN")));
+        AuthUserJpaEntity admin = new AuthUserJpaEntity(
+                "admin", dynamicPassword, null, true, false, 1L);
+        admin.addRoleAssignment(RoleAssignmentJpaEntity.from(RoleAssignment.approved("ROLE_SYSTEM_ADMIN")));
+        userRepository.saveAll(List.of(legacy, admin));
+        userRepository.flush();
+
+        // Simulate a legacy database value that current write paths refuse to create.
+        entityManager.createNativeQuery("update auth_role_assignments set data_scope = '' where username = 'legacy'")
+                .executeUpdate();
+        entityManager.clear();
+
+        AuthUser hydrated = adapter.findByUsername("legacy").orElseThrow();
+        assertThat(hydrated.getRoleAssignments()).singleElement()
+                .extracting(RoleAssignment::dataScope)
+                .isEqualTo("");
+
+        AuthService authService = new AuthService(
+                adapter,
+                code -> true,
+                (raw, stored) -> raw.equals(stored),
+                new OtpVerificationPort() {
+                    @Override
+                    public boolean verifyOtp(String username, String otpCode) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean requiresOtp(String username) {
+                        return false;
+                    }
+                },
+                (provider, credential) -> { throw new AssertionError("SSO should not be called"); },
+                (subject, instant) -> { throw new AssertionError("Unsupported scope must not issue a token"); },
+                new LoginAttemptPort() {
+                    @Override
+                    public boolean isLocked(String username) {
+                        return false;
+                    }
+
+                    @Override
+                    public void recordFailure(String username, String reason) {
+                    }
+
+                    @Override
+                    public void recordSuccess(String username) {
+                        throw new AssertionError("Unsupported scope must not record success");
+                    }
+                },
+                Clock.fixed(NOW, ZoneOffset.UTC));
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand(
+                "legacy", dynamicPassword, "NORMAL", null)))
+                .isInstanceOf(UserAccessDeniedException.class);
+        assertThat(authService.validateTokenVersion("legacy", 1L)).isFalse();
+
+        assertThat(new AdminUserQueryService(adapter, Clock.fixed(NOW, ZoneOffset.UTC))
+                .findAllUsers("admin"))
+                .extracting(view -> view.email())
+                .containsExactly("admin", "legacy");
     }
 
     @Test

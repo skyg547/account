@@ -333,6 +333,18 @@ class AuthServiceTest {
         assertThat(service.validateTokenVersion("admin", 1L)).isFalse();
     }
 
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " ", "\t"})
+    void legacyMissingScopeCannotLoginOrValidateTokenVersion(String scope) {
+        AuthService service = serviceForUser(user(true, false, "FIN", List.of(
+                new RoleAssignment("ROLE_SYSTEM_ADMIN", scope, null, null, true))));
+
+        assertThatThrownBy(() -> service.login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class);
+        assertThat(service.validateTokenVersion("admin", 1L)).isFalse();
+    }
+
     @Test
     void globalSystemAdministratorCanLoginAndValidateCurrentTokenVersion() {
         AuthService service = serviceForUser(user(true, false, "FIN", List.of(
