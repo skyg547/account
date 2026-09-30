@@ -3,6 +3,7 @@
 - Codex used `$account-issue-loop`, `$account-hexagonal-change`, single-module `$account-module-parallel` ownership, and `$account-review-handoff` on `agent/755-preserve-account-classification` in `/tmp/account-755-preserve-account-classification`, based on `origin/main@b06e7de3`. Issue [#755](https://github.com/skyg547/account/issues/755) is `status:needs-review`; implementation `194773ba`; [Draft PR #822](https://github.com/skyg547/account/pull/822), `Refs #755`.
 - `master-data/**` 15파일에서 SCD2 후계자의 계정 유형과 규제 매핑 보존, 승인 명령의 명시적 변경/매핑 해제·감사, 직접 PUT 차단, 불일치/명시적 null 조기 거부, H2 왕복·HTTP 회귀, 모듈·초보자 문서를 완료했다. 공유 기록 네 파일만 부모가 추가 갱신했다.
 - 최종 검증: `:master-data:test`는 성공했지만 `NO-SOURCE`; `:master-data:core:test :master-data:api:test :master-data:batch:test :master-data:api:bootJar` 555 테스트와 JAR PASS. 합성 로컬 H2 HTTP 업무 흐름 PASS, `/actuator/health` 503. 독립 read-only Reviewer의 P0–P3 없음 및 Q1–Q4 PASS, diff/marker PASS. PostgreSQL V6·운영 DB·커밋/락 검증은 남는다.
+- GitHub Actions 최신 head 검사들은 계정 결제/지출 한도 안내와 함께 job 시작 전에 실패했다. 실행된 CI 테스트 증거는 없으며 로컬 harness validator·Python 22·Node PR 32·merge-guard 89 테스트가 PASS했다. Actions 복구와 필수 체크 재실행이 Ready/merge 선행 게이트다.
 - 롤백은 이슈 범위 코드의 reviewed revert로 하며 SCD2·승인 감사 이력은 보존한다. 다음 담당자는 사람 리뷰어다. 역할/병합 권한 분리: 구현자와 리뷰어는 별도이고, 부모 Integrator의 게시 이후에도 Ready/merge/Issue close/자원 삭제는 별도 승인 없이는 수행하지 않는다.
 
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
