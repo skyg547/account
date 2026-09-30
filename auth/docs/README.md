@@ -25,11 +25,11 @@
 - `AuthUserRoleAssignmentService`: 역할 정규화와 approval trace fingerprint 생성
 - `AuthUser`, `RoleAssignment`: 계정 상태와 역할 유효성 도메인 규칙
 - `JwtTokenIssuer`: 확정된 역할 스냅샷을 JWT claim으로 발급
+- `JpaLoginAttemptAdapter`: 다중 인스턴스 로그인 실패와 잠금의 사용자별 DB 직렬화
 - `JpaAuthUserRoleAssignmentAdapter`: 사용자별 lock, 역할 교체, 멱등 이력 저장
 - `InMemoryAuthUserRoleAssignmentAdapter`: 로컬 memory 모드의 동일한 멱등 정책
 
 ## 현재 남은 코드 TODO
 
 - 접두사 없는 레거시 평문 비밀번호 해시 승격과 운영 fail-closed
-- 다중 노드 최초 로그인 실패 기록의 원자적 upsert/lock
 - 승인 멱등 이력의 감사 보존/아카이브 정책

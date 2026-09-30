@@ -3,6 +3,7 @@ package com.ho.account.auth.core.infrastructure.security;
 import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import java.time.Clock;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,17 +57,10 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public boolean isLocked(String username) {
-        String key = normalize(username);
-        return repository.findById(key)
-                .map(state -> {
-                    boolean locked = state.isLocked(clock);
-                    if (!locked && state.getLockedUntil() != null) {
-                        repository.deleteById(key);
-                    }
-                    return locked;
-                })
+        return repository.findById(normalize(username))
+                .map(state -> state.isLocked(clock))
                 .orElse(false);
     }
 
@@ -74,12 +68,20 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
     @Transactional
     public void recordFailure(String username, String reason) {
         String key = normalize(username);
-        // 여러 노드가 같은 사용자의 "첫 실패"를 동시에 기록하면 find 후 insert가 경합할 수 있으므로
-        // PostgreSQL/H2 양쪽에서 검증된 원자적 upsert 또는 사용자별 DB lock 경계로 전환해야 합니다.
-        LoginAttemptJpaEntity state = repository.findById(key)
-                .orElseGet(() -> new LoginAttemptJpaEntity(key));
+        LoginAttemptJpaEntity state = null;
+        // A missing row cannot be SELECT-locked. The insert arbitrates first writers; the
+        // locked read serializes increments, including a row deleted between insert and read.
+        for (int attempt = 0; attempt < 3 && state == null; attempt++) {
+            state = repository.findByUsernameForUpdate(key).orElse(null);
+            if (state == null) {
+                repository.insertPlaceholderIfAbsent(key, clock.instant());
+                state = repository.findByUsernameForUpdate(key).orElse(null);
+            }
+        }
+        if (state == null) {
+            throw new IllegalStateException("Login attempt row changed during failure recording");
+        }
         state.recordFailure(reason, maxFailures, lockDurationMinutes, clock);
-        repository.save(state);
         log.warn("AUTH_LOGIN_FAILURE username={} reason={} failures={} lockedUntil={}",
                 key, reason, state.getFailureCount(), state.getLockedUntil());
     }
@@ -88,11 +90,16 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
     @Transactional
     public void recordSuccess(String username) {
         String key = normalize(username);
-        repository.deleteById(key);
+        // Recheck under the same row lock as failure recording so a refreshed lock survives.
+        repository.findByUsernameForUpdate(key).ifPresent(state -> {
+            if (!state.isLocked(clock)) {
+                repository.delete(state);
+            }
+        });
         log.info("AUTH_LOGIN_SUCCESS username={}", key);
     }
 
     private String normalize(String username) {
-        return username == null ? "<blank>" : username.trim().toLowerCase();
+        return username == null ? "<blank>" : username.trim().toLowerCase(Locale.ROOT);
     }
 }

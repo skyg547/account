@@ -95,7 +95,7 @@ $jar = Get-ChildItem auth/api/build/libs -Filter '*.jar' |
 java -jar $jar.FullName --spring.profiles.active=local --server.port=8081
 ```
 
-테스트 범위에는 local resource 정책, H2/Flyway 컨텍스트, 로그인 실패 JPA commit, API/core 경계와 Boot JAR 패키징이 포함됩니다.
+테스트 범위에는 local resource 정책, H2/Flyway 컨텍스트, 로그인 실패 JPA commit, API/core 경계와 Boot JAR 패키징이 포함됩니다. `:auth:core:test`는 테스트 프로세스에서 임시 PostgreSQL 서버를 띄워 서로 다른 트랜잭션의 최초 실패, 기존 행 증가, 만료 및 성공 경합을 확인합니다. 이 테스트는 PostgreSQL 실행 파일을 시작할 수 있는 로컬 환경이 필요하며 운영 DB 계정은 사용하지 않습니다.
 
 ## fail-closed 확인
 
