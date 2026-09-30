@@ -1,3 +1,10 @@
+## 2026-10-01 — GH-755 계정과목 SCD2 분류·매핑 보존
+
+- Issue [#755](https://github.com/skyg547/account/issues/755) `status:needs-review`; branch `agent/755-preserve-account-classification`; worktree `/tmp/account-755-preserve-account-classification`; base `b06e7de3`; implementation commit `194773ba`; [Draft PR #822](https://github.com/skyg547/account/pull/822) (`Refs #755`).
+- 변경 범위: `master-data/**` 15파일과 요청된 부모 소유 기록 4파일. 이름만 수정해도 비영업수익/비영업비용 유형과 규제 매핑이 SCD2 후계자에 보존되며, 승인 경로의 명시적 변경/해제와 직접 PUT 차단·감사 증거가 추가됐다.
+- 검증: 실제 하위 모듈 core 480/API 70/batch 5 = 555 테스트 PASS, API bootJar PASS, 최신 JAR H2 HTTP 업무 흐름 PASS. `:master-data:test`는 `NO-SOURCE`; health 503은 전체 기동 건강 판정이 아니다. 독립 read-only 리뷰 P0–P3 없음, Q1–Q4 PASS.
+- 잔여 위험/다음 담당: H2는 PostgreSQL V6·커밋/락·운영 배포 증거가 아니다. 사람 리뷰어가 최신 head/base CI와 적용 환경 게이트를 확인한다. Ready/merge/Issue close/자원 삭제 미수행.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
