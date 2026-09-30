@@ -46,9 +46,9 @@ class AuthServiceTest {
     @Test
     void normalLoginWithoutOtpUsesOneInternalRoleSnapshot() {
         RoleAssignment effective = new RoleAssignment(
-                "ROLE_ADMIN", "FIN", AUTHENTICATED_AT.minusSeconds(1), AUTHENTICATED_AT.plusSeconds(1), true);
+                "ROLE_ADMIN", "GLOBAL", AUTHENTICATED_AT.minusSeconds(1), AUTHENTICATED_AT.plusSeconds(1), true);
         RoleAssignment future = new RoleAssignment(
-                "ROLE_FUTURE", "FIN", AUTHENTICATED_AT.plusSeconds(1), null, true);
+                "ROLE_FUTURE", "GLOBAL", AUTHENTICATED_AT.plusSeconds(1), null, true);
         AuthUserQueryPort users = users(Map.of(
                 "admin", new AuthUser("admin", "stored", "FIN", true, false, List.of(effective, future), 3L)));
         AtomicReference<TokenIssuerPort.TokenSubject> issuedSubject = new AtomicReference<>();
@@ -250,7 +250,7 @@ class AuthServiceTest {
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("Department code is invalid");
 
-        RoleAssignment expired = new RoleAssignment("ROLE_INTERNAL", "FIN", null, AUTHENTICATED_AT, true);
+        RoleAssignment expired = new RoleAssignment("ROLE_INTERNAL", "GLOBAL", null, AUTHENTICATED_AT, true);
         assertThatThrownBy(() -> serviceForUser(user(true, false, "FIN", List.of(expired)))
                         .login(normal("admin", null)))
                 .isInstanceOf(UserAccessDeniedException.class)
@@ -293,7 +293,7 @@ class AuthServiceTest {
 
     @Test
     void validateTokenVersionRequiresMatchingVersionAndAvailableAccount() {
-        RoleAssignment expired = new RoleAssignment("ROLE_INTERNAL", "FIN", null, AUTHENTICATED_AT, true);
+        RoleAssignment expired = new RoleAssignment("ROLE_INTERNAL", "GLOBAL", null, AUTHENTICATED_AT, true);
         Map<String, AuthUser> userMap = Map.of(
                 "active", namedUser("active", true, false, approvedRoles()),
                 "inactive", namedUser("inactive", false, false, approvedRoles()),
@@ -310,6 +310,59 @@ class AuthServiceTest {
         assertThat(service.validateTokenVersion("locked", 1L)).isFalse();
         assertThat(service.validateTokenVersion("expired", 1L)).isFalse();
         assertThat(service.validateTokenVersion("missing", 1L)).isFalse();
+    }
+
+    @Test
+    void existingScopedSystemAdministratorCannotLoginOrValidatePreviouslyIssuedToken() {
+        RoleAssignment scopedAdmin = new RoleAssignment(
+                "ROLE_SYSTEM_ADMIN", "FIN", null, null, true);
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AtomicBoolean tokenIssued = new AtomicBoolean();
+        AuthService service = service(
+                users(Map.of("admin", user(true, false, "FIN", List.of(scopedAdmin)))),
+                code -> true, validPasswordVerifier(), noOtp(), rejectingSso(),
+                (subject, issuedAt) -> {
+                    tokenIssued.set(true);
+                    return new TokenIssuerPort.IssuedToken("token", 1L);
+                }, attempts);
+
+        assertThatThrownBy(() -> service.login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class);
+        assertThat(tokenIssued).isFalse();
+        assertThat(attempts.successes).isEmpty();
+        assertThat(service.validateTokenVersion("admin", 1L)).isFalse();
+    }
+
+    @Test
+    void globalSystemAdministratorCanLoginAndValidateCurrentTokenVersion() {
+        AuthService service = serviceForUser(user(true, false, "FIN", List.of(
+                new RoleAssignment("ROLE_SYSTEM_ADMIN", "GLOBAL", null, null, true))));
+
+        assertThat(service.login(normal("admin", null)).roles()).containsExactly("ROLE_SYSTEM_ADMIN");
+        assertThat(service.validateTokenVersion("admin", 1L)).isTrue();
+    }
+
+    @Test
+    void globalRoleCannotMaskAnotherEffectiveLegacyScopedAssignment() {
+        AuthService service = serviceForUser(user(true, false, "FIN", List.of(
+                RoleAssignment.approved("ROLE_SYSTEM_ADMIN"),
+                new RoleAssignment("ROLE_AUDITOR", "FIN", null, null, true))));
+
+        assertThatThrownBy(() -> service.login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class);
+        assertThat(service.validateTokenVersion("admin", 1L)).isFalse();
+    }
+
+    @Test
+    void expiredLegacyScopedRoleStillInvalidatesOldTokenDespiteEffectiveGlobalRole() {
+        AuthService service = serviceForUser(user(true, false, "FIN", List.of(
+                RoleAssignment.approved("ROLE_USER"),
+                new RoleAssignment("ROLE_MASTER_MANAGER", "FIN", null,
+                        AUTHENTICATED_AT.minusSeconds(1), true))));
+
+        assertThatThrownBy(() -> service.login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class);
+        assertThat(service.validateTokenVersion("admin", 1L)).isFalse();
     }
 
     private AuthService standardService(

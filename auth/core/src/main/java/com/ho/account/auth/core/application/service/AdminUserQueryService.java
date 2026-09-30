@@ -1,9 +1,11 @@
 package com.ho.account.auth.core.application.service;
 
+import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.model.AdminUserView;
 import com.ho.account.auth.core.application.port.in.AdminUserQueryUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
+import com.ho.account.auth.core.domain.model.RoleAssignment;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -27,8 +29,25 @@ public class AdminUserQueryService implements AdminUserQueryUseCase {
     private final Clock clock;
 
     @Override
-    public List<AdminUserView> findAllUsers() {
+    public List<AdminUserView> findAllUsers(String authenticatedUsername) {
+        if (authenticatedUsername == null || authenticatedUsername.isBlank()) {
+            throw new UserAccessDeniedException("Global system administrator role is required.");
+        }
+        String username = authenticatedUsername.trim();
         Instant evaluatedAt = clock.instant();
+        AuthUser caller = authUserQueryPort.findByUsername(username)
+                .orElseThrow(() -> new UserAccessDeniedException("Global system administrator role is required."));
+        List<RoleAssignment> effectiveAssignments = caller.effectiveRoleAssignmentsAt(evaluatedAt);
+        // Stored scoped grants deny listing even after expiry, since an older JWT may share this role version.
+        if (!caller.hasUsername(username)
+                || !caller.isActive()
+                || caller.isLocked()
+                || effectiveAssignments.isEmpty()
+                || caller.getRoleAssignments().stream().anyMatch(assignment -> !assignment.hasSupportedScope())
+                || effectiveAssignments.stream().noneMatch(assignment ->
+                        "ROLE_SYSTEM_ADMIN".equals(assignment.roleCode()))) {
+            throw new UserAccessDeniedException("Global system administrator role is required.");
+        }
         return authUserQueryPort.findAllUsers().stream()
                 .sorted(Comparator.comparing(AuthUser::getUsername))
                 .map(user -> toView(user, evaluatedAt))

@@ -13,6 +13,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class AuthUserRoleAssignmentServiceTest {
 
@@ -38,7 +41,7 @@ class AuthUserRoleAssignmentServiceTest {
         var result = service.replaceRoleAssignments(new ReplaceRoleAssignmentsCommand(
                 " admin ",
                 List.of("ROLE_AUDITOR", "accounting_admin", "accounting_admin"),
-                "FIN",
+                "GLOBAL",
                 null,
                 null,
                 "approver01",
@@ -49,6 +52,8 @@ class AuthUserRoleAssignmentServiceTest {
                 .containsExactly("ROLE_ACCOUNTING_ADMIN", "ROLE_AUDITOR");
         assertThat(saved.get().approvalTraceId()).isEqualTo("governance-approval-id=10");
         assertThat(saved.get().requestFingerprint()).hasSize(64);
+        assertThat(saved.get().roleAssignments()).allSatisfy(assignment ->
+                assertThat(assignment.dataScope()).isEqualTo("GLOBAL"));
         assertThat(result.username()).isEqualTo("admin");
         assertThat(result.roleVersion()).isEqualTo(7L);
         assertThat(result.roles()).containsExactly("ROLE_ACCOUNTING_ADMIN", "ROLE_AUDITOR");
@@ -69,7 +74,7 @@ class AuthUserRoleAssignmentServiceTest {
         var result = service.replaceRoleAssignments(new ReplaceRoleAssignmentsCommand(
                 "admin",
                 List.of("ROLE_FUTURE"),
-                "FIN",
+                "GLOBAL",
                 NOW.plusSeconds(60),
                 null,
                 "approver01",
@@ -108,6 +113,25 @@ class AuthUserRoleAssignmentServiceTest {
                 null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("approvalTraceId");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " ", "FIN", "GLOBAL:FIN", "GLOBAL,FIN", "global", " GLOBAL "})
+    void replaceRoleAssignmentsRejectsUnapprovedScopeBeforePersistence(String scope) {
+        AtomicReference<AuthUserRoleAssignmentPersistencePort.RoleAssignmentReplacement> saved =
+                new AtomicReference<>();
+        AuthUserRoleAssignmentService service = new AuthUserRoleAssignmentService(replacement -> {
+            saved.set(replacement);
+            throw new AssertionError("Invalid scope reached persistence");
+        }, CLOCK);
+
+        assertThatThrownBy(() -> service.replaceRoleAssignments(new ReplaceRoleAssignmentsCommand(
+                "admin", List.of("ROLE_SYSTEM_ADMIN"), scope, null, null,
+                "approver01", "governance-approval-id=invalid-scope")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dataScope");
+        assertThat(saved.get()).isNull();
     }
 
     private AuthUserRoleAssignmentService service() {

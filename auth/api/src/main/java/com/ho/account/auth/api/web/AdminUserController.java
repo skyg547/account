@@ -19,14 +19,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminUserController {
 
     static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
+    static final String AUTH_USER_HEADER = "X-Auth-User";
 
     private final AdminUserQueryUseCase adminUserQueryUseCase;
 
     @GetMapping("/users")
     public ResponseEntity<List<AdminUserDto>> findAllUsers(
-            @RequestHeader(value = AUTH_ROLES_HEADER, required = false) String authenticatedRoles) {
+            @RequestHeader(value = AUTH_ROLES_HEADER, required = false) String authenticatedRoles,
+            @RequestHeader(value = AUTH_USER_HEADER, required = false) String authenticatedUsername) {
         requireSystemAdmin(authenticatedRoles);
-        List<AdminUserDto> response = adminUserQueryUseCase.findAllUsers().stream()
+        if (authenticatedUsername == null || authenticatedUsername.isBlank()) {
+            throw new UserAccessDeniedException("Authenticated user is required.");
+        }
+        // Core checks the current stored assignment; the gateway role header is only a first gate.
+        List<AdminUserDto> response = adminUserQueryUseCase.findAllUsers(authenticatedUsername.trim()).stream()
                 .map(AdminUserDto::from)
                 .toList();
         return ResponseEntity.ok(response);

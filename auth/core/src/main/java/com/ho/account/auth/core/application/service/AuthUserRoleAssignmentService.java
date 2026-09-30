@@ -43,6 +43,10 @@ public class AuthUserRoleAssignmentService implements AuthUserRoleAssignmentUseC
         if (roleCodes.isEmpty()) {
             throw new IllegalArgumentException("At least one roleCode is required.");
         }
+        // Scope policy is not implemented yet; exact GLOBAL is the only approval we can safely persist.
+        if (!"GLOBAL".equals(command.dataScope())) {
+            throw new IllegalArgumentException("dataScope must be GLOBAL.");
+        }
 
         List<RoleAssignment> assignments = roleCodes.stream()
                 .map(roleCode -> new RoleAssignment(

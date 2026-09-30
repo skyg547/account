@@ -8,7 +8,7 @@
 
 MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `master-data`에 접근할 때 로그인하고, `journal-ledger`에 접근할 때 다시 로그인하게 할 수는 없습니다.
 
-그래서 사용자는 **한 번 `auth` 모듈에 로그인**합니다. 성공하면 `auth`는 서명된 **JWT(JSON Web Token)**를 발급합니다. 사용자는 이후 요청마다 이 출입증을 보내고, Gateway와 각 서비스는 서명·issuer·역할 버전을 검사해 접근을 결정합니다.
+그래서 사용자는 **한 번 `auth` 모듈에 로그인**합니다. 성공하면 `auth`는 서명된 **JWT(JSON Web Token)**를 발급합니다. 사용자는 이후 요청마다 이 출입증을 보내고, Gateway는 서명·issuer를 확인한 뒤 Auth의 현재 token-version 검증을 거쳐 인증 헤더를 전달합니다. 각 서비스의 접근 정책은 해당 서비스가 판단합니다.
 
 ---
 
@@ -21,7 +21,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 - 현재 성공을 허용하는 로그인 유형은 대소문자를 구분하지 않는 명시적 `NORMAL`뿐입니다. `AuthService`는 사용자, 비밀번호, 활성/잠금, 부서, 유효 역할을 순서대로 확인합니다.
 - SSO 신뢰 공급자가 연결되어 있지 않으므로 클라이언트가 `SSO`를 지정해도 일반적인 자격 증명 오류로 fail-closed 처리하며 JWT를 발급하지 않습니다. null, 공백, 그 밖의 알 수 없는 로그인 유형도 같은 공개 오류로 거부합니다. 이 요청들은 자격 증명 검증이 시작되지 않으므로 로그인 실패 횟수나 임시 잠금 카운터를 소비하지 않습니다.
 - LDAP 로그인은 실제 OTP 검증 공급자가 연결되어 있지 않으므로 모든 OTP 값을 신뢰하지 않고 일반적인 자격 증명 오류로 fail-closed 처리합니다. 저장소에는 고정 OTP나 기본 OTP가 없습니다.
-- 로그인 한 시점의 유효 역할을 확정해 같은 목록을 `AuthenticationResult`, JWT `roles`, JWT `roleAssignments`에 사용합니다.
+- 저장된 역할 할당 중 하나라도 지원하지 않는 `dataScope`이면 만료되었거나 현재 유효하지 않아도 JWT를 발급하지 않습니다. 모든 저장 할당의 범위가 정확한 `GLOBAL`이면 로그인 한 시점의 유효 역할을 확정해 같은 목록을 `AuthenticationResult`, JWT `roles`, JWT `roleAssignments`에 사용합니다.
 - Controller가 core 결과를 `LoginResponse`로 변환하므로 core는 HTTP DTO를 참조하지 않습니다.
 
 ### 📌 헥사고날 아키텍처와 DDD
@@ -43,12 +43,13 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
   - `V71__auth_login_attempts.sql`: 공유 로그인 실패/잠금
   - `V72__auth_role_assignment_apply_log.sql`: Governance 승인 반영 멱등 이력
 - memory와 JPA 모드 모두 역할의 `dataScope`, `validFrom`, `validTo`를 보존합니다.
+- 현재 Auth의 범위 정책은 명시적이고 대소문자까지 정확한 `GLOBAL`만 지원합니다. 기존 저장값의 공백·대소문자 변형이나 지원하지 않는 범위를 `GLOBAL`로 자동 변환하지 않습니다.
 
 ### 📌 토큰 Role Version 검증
 
 - `POST /api/auth/validate-token-version`
 - 현재 DB의 `roleVersion`과 JWT 값이 같아야 합니다.
-- 사용자가 비활성, 관리 잠금 또는 유효 역할 없음 상태이면 버전이 같아도 `valid=false`입니다.
+- 사용자가 비활성, 관리 잠금, 유효 역할 없음 또는 저장된 할당 중 지원하지 않는 범위가 있는 상태이면 버전이 같아도 `valid=false`입니다. 만료·비활성인 미지원 할당이 `GLOBAL` 할당과 섞여 있어도 거부하며, Governance 역할 교체로 제거해야 다시 통과합니다.
 - 역할 변경으로 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
 
 ### 📌 로그인 실패 감사와 임시 잠금
@@ -62,9 +63,16 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 
 - `POST /api/auth/internal/users/{username}/role-assignments`
 - `X-Internal-Auth-Token`이 일치해야 하며 `approvalTraceId`는 필수입니다.
+- `dataScope`는 명시적 `GLOBAL`만 허용합니다. null·공백은 요청 검증에서, `global`·` GLOBAL ` 및 부서 등 다른 범위는 core에서 저장 전에 거부합니다(400). 기간과 승인자는 기존 요청 필드 그대로 사용합니다.
 - 최초 요청은 현재 역할 목록을 교체하고 `roleVersion`을 1 증가시킵니다.
 - 같은 trace와 같은 내용의 재시도는 이미 적용된 요청으로 판단해 역할과 버전을 다시 바꾸지 않습니다.
 - 같은 trace를 다른 사용자나 역할 내용에 재사용하면 fail-closed 예외로 중단합니다.
+
+### 📌 관리자 사용자 목록과 범위 제한
+
+- `GET /api/admin/users`는 Gateway가 만든 `X-Auth-Roles`의 시스템 관리자 역할과 `X-Auth-User`의 사용자명이 모두 필요합니다.
+- Auth는 헤더만 믿고 전체 목록을 반환하지 않습니다. 저장된 호출자 계정을 다시 조회해 활성·잠금 상태와 현재 유효한 역할을 확인합니다. 저장된 모든 할당이 정확한 `GLOBAL`이고 현재 유효한 `ROLE_SYSTEM_ADMIN`이 있어야 전체 사용자 목록을 반환합니다. 만료·비활성인 미지원 할당이 있어도 403입니다.
+- Auth 범위 내에서는 범위별 사용자 목록 필터, 부서 질의 필터, master-data의 범위별 쓰기 권한을 구현하지 않았습니다. 이 목록은 승인된 전역 관리자에게만 제공되는 전체 목록입니다.
 
 ### 📌 통합 비밀번호 인코딩 정책 (PasswordEncoderPolicy)
 
@@ -144,7 +152,14 @@ docker-compose up -d auth
 포함합니다. 빠지면 Spring Boot 기본값(`localhost`)으로 접속을 시도해 `account-redis` 컨테이너를 찾지 못하고
 `/actuator/health`가 503을 반환합니다. (관련: [GH-474](https://github.com/skyg547/account/issues/474))
 
-현재 변경의 실제 검증 기준은 H2 단독 Gradle 실행입니다. Docker와 실제 PostgreSQL/Flyway는 별도 통합 환경에서 확인해야 합니다.
+이 범위 정책의 회귀 검증은 JDK 17과 캐시된 의존성이 있는 저장소 루트에서 다음 명령으로 수행했습니다. `:auth:test` 단독 작업은 `NO-SOURCE`였고, 실제 테스트는 하위 모듈을 명시한 두 번째 명령에서 실행됐습니다.
+
+```bash
+./gradlew :auth:test --offline --no-daemon --console=plain --max-workers=2
+./gradlew :auth:core:test :auth:api:test :gateway:test :master-data:core:test :master-data:api:test --offline --no-daemon --console=plain --max-workers=2
+```
+
+두 번째 명령은 `BUILD SUCCESSFUL`입니다. Docker, 실제 PostgreSQL, 배포된 HTTP 경로는 이 결과로 검증되지 않았습니다.
 
 상세한 JAR 실행과 fail-closed 확인 절차는 [docs/local-run.md](./docs/local-run.md)를 따릅니다.
 

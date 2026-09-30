@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class RoleAssignmentTest {
 
@@ -46,5 +49,22 @@ class RoleAssignmentTest {
                 "ROLE_ADMIN", "S".repeat(81), null, null, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("80");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " ", "\t"})
+    void missingScopeCannotBePromotedToGlobal(String scope) {
+        assertThatThrownBy(() -> new RoleAssignment("ROLE_SYSTEM_ADMIN", scope, null, null, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("dataScope");
+    }
+
+    @Test
+    void legacyScopedAssignmentCanBeLoadedWithoutBecomingGlobal() {
+        RoleAssignment legacy = new RoleAssignment("ROLE_SYSTEM_ADMIN", "FIN", START, END, true);
+
+        assertThat(legacy.dataScope()).isEqualTo("FIN");
+        assertThat(legacy.isEffectiveAt(START)).isTrue();
     }
 }

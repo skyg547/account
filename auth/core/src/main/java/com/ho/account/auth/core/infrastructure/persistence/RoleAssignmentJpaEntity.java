@@ -61,7 +61,11 @@ class RoleAssignmentJpaEntity {
             String approvedBy,
             Instant approvedAt) {
         this.roleCode = requireText(roleCode, "roleCode is required.");
-        this.dataScope = dataScope == null || dataScope.isBlank() ? "GLOBAL" : dataScope.trim();
+        // Preserve noncanonical scopes for domain rejection; never widen a missing scope to GLOBAL.
+        if (dataScope == null || dataScope.isBlank()) {
+            throw new IllegalArgumentException("dataScope is required.");
+        }
+        this.dataScope = dataScope;
         this.validFrom = validFrom;
         this.validTo = validTo;
         this.approved = approved;

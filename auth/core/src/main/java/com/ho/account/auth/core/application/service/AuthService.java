@@ -110,6 +110,12 @@ public class AuthService implements AuthUseCase {
 
         verifySecondFactor(command, user.getUsername(), isLdap);
 
+        // Expired or future scoped grants still invalidate old role-version tokens while stored.
+        if (user.getRoleAssignments().stream().anyMatch(assignment -> !assignment.hasSupportedScope())) {
+            loginAttemptPort.recordFailure(username, "UNSUPPORTED_ROLE_SCOPE");
+            throw new UserAccessDeniedException("User has an unsupported role scope");
+        }
+
         Instant authenticatedAt = clock.instant();
         List<RoleAssignment> effectiveAssignments = user.effectiveRoleAssignmentsAt(authenticatedAt);
         if (effectiveAssignments.isEmpty()) {
@@ -221,6 +227,7 @@ public class AuthService implements AuthUseCase {
         return authUserQueryPort.findByUsername(username.trim())
                 .filter(AuthUser::isActive)
                 .filter(user -> !user.isLocked())
+                .filter(user -> user.getRoleAssignments().stream().allMatch(RoleAssignment::hasSupportedScope))
                 .filter(user -> !user.effectiveRoleAssignmentsAt(validatedAt).isEmpty())
                 .map(user -> user.getRoleVersion() == roleVersion)
                 .orElse(false);

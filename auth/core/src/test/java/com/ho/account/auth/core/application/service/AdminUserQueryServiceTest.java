@@ -1,7 +1,9 @@
 package com.ho.account.auth.core.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.model.AdminUserView;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
@@ -11,6 +13,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,7 +31,7 @@ class AdminUserQueryServiceTest {
         AdminUserQueryService service = service(List.of(user(
                 "user@example.com", true, false, "FIN", List.of(RoleAssignment.approved(storedRole)))));
 
-        assertThat(service.findAllUsers()).singleElement()
+        assertThat(service.findAllUsers("admin")).singleElement()
                 .extracting(AdminUserView::role)
                 .isEqualTo(expectedRole);
     }
@@ -44,9 +47,9 @@ class AdminUserQueryServiceTest {
                 "FIN",
                 List.of(new RoleAssignment("ROLE_FUTURE", "GLOBAL", NOW.plusSeconds(1), null, true)));
 
-        List<AdminUserView> first = service(List.of(zeta, alpha)).findAllUsers();
-        List<AdminUserView> reordered = service(List.of(alpha, zeta)).findAllUsers();
-        List<AdminUserView> alphaOnly = service(List.of(alpha)).findAllUsers();
+        List<AdminUserView> first = service(List.of(zeta, alpha)).findAllUsers("admin");
+        List<AdminUserView> reordered = service(List.of(alpha, zeta)).findAllUsers("admin");
+        List<AdminUserView> alphaOnly = service(List.of(alpha)).findAllUsers("admin");
 
         assertThat(first).extracting(AdminUserView::email)
                 .containsExactly("alpha@example.com", "zeta@example.com");
@@ -67,10 +70,89 @@ class AdminUserQueryServiceTest {
         assertThat(first.get(1).department()).isEmpty();
     }
 
-    private AdminUserQueryService service(List<AuthUser> users) {
+    @Test
+    void deniesScopedSystemAdministratorWithoutListingUsers() {
+        AuthUser scopedAdmin = user("admin", true, false, "FIN", List.of(
+                new RoleAssignment("ROLE_SYSTEM_ADMIN", "FIN", null, null, true)));
+        AtomicBoolean listQueried = new AtomicBoolean();
         AuthUserQueryPort queryPort = new AuthUserQueryPort() {
             @Override
             public Optional<AuthUser> findByUsername(String username) {
+                return Optional.of(scopedAdmin);
+            }
+
+            @Override
+            public List<AuthUser> findAllUsers() {
+                listQueried.set(true);
+                return List.of(scopedAdmin);
+            }
+        };
+        AdminUserQueryService service = new AdminUserQueryService(queryPort, Clock.fixed(NOW, ZoneOffset.UTC));
+        assertThatThrownBy(() -> service.findAllUsers("admin"))
+                .isInstanceOf(UserAccessDeniedException.class);
+        assertThat(listQueried).isFalse();
+    }
+
+    @Test
+    void deniesStaleOrUnavailableAdministratorAssignment() {
+        List<AuthUser> administrators = List.of(
+                user("admin", true, false, "FIN", List.of(
+                        new RoleAssignment("ROLE_SYSTEM_ADMIN", "GLOBAL", NOW.plusSeconds(1), null, true))),
+                user("admin", true, false, "FIN", List.of(
+                        new RoleAssignment("ROLE_SYSTEM_ADMIN", "GLOBAL", null, null, false))),
+                user("admin", false, false, "FIN", List.of(RoleAssignment.approved("ROLE_SYSTEM_ADMIN"))),
+                user("admin", true, true, "FIN", List.of(RoleAssignment.approved("ROLE_SYSTEM_ADMIN"))),
+                user("admin", true, false, "FIN", List.of(RoleAssignment.approved("ROLE_AUDITOR"))));
+        administrators.forEach(admin -> assertThatThrownBy(() ->
+                service(List.of(), admin).findAllUsers("admin"))
+                .isInstanceOf(UserAccessDeniedException.class));
+        assertThatThrownBy(() -> service(List.of()).findAllUsers("missing"))
+                .isInstanceOf(UserAccessDeniedException.class);
+    }
+
+    @Test
+    void globalSystemAdministratorCanListUsersUsingCurrentStoredAssignment() {
+        AuthUser globalAdmin = user("admin", true, false, "FIN", List.of(
+                new RoleAssignment("ROLE_SYSTEM_ADMIN", "GLOBAL", null, null, true)));
+        assertThat(service(List.of(user("member", true, false, null,
+                List.of(RoleAssignment.approved("ROLE_USER")))), globalAdmin)
+                .findAllUsers("admin"))
+                .extracting(AdminUserView::email)
+                .containsExactly("member");
+    }
+
+    @Test
+    void globalAdministratorRoleCannotMaskAnotherEffectiveScopedRole() {
+        AuthUser mixedAdmin = user("admin", true, false, "FIN", List.of(
+                RoleAssignment.approved("ROLE_SYSTEM_ADMIN"),
+                new RoleAssignment("ROLE_AUDITOR", "FIN", null, null, true)));
+
+        assertThatThrownBy(() -> service(List.of(), mixedAdmin).findAllUsers("admin"))
+                .isInstanceOf(UserAccessDeniedException.class);
+    }
+
+    @Test
+    void expiredLegacyScopedRoleStillDeniesCurrentGlobalAdministratorListing() {
+        AuthUser mixedAdmin = user("admin", true, false, "FIN", List.of(
+                RoleAssignment.approved("ROLE_SYSTEM_ADMIN"),
+                new RoleAssignment("ROLE_MASTER_MANAGER", "FIN", null, NOW.minusSeconds(1), true)));
+
+        assertThatThrownBy(() -> service(List.of(), mixedAdmin).findAllUsers("admin"))
+                .isInstanceOf(UserAccessDeniedException.class);
+    }
+
+    private AdminUserQueryService service(List<AuthUser> users) {
+        return service(users, user("admin", true, false, null,
+                List.of(RoleAssignment.approved("ROLE_SYSTEM_ADMIN"))));
+    }
+
+    private AdminUserQueryService service(List<AuthUser> users, AuthUser administrator) {
+        AuthUserQueryPort queryPort = new AuthUserQueryPort() {
+            @Override
+            public Optional<AuthUser> findByUsername(String username) {
+                if (administrator.hasUsername(username)) {
+                    return Optional.of(administrator);
+                }
                 return users.stream().filter(user -> user.hasUsername(username)).findFirst();
             }
 
