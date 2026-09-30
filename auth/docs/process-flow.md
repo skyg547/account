@@ -22,7 +22,7 @@
 
 ## 관리자 사용자 목록 투영
 
-`/api/admin/**` 수신 필터는 `Authorization: Bearer <JWT>` 하나를 요구하고 HS256 서명, issuer, 설정된 audience(`AUTH_JWT_AUDIENCE`, 기본값 `account-api`), 발급·만료 시각, 역할 형식, 현재 `roleVersion`을 확인합니다. Gateway가 전달한 `X-Auth-*`/`X-User-ID`가 있으면 JWT 신원과 정확히 일치해야 합니다. 없는 헤더는 JWT claim으로 대신하며, Controller는 검증된 claim 역할만 사용합니다. 원시 헤더만 있거나 위조·만료·불일치 토큰이면 use case 전에 401, 유효 토큰에 관리자 역할이 없으면 403입니다. `OPTIONS` preflight와 공개 `POST /api/auth/login`에는 이 관리자 필터가 적용되지 않습니다. 현재 Auth 스키마의 자연키는 username이며 숫자 ID, 별도 이름·이메일, 마지막 로그인 시각을 저장하지 않으므로 응답은 다음과 같은 제한된 표시용 투영입니다.
+`/api/admin/**` 수신 필터는 `Authorization: Bearer <JWT>` 하나를 요구하고 HS256 서명, issuer, 설정된 audience(`AUTH_JWT_AUDIENCE`, 기본값 `account-api`), 발급·만료 시각, 역할 형식, 현재 `roleVersion`을 확인합니다. Gateway가 전달한 `X-Auth-*`/`X-User-ID`가 있으면 JWT 신원과 정확히 일치해야 합니다. 없는 헤더는 JWT claim으로 대신하며, Controller는 검증된 claim 역할만 사용합니다. 원시 헤더만 있거나 위조·만료·불일치 토큰이면 use case 전에 401, 유효 토큰에 관리자 역할이 없으면 403입니다. 이후 core가 해당 사용자를 현재 저장소에서 다시 읽어 활성·잠금 상태, **모든 저장 역할의 `GLOBAL` 범위**, 요청 시점에 유효한 시스템 관리자 역할을 확인합니다. 어느 하나라도 실패하면 전체 목록 조회 전에 403으로 중단합니다. 역할 이름이 같아도 `GLOBAL` 관리자는 조회할 수 있고 `FIN` 같은 scoped 관리자는 조회할 수 없습니다. `OPTIONS` preflight와 공개 `POST /api/auth/login`에는 이 관리자 필터가 적용되지 않습니다. 현재 Auth 스키마의 자연키는 username이며 숫자 ID, 별도 이름·이메일, 마지막 로그인 시각을 저장하지 않으므로 응답은 다음과 같은 제한된 표시용 투영입니다.
 
 관리자 경로 판별은 MVC가 라우팅 전에 제거하는 matrix parameter와 퍼센트 인코딩을 고려합니다. 예를 들어 `/api/admin;v=1/users`와 `/api/admin%3Bv=1/users`도 Bearer 검증을 거치며, 역할 헤더만 보낸 요청은 401이고 목록 조회에 도달하지 않습니다.
 
@@ -60,6 +60,8 @@ sequenceDiagram
 ```
 
 core는 `api.dto`를 참조하지 않습니다. 역할 유효성 계산 시각을 서비스가 한 번 만들고 JWT 어댑터에 전달하므로 응답과 claim이 같은 스냅샷을 사용합니다.
+
+현재 인가 가능한 `dataScope`는 정확한 문자열 `GLOBAL` 한 가지이며 별도 scope subject는 없습니다. 새 역할 교체 요청에 `dataScope`가 없거나 비어 있으면 API가 400을 반환합니다. `FIN`, `DEPARTMENT:FIN`, 소문자나 앞뒤 공백 등 그 밖의 값도 core가 저장·멱등 fingerprint 계산 전에 400으로 거부합니다. 기존 저장 행의 비전역 범위 문자열은 `GLOBAL`로 바꾸지 않고 보존합니다. 그런 행이 하나라도 있는 사용자는 로그인에서 403을 받고 JWT를 발급받지 못합니다. 직접 JWT 발급 어댑터를 호출해도 같은 범위가 거부됩니다. 이는 부서별 권한 정책과 대상 데이터 필터가 정해지기 전의 차단 규칙입니다.
 
 현재 성공 경로는 대소문자를 구분하지 않는 명시적 `NORMAL`뿐입니다. 신뢰할 SSO 공급자가 없으므로 `SSO` 요청은 일반적인 자격 증명 오류로 끝나며 사용자 조회나 JWT 발급으로 진행하지 않습니다. null, 공백, 알 수 없는 로그인 유형도 같은 공개 오류를 반환합니다. 이들은 자격 증명 검증이 시작되지 않은 요청이므로 로그인 실패 저장소를 조회하거나 실패 횟수와 임시 잠금 카운터를 변경하지 않습니다.
 
@@ -142,9 +144,12 @@ username 존재
 AND roleVersion 일치
 AND account_active = true
 AND account_locked = false
+AND 모든 저장 역할의 dataScope = GLOBAL
 AND 검증 시점의 유효 역할이 1개 이상
 => valid = true
 ```
+
+만료되었거나 비승인인 비전역 역할도 차단합니다. 과거 JWT에 서명된 역할 내용은 현재 이 API의 username/roleVersion 입력만으로 복원할 수 없기 때문입니다. Gateway가 token-version 검증을 끄거나 이전 성공을 캐시한 동안에는 이 Auth 응답이 즉시 모든 서비스에 적용되지 않습니다. Gateway의 `roleAssignments` 해석·전달과 master-data 쓰기 정책은 별도 모듈 변경이 필요합니다.
 
 ## Gateway와의 관계
 

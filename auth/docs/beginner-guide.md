@@ -14,7 +14,7 @@
 | --- | --- |
 | JWT | 로그인 성공 후 발급되는 서명된 토큰. |
 | role | 사용자가 가진 권한 묶음. 예: `ROLE_ADMIN`. |
-| dataScope | 권한이 적용되는 데이터 범위. |
+| dataScope | 권한이 적용되는 데이터 범위. 현재 새 승인은 정확한 `GLOBAL`만 허용하며 부서별 범위는 아직 사용할 수 없습니다. |
 | roleVersion | 역할이 바뀔 때 증가하는 숫자. 기존 토큰 재사용을 막는 기준. |
 | approvalTraceId | Governance 승인 한 건을 식별하는 멱등 키. 같은 승인 재시도를 구분합니다. |
 | request fingerprint | 사용자·역할·기간·승인자를 정규화해 만든 SHA-256 값. 같은 trace의 내용 변경을 탐지합니다. |

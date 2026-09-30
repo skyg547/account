@@ -5,5 +5,5 @@ import java.util.List;
 
 public interface AdminUserQueryUseCase {
 
-    List<AdminUserView> findAllUsers();
+    List<AdminUserView> findAllUsers(String authenticatedUsername);
 }

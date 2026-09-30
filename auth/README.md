@@ -43,12 +43,14 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
   - `V71__auth_login_attempts.sql`: 공유 로그인 실패/잠금
   - `V72__auth_role_assignment_apply_log.sql`: Governance 승인 반영 멱등 이력
 - memory와 JPA 모드 모두 역할의 `dataScope`, `validFrom`, `validTo`를 보존합니다.
+- 현재 지원하는 인가 범위는 subject가 없는 정확한 `GLOBAL`뿐입니다. 새 승인에 범위가 없거나 다른 값이면 저장하지 않고 거부합니다. 기존 비전역 범위 행은 승격하지 않으며 로그인·토큰 버전 검증에서 계정을 차단합니다. 관리자 사용자 목록은 현재 저장된 전역 관리자 역할도 확인합니다. 입력·출력·남는 Gateway 제한은 [역할 범위 흐름](./docs/process-flow.md)에 설명합니다.
 
 ### 📌 토큰 Role Version 검증
 
 - `POST /api/auth/validate-token-version`
 - 현재 DB의 `roleVersion`과 JWT 값이 같아야 합니다.
 - 사용자가 비활성, 관리 잠금 또는 유효 역할 없음 상태이면 버전이 같아도 `valid=false`입니다.
+- 저장 역할 중 비전역 범위가 하나라도 있으면 만료·비승인 여부와 무관하게 `valid=false`입니다.
 - 역할 변경으로 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
 
 ### 📌 PAT 관리

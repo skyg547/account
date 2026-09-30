@@ -28,6 +28,8 @@ import org.springframework.web.util.UriUtils;
 @Component
 public class AdminBearerAuthenticationFilter extends OncePerRequestFilter {
 
+    static final String AUTHENTICATED_USER_ATTRIBUTE =
+            AdminBearerAuthenticationFilter.class.getName() + ".user";
     static final String AUTHENTICATED_ROLES_ATTRIBUTE =
             AdminBearerAuthenticationFilter.class.getName() + ".roles";
 
@@ -82,6 +84,7 @@ public class AdminBearerAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         List<String> roles;
+        String username;
         try {
             String token = bearerToken(request);
             Jws<Claims> verified = jwtParser.parseClaimsJws(token);
@@ -93,6 +96,7 @@ public class AdminBearerAuthenticationFilter extends OncePerRequestFilter {
                     || claims.getIssuedAt().after(new Date())) {
                 throw new IllegalArgumentException("invalid token claims");
             }
+            username = claims.getSubject();
             roles = roles(claims);
             requireMatchingIdentityHeaders(request, claims, roles);
             // Direct Auth calls must honor role revocation just as Gateway-routed calls do.
@@ -105,6 +109,7 @@ public class AdminBearerAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         // Only verified claims become controller authority; forwarded identity headers never do.
+        request.setAttribute(AUTHENTICATED_USER_ATTRIBUTE, username);
         request.setAttribute(AUTHENTICATED_ROLES_ATTRIBUTE, roles);
         chain.doFilter(request, response);
     }

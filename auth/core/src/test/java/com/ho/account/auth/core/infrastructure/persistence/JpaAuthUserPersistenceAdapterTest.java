@@ -21,6 +21,7 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -45,6 +46,9 @@ class JpaAuthUserPersistenceAdapterTest {
     @Autowired
     private RoleAssignmentApplyLogJpaRepository applyLogRepository;
 
+    @Autowired
+    private TestEntityManager entityManager;
+
     @Test
     void findByUsernameLoadsApprovedEffectiveRoleAssignments() {
         userRepository.save(userWithRoles());
@@ -59,6 +63,27 @@ class JpaAuthUserPersistenceAdapterTest {
         assertThat(user.getRoleVersion()).isEqualTo(3L);
         assertThat(user.getRoleAssignments()).hasSize(3);
         assertThat(user.effectiveRolesAt(NOW)).containsExactly("ROLE_TELLER");
+    }
+
+    @Test
+    void legacyBlankScopeHydratesWithoutBecomingGlobal() {
+        userRepository.save(userWithRoles());
+        userRepository.flush();
+        entityManager.getEntityManager().createNativeQuery("""
+                update auth_role_assignments set data_scope = ''
+                where username = 'teller' and role_code = 'ROLE_TELLER'
+                """).executeUpdate();
+        entityManager.clear();
+
+        AuthUser user = adapter.findByUsername("teller").orElseThrow();
+
+        assertThat(user.getRoleAssignments())
+                .filteredOn(assignment -> assignment.roleCode().equals("ROLE_TELLER"))
+                .singleElement()
+                .satisfies(assignment -> {
+                    assertThat(assignment.dataScope()).isEmpty();
+                    assertThat(assignment.hasSupportedAuthorizationScope()).isFalse();
+                });
     }
 
     @Test

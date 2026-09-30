@@ -37,6 +37,10 @@ public class JwtTokenIssuer implements TokenIssuerPort {
         long expirationSeconds = properties.getJwt().getExpirationSeconds();
         Instant expiresAt = issuedAt.plusSeconds(expirationSeconds);
         List<RoleAssignment> assignments = subject.effectiveRoleAssignments();
+        // A direct issuer call must not turn a legacy scoped grant into a flat gateway role.
+        if (assignments.stream().anyMatch(assignment -> !assignment.hasSupportedAuthorizationScope())) {
+            throw new IllegalArgumentException("Unsupported role assignment dataScope.");
+        }
         List<String> roles = assignments.stream()
                 .map(RoleAssignment::roleCode)
                 .distinct()
