@@ -47,8 +47,7 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             @Param("codes") Collection<String> codes,
             @Param("date") LocalDate date);
 
-    // @todo 운영 PostgreSQL에서는 business_partner_code와 날짜 범위에 exclusion constraint를 추가해야 합니다.
-    // 완료 조건: 겹치는 SCD2 행 저장 자체를 거부하는 forward migration과 PostgreSQL 통합 테스트를 함께 둡니다.
+    // V9의 PostgreSQL exclusion은 useYn과 무관하게 과거 기준일 조회의 유일성도 보호합니다.
     @EntityGraph(attributePaths = "accounts")
     @Query("""
             SELECT bp FROM BusinessPartnerJpaEntity bp
@@ -68,6 +67,10 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
     @Override
     @EntityGraph(attributePaths = "accounts")
     Optional<BusinessPartnerJpaEntity> findById(Long id);
+
+    // 업무 키 잠금 전에는 scalar만 조회해 잠금 대기 중 변경된 엔티티가 cache에 남지 않게 합니다.
+    @Query("SELECT bp.businessPartnerCode FROM BusinessPartnerJpaEntity bp WHERE bp.id = :id")
+    Optional<String> findBusinessKeyById(@Param("id") Long id);
 
     @Override
     @EntityGraph(attributePaths = "accounts")
@@ -102,9 +105,8 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             @Param("businessPartnerCode") String businessPartnerCode,
             @Param("date") LocalDate date);
 
-    default boolean existsByBusinessPartnerCode(String businessPartnerCode) {
-        return existsActiveByBusinessPartnerCode(businessPartnerCode, LocalDate.now());
-    }
+    // CREATE는 종료/미래/비활성 이력이 있는 업무 키도 재사용하지 않습니다.
+    boolean existsByBusinessPartnerCode(String businessPartnerCode);
 
     @EntityGraph(attributePaths = "accounts")
     @Query("""

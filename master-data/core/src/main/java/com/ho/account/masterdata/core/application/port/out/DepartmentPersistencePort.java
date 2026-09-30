@@ -15,6 +15,9 @@ public interface DepartmentPersistencePort {
 
     Optional<Department> findActiveByCode(String code);
 
+    /** 업무 키 잠금 후, 기존 영속성 캐시 대신 최신 현재 버전을 잠가 읽습니다. */
+    Optional<Department> findActiveByCodeForUpdate(String code);
+
     Optional<Department> findActiveByCodeAt(String code, java.time.LocalDate asOfDate);
 
     List<Department> findAll();

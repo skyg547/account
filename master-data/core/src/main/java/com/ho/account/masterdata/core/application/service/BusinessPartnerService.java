@@ -4,6 +4,10 @@ import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,9 +27,12 @@ import java.util.Optional;
 public class BusinessPartnerService implements BusinessPartnerUseCase {
 
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
+    private final MasterDataBusinessKeyLockPort businessKeyLockPort;
 
-    public BusinessPartnerService(BusinessPartnerPersistencePort businessPartnerPersistencePort) {
+    public BusinessPartnerService(BusinessPartnerPersistencePort businessPartnerPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort) {
         this.businessPartnerPersistencePort = businessPartnerPersistencePort;
+        this.businessKeyLockPort = businessKeyLockPort;
     }
 
     /**
@@ -37,8 +44,10 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
             throw new IllegalArgumentException("거래처 등록 명령은 필수입니다.");
         }
         BusinessPartner businessPartner = command.toDomain();
+        // 도메인이 정규화한 실제 저장 코드로 잠가 공백이 있는 직접 입력도 같은 키로 직렬화합니다.
+        businessKeyLockPort.lock(MasterDataType.BUSINESS_PARTNER, businessPartner.getBusinessPartnerCode());
         if (businessPartnerPersistencePort.existsByBusinessPartnerCode(businessPartner.getBusinessPartnerCode())) {
-            throw new IllegalArgumentException("이미 존재하는 거래처 코드입니다: " + businessPartner.getBusinessPartnerCode());
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 거래처 코드입니다: " + businessPartner.getBusinessPartnerCode());
         }
         return businessPartnerPersistencePort.save(businessPartner);
     }
@@ -90,7 +99,8 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
         if (command == null) {
             throw new IllegalArgumentException("거래처 수정 명령은 필수입니다.");
         }
-        BusinessPartner currentActive = businessPartnerPersistencePort.findById(id)
+        lockBusinessKeyById(id);
+        BusinessPartner currentActive = businessPartnerPersistencePort.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
 
         // 도메인이 새 버전을 먼저 완전히 검증한 뒤에만 현재 버전을 닫습니다.
@@ -129,11 +139,21 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
 
     @Override
     public void deleteBusinessPartner(Long id, LocalDate effectiveDate) {
-        BusinessPartner businessPartner = businessPartnerPersistencePort.findById(id)
+        lockBusinessKeyById(id);
+        BusinessPartner businessPartner = businessPartnerPersistencePort.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
 
-        // 종료일 범위와 중복 종료는 aggregate가 검증하므로 모든 인바운드 경로에 같은 규칙이 적용됩니다.
-        businessPartner.terminate(effectiveDate);
+        // aggregate의 같은 날짜 no-op을 승인 반영 성공으로 오인하지 않도록 잠금 뒤 확인합니다.
+        LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
+                effectiveDate, businessPartner.getValidFrom(), businessPartner.getValidTo());
+        businessPartner.terminate(terminationDate);
         businessPartnerPersistencePort.save(businessPartner);
+    }
+
+    private void lockBusinessKeyById(Long id) {
+        // 먼저 aggregate를 읽으면 잠금 대기 후에도 영속성 캐시에 이전 유효기간이 남을 수 있습니다.
+        String businessKey = businessPartnerPersistencePort.findBusinessKeyById(id)
+                .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
+        businessKeyLockPort.lock(MasterDataType.BUSINESS_PARTNER, businessKey);
     }
 }

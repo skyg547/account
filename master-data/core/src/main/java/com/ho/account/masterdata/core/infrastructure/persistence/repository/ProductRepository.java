@@ -11,6 +11,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
+    // 업무 키 잠금 전에 엔티티를 영속성 컨텍스트에 담으면 대기 후에도 낡은 상태가 재사용될 수 있습니다.
+    @Query("SELECT p.productCode FROM ProductEntity p WHERE p.id = :id")
+    Optional<String> findBusinessKeyById(Long id);
+
     List<ProductEntity> findByProductCodeOrderByValidFromDesc(String productCode);
 
     @Query("SELECT p FROM ProductEntity p WHERE p.productCode = :productCode AND p.validFrom <= :date AND p.validTo >= :date")
@@ -31,4 +35,3 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
     @Query("SELECT COUNT(p) FROM ProductEntity p WHERE p.validFrom <= :date AND p.validTo >= :date")
     long countActiveAt(LocalDate date);
 }
-

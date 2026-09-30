@@ -3,6 +3,9 @@ package com.ho.account.masterdata.core.application.service;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import org.springframework.stereotype.Service;
@@ -28,9 +31,12 @@ import java.util.Optional;
 public class AccountSubjectService implements AccountSubjectUseCase {
 
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final MasterDataBusinessKeyLockPort businessKeyLockPort;
 
-    public AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort) {
+    public AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort) {
         this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.businessKeyLockPort = businessKeyLockPort;
     }
 
     /**
@@ -40,8 +46,10 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
-        if (accountSubjectPersistencePort.findByCode(command.code()).isPresent()) {
-            throw new IllegalArgumentException("이미 해당 시점에 활성화된 계정과목 코드가 존재합니다: " + command.code());
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, command.code());
+        // 아직 활성화되지 않은 미래 이력도 CREATE 재사용을 막아야 합니다.
+        if (accountSubjectPersistencePort.existsByCode(command.code())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 계정과목 코드입니다: " + command.code());
         }
 
         AccountSubject accountSubject = command.toEntity();
@@ -87,7 +95,8 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject updateAccountSubject(String code, AccountSubjectCommand command) {
-        AccountSubject currentActive = accountSubjectPersistencePort.findByCode(code)
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, code);
+        AccountSubject currentActive = accountSubjectPersistencePort.findByCodeForUpdate(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
 
         // SCD2: 기존 활성 버전 종료
@@ -131,10 +140,11 @@ public class AccountSubjectService implements AccountSubjectUseCase {
 
     @Override
     public void deactivateAccountSubject(String code, LocalDate effectiveDate) {
-        AccountSubject account = accountSubjectPersistencePort.findByCode(code)
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, code);
+        AccountSubject account = accountSubjectPersistencePort.findByCodeForUpdate(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
 
-        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+        LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, account.getValidFrom(), account.getValidTo());
         account.terminate(terminationDate);
         accountSubjectPersistencePort.save(account);

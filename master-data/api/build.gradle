@@ -31,6 +31,8 @@ dependencies {
 
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'org.postgresql:postgresql'
+    // Read structured constraint metadata when classifying PostgreSQL conflicts at the HTTP boundary.
+    compileOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

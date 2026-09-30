@@ -22,6 +22,7 @@ sequenceDiagram
     participant DB as Database
 
     API->>Service: update(code, request)
+    Service->>Port: lock (type, business key) until commit/rollback
     Service->>Port: find current active version
     Adapter->>DB: select current JPA entity + accounts
     Adapter-->>Service: reconstituted domain
@@ -40,7 +41,7 @@ sequenceDiagram
 버전 조립까지 끝낸 다음 현재 행을 종료하므로 잘못된 `parentCode`도 기존 행을 건드리지 않습니다.
 
 거래처에서는 `closeVersion()`과 `terminate()`를 구분합니다. 수정은 이전 SCD2 버전의 기간만
-닫고 `useYn`을 유지하지만, 비활성화는 종료일과 `useYn=false`를 함께 적용합니다. 저장소 조회는
+닫고 `useYn`을 유지하지만, 비활성화도 종료일을 닫고 과거 조회를 위해 `useYn`을 유지합니다. 저장소 조회는
 `BusinessPartnerJpaEntity`와 계좌를 한 aggregate로 읽은 뒤 포트 밖으로 순수 도메인만 반환합니다.
 다음 버전의 계좌는 업무 값만 복제하고 자식 ID를 비워 새 FK 행으로 저장하므로 과거 계좌가
 새 부모로 이동하지 않습니다.
@@ -61,7 +62,7 @@ flowchart TD
     F --> G[승인 전 버전 재검증]
     G --> H[APPROVED]
     H --> I[apply 또는 apply-due]
-    I --> J[요청 행 잠금 + 버전 재검증]
+    I --> J[업무 키 잠금 → 요청 행 잠금 → 버전 재검증]
     J --> K[targetType별 Applier]
     K --> L[SCD2 도메인 반영]
     L --> M[APPLIED 저장]
@@ -80,7 +81,7 @@ Governance 승인 ID를 `sourceReference`로 전달하면 같은 승인 재시�
 | `UPDATE` | 현재 저장된 이력 수 + 1 | 이전 행을 종료하고 신규 SCD2 행을 추가합니다. |
 | `DEACTIVATE` | 현재 저장된 이력 수 | 신규 행 없이 현재 행의 종료일만 바꿉니다. |
 
-요청을 저장한 뒤 승인이나 시행일까지 다른 변경이 먼저 반영될 수 있으므로 요청, 승인, 반영 직전에 같은 정책을 반복 확인합니다. 승인/반려/반영은 `PESSIMISTIC_WRITE`로 요청 행을 직렬화하고, JPA `lockVersion`으로 예상하지 못한 동시 갱신도 감지합니다.
+요청을 저장한 뒤 승인이나 시행일까지 다른 변경이 먼저 반영될 수 있으므로 요청, 승인, 반영 직전에 같은 정책을 반복 확인합니다. 승인/반영은 업무 키 잠금을 얻은 뒤 `PESSIMISTIC_WRITE`로 요청 행을 직렬화하고, JPA `lockVersion`으로 예상하지 못한 동시 갱신도 감지합니다.
 
 CREATE/UPDATE payload의 업무 코드는 승인 대상 `targetKey`와 같아야 합니다. DEACTIVATE는 변경 필드가 없으므로 payload를 요구하지 않고 승인된 `effectiveDate`를 종료일로 사용합니다. 실제 typed applier와 도메인 서비스가 성공한 뒤에만 `APPLIED`가 됩니다.
 
@@ -104,10 +105,30 @@ SCD2 행도 유효기간으로 찾습니다. 따라서 거래처가 나중에 �
 거래처명을 복원할 수 있습니다. 단건 조회는 `Optional` 반환으로 겹치는 기간이 두 행이면
 한 행을 임의 선택하지 않고 예외로 중단합니다.
 
-SCD2 교체용 `closeVersion`은 과거 행의 legacy `useYn`을 유지하지만, 업무 비활성화용
-`terminate`는 같은 행의 값을 false로 바꿉니다. 따라서 나중에 업무 종료된 거래처의
-`BusinessPartnerRef.active`는 그 이전 기준일 상태를 완전히 표현하지 않습니다. 현재 보장
-범위는 당시 이름/유형 복원이며, 계약의 `active`를 별도 이력 값으로 확정하는 작업은 후속입니다.
+SCD2 교체용 `closeVersion`과 업무 종료용 `terminate`는 과거 조회를 위해 `useYn`을
+보존합니다. 서비스의 중복 종료 요청은 같은 종료일을 다시 적용할 때409로 거부합니다.
+
+### 같은 업무 키의 쓰기 순서
+
+1. 직접 CREATE/UPDATE/DEACTIVATE와 승인 반영은 동일한 `MasterDataBusinessKeyLockPort`를
+   사용합니다. 키가 없으면 잠금 행을 생성하며, 트랜잭션 종료까지 잠금을 유지합니다.
+2. ID 기반 거래처/상품 수정은 먼저 스칼라 업무 키만 읽고 잠근 뒤 도메인을 읽습니다.
+   네 유형 모두 수정용 조회에서 선택한 엔티티를 DB에서 refresh합니다. 외부 트랜잭션이
+   잠금 대기 전에 읽어 둔 JPA 캐시로 변경을 계산하지 않기 위한 순서입니다. 승인 applier의
+   현재 기간 확인도 수정용 조회를 사용하며 전체 컨텍스트를 clear하지 않습니다.
+3. 승인/반영은 업무 키 → 요청 행 순서로 잠그고 요청을 새로 읽습니다. `requestedVersion`
+   검사는 잠금 후 수행하며, 서로 다른 요청 ID의 패자는409로 실패하고 `APPROVED`/`appliedAt=null`을 유지합니다.
+   이미 반영된 같은 ID의 재시도도409이며, 승자가 저장한 `APPLIED` 상태는 보존하고 다시 반영하지 않습니다.
+4. 이전 버전의 종료일을 DB에 flush한 뒤 새 버전을 넣습니다. PostgreSQL의 즉시 exclusion
+   검사가 정상적인 기간 분할의 중간 상태를 겹침으로 오인하지 않도록 합니다.
+5. `/apply-due`는 최대500건의 서로 다른 키를 유형/코드 순으로 먼저 잠급니다. 요청별 처리도
+   같은 잠금 순서를 사용하여 키와 요청 잠금의 순서 역전을 피합니다. 한 chunk의 롤백 경계는
+   유지되며, 이 경로가 선택한 키들은 chunk 종료까지 잠깁니다.
+
+`requestedVersion`은 이력 행 수이지 모든 변경을 세는 revision이 아닙니다. 종료는 행 수를
+늘리지 않으므로, 이전 종료 이후에도 더 이른 종료일로 줄이는 유효한 순차 보정은 허용됩니다.
+동일 종료일 재적용, 이미 종료된 대상의 승인 반영, 오래된 생성/수정 버전은409입니다.
+다른 키의 단건 작업은 이 잠금과 독립적으로 진행합니다.
 
 ## 일일 유효성 보고 흐름
 
@@ -150,10 +171,7 @@ flowchart LR
 ## 현재 고도화 후보
 
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 도메인 서비스, 영속성 포트, 버전 조회, typed applier를 함께 구현하기 전까지 요청 접수부터 fail-closed 됩니다.
-- 같은 업무 키의 동시 요청 접수는 조회와 저장 사이 경쟁이 남아 있습니다. 다중 노드 운영 전 업무 키 잠금 테이블 또는 PostgreSQL advisory lock 어댑터가 필요합니다.
 - 같은 sourceReference의 동시 최초 저장은 DB unique index가 중복 행을 막지만 한 요청이 충돌 예외를 받을 수 있습니다. 충돌 후 기존 요청을 재조회·검증하는 원자적 멱등 저장 포트가 필요합니다.
-- 단건 거래처 조회는 겹치는 SCD2 행을 감지해 fail-closed 하지만 저장을 원천 차단하지는 않습니다. PostgreSQL 날짜 범위 exclusion constraint와 실제 DB 통합 테스트가 필요합니다.
-- 거래처의 `useYn`은 업무 사용 가능 여부이지만 `terminate`가 현재 SCD2 행을 직접 false로 바꿉니다. 종료 전 기준일의 `BusinessPartnerRef.active`까지 재현하려면 별도 상태 이력과 기존 데이터 이관이 필요합니다.
 - Loan core의 Master Data 엔티티 연관과 Closing Batch의 Repository 직접 의존을 소비 모듈 소유 포트/contracts DTO로 교체해야 합니다.
 - `TaxProfile`은 엔티티만 있고 repository/use case/applier/소비 계약이 없습니다. Tax와 소유권을 정해 전체 SCD2 흐름을 구현하거나 중복 모델을 이관·제거해야 합니다.
 - 전체 이력/검색/pending API는 아직 무제한 List 계약입니다. 안정 정렬, 최대 page size와 DB limit가 있는 pagination을 포트부터 HTTP까지 연결해야 합니다.

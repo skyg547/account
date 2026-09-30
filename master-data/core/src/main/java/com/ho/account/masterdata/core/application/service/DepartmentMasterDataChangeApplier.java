@@ -3,8 +3,11 @@ package com.ho.account.masterdata.core.application.service;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangePayloadDecoder;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
 
     private final DepartmentUseCase departmentUseCase;
     private final MasterDataChangePayloadDecoder payloadDecoder;
+    private final DepartmentPersistencePort departmentPersistencePort;
 
     @Override
     public MasterDataType targetType() {
@@ -30,9 +34,12 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
 
     @Override
     public void validate(MasterDataChangeRequest request) {
-        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.DEACTIVATE) {
-            return;
+        if (request.getChangeType() != MasterDataChangeRequest.ChangeType.DEACTIVATE) {
+            validatedCommand(request);
         }
+    }
+
+    private DepartmentCommand validatedCommand(MasterDataChangeRequest request) {
         DepartmentCommand command = command(request);
         // UPDATE의 null 필드는 서비스가 기존 값으로 채웁니다. 검증을 위해 기존 부서를 조회하지 않습니다.
         if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE && command.name() == null) {
@@ -40,16 +47,32 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
         }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        return command;
     }
 
     @Override
     public void apply(MasterDataChangeRequest request) {
         switch (request.getChangeType()) {
-            case CREATE -> departmentUseCase.createDepartment(command(request));
-            case UPDATE -> departmentUseCase.updateDepartment(request.getTargetKey(), command(request));
-            case DEACTIVATE -> departmentUseCase.deactivateDepartment(
-                    request.getTargetKey(), request.getEffectiveDate());
+            case CREATE -> departmentUseCase.createDepartment(validatedCommand(request));
+            case UPDATE -> {
+                DepartmentCommand command = validatedCommand(request);
+                Department current = current(request);
+                MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
+                        current.getValidTo(), command.validFrom(), command.validTo());
+                departmentUseCase.updateDepartment(request.getTargetKey(), command);
+            }
+            case DEACTIVATE -> {
+                current(request);
+                departmentUseCase.deactivateDepartment(request.getTargetKey(), request.getEffectiveDate());
+            }
         }
+    }
+
+    private Department current(MasterDataChangeRequest request) {
+        // 종료만 된 이력은 개수가 그대로이므로 현재 버전 부재도 승인 상태 충돌입니다.
+        return departmentPersistencePort.findActiveByCodeForUpdate(request.getTargetKey())
+                .orElseThrow(() -> new MasterDataVersionConflictException(
+                        "Active department no longer exists. Code: " + request.getTargetKey()));
     }
 
     private DepartmentCommand command(MasterDataChangeRequest request) {
