@@ -7,4 +7,5 @@
 - Result: duplicate CREATE on any reused business key is rejected before a second save, including future and historical rows; direct and approved conflicts use HTTP 409. Approved CREATE history-count checks remain. New keys can be created; expired-only and future-only keys cannot currently be reactivated by CREATE or UPDATE.
 - Verification: core 470 + API 72 + Batch 5 = 547 tests PASS, zero failures/errors/skips; `./gradlew :master-data:test` is NO-SOURCE. Independent read-only review found no blocking issue and judged Q1–Q4 PASS.
 - Draft PR: https://github.com/skyg547/account/pull/821 (`Refs #754`); implementation commit `19b7ade5`.
+- Remote CI on head `56598909` did not start any steps: Module Validation, Harness Validation, and Agent Merge Guard failed at GitHub billing/spending-limit admission. Local equivalents passed (harness schema, Python 22, Node PR 32, merge-guard 89); remote CI must rerun after the repository owner resolves billing.
 - Residual gate: PostgreSQL and concurrent writer constraints remain in F07/#753, Draft PR #820. Human review handles any overlapping-file rebase, current-head CI, Ready/merge, and Issue closure.
