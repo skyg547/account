@@ -8,6 +8,17 @@
 | `POST` | `/api/auth/validate-token-version` | 버전과 현재 계정/유효 역할 상태를 확인합니다. |
 | `POST` | `/api/auth/internal/users/{username}/role-assignments` | Governance 승인 결과로 사용자 역할 목록을 멱등 교체합니다. |
 | `GET` | `/api/admin/users` | 프런트엔드 관리 화면용 사용자 목록을 username 순서로 조회합니다. |
+| `POST/GET` | `/api/auth/pat` | 인증된 사용자의 PAT 생성·목록 조회. |
+| `DELETE` | `/api/auth/pat/{id}` | 인증된 소유자의 PAT 폐기. |
+| `GET/DELETE` | `/api/auth/admin/pat[/{id}]` | 현재 시스템 관리자만 전체 목록 조회·강제 폐기. |
+
+## PAT 관리 권한 흐름
+
+모든 PAT 경로는 로그인에서 발급한 `Authorization: Bearer <JWT>`를 요구합니다. Auth는 JWT의 서명·issuer·만료와 역할 버전을 확인한 다음, JWT subject와 정확히 같은 키의 현재 `AuthUser`를 조회합니다. 활성·잠금·유효 역할 상태도 현재 계정에서 검사합니다. 일반 경로는 이 정식 username의 PAT만 처리하고, 관리자 경로는 현재 유효 역할에 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN`이 있는 경우만 허용합니다. JWT의 역할 문자열과 `X-Auth-*` 헤더, 요청 본문·쿼리의 `username`은 권한 근거가 아닙니다. 대소문자가 다른 username은 다른 사용자로 취급합니다.
+
+인증 정보가 없거나 유효하지 않으면 401, 검증된 일반 사용자가 관리자 경로를 호출하면 403입니다. 소유하지 않은 PAT의 일반 폐기는 내용을 드러내지 않는 404입니다. 생성된 원문 PAT는 생성 응답에서 한 번만 반환하고 저장소에는 해시만 남습니다. 성공한 생성·실제 상태 변경이 일어난 폐기는 동일 트랜잭션에서 행위자·소유자·토큰 ID·시각을 감사 이력으로 남깁니다. 반복 폐기는 새 감사 이벤트를 만들지 않습니다.
+
+현재 Gateway에는 PAT 라우트가 없습니다. 이 설명은 Auth 서비스에 직접 도달하는 요청의 보호 경계이며, Gateway 공개나 PAT를 다른 API 인증 수단으로 사용하는 기능을 뜻하지 않습니다.
 
 ## 관리자 사용자 목록 투영
 
