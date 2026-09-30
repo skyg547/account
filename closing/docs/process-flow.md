@@ -386,10 +386,10 @@ POST /api/closing/annual/perform-income-statement-closing?year=2026&retainedEarn
 - 기준일과 양수 batch ID는 필수이며, 동일 입력은 결정적 전표번호와 lineage를 생성합니다.
 - ECL summary가 없으면 정상 무처리로 간주하지 않고 실패합니다. 0건 포트폴리오를 성공 처리하려면 향후 명시적인 zero-portfolio 완료 마커가 필요합니다.
 - API 평가/충당 실행 이력은 전표 트랜잭션과 분리해 `RUNNING -> COMPLETED`, `PENDING_APPROVAL`, 또는 `FAILED`를 보존합니다. DRAFT 전표 생성만으로 `COMPLETED`가 되지 않습니다.
-- API 결과가 0건이거나 자동 전기이면 `COMPLETED`, DRAFT 전표가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표는 scalar history ID로 표현할 수 없어 ID를 `null`로 둡니다.
-- remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. 실패 재시도는 결정적 slip과 Journal 측 멱등 처리를 전제로 합니다.
+- API 결과가 0건이거나 지원되는 어댑터에서 실제 자동 전기이면 `COMPLETED`, DRAFT 전표가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표는 scalar history ID로 표현할 수 없어 ID를 `null`로 둡니다.
+- remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 여러 전표 중 일부만 작성된 뒤 `FAILED`가 기록되면, 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태 및 Closing 이력을 대사합니다. 원격 DRAFT를 자동 삭제하거나 요청을 맹목적으로 재전송하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
 - API 요청 멱등 key와 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경도 별도 검증/운영 통제가 필요합니다.
 - 이 흐름은 새 테이블·컬럼·migration 없이 기존 이력과 원천 스키마를 사용합니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.
 - 결산 조정 등록은 전표 상세의 차변/대변 합계가 같은지 검증합니다.
-- 운영 자동 전기는 `account.closing.accounting.auto-post-adjustments=true`일 때만 허용합니다.
+- `dev`의 원격 Journal HTTP 어댑터는 `account.closing.accounting.auto-post-adjustments=true`를 첫 전표 쓰기 전에 거부합니다. maker 승인 요청→별도 checker 승인→poster 전기와 불확실한 응답 후 상태 확인을 위한 신뢰된 서비스 주체 계약이 없기 때문입니다. 기본 `false`의 DRAFT는 Journal 담당자가 별도 승인·전기합니다.

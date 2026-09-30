@@ -159,13 +159,19 @@ Batch 조합 루트에만 명시적으로 연결됩니다. 이 포트는 로컬 
 따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용하지 말고 승인된
 개발 환경의 실제 Journal 어댑터 구성을 사용해야 합니다.
 
-`dev`의 `HttpClosingJournalAdapter`는 생성·승인·전기·조회에서 HTTP 3xx를 정상 처리하지 않고
+`dev` 원격 Journal 연결의 전제는 `account.closing.accounting.auto-post-adjustments=false`입니다.
+`true`이면 어댑터가 첫 원격 전표 쓰기 전에 명시적으로 실패합니다. Journal의 DRAFT는
+maker 승인 요청, 별도 checker 승인, poster 전기를 거쳐야 하지만 Closing에는 이 세 역할을
+신뢰해 위임하고 응답 불확실성을 복구할 계약이 없습니다. 설정만 바꿔 이 단계를 우회하지 않습니다.
+
+`dev`의 `HttpClosingJournalAdapter`는 생성·조회에서 HTTP 3xx를 정상 처리하지 않고
 `IllegalStateException`으로 실패시킵니다. `Location`에 대한 추가 요청도 하지 않습니다.
-초안 생성 실패 시 호출 흐름은 승인·전기로 진행하지 않고, 승인 실패 시 전기를 호출하지 않습니다.
 조회에서 404만 전표 없음으로 처리하며 302를 전표 없음이나 성공으로 바꾸지 않습니다.
 초안 생성은 수신 Journal 계약에 맞춰 `X-Auth-User`와 `ROLE_JOURNAL_MAKER`를 전달하고,
-기존 actor·lineage도 유지합니다. 원격 쓰기는 각각 별도 트랜잭션이므로 실패 후 자동 재시도하지
-않고, 이미 생성·승인된 전표가 있는지 대사해야 합니다.
+기존 actor·lineage도 유지합니다. HTTP timeout이나 응답 유실, 부분 전표 생성 뒤 Closing
+이력이 `FAILED`이면 전표번호·lineage로 원격 상태와 상세를 확인하고 담당자가 대사한 뒤
+재실행 또는 승인·정정 절차를 결정합니다. 이미 생긴 DRAFT를 자동 삭제하거나 맹목적으로
+재전송하지 않습니다.
 
 ```bash
 bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --console=plain --max-workers=1 --no-daemon
@@ -304,7 +310,7 @@ API FX는 posted-journal evidence를 한 번 스트리밍하면서 기본 10,000
 1,000개의 hard cap을 검사합니다. 전체 command를 불변 목록으로 확정한 다음 정확히 그 목록만
 Journal에 게시합니다. ECL source query는 최대 1,001개 그룹과 60초 timeout으로 제한되며,
 1,000개를 넘으면 그룹별 원장/환율 조회 전에 실패합니다. 통과한 전체 command만 게시합니다.
-전표 0건 또는 `auto-post-adjustments=true`이면 history는 `COMPLETED`, DRAFT가 하나 이상이면
+전표 0건 또는 지원되는 어댑터에서 실제 자동 전기되면 history는 `COMPLETED`, DRAFT가 하나 이상이면
 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표의 단일 history ID는 `null`입니다.
 
 `dev` profile은 `closing.sources.enabled`가 없거나 `false`이면 외부 source와 Journal 접근을

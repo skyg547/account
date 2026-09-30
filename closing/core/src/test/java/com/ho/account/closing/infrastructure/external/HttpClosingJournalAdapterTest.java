@@ -35,7 +35,7 @@ class HttpClosingJournalAdapterTest {
     private static final String DRAFT = "{\"journalEntryId\":42,\"slipNo\":\"CL-42\",\"status\":\"DRAFT\"}";
     private static final String VIEW = """
             {"id":42,"slipNo":"CL-42","slipDate":"2026-09-10","accountingDate":"2026-09-10",
-             "status":"POSTED","entryType":"NORMAL","currencyCode":"KRW",
+             "status":"DRAFT","entryType":"NORMAL","currencyCode":"KRW",
              "lineageSourceType":"CLOSING","lineageSourceId":"20260910"}
             """;
     private HttpServer server;
@@ -43,6 +43,8 @@ class HttpClosingJournalAdapterTest {
     private final List<Received> requests = new CopyOnWriteArrayList<>();
     private volatile String failedPath;
     private volatile int failureStatus;
+    private volatile String viewStatus = "DRAFT";
+    private volatile String delayedPath;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -55,8 +57,21 @@ class HttpClosingJournalAdapterTest {
                     exchange.getRequestHeaders().getFirst("X-Auth-User"),
                     exchange.getRequestHeaders().getFirst("X-Auth-Roles"),
                     new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
-            int status = path.equals(failedPath) ? failureStatus : 200;
-            String body = path.equals(CREATE) ? DRAFT : path.equals(SUMMARIES) ? "[" + VIEW + "]" : VIEW;
+            if (path.equals(delayedPath)) {
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    exchange.close();
+                    return;
+                }
+            }
+            // Journal's write API requires trusted roles and a state transition through
+            // request-approval; this test server must not pretend direct approve/post works.
+            int status = path.equals(failedPath) ? failureStatus
+                    : path.equals(APPROVE) || path.equals(POST) ? 403 : 200;
+            String view = VIEW.replace("\"status\":\"DRAFT\"", "\"status\":\"" + viewStatus + "\"");
+            String body = path.equals(CREATE) ? DRAFT : path.equals(SUMMARIES) ? "[" + view + "]" : view;
             if (status >= 300 && status < 400) {
                 exchange.getResponseHeaders().set("Location", "/redirect-target?private-provider-detail");
             } else if (status >= 400) body = "private-provider-detail";
@@ -78,7 +93,7 @@ class HttpClosingJournalAdapterTest {
 
     static Stream<Arguments> redirectStages() {
         return IntStream.of(300, 301, 302, 303, 304, 307, 308).boxed()
-                .flatMap(status -> Stream.of(CREATE, APPROVE, POST, LOOKUP, SUMMARIES)
+                .flatMap(status -> Stream.of(CREATE, LOOKUP, SUMMARIES)
                         .map(path -> Arguments.of(status, path)));
     }
 
@@ -92,26 +107,24 @@ class HttpClosingJournalAdapterTest {
                 .hasMessageContaining("HTTP " + status)
                 .hasMessageNotContaining("private-provider-detail")
                 .hasNoCause();
-        List<String> expected = path.equals(POST) ? List.of(APPROVE, POST) : List.of(path);
-        assertThat(requests).extracting(Received::path).containsExactlyElementsOf(expected);
-        // CREATE failure must never reach approval/post; approval failure must never reach post.
+        assertThat(requests).extracting(Received::path).containsExactly(path);
+        // CREATE failure must never reach an approval or posting endpoint.
         assertThat(requests).noneMatch(request -> request.path().startsWith("/redirect-target"));
     }
 
     @Test
-    void healthyCreateApprovePostAndQueriesPreservePrecisionActorAndLineage() throws Exception {
+    void healthyDraftCreationAndQueriesPreservePrecisionActorAndLineage() throws Exception {
         var result = adapter.createDraftEntry(command());
         assertThat(result.journalEntryId()).isEqualTo(42L);
         assertThat(result.slipNo()).isEqualTo("CL-42");
-        adapter.approveAndPost(result.journalEntryId(), " closing-operator ");
+        assertThat(result.status()).isEqualTo("DRAFT");
         var summary = adapter.findBySlipNo(result.slipNo()).orElseThrow();
+        assertThat(summary.getStatus()).isEqualTo("DRAFT");
         assertThat(summary.getLineageSourceType()).isEqualTo("CLOSING");
         assertThat(summary.getLineageSourceId()).isEqualTo("20260910");
         assertThat(adapter.getJournalSummaries(DATE, DATE)).hasSize(1);
-        assertThat(requests).extracting(Received::path).containsExactly(CREATE, APPROVE, POST, LOOKUP, SUMMARIES);
-        assertThat(requests).extracting(Received::method).containsExactly("POST", "POST", "POST", "GET", "GET");
-        assertThat(requests.get(1).actor()).isEqualTo("closing-operator");
-        assertThat(requests.get(2).actor()).isEqualTo("closing-operator");
+        assertThat(requests).extracting(Received::path).containsExactly(CREATE, LOOKUP, SUMMARIES);
+        assertThat(requests).extracting(Received::method).containsExactly("POST", "GET", "GET");
         assertThat(requests.get(0).authUser()).isEqualTo("closing-operator");
         assertThat(requests.get(0).authRoles()).isEqualTo("ROLE_JOURNAL_MAKER");
         JsonNode json = new ObjectMapper()
@@ -129,14 +142,50 @@ class HttpClosingJournalAdapterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {CREATE, APPROVE, POST, LOOKUP, SUMMARIES})
+    @ValueSource(strings = {CREATE, LOOKUP, SUMMARIES})
     void serverFailureIsSanitizedAndNeverRetried(String path) {
         failedPath = path;
         failureStatus = 503;
         assertThatThrownBy(() -> invoke(path)).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("HTTP 503").hasMessageNotContaining("private-provider-detail").hasNoCause();
-        assertThat(requests).extracting(Received::path)
-                .containsExactlyElementsOf(path.equals(POST) ? List.of(APPROVE, POST) : List.of(path));
+        assertThat(requests).extracting(Received::path).containsExactly(path);
+    }
+
+    @Test
+    void autoPostConfigurationFailsBeforeCreatingRemoteDraft() {
+        adapter = new HttpClosingJournalAdapter(RestClient.builder(),
+                "http://127.0.0.1:" + server.getAddress().getPort(), "2s", "2s", true);
+        assertThatThrownBy(() -> adapter.createDraftEntry(command()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("trusted maker, checker, and poster")
+                .hasMessageContaining("auto-post-adjustments")
+                .hasNoCause();
+        assertThat(requests).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DRAFT", "REQUESTED", "APPROVED", "POSTED"})
+    void existingRemoteEntryCannotBeAdvancedBySingleActor(String status) {
+        viewStatus = status;
+        var existing = adapter.findBySlipNo("CL-42").orElseThrow();
+        assertThat(existing.getStatus()).isEqualTo(status);
+        assertThatThrownBy(() -> adapter.approveAndPost(existing.getId(), "closing-operator"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("trusted maker, checker, and poster")
+                .hasNoCause();
+        assertThat(requests).extracting(Received::path).containsExactly(LOOKUP);
+    }
+
+    @Test
+    void uncertainDraftCreationResponseIsNeverRetried() {
+        delayedPath = CREATE;
+        adapter = new HttpClosingJournalAdapter(RestClient.builder(),
+                "http://127.0.0.1:" + server.getAddress().getPort(), "2s", "50ms");
+        assertThatThrownBy(() -> adapter.createDraftEntry(command()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("posting failed")
+                .hasNoCause();
+        assertThat(requests).extracting(Received::path).containsExactly(CREATE);
     }
 
     @Test
@@ -158,11 +207,7 @@ class HttpClosingJournalAdapterTest {
 
     private void invoke(String path) {
         switch (path) {
-            case CREATE -> {
-                var result = adapter.createDraftEntry(command());
-                adapter.approveAndPost(result.journalEntryId(), "closing-operator");
-            }
-            case APPROVE, POST -> adapter.approveAndPost(42L, "closing-operator");
+            case CREATE -> adapter.createDraftEntry(command());
             case LOOKUP -> adapter.findBySlipNo("CL-42");
             case SUMMARIES -> adapter.getJournalSummaries(DATE, DATE);
             default -> throw new AssertionError("Unknown test stage");

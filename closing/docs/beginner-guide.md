@@ -64,9 +64,13 @@ KRW200을 평가이익으로 전기했다면 장부금액은 KRW1,200이고 달�
 
 FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니다. 결산 전표는 금액이 크고 재실행 가능성이 중요하므로, 운영자가 검토하고 승인/전기하는 흐름을 기본값으로 둡니다.
 
-자동 승인/전기는 `account.closing.accounting.auto-post-adjustments=true`일 때만 허용합니다. 로컬이나 검증 환경에서는 이 값을 기본 `false`로 두는 편이 안전합니다.
+`auto-post-adjustments`의 기본값은 `false`입니다. `dev` 원격 Journal 연결에서는 이 값을
+`true`로 바꾸어도 자동 승인/전기를 하지 않습니다. Closing이 Journal의 maker 승인 요청,
+다른 사람의 checker 승인, poster 전기를 안전하게 이어 줄 서비스 주체 계약을 갖추지 못했으므로
+첫 원격 전표 쓰기 전에 실패합니다. `false`로 실행해 만든 DRAFT는 권한 있는 담당자가
+Journal의 정상 승인 절차에 따라 검토합니다.
 
-API 실행 이력은 전표가 없거나 자동 전기된 경우 `COMPLETED`, DRAFT 전표가 있으면
+API 실행 이력은 전표가 없거나 지원되는 어댑터에서 실제 자동 전기된 경우 `COMPLETED`, DRAFT 전표가 있으면
 `PENDING_APPROVAL`, 처리 중 예외가 나면 `FAILED`입니다. 여러 전표가 생성되어도 기존 이력
 테이블에는 ID 한 개만 담을 수 있으므로 `generated_journal_entry_id`는 `null`입니다.
 
