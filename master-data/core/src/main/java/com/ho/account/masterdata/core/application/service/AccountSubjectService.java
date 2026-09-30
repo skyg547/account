@@ -40,11 +40,16 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
+        // A new account has no prior mapping to clear; reject the flag instead of silently ignoring it.
+        if (command.clearRegulatoryMappingCode()) {
+            throw new IllegalArgumentException("Cannot clear regulatory mapping code when creating an account subject.");
+        }
         if (accountSubjectPersistencePort.findByCode(command.code()).isPresent()) {
             throw new IllegalArgumentException("이미 해당 시점에 활성화된 계정과목 코드가 존재합니다: " + command.code());
         }
 
         AccountSubject accountSubject = command.toEntity();
+        accountSubject.normalizeAndValidateClassification();
 
         if (command.hasParentCode()) {
             AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
@@ -90,7 +95,6 @@ public class AccountSubjectService implements AccountSubjectUseCase {
         AccountSubject currentActive = accountSubjectPersistencePort.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
 
-        // SCD2: 기존 활성 버전 종료
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
         LocalDate newValidTo = command.validTo() != null
                 ? command.validTo()
@@ -98,21 +102,49 @@ public class AccountSubjectService implements AccountSubjectUseCase {
         MasterDataValidityPolicy.requireVersionSplit(
                 currentActive.getValidFrom(), currentActive.getValidTo(), newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
-        
-        // 참조 검증과 신규 버전 조립을 먼저 끝내야 잘못된 parentCode가 현재 버전을 건드리지 않습니다.
-        AccountSubject newVersion = command.toEntity();
-        newVersion.setCode(code); // 코드는 동일하게 유지
 
-        if (command.hasParentCode()) {
-            AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("상위 계정과목을 찾을 수 없습니다. 코드: " + command.parentCode()));
-            newVersion.setParent(parent);
-        } else {
-            newVersion.setParent(null);
+        // Omitted fields inherit the current business state; only supplied fields change the successor.
+        // Complete validation before the old version is closed so an invalid request cannot alter history.
+        AccountSubject newVersion = currentActive.successor();
+        if (command.name() != null) {
+            newVersion.setName(command.name());
         }
-        
+        if (command.parentCode() != null) {
+            if (command.parentCode().isBlank()) {
+                newVersion.setParent(null);
+            } else {
+                AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "상위 계정과목을 찾을 수 없습니다. 코드: " + command.parentCode()));
+                newVersion.setParent(parent);
+            }
+        }
+        if (command.category() != null) {
+            newVersion.setCategory(command.category());
+        }
+        if (command.accountType() != null) {
+            newVersion.setAccountType(command.accountType());
+        }
+        if (command.balanceType() != null) {
+            newVersion.setBalanceType(command.balanceType());
+        }
+        if (command.reportLine() != null) {
+            newVersion.setReportLine(command.reportLine().isBlank() ? null : command.reportLine());
+        }
+        if (command.unsettled() != null) {
+            newVersion.setUnsettled(command.unsettled());
+        }
+        if (command.fixedAsset() != null) {
+            newVersion.setFixedAsset(command.fixedAsset());
+        }
+        if (command.clearRegulatoryMappingCode()) {
+            newVersion.setRegulatoryMappingCode(null);
+        } else if (command.regulatoryMappingCode() != null) {
+            newVersion.setRegulatoryMappingCode(command.regulatoryMappingCode());
+        }
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
+        newVersion.normalizeAndValidateClassification();
 
         currentActive.terminate(oldValidTo);
         accountSubjectPersistencePort.save(currentActive);

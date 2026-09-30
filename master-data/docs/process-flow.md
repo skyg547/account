@@ -39,6 +39,22 @@ sequenceDiagram
 기존 활성 행만 먼저 종료되는 순서 오류를 막습니다. 계정과목과 부서는 상위 항목 조회와 신규
 버전 조립까지 끝낸 다음 현재 행을 종료하므로 잘못된 `parentCode`도 기존 행을 건드리지 않습니다.
 
+계정과목은 현행 aggregate의 업무 필드를 먼저 새 행으로 복사하고, 요청에 명시된 값만 적용합니다.
+따라서 이름만 바꿔도 `NON_OPERATING_INCOME`/`NON_OPERATING_EXPENSES`와 규제 매핑 코드가
+과거·새 버전에 각각 유지됩니다. 생략한 `unsettled`/`fixedAsset`는 유지하고 명시한 `false`는
+변경합니다. 빈 `parentCode`/`reportLine`은 각각 연결/보고 라인을 해제합니다.
+새 행은 기존 ID·생성/수정 시각·감사 사용자를 재사용하지 않습니다.
+
+분류 유형과 규제 매핑은 승인 요청의 계정과목 `payloadJson`에서만 바꿀 수 있습니다.
+예를 들어 `{"name":"기타수익","category":"REVENUE","accountType":"NON_OPERATING_INCOME","regulatoryMappingCode":"REG-NEW"}`는
+승인·시행 후 새 버전만 변경합니다. 매핑만 해제할 때는 코드 값 대신
+`{"name":"기타수익","clearRegulatoryMappingCode":true}`를 사용합니다.
+코드 값과 해제 플래그의 동시 지정, category와 accountType의 불일치, 공백/100자 초과 매핑 코드는
+접수·승인 전에 검증하고 기존 행을 종료하기 전에 다시 확인합니다. CREATE의 매핑 해제 플래그도
+의미가 없으므로 접수 전에 거부합니다. `accountType:null`이나 `regulatoryMappingCode:null`을
+명시하면 생략과 혼동되지 않도록 거부합니다. 직접 계정과목 PUT의 분류·매핑 필드는 HTTP 400입니다.
+승인 경로는 요청자·승인자·사유·원문 payload와 `appliedAt`을 변경 요청 이력에 남깁니다.
+
 거래처에서는 `closeVersion()`과 `terminate()`를 구분합니다. 수정은 이전 SCD2 버전의 기간만
 닫고 `useYn`을 유지하지만, 비활성화는 종료일과 `useYn=false`를 함께 적용합니다. 저장소 조회는
 `BusinessPartnerJpaEntity`와 계좌를 한 aggregate로 읽은 뒤 포트 밖으로 순수 도메인만 반환합니다.

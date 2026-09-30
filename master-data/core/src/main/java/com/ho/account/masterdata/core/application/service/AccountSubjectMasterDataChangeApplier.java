@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangePayloadDecoder;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
@@ -31,12 +32,37 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
             return;
         }
         AccountSubjectCommand command = command(request);
-        // CREATE/UPDATE 모두 새 이름이 필요하지만 category/balanceType의 기존 저장 기본값은 유지합니다.
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE
+                && command.clearRegulatoryMappingCode()) {
+            throw new IllegalArgumentException("Cannot clear regulatory mapping code when creating an account subject.");
+        }
+        // Both requests need a name; other omitted business fields inherit the current UPDATE version.
         if (command.name() == null) {
             throw new IllegalArgumentException("Account subject name is required.");
         }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        validateProspectiveClassification(request, command);
+    }
+
+    private void validateProspectiveClassification(MasterDataChangeRequest request, AccountSubjectCommand command) {
+        AccountSubject candidate;
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+            candidate = command.toEntity();
+        } else {
+            // Resolve omitted fields against the live version before approval; apply rechecks its own snapshot.
+            AccountSubject current = accountSubjectUseCase.findAccountSubjectByCode(request.getTargetKey())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Active account subject not found: " + request.getTargetKey()));
+            candidate = current.successor();
+            if (command.category() != null) {
+                candidate.setCategory(command.category());
+            }
+            if (command.accountType() != null) {
+                candidate.setAccountType(command.accountType());
+            }
+        }
+        candidate.normalizeAndValidateClassification();
     }
 
     @Override
@@ -55,6 +81,13 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
         if (payload == null) {
             throw new IllegalArgumentException("Account subject change payload must not be null.");
         }
+        // Omitted fields preserve the current value; explicit null must not silently do the same.
+        if (payloadDecoder.hasExplicitNullField(request, "accountType")) {
+            throw new IllegalArgumentException("Account subject accountType must not be null.");
+        }
+        if (payloadDecoder.hasExplicitNullField(request, "regulatoryMappingCode")) {
+            throw new IllegalArgumentException("Account subject regulatoryMappingCode must not be null.");
+        }
         String code = MasterDataChangeApplierSupport.targetKey(request, payload.code());
         return new AccountSubjectCommand(
                 code,
@@ -66,6 +99,9 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
                 payload.unsettled(),
                 payload.fixedAsset(),
                 request.getEffectiveDate(),
-                payload.validTo());
+                payload.validTo(),
+                payload.accountType(),
+                payload.regulatoryMappingCode(),
+                payload.clearRegulatoryMappingCode());
     }
 }

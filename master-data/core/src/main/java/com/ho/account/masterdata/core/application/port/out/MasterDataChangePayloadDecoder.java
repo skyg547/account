@@ -10,4 +10,6 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 public interface MasterDataChangePayloadDecoder {
 
     <T> T decode(MasterDataChangeRequest request, Class<T> payloadType);
+
+    boolean hasExplicitNullField(MasterDataChangeRequest request, String fieldName);
 }
