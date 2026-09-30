@@ -37,6 +37,10 @@ public class JwtTokenIssuer implements TokenIssuerPort {
         long expirationSeconds = properties.getJwt().getExpirationSeconds();
         Instant expiresAt = issuedAt.plusSeconds(expirationSeconds);
         List<RoleAssignment> assignments = subject.effectiveRoleAssignments();
+        // The claims must never reintroduce a scoped role that Auth cannot authorize downstream.
+        if (assignments.stream().anyMatch(assignment -> !assignment.hasSupportedScope())) {
+            throw new IllegalArgumentException("Unsupported role scope cannot be signed.");
+        }
         List<String> roles = assignments.stream()
                 .map(RoleAssignment::roleCode)
                 .distinct()

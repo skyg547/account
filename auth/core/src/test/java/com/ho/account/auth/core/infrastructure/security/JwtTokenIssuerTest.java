@@ -1,6 +1,7 @@
 package com.ho.account.auth.core.infrastructure.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
@@ -29,7 +30,7 @@ class JwtTokenIssuerTest {
         TokenIssuerPort.TokenSubject subject = new TokenIssuerPort.TokenSubject(
                 "admin",
                 "FIN",
-                List.of(new RoleAssignment("ROLE_ADMIN", "FIN", null, null, true)),
+                List.of(new RoleAssignment("ROLE_ADMIN", "GLOBAL", null, null, true)),
                 7L);
 
         TokenIssuerPort.IssuedToken issued = issuer.issue(subject, issuedAt);
@@ -49,7 +50,22 @@ class JwtTokenIssuerTest {
         assertThat(claims.get("roleVersion", Number.class).longValue()).isEqualTo(7L);
         assertThat(claims.get("departmentCode", String.class)).isEqualTo("FIN");
         assertThat(claims.get("roleAssignments", List.class))
-                .containsExactly(Map.of("roleCode", "ROLE_ADMIN", "dataScope", "FIN"));
+                .containsExactly(Map.of("roleCode", "ROLE_ADMIN", "dataScope", "GLOBAL"));
         assertThat(issued.expiresInSeconds()).isEqualTo(600L);
+    }
+
+    @Test
+    void rejectsScopedSubjectBeforeSigning() {
+        AuthModuleProperties properties = new AuthModuleProperties();
+        properties.getJwt().setSecret("test-secret-key-that-is-at-least-32-bytes-long!");
+        JwtTokenIssuer issuer = new JwtTokenIssuer(properties);
+        TokenIssuerPort.TokenSubject subject = new TokenIssuerPort.TokenSubject(
+                "admin", "FIN", List.of(
+                        RoleAssignment.approved("ROLE_SYSTEM_ADMIN"),
+                        new RoleAssignment("ROLE_AUDITOR", "FIN", null, null, true)), 7L);
+
+        assertThatThrownBy(() -> issuer.issue(subject, Instant.parse("2026-07-14T00:00:00Z")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scope");
     }
 }
