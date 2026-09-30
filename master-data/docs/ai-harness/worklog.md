@@ -46,3 +46,7 @@ The deployment-consumer check actually ran:
 ```
 
 Result: exit1,33s,2 tests/2 failures in existing H2 fixtures attempting PostgreSQL-only V9. This is a real integration regression, not a missing dependency or a passing test. Runner `processResources` copied V8/V9 byte-identically, confirming release delivery. The user forbids other-module edits, so a reviewed one-file H2 test-fixture correction is prepared separately and an explicit scope exception was requested before any such edit. Q1/integration remains held while this boundary is unresolved; module test success is not overall integration approval.
+
+## Draft publication
+
+Published implementation commit `2f4a3bbc` on `agent/753-scd2-business-key` and created [Draft PR #820](https://github.com/skyg547/account/pull/820) with `Refs #753`, complete module validation and explicit integration HOLD/Q1 FAIL. The Issue remains open and blocked on the outside-scope H2 test correction; parent requested the narrow exception without assuming approval. No Ready/merge/close, data repair, resource deletion or shared-harness changes. This publication record changes no tested source.

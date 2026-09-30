@@ -41,3 +41,7 @@ Publication authority: user-authorized branch push and Draft PR with `Refs #753`
 602 module tests PASS (core454/API143/Batch5; PostgreSQL75 included), failure/error/skip0. API/Batch bootJars and V8/V9 resource packaging verified. Separate runner compatibility2/2 FAIL on V9 PostgreSQL syntax in existing H2 fixtures. Source/build/test40 hashes unchanged.
 
 The parent requested a one-file scope exception for `migration-runner/src/test/java/com/ho/account/migration/MigrationExecutorH2Test.java`; no exception is assumed without a reply. A test-only V1–V8 H2 fixture patch is prepared outside the repository and independently reviewed. Until explicitly approved, the original module-only scope remains in force and the Draft carries this blocker.
+
+## Draft publication
+
+Draft PR: https://github.com/skyg547/account/pull/820 (`Refs #753`), published implementation commit `2f4a3bbc`. The Issue remains open with integration blocked by the existing runner H2 fixtures; no scope exception has been applied. Ready/merge/close remain unperformed.

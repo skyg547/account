@@ -6,7 +6,7 @@
 - Branch: `agent/753-scd2-business-key`
 - Worktree: `/tmp/account-753-scd2-business-key`
 - Base: `origin/main@b06e7de3a2e26c1e14a15d73486c02fa7216e8b8`
-- Draft PR: publication pending; no Ready/merge/Issue close
+- Draft PR: https://github.com/skyg547/account/pull/820 (`Refs #753`); published implementation `2f4a3bbc`; no Ready/merge/Issue close
 - Scope: `master-data/**` only. Shared harness/history documents are unchanged under the user's explicit restriction.
 
 ## Behavior and verification
