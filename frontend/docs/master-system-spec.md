@@ -58,6 +58,16 @@
 - `roles`: UserRole[]
 - `lastLoginAt`: 최근 접속일시
 
+### 3.5. `/admin/users` 역할 변경 승인 요청
+
+역할 선택 시 `adminService.requestRoleChange`가 `POST /api/audit/approvals/requests`로 `AUTH_USER_ROLE` 변경 요청을 한 번 보낸다. 현재 백엔드 `MasterApprovalResponse` 계약의 승인 식별자는 `id: Long`이다. 화면은 HTTP 성공과 JSON 파싱만으로 접수를 확정하지 않고, 응답에 유효한 서버 `id`와 승인 상태(`PENDING`, `APPROVED`, `REJECTED`)가 있는지 확인한다. `effectiveDate`는 백엔드에서 nullable이며 날짜가 있을 때만 표시한다. `approvalId`는 현재 백엔드 응답 필드가 아니므로 그것만 있는 응답은 접수 성공으로 취급하지 않는다.
+
+서버가 `PENDING`을 반환하면 선택한 사용자 행에 확인된 승인 ID와 대기 상태를 표시하고 성공 알림을 한 번 띄운다. 다른 상태를 반환하면 그 실제 승인 상태를 알림에 표시하되 사용자 행을 임의로 `PENDING`으로 바꾸지 않는다. 이 화면의 승인 접수 표시는 역할 권한이 즉시 적용됐다는 뜻이 아니다.
+
+HTTP 거절·서버 장애·통신 실패·잘못된 JSON·ID 누락 또는 잘못된 형식·잘못된 승인 상태에서는 오류 알림만 표시한다. 기존 사용자 상태, `pendingRequestId`, 앞서 표시된 승인 성공 메시지와 다른 사용자 행은 유지한다. 서버 오류 상세, 사용자 정보, 토큰은 알림이나 로그에 노출하지 않으며, 자동 재시도로 승인 요청을 중복 생성하지 않는다. 백엔드 경로가 실행 불가능한 환경에서도 로컬 가짜 승인 ID를 만들지 않는다.
+
+로컬 확인은 의존성이 이미 준비된 Node 20/NPM 10 환경의 `frontend` 디렉터리에서 `node --test tests/admin-role-request.test.mjs`, `npx --no-install tsc --noEmit`, `npm run lint -- --quiet` 순으로 실행한다. 테스트는 실제 service와 page 이벤트 경로에 HTTP/통신/JSON/응답 결함을 주입하며 실제 Gateway·승인 DB 접수를 검증하지 않는다.
+
 ## 4. 재사용 UI 컴포넌트 활용 계획
 - **DataTable**: 모든 목록형 화면에 적용 (Pagination, Sorting Mock 기능 포함)
 - **StatusBadge**: 계정과목 활성/비활성, 거래처 상태 표시에 적용
