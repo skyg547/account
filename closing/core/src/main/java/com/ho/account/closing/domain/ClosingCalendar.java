@@ -2,6 +2,7 @@ package com.ho.account.closing.domain;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 /**
  * 결산 캘린더(Closing Calendar) 엔티티.
@@ -75,6 +76,9 @@ public class ClosingCalendar {
 
     private LocalDateTime transitionPreparedAt;
 
+    @Column(length = 100)
+    private String transitionEvidenceSetId;
+
     @Transient
     private String name;
 
@@ -91,6 +95,7 @@ public class ClosingCalendar {
     public Long getTransitionApprovalId() { return transitionApprovalId; }
     public String getTransitionActor() { return transitionActor; }
     public LocalDateTime getTransitionPreparedAt() { return transitionPreparedAt; }
+    public String getTransitionEvidenceSetId() { return transitionEvidenceSetId; }
 
     public void requireNoTransition() {
         if (transitionId != null) {
@@ -105,13 +110,27 @@ public class ClosingCalendar {
         }
     }
 
-    public void prepareTransition(String target, Long fiscalPeriodId, Long approvalId, String actor) {
+    public void prepareTransition(
+            String target,
+            Long fiscalPeriodId,
+            Long approvalId,
+            String evidenceSetId,
+            String actor) {
         requireNoTransition();
         requireActor(actor);
         if (("OPEN".equals(target) && status != ClosingCalendarStatus.CLOSED)
                 || ("CLOSED".equals(target) && status != ClosingCalendarStatus.IN_PROGRESS)
                 || (!"OPEN".equals(target) && !"CLOSED".equals(target))) {
             throw new IllegalStateException("Invalid calendar transition target: " + target);
+        }
+        if ("CLOSED".equals(target) && (evidenceSetId == null || evidenceSetId.isBlank())) {
+            throw new IllegalStateException("A CLOSED transition requires final-close evidence.");
+        }
+        if (evidenceSetId != null && evidenceSetId.trim().length() > 100) {
+            throw new IllegalArgumentException("evidenceSetId must not exceed 100 characters");
+        }
+        if ("OPEN".equals(target) && evidenceSetId != null) {
+            throw new IllegalStateException("An OPEN transition cannot carry final-close evidence.");
         }
         this.transitionId = java.util.UUID.randomUUID().toString();
         this.transitionTarget = target;
@@ -120,7 +139,15 @@ public class ClosingCalendar {
         this.transitionApprovalId = approvalId;
         this.transitionActor = actor.trim();
         this.transitionPreparedAt = LocalDateTime.now();
+        // Freeze the distributed snapshot with the durable intent so recovery cannot select newer evidence.
+        this.transitionEvidenceSetId = evidenceSetId == null ? null : evidenceSetId.trim();
         this.auditUser = actor.trim();
+    }
+
+    /** @deprecated CLOSED transitions must use the evidence-binding overload. */
+    @Deprecated
+    public void prepareTransition(String target, Long fiscalPeriodId, Long approvalId, String actor) {
+        prepareTransition(target, fiscalPeriodId, approvalId, null, actor);
     }
 
     public void requireTransition(String operationId) {
@@ -131,14 +158,36 @@ public class ClosingCalendar {
 
     public void markTransitionDispatched(String operationId) {
         requireTransition(operationId);
+        requireTransitionEvidence();
         if (transitionStage != TransitionStage.PREPARED) {
             throw new IllegalStateException("A dispatched fiscal period transition cannot be replayed.");
         }
         transitionStage = TransitionStage.DISPATCHED;
     }
 
+    /** Releases only a never-dispatched final-close intent; its prior binding remains in audit history. */
+    public void cancelPreparedClose(String operationId, String actor) {
+        requireTransition(operationId);
+        requireActor(actor);
+        if (status != ClosingCalendarStatus.IN_PROGRESS
+                || transitionStage != TransitionStage.PREPARED
+                || !"CLOSED".equals(transitionTarget)) {
+            throw new IllegalStateException("Only a PREPARED final-close transition can be cancelled.");
+        }
+        transitionId = null;
+        transitionTarget = null;
+        transitionStage = null;
+        transitionFiscalPeriodId = null;
+        transitionApprovalId = null;
+        transitionActor = null;
+        transitionPreparedAt = null;
+        transitionEvidenceSetId = null;
+        auditUser = actor.trim();
+    }
+
     public void finishTransition(String operationId) {
         requireTransition(operationId);
+        requireTransitionEvidence();
         if (transitionStage != TransitionStage.DISPATCHED) {
             throw new IllegalStateException("Fiscal period transition has not been dispatched.");
         }
@@ -154,6 +203,17 @@ public class ClosingCalendar {
         transitionApprovalId = null;
         transitionActor = null;
         transitionPreparedAt = null;
+        transitionEvidenceSetId = null;
+    }
+
+    private void requireTransitionEvidence() {
+        if ("CLOSED".equals(transitionTarget)
+                && (transitionEvidenceSetId == null || transitionEvidenceSetId.isBlank())) {
+            throw new IllegalStateException("CLOSED transition evidence is missing; transition remains fenced.");
+        }
+        if ("OPEN".equals(transitionTarget) && transitionEvidenceSetId != null) {
+            throw new IllegalStateException("OPEN transition carries invalid close evidence; transition remains fenced.");
+        }
     }
 
     @PrePersist
@@ -366,7 +426,7 @@ public class ClosingCalendar {
         }
         this.status = ClosingCalendarStatus.IN_PROGRESS;
         this.closeInitiatedBy = user.trim();
-        this.closeInitiatedAt = LocalDateTime.now();
+        this.closeInitiatedAt = LocalDateTime.now(ZoneOffset.UTC);
         this.auditUser = user.trim();
     }
 

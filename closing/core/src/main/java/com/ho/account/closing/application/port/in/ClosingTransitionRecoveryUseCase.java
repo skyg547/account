@@ -8,4 +8,7 @@ public interface ClosingTransitionRecoveryUseCase {
     /** Confirmation attests external transport quiescence; it is not inferred from a Master GET. */
     ClosingCalendar recoverTransition(Long calendarId, String operationId,
             boolean remoteRequestTerminated, String recoveredBy);
+
+    /** Cancel a never-dispatched final-close intent so a new immutable snapshot can be submitted. */
+    ClosingCalendar cancelPreparedClose(Long calendarId, String operationId, String reason, String actor);
 }

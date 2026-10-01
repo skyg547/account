@@ -7,10 +7,12 @@ import com.ho.account.closing.ClosingAggregateConcurrencyIntegrationTest.Pause;
 import com.ho.account.closing.application.port.in.ClosingAdmissionQuery;
 import com.ho.account.closing.application.port.in.ClosingTransitionRecoveryUseCase;
 import com.ho.account.closing.application.port.in.ClosingUseCase;
+import com.ho.account.closing.application.port.in.FinalCloseEvidenceUseCase;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
 import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort;
 import com.ho.account.closing.application.service.ClosingTransitionPendingException;
 import com.ho.account.closing.application.service.ClosingTransitionTransactions;
+import com.ho.account.closing.application.service.FinalCloseEvidenceValidationException;
 import com.ho.account.closing.domain.ClosingAuditLog;
 import com.ho.account.closing.domain.ClosingAuditLog.ActionType;
 import com.ho.account.closing.domain.ClosingCalendar;
@@ -25,6 +27,13 @@ import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogReposito
 import com.ho.account.closing.web.ClosingController;
 import com.ho.account.closing.web.ClosingExceptionHandler;
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,6 +45,10 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -53,7 +66,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Synthetic fault injection crosses two independent durable H2 transaction boundaries. */
 @ActiveProfiles("local")
-@SpringBootTest(classes = {ClosingApplication.class, ClosingAggregateConcurrencyIntegrationTest.Configuration.class},
+@SpringBootTest(classes = {ClosingApplication.class, ClosingAggregateConcurrencyIntegrationTest.Configuration.class,
+        ClosingTransitionRecoveryIntegrationTest.AdjustableClockConfiguration.class},
         properties = {
                 "spring.cloud.config.enabled=false", "spring.cloud.discovery.enabled=false",
                 "spring.cloud.loadbalancer.enabled=false", "spring.cloud.vault.enabled=false",
@@ -74,6 +88,170 @@ class ClosingTransitionRecoveryIntegrationTest {
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired ClosingController controller;
     @Autowired ClosingTransitionTransactions transactions;
+    @Autowired FinalCloseEvidenceUseCase finalCloseEvidence;
+    @Autowired AdjustableClock evidenceClock;
+
+    @org.junit.jupiter.api.BeforeEach
+    void resetEvidenceClock() {
+        evidenceClock.useSystemTime();
+    }
+
+    @Test
+    void preparedCloseRecoveryAtExactMaximumAgeDispatchesOnlyItsBoundSnapshot() {
+        Instant observedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        ClosingCalendar prepared = prepareCloseWithObservation("2061", "01", observedAt);
+        long periodId = prepared.getTransitionFiscalPeriodId();
+        String boundId = prepared.getTransitionEvidenceSetId();
+        int attemptsBefore = master.attempts.get();
+        evidenceClock.set(observedAt.plus(Duration.ofHours(24)));
+
+        recovery.recoverTransition(prepared.getId(), prepared.getTransitionId(), false, "recovery-operator");
+
+        assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 1);
+        assertThat(master.findFiscalPeriodById(periodId).orElseThrow().closingStatus()).isEqualTo("CLOSED");
+        assertThat(calendarAudits(prepared.getId()).stream()
+                .filter(a -> a.getActionType() == ActionType.CALENDAR_CLOSED)).singleElement()
+                .satisfies(a -> assertThat(a.getActionReason()).contains("evidenceSetId=" + boundId));
+    }
+
+    @Test
+    void expiredPreparedCloseStaysFencedAndNeverWritesMaster() {
+        Instant observedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        ClosingCalendar prepared = prepareCloseWithObservation("2061", "02", observedAt);
+        String operationId = prepared.getTransitionId();
+        int attemptsBefore = master.attempts.get();
+        evidenceClock.set(observedAt.plus(Duration.ofHours(24)).plusNanos(1));
+
+        for (int retry = 0; retry < 2; retry++) {
+            assertThatThrownBy(() -> recovery.recoverTransition(prepared.getId(), operationId, false, "recovery-operator"))
+                    .isInstanceOf(FinalCloseEvidenceValidationException.class).hasMessageContaining("older than");
+            ClosingCalendar pending = calendars.findById(prepared.getId()).orElseThrow();
+            assertThat(pending.getTransitionId()).isEqualTo(operationId);
+            assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.PREPARED);
+            assertThat(pending.getTransitionEvidenceSetId()).isEqualTo(prepared.getTransitionEvidenceSetId());
+            assertThat(master.attempts.get()).isEqualTo(attemptsBefore);
+            assertThat(master.findFiscalPeriodById(prepared.getTransitionFiscalPeriodId()).orElseThrow().closingStatus())
+                    .isEqualTo("OPEN");
+        }
+    }
+
+    @Test
+    void preparedCloseFromPreviousInitiationCycleCannotDispatchEvenWhenSnapshotIsYoung() {
+        Instant observedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        ClosingCalendar prepared = prepareCloseWithObservation("2061", "07", observedAt);
+        String operationId = prepared.getTransitionId();
+        int attemptsBefore = master.attempts.get();
+        // Model a later close cycle while retaining the old durable intent and evidence binding.
+        ClosingCalendar laterCycle = calendars.findById(prepared.getId()).orElseThrow();
+        laterCycle.setCloseInitiatedAt(java.time.LocalDateTime.ofInstant(observedAt.plusSeconds(1), ZoneOffset.UTC));
+        calendars.save(laterCycle);
+        evidenceClock.set(observedAt.plusSeconds(2));
+
+        assertThatThrownBy(() -> recovery.recoverTransition(prepared.getId(), operationId, false, "operator"))
+                .isInstanceOf(FinalCloseEvidenceValidationException.class)
+                .hasMessageContaining("after the current close initiation");
+        ClosingCalendar stillPrepared = calendars.findById(prepared.getId()).orElseThrow();
+        assertThat(stillPrepared.getTransitionStage()).isEqualTo(TransitionStage.PREPARED);
+        assertThat(stillPrepared.getTransitionEvidenceSetId()).isEqualTo(prepared.getTransitionEvidenceSetId());
+        assertThat(master.attempts.get()).isEqualTo(attemptsBefore);
+        assertThat(master.findFiscalPeriodById(prepared.getTransitionFiscalPeriodId()).orElseThrow().closingStatus())
+                .isEqualTo("OPEN");
+    }
+
+    @Test
+    void cancelledExpiredPreparedCloseRetainsLineageThenRequiresNewEvidence() {
+        Instant observedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        ClosingCalendar prepared = prepareCloseWithObservation("2061", "03", observedAt);
+        String oldOperation = prepared.getTransitionId();
+        String oldEvidence = prepared.getTransitionEvidenceSetId();
+        long periodId = prepared.getTransitionFiscalPeriodId();
+        evidenceClock.set(observedAt.plus(Duration.ofHours(24)).plusSeconds(1));
+        int attemptsBefore = master.attempts.get();
+        assertThatThrownBy(() -> recovery.recoverTransition(prepared.getId(), oldOperation, false, "operator"))
+                .isInstanceOf(FinalCloseEvidenceValidationException.class);
+
+        recovery.cancelPreparedClose(prepared.getId(), oldOperation, "expired snapshot", "operator");
+
+        ClosingCalendar cancelled = calendars.findById(prepared.getId()).orElseThrow();
+        assertThat(cancelled.getStatus()).isEqualTo(ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(cancelled.getTransitionId()).isNull();
+        assertThat(master.attempts.get()).isEqualTo(attemptsBefore);
+        assertThat(calendarAudits(prepared.getId())).anySatisfy(a -> assertThat(a.getActionReason())
+                .contains(oldOperation, oldEvidence, "expired snapshot"));
+        assertThatThrownBy(() -> recovery.recoverTransition(prepared.getId(), oldOperation, false, "late-retry"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> recovery.cancelPreparedClose(prepared.getId(), oldOperation,
+                "duplicate cancellation", "operator")).isInstanceOf(IllegalStateException.class);
+
+        var period = master.findFiscalPeriodById(periodId).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, cancelled, period.id(), period.endDate(),
+                evidenceClock.instant());
+        ClosingCalendar renewed = transactions.prepareClose(cancelled.getId(), "closer");
+        assertThat(renewed.getTransitionId()).isNotEqualTo(oldOperation);
+        assertThat(renewed.getTransitionEvidenceSetId()).isNotEqualTo(oldEvidence);
+        recovery.recoverTransition(renewed.getId(), renewed.getTransitionId(), false, "operator");
+        assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 1);
+    }
+
+    @Test
+    void cancellationRejectsPreparedReopenAndDispatchedCloseWithoutChangingRemoteEffect() {
+        Fixture reopen = closedFixture("2061", "04");
+        ClosingCalendar preparedReopen = transactions.prepareDecision(
+                reopen.approvalId(), ReopenApprovalStatus.APPROVED, "approver").calendar();
+        int before = master.attempts.get();
+        assertThatThrownBy(() -> recovery.cancelPreparedClose(preparedReopen.getId(),
+                preparedReopen.getTransitionId(), "not a final close", "operator"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(master.attempts.get()).isEqualTo(before);
+
+        Instant observedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        ClosingCalendar preparedClose = prepareCloseWithObservation("2061", "05", observedAt);
+        master.failNextUpdate(preparedClose.getTransitionFiscalPeriodId(), Fault.LOST_RESPONSE);
+        assertThatThrownBy(() -> recovery.recoverTransition(preparedClose.getId(),
+                preparedClose.getTransitionId(), false, "operator"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar dispatched = calendars.findById(preparedClose.getId()).orElseThrow();
+        assertThat(dispatched.getTransitionStage()).isEqualTo(TransitionStage.DISPATCHED);
+        int afterRemote = master.attempts.get();
+        assertThatThrownBy(() -> recovery.cancelPreparedClose(dispatched.getId(),
+                dispatched.getTransitionId(), "must not erase remote effect", "operator"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(master.attempts.get()).isEqualTo(afterRemote);
+        assertThat(calendars.findById(dispatched.getId()).orElseThrow().getTransitionId())
+                .isEqualTo(dispatched.getTransitionId());
+    }
+
+    @Test
+    void concurrentPreparedCloseRecoveriesMakeOneMasterWrite() throws Exception {
+        Instant observedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        ClosingCalendar prepared = prepareCloseWithObservation("2061", "06", observedAt);
+        Pause put = master.pauseUpdate(prepared.getTransitionFiscalPeriodId());
+        var start = new java.util.concurrent.CyclicBarrier(2);
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        int attemptsBefore = master.attempts.get();
+        try {
+            java.util.concurrent.Callable<Throwable> resume = () -> {
+                start.await(5, TimeUnit.SECONDS);
+                return outcome(() -> recovery.recoverTransition(
+                        prepared.getId(), prepared.getTransitionId(), false, "operator"));
+            };
+            Future<Throwable> first = workers.submit(resume);
+            Future<Throwable> second = workers.submit(resume);
+            put.awaitEntered();
+            put.release();
+            List<Throwable> results = java.util.Arrays.asList(
+                    first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
+            assertThat(results.stream().filter(java.util.Objects::isNull)).hasSize(1);
+            assertThat(results.stream().filter(java.util.Objects::nonNull)).hasSize(1);
+            assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 1);
+            assertThat(calendarAudits(prepared.getId()).stream()
+                    .filter(a -> a.getActionType() == ActionType.CALENDAR_CLOSED)).hasSize(1);
+        } finally {
+            put.release();
+            workers.shutdownNow();
+            assertThat(workers.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"OPEN", "CLOSED"})
@@ -406,11 +584,63 @@ class ClosingTransitionRecoveryIntegrationTest {
         return new Fixture(periodId, calendar.getId(), approval.getId());
     }
 
+    private ClosingCalendar prepareCloseWithObservation(String year, String month, Instant observedAt) {
+        evidenceClock.set(observedAt);
+        long periodId = master.create(year, month, "OPEN");
+        ClosingCalendar calendar = newCalendar(year, month, ClosingCalendarStatus.IN_PROGRESS);
+        calendar.setCloseInitiatedAt(java.time.LocalDateTime.ofInstant(observedAt.minus(Duration.ofHours(1)), ZoneOffset.UTC));
+        calendars.save(calendar);
+        ClosingTask task = closing.createClosingTask(newTask(calendar, true));
+        closing.updateClosingTaskStatus(task.getId(), ClosingTaskStatus.IN_PROGRESS, "task-worker");
+        closing.updateClosingTaskStatus(task.getId(), ClosingTaskStatus.COMPLETED, "task-worker");
+        ClosingGate gate = closing.createClosingGate(newGate(calendar));
+        closing.checkAndPassClosingGate(gate.getId(), "gate-reviewer");
+        var period = master.findFiscalPeriodById(periodId).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, calendar, periodId, period.endDate(), observedAt);
+        ClosingCalendar prepared = transactions.prepareClose(calendar.getId(), "closer");
+        assertThat(prepared.getTransitionStage()).isEqualTo(TransitionStage.PREPARED);
+        assertThat(prepared.getTransitionEvidenceSetId()).isNotBlank();
+        return prepared;
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class AdjustableClockConfiguration {
+        @Bean
+        @Primary
+        @Qualifier("finalCloseEvidenceClock")
+        AdjustableClock adjustableEvidenceClock() {
+            return new AdjustableClock();
+        }
+    }
+
+    static final class AdjustableClock extends Clock {
+        private final AtomicReference<Instant> now = new AtomicReference<>();
+
+        void set(Instant instant) {
+            now.set(instant);
+        }
+
+        void useSystemTime() {
+            now.set(null);
+        }
+
+        @Override public ZoneId getZone() { return ZoneOffset.UTC; }
+        @Override public Clock withZone(ZoneId zone) { return this; }
+        @Override public Instant instant() {
+            Instant fixed = now.get();
+            return fixed == null ? Instant.now() : fixed;
+        }
+    }
+
     private ClosingCalendar newCalendar(String year, String period, ClosingCalendarStatus state) {
         ClosingCalendar calendar = new ClosingCalendar();
         calendar.setFiscalYear(year);
         calendar.setFiscalPeriod(period);
         calendar.setStatus(state);
+        if (state == ClosingCalendarStatus.IN_PROGRESS) {
+            calendar.setCloseInitiatedBy("synthetic-fixture");
+            calendar.setCloseInitiatedAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(1));
+        }
         calendar.setAuditUser("synthetic-fixture");
         return calendars.save(calendar);
     }
@@ -421,6 +651,8 @@ class ClosingTransitionRecoveryIntegrationTest {
         closing.updateClosingTaskStatus(task.getId(), ClosingTaskStatus.COMPLETED, "task-worker");
         ClosingGate gate = closing.createClosingGate(newGate(calendar));
         closing.checkAndPassClosingGate(gate.getId(), "gate-reviewer");
+        var period = master.findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod()).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, calendar, period.id(), period.endDate());
     }
 
     private void approve(Fixture fixture) {

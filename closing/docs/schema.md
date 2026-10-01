@@ -9,6 +9,9 @@ erDiagram
     CLOSING_CALENDARS ||--o{ CLOSING_TASKS : has
     CLOSING_CALENDARS ||--o{ CLOSING_GATES : has
     CLOSING_CALENDARS ||--o{ CLOSING_AUDIT_LOGS : records
+    CLOSING_CALENDARS ||--o{ FINAL_CLOSE_EVIDENCE_SETS : snapshots
+    FINAL_CLOSE_EVIDENCE_SETS ||--|{ FINAL_CLOSE_EVIDENCE_CONTROLS : contains
+    FINAL_CLOSE_EVIDENCE_CONTROLS ||--|{ FINAL_CLOSE_EVIDENCE_TOTALS : reconciles
     DAILY_CLOSING_STATUS {
         date date PK
         varchar state
@@ -40,6 +43,9 @@ erDiagram
 | `closing_adjustments` | `ClosingAdjustment` | 결산 조정 전표와 회계기간의 연결 |
 | `closing_audit_logs` | `ClosingAuditLog` | 캘린더, 태스크, 게이트, 재오픈, 조정 감사 로그 |
 | `daily_closing_status` | `DailyClosingStatus` | 날짜별 EOD/BOD 상태, 낙관적 버전, 단계별 처리자/시각 |
+| `final_close_evidence_sets` | `FinalCloseEvidenceSet` | 캘린더/회계기간/cutoff/관측시각/제출자/digest의 불변 공급자 스냅샷 |
+| `final_close_evidence_controls` | `FinalCloseEvidenceControl` | 통제 타입별 원천 시스템·불변 실행 ID·PASS/FAIL·차단 건수 |
+| `final_close_evidence_totals` | `FinalCloseEvidenceTotal` | 계정·통화별 `DECIMAL(38,18)` 원천 합계와 전기 합계 |
 
 월·연 기간 상태는 `closing_calendars`와 Master Data의 `fiscal_periods`가 권위 모델입니다. 별도 `closing_period` 테이블과 setter 기반 병렬 엔티티는 사용하지 않습니다. 연차 손익 대체는 `AnnualClosingService`가 담당합니다.
 
@@ -90,10 +96,27 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 판단하지 말고 캘린더 상태와 미완료 전이를 함께 확인해야 합니다.
 동시성 경계와 운영 복구 조건은 [업무 흐름](process-flow.md#월말-동시-결정과-복구-gh-774)에 설명합니다.
 
-V52는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
-새 API/Batch를 시작하기 전에 release-time migrate/validate를 수행해야 합니다.
+V52와 후속 V53은 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
+새 API/Batch를 시작하기 전에 V53까지 release-time migrate/validate를 수행해야 합니다.
 기존 버전 writer는 새 잠금·전이 규칙을 모르므로 혼합 버전 쓰기를 허용하지 않습니다.
 미해결 전이 컬럼을 삭제하는 down migration이나 데이터 초기화는 롤백 방법이 아닙니다.
+
+## 최종 마감 증빙과 전이 바인딩 (GH-778)
+
+V53은 위 세 증빙 테이블과 `closing_calendars.transition_evidence_set_id`를 추가합니다.
+증빙 set은 공급자 `evidence_set_id`가 전역 unique이고, 애플리케이션 포트는 append/find만 제공합니다.
+같은 ID와 digest의 재시도는 기존 set을 반환하며 다른 digest는 거부합니다. 자식 행은 set 삽입과 같은
+새 트랜잭션에서 기록되고 JPA 컬럼은 수정 불가입니다. 캘린더 삭제가 증빙을 지우지 않도록 set의
+`calendar_id`는 역방향 FK가 아니며, 전이 바인딩 FK는 `ON DELETE NO ACTION`입니다.
+
+최신 set 인덱스는 `(calendar_id, observed_at DESC, id DESC)`입니다. 같은 관측 시각에는 append ID가
+큰 set이 우선하므로 새 FAIL을 과거 PASS가 가리지 않습니다. `transition_evidence_set_id`는 CLOSED
+`PREPARED`/`DISPATCHED` 의도와 함께 유지되고 완료 시 전이 필드와 함께 비워집니다. 감사 사유에는
+작업 ID·기간 ID·승인 ID·증빙 set ID가 남습니다. OPEN 재오픈 전이는 증빙 ID를 가질 수 없습니다.
+
+V52에서 이미 만들어진 CLOSED 미완료 전이는 증빙 ID가 없을 수 있어 V53 CHECK가 마이그레이션은
+허용하지만, 새 writer는 반드시 ID를 넣고 런타임 dispatch/finish는 누락 시 차단합니다. V53은
+forward-only입니다. 롤백 시 증빙이나 미완료 전이를 삭제하지 말고 원격 Master와 먼저 대사합니다.
 
 ## 외부 데이터 의존성
 
@@ -137,6 +160,8 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | 설정 | 기본값/예시 | 설명 |
 | --- | --- | --- |
 | `account.closing.accounting.fx-valuation-reporting-currency-code` | `KRW` | FX 평가 보고통화 및 ECL 기능통화; 원장의 base 금액 단위와 일치해야 함 |
+| `account.closing.final-close-evidence.max-age` | `PT24H` | 최신 증빙의 최대 허용 나이; 양수 `Duration`만 허용하며 마감 시작 뒤 관측 조건도 별도 적용 |
+| `account.closing.final-close-evidence.trusted-submitters` | 빈 집합(deny-all) | 증빙 제출 actor allowlist. 최대 64개, 각 값은 trim 후 100자 이하이며 `X-Auth-User`와 대소문자까지 정확히 일치해야 함 |
 | `account.closing.accounting.fx-valuation-policies` | 빈 목록; 실행 전 명시 필요 | 계정별 `account-code`, 양 끝 포함 `effective-from`/`effective-to`, `treatment` (`MONETARY`/`HISTORICAL_COST`). 정책 누락·기간 중복은 실패 |
 | `account.closing.accounting.fx-translation-gain-account-code` | `72000` | 외화환산이익 계정 |
 | `account.closing.accounting.fx-translation-loss-account-code` | `92000` | 외화환산손실 계정 |
@@ -155,6 +180,7 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. 새 writer를 시작하기 전에 V53까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
 - `period_locks`는 현재 unlock 시 감사 로그를 남기고 활성 행을 삭제합니다. `active`, `unlocked_by`, `unlocked_at`, `unlock_reason`을 추가하는 forward migration 후 이력 행 보존 방식으로 전환해야 합니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.

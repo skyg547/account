@@ -2,6 +2,7 @@ package com.ho.account.closing.web;
 
 import com.ho.account.closing.application.port.in.ClosingTransitionRecoveryUseCase;
 import com.ho.account.closing.dto.ClosingTransitionDto;
+import com.ho.account.closing.dto.ClosingPreparedTransitionCancellationRequest;
 import com.ho.account.closing.dto.ClosingTransitionRecoveryRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,5 +37,15 @@ public class ClosingTransitionController {
         String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
         return ClosingTransitionDto.from(recovery.recoverTransition(calendarId, request.operationId(),
                 request.remoteRequestTerminated(), trustedActor));
+    }
+
+    @PostMapping("/cancel-prepared")
+    public ClosingTransitionDto cancelPrepared(@PathVariable Long calendarId,
+            @Valid @RequestBody ClosingPreparedTransitionCancellationRequest request,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
+        return ClosingTransitionDto.from(recovery.cancelPreparedClose(
+                calendarId, request.operationId(), request.reason(), trustedActor));
     }
 }

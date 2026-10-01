@@ -28,7 +28,10 @@ import org.springframework.context.ConfigurableApplicationContext;
                 JournalFxValuationBalanceSource.class
         })
 })
-@EntityScan(basePackages = "com.ho.account.closing.domain")
+@EntityScan(basePackages = {
+        "com.ho.account.closing.domain",
+        "com.ho.account.closing.infrastructure.persistence"
+})
 @EnableConfigurationProperties(ClosingAccountingProperties.class)
 @Import({FxValuationEligibilityResolver.class, FxValuationService.class, FxValuationPipeline.class,
         EclProvisionService.class, FinancialClosingCalculationService.class,

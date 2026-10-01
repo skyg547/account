@@ -61,6 +61,22 @@ class ClosingDomainTransitionTest {
                 .hasMessageContaining("PENDING");
     }
 
+    @Test
+    void preparedAndDispatchedCloseKeepTheOriginallyBoundEvidenceSet() {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        calendar.prepareTransition("CLOSED", 20L, null, "original-evidence", "closer");
+        String operationId = calendar.getTransitionId();
+
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
+        calendar.markTransitionDispatched(operationId);
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
+        assertThatThrownBy(() -> calendar.prepareTransition(
+                "CLOSED", 20L, null, "newer-evidence", "other"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("pending recovery");
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
+    }
+
     private ClosingTask mandatoryTask() {
         ClosingTask task = new ClosingTask();
         task.setMandatory(true);
