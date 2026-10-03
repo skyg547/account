@@ -19,6 +19,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.core.read.ListAppender;
+import com.ho.account.auth.core.application.exception.DepartmentValidationUnavailableException;
 import com.ho.account.auth.core.application.port.in.AuthUserRoleAssignmentUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
@@ -182,14 +183,27 @@ class DepartmentValidationLoginIntegrationTest {
         verify(attempts, never()).recordFailure(any(), any());
     }
 
+    @Test
+    void unrelatedFailureRetainsGenericServerErrorMapping() throws Exception {
+        when(attempts.isLocked(USERNAME)).thenThrow(new IllegalStateException("synthetic generic failure"));
+
+        login().andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
+                .andExpect(jsonPath("$.message").value("Unexpected server error: synthetic generic failure"))
+                .andExpect(jsonPath("$.token").doesNotExist());
+
+        verifyNoInteractions(tokenIssuer);
+    }
+
     private void assertUnavailableLogin() throws Exception {
-        // Assert the availability category so the follow-up typed 503 mapping can retain this regression.
-        MvcResult result = login().andExpect(status().is5xxServerError())
+        MvcResult result = login().andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("DEPARTMENT_VALIDATION_UNAVAILABLE"))
+                .andExpect(jsonPath("$.message").value("Department validation is unavailable"))
                 .andExpect(jsonPath("$.token").doesNotExist()).andReturn();
         verifyNoInteractions(tokenIssuer);
         verify(attempts, never()).recordSuccess(any());
         verify(attempts, never()).recordFailure(any(), any());
-        assertThat(result.getResolvedException()).isInstanceOf(RuntimeException.class)
+        assertThat(result.getResolvedException()).isInstanceOf(DepartmentValidationUnavailableException.class)
                 .hasMessage("Department validation is unavailable").hasNoCause();
         assertThat(result.getResolvedException().getSuppressed()).isEmpty();
         assertNoSensitiveText(result);

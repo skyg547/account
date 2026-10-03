@@ -1,6 +1,7 @@
 package com.ho.account.auth.api.web;
 
 import com.ho.account.auth.api.dto.ErrorResponse;
+import com.ho.account.auth.core.application.exception.DepartmentValidationUnavailableException;
 import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import java.time.LocalDateTime;
@@ -15,6 +16,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class AuthExceptionHandler {
+    private static final String DEPARTMENT_VALIDATION_UNAVAILABLE_CODE = "DEPARTMENT_VALIDATION_UNAVAILABLE";
+
+    @ExceptionHandler(DepartmentValidationUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleDepartmentValidationUnavailable(
+            DepartmentValidationUnavailableException ex) {
+        // Use fixed public text even if a future caller adds details to the exception instance.
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse(DEPARTMENT_VALIDATION_UNAVAILABLE_CODE,
+                        DepartmentValidationUnavailableException.SAFE_MESSAGE, LocalDateTime.now()));
+    }
 
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
@@ -52,4 +63,3 @@ public class AuthExceptionHandler {
                 .body(new ErrorResponse("INTERNAL_SERVER_ERROR", "Unexpected server error: " + ex.getMessage(), LocalDateTime.now()));
     }
 }
-
