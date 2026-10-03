@@ -1,0 +1,1 @@
+-- H2 database does not support GiST exclude constraint. Skipping V9.
