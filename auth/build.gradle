@@ -1,0 +1,4 @@
+// The auth parent has no sources; its test task is the module-level verification entrypoint.
+tasks.named('test') {
+    dependsOn ':auth:core:test', ':auth:api:test'
+}

@@ -1,6 +1,15 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
 import com.ho.account.auth.core.domain.model.PersonalAccessToken;
+import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.test.context.ContextConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,5 +99,40 @@ class PersonalAccessTokenPersistenceAdapterTest {
         // then
         assertThat(result).isPresent();
         assertThat(result.get().getId()).isEqualTo("id-123");
+    }
+}
+
+/** Verifies the conditional SQL write against H2 rather than a repository mock. */
+@DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"})
+@ContextConfiguration(classes = PersonalAccessTokenConditionalRevokeJpaTest.JpaTestConfiguration.class)
+class PersonalAccessTokenConditionalRevokeJpaTest {
+
+    @Autowired private PersonalAccessTokenPersistenceAdapter adapter;
+    @Autowired private PersonalAccessTokenJpaRepository repository;
+    @Autowired private EntityManager entityManager;
+
+    @Test
+    void activeTokenHasOnlyOneSuccessfulConditionalRevoke() {
+        LocalDateTime now = LocalDateTime.now();
+        repository.saveAndFlush(new PersonalAccessTokenJpaEntity(
+                "conditional-id", "owner", "Key", "pat_live_123...", "conditional-hash",
+                "ACTIVE", now.plusDays(1), now));
+
+        assertThat(adapter.markRevokedIfActive("conditional-id")).isTrue();
+        assertThat(adapter.markRevokedIfActive("conditional-id")).isFalse();
+        assertThat(adapter.markRevokedIfActive("missing-id")).isFalse();
+
+        // A bulk update bypasses the first-level cache; reloading proves persisted state.
+        entityManager.clear();
+        assertThat(repository.findById("conditional-id").orElseThrow().getStatus())
+                .isEqualTo("REVOKED");
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @EnableJpaRepositories(basePackageClasses = PersonalAccessTokenJpaRepository.class)
+    @EntityScan(basePackageClasses = PersonalAccessTokenJpaEntity.class)
+    @Import(PersonalAccessTokenPersistenceAdapter.class)
+    static class JpaTestConfiguration {
     }
 }
