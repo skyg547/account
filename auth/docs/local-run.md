@@ -75,6 +75,19 @@ local profile은 다음을 적용합니다.
 - JDBC: H2 memory database, PostgreSQL compatibility mode
 - Config Server/Eureka/Master Data 원격 호출: 비활성화
 
+## 원격 부서 조회 대기 시간
+
+`auth.master-data.enabled=true`로 원격 부서 검증을 사용하는 환경에서 `masterDataRestClient`는 연결 대기와 응답 읽기 대기를 제한합니다. 값을 생략하면 다음 기본값을 사용합니다. 환경변수는 실행 환경의 승인된 설정 주입 경로에서 지정합니다.
+
+| 설정 키 | 환경변수 | 기본값 | 허용 범위 |
+| --- | --- | ---: | ---: |
+| `auth.master-data.connect-timeout-millis` | `AUTH_MASTER_DATA_CONNECT_TIMEOUT_MILLIS` | 1000 ms | 1~10000 ms |
+| `auth.master-data.read-timeout-millis` | `AUTH_MASTER_DATA_READ_TIMEOUT_MILLIS` | 3000 ms | 1~10000 ms |
+
+두 설정 중 하나라도 0, 음수, 10000 ms 초과 또는 숫자가 아닌 값이면 기동 시 설정 필드 경로만 포함한 오류로 실패합니다. 원격 연결 실패나 읽기 시간 초과는 부서 검증 불가로 처리되며 JWT를 발급하지 않습니다. 읽기 제한은 **응답 바이트가 오지 않는 동안의 대기 시간**입니다. 상대 서비스가 바이트를 천천히 계속 보내면 전체 요청 시간은 이 값보다 길어질 수 있습니다.
+
+기본 `local` 프로파일은 `auth.master-data.enabled=false`로 로컬 부서 검증 어댑터를 선택하므로 원격 조회를 호출하지 않습니다. 이 대기 시간 설정은 로컬 어댑터의 승인 동작을 바꾸지 않습니다.
+
 ## H2 컨텍스트/Flyway smoke
 
 웹 포트 없이 마이그레이션과 Bean/JPA 매핑만 확인합니다.
