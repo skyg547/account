@@ -1,3 +1,9 @@
+## 2026-10-06 — GH-858 account-mart FX 필수화 / Draft PR #867
+
+- Issue #858; `agent/858-mart-fx-required`; `/tmp/account-858-mart-fx-required`; base `973d76dd`; implementation `d4cbe980`; [Draft PR #867](https://github.com/skyg547/account/pull/867), `Refs #858`.
+- 상태: account-mart 4파일 구현·문서화와 독립 읽기 전용 리뷰 완료. 기준일 외화/KRW 환율 누락·무효 시 `IllegalStateException`으로 CDM Step/Job을 실패시킨다. core 22/22, batch 10/10, API 3/3 PASS; 좁은 대상 11/11 PASS. 요청된 집계 `:account-mart:test`는 `NO-SOURCE`다. Q1–Q4 모두 PASS, diff/marker clean.
+- 위험/다음 담당: 이전 chunk 커밋 후 실패·동일 파라미터 재시작은 미검증. 환율 보정 및 기준일 부분 적재 대사 후 새 식별 파라미터로 재실행. 사람 리뷰와 PR 검증 후 부모 Integrator가 별도 승인 게이트에서 Ready/merge를 판단한다. Issue close/branch·worktree 삭제는 수행하지 않았다.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)

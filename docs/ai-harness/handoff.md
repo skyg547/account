@@ -1,3 +1,11 @@
+## 2026-10-06 — GH-858 account-mart FX 환산 handoff
+
+- Issue [#858](https://github.com/skyg547/account/issues/858); branch `agent/858-mart-fx-required`; worktree `/tmp/account-858-mart-fx-required`; base `origin/main@973d76dd`; [Draft PR #867](https://github.com/skyg547/account/pull/867), `Refs #858`.
+- 변경 4파일: `account-mart/mart-core/.../IntegratedPositionProcessor.java`와 단위 테스트, `mart-batch/.../IntegratedPositionEtlJobTest.java`, `account-mart/docs/ETL_INTERFACE_SPEC.md`. 외화 환율 누락·무효는 `IllegalStateException`으로 CDM Step/Job 실패, 유효 환율은 BigDecimal/4자리 HALF_UP을 유지한다.
+- 검증: Issue 대상 core 8 + batch 3 PASS; 전체 하위 프로젝트 core 22 + batch 10 + API 3 PASS, 실패/오류/skip 0. 집계 `:account-mart:test`는 `NO-SOURCE`; diff/marker PASS. 독립 읽기 전용 reviewer는 재시작 문서 수정 후 findings 없음 및 Q1–Q4 PASS를 확인했다.
+- 잔여 위험: 배치 테스트는 한 chunk만 다뤄 이전 chunk가 커밋된 실패·동일 파라미터 재시작을 증명하지 않는다. `saveState(false)`이므로 환율 보정 뒤 부분 CDM/snapshot 적재를 대사하고 새 Job 식별 파라미터로 전처리부터 실행한다. 운영 환율 완전성·대량 재시작은 다음 검증 게이트다.
+- 롤백: 검토된 PR revert 후 영향 기준일 데이터 대사. 다음 담당은 사람 리뷰어와 부모 Integrator다. Draft를 유지하며 Ready, merge, Issue close, branch/worktree 삭제는 별도 승인까지 보류한다. 다른 모듈과 사용자 기본 checkout은 수정하지 않았다.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)

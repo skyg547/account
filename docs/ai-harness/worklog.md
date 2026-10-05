@@ -1,3 +1,20 @@
+## 2026-10-06 — GH-858 account-mart 기준일 외화 환율 필수화 / Draft PR #867
+
+- Issue [#858](https://github.com/skyg547/account/issues/858), branch `agent/858-mart-fx-required`, isolated worktree `/tmp/account-858-mart-fx-required`, base `origin/main@973d76dd`, implementation commit `d4cbe980`, [Draft PR #867](https://github.com/skyg547/account/pull/867) (`Refs #858`). 단일 `account-mart` 모듈 작업이며 구현자와 독립 읽기 전용 리뷰어를 분리했다.
+- 변경: `IntegratedPositionProcessor`는 KRW 외 통화의 당일 환율이 없거나 null/0/음수면 `IllegalStateException`으로 CDM 환산을 중단한다. 유효 환율은 기존 `BigDecimal` 곱셈과 소수점 4자리 `HALF_UP`을 유지한다. core 테스트는 정상·누락·무효·기준일 누락, batch 테스트는 환율 누락·0일 때 CDM Step/Job `FAILED`와 잘못된 포지션·snapshot 미적재를 검증한다. `account-mart/docs/ETL_INTERFACE_SPEC.md`는 필수 환율, 재실행과 로컬 검증을 설명한다. production 수정은 `account-mart/**` 안에서만 수행했다.
+- 좁은 검증: `./gradlew --offline :account-mart:mart-core:test --tests com.ho.account.mart.core.domain.mart.processor.IntegratedPositionProcessorTest :account-mart:mart-batch:test --tests com.ho.account.mart.batch.job.ods.IntegratedPositionEtlJobTest --console=plain --max-workers=1 --no-daemon` PASS (core 8, batch 3, 실패/오류/skip 0).
+- 전체 하위 프로젝트 검증: `./gradlew :account-mart:mart-core:test :account-mart:mart-batch:test :account-mart:mart-api:test --console=plain --max-workers=1 --no-daemon` PASS (core 22, batch 10, API 3; 총 35, 실패/오류/skip 0). 요청된 `./gradlew :account-mart:test --console=plain --max-workers=1 --no-daemon`은 성공했으나 집계 프로젝트에 테스트 소스가 없어 `NO-SOURCE`였다. `git diff --check` 및 변경 파일 conflict marker 검사 PASS.
+- 잔여 한계: batch 실패 테스트는 5건/1,000건 chunk 한 개라 이전 chunk가 커밋된 뒤 실패하는 경우와 동일 파라미터 재시작은 미검증이다. CDM reader는 `saveState(false)`이며, 같은 파라미터 재시작은 완료된 전처리를 건너뛰고 CDM을 처음부터 읽는다. 환율 보정 후 부분 적재를 대사하고 새 식별 파라미터로 전처리부터 재실행해야 한다. 운영 환율 완전성과 대량 배치는 별도 검증 게이트다. 롤백은 코드 PR의 검토된 revert와 영향 기준일 마트 데이터 대사로 한다.
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `IntegratedPositionProcessor.java:109`, `IntegratedPositionProcessorTest.java:123`; core 8/8·batch 3/3 | 해당 없음: 적용 항목 | 다중 chunk 검증 미실행; 사람 리뷰 | 읽기 전용 reviewer PASS |
+| Q2 | PASS | `ETL_INTERFACE_SPEC.md:34-36`, `IntegratedPositionEtlJobTest.java:136`; 입력→환산→실패 및 재시작 설명 | 해당 없음: 적용 항목 | 부분 적재 대사 후 새 Job 인스턴스; 사람 리뷰 | reviewer가 재시작 설명 정정 후 PASS |
+| Q3 | PASS | `ETL_INTERFACE_SPEC.md:40-48`의 실행 명령·기대 결과·H2 한계; 실제 대상 테스트 11/11 | 해당 없음: 적용 항목 | 운영 데이터 검증 별도; 사람 리뷰 | 읽기 전용 reviewer PASS |
+| Q4 | PASS | `IntegratedPositionProcessor.java:124` 의도 주석과 무효 환율 테스트 | 해당 없음: 적용 항목 | 해당 없음: Q1 위험에 포함; 사람 리뷰 | 읽기 전용 reviewer PASS |
+
+- 권한 분리: 구현자는 production/test/docs를 수정했고 독립 reviewer는 읽기 전용으로 diff와 증거를 검토했다. 부모 Integrator가 Git/GitHub 게시 및 이 세 공유 기록을 갱신했다. PR은 Draft 유지; Ready, merge, Issue 종료 및 자원 삭제는 별도 사람 리뷰·승인 단계다. 사용자가 금지한 다른 공용 하네스/이력 문서는 수정하지 않았다.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
