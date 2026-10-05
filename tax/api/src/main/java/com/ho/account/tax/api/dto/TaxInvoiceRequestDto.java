@@ -1,6 +1,8 @@
 package com.ho.account.tax.api.dto;
 
 import com.ho.account.tax.application.port.in.TaxInvoiceCommand;
+import com.ho.account.tax.domain.TaxInvoice;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -41,6 +43,14 @@ public class TaxInvoiceRequestDto {
     @NotNull(message = "합계금액은 필수입니다.")
     @PositiveOrZero(message = "합계금액은 0 이상이어야 합니다.")
     private BigDecimal totalAmount;
+
+    @AssertTrue(message = "금액은 NUMERIC(19,2)에 반올림 없이 저장할 수 있어야 합니다.")
+    public boolean isAmountsStorable() {
+        // null은 각 필드의 @NotNull에 맡기고, 입력 값은 도메인과 동일한 정밀도 규칙으로 확인한다.
+        return (supplyAmount == null || TaxInvoice.isStorableAmount(supplyAmount))
+                && (taxAmount == null || TaxInvoice.isStorableAmount(taxAmount))
+                && (totalAmount == null || TaxInvoice.isStorableAmount(totalAmount));
+    }
 
     public TaxInvoiceCommand toCommand() {
         return new TaxInvoiceCommand(
