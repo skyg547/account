@@ -2,7 +2,9 @@ package com.ho.account.expenditure.repository;
 
 import com.ho.account.expenditure.domain.PayableStatus;
 import com.ho.account.expenditure.infrastructure.persistence.entity.PayableJpaEntity;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +17,11 @@ import java.util.Optional;
 
 @Repository
 public interface PayableRepository extends JpaRepository<PayableJpaEntity, Long> {
+    // PostgreSQL holds this row lock until commit; an offset waits for a claim on the same payable, or vice versa.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PayableJpaEntity p WHERE p.id = :id")
+    Optional<PayableJpaEntity> findByIdForUpdate(@Param("id") Long id);
+
     Optional<PayableJpaEntity> findByPurchaseInvoiceNoAndPurchaseInvoiceVendorCode(String purchaseInvoiceNo,
             String purchaseInvoiceVendorCode);
     List<PayableJpaEntity> findByVendorCodeAndStatus(String vendorCode, PayableStatus status);

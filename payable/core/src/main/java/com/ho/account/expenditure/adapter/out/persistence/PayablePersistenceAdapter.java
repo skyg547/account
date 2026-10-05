@@ -53,6 +53,13 @@ public class PayablePersistenceAdapter implements PayablePersistencePort {
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Payable> findByIdForUpdate(Long id) {
+        return payableRepository.findByIdForUpdate(id)
+                .map(payableMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public int claimForPayment(Long payableId) {
         // The claim and Payment insert must commit or roll back together.
         return payableRepository.claimForPayment(

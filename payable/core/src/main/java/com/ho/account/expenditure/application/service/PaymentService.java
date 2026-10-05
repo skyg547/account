@@ -249,8 +249,12 @@ public class PaymentService implements PaymentUseCase {
         Long payableId = command.payableId();
         Long advancePaymentId = command.advancePaymentId();
         BigDecimal offsetAmount = command.offsetAmount();
-        Payable payable = payablePersistencePort.findById(payableId)
+        // 지급 claim과 상계를 같은 채무 행에서 직렬화해 선점된 지급 후보를 다시 열지 않습니다.
+        Payable payable = payablePersistencePort.findByIdForUpdate(payableId)
                 .orElseThrow(() -> new IllegalArgumentException("Payable not found: " + payableId));
+        if (payable.getStatus() == PayableStatus.IN_PAYMENT) {
+            throw new IllegalStateException("Payable is already in payment: " + payableId);
+        }
         AdvancePayment advancePayment = advancePaymentPersistencePort.findById(advancePaymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Advance payment not found: " + advancePaymentId));
 
