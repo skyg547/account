@@ -8,8 +8,10 @@ import com.ho.account.contracts.outbox.OutboxPort;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalActor;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
+import com.ho.account.loan.service.LoanAccountingProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -18,43 +20,59 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
  * [헥사고날 아키텍처 - 전표 출력 어댑터 (LoanJournalAdapter)]
  * 
- * 🐣 [초보자를 위한 설명 및 Transactional Outbox 지원]
- * 이 클래스는 Loan 모듈의 전표 요청 명령어 {@link LoanJournalCommand}를 
- * `journal-ledger` 도메인 및 Transactional Outbox 이벤트로 이송하는 출력 어댑터입니다.
+ * 🐣 [초보자를 위한 설명 및 Outbox 포트]
+ * 이 클래스는 Loan 모듈의 전표 요청 명령어 {@link LoanJournalCommand}를
+ * `journal-ledger` 도메인에 전달하고 OutboxPort에 전표 이벤트를 기록합니다.
  * 
- * **Transactional Outbox 및 Dual Write 방지 아키텍처:**
- * 1. 로컬 트랜잭션 수반 시 `JournalOutboxEvent`를 원자적으로 Outbox 테이블에 저장하여 
- *    네트워크 단절이나 시스템 복구 시에도 이벤트를 유실하지 않습니다.
- * 2. 전표 생성이 성공하면 Outbox 이벤트를 `PUBLISHED` 상태로 갱신하여 
- *    전표 원장과의 최종 정합성(Eventual Consistency)과 멱등성을 보장합니다.
+ * 기본 OutboxPort는 비영속 InMemoryOutboxAdapter입니다. 실패 시 PENDING 이벤트가 메모리에
+ * 남을 수 있고 프로세스 재시작 시 사라집니다. 자동 릴레이·재처리나 전표와의 원자성은 보장하지
+ * 않습니다. 원자적 저장은 같은 DB 트랜잭션에 참여하는 영속 OutboxPort를 별도로 연결해야 합니다.
  */
 @Component
 @ConditionalOnProperty(prefix = "account.loan.remote", name = "enabled",
         havingValue = "false", matchIfMissing = true)
 public class LoanJournalAdapter implements LoanJournalPort {
 
+    private static final Pattern MACHINE_APPROVER = Pattern.compile("service:[a-z0-9][a-z0-9._-]*");
+
     private final JournalUseCase journalUseCase;
     private final OutboxPort outboxPort;
+    private final LoanAccountingProperties accountingProperties;
 
-    public LoanJournalAdapter(JournalUseCase journalUseCase) {
-        this(journalUseCase, new InMemoryOutboxAdapter());
+    public LoanJournalAdapter(JournalUseCase journalUseCase, LoanAccountingProperties accountingProperties) {
+        this(journalUseCase, new InMemoryOutboxAdapter(), accountingProperties);
     }
 
     @Autowired
-    public LoanJournalAdapter(JournalUseCase journalUseCase, @Autowired(required = false) OutboxPort outboxPort) {
-        this.journalUseCase = journalUseCase;
+    public LoanJournalAdapter(JournalUseCase journalUseCase, @Autowired(required = false) OutboxPort outboxPort,
+            @Autowired(required = false) LoanAccountingProperties accountingProperties) {
+        this.journalUseCase = Objects.requireNonNull(journalUseCase, "journalUseCase");
         this.outboxPort = outboxPort != null ? outboxPort : new InMemoryOutboxAdapter();
+        // Minimal adapter-only contexts may omit configuration; posting still fails closed below.
+        this.accountingProperties = accountingProperties != null ? accountingProperties : new LoanAccountingProperties();
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PostedJournal post(LoanJournalCommand command) {
-        // 1. Transactional Outbox 패턴 적용: Outbox 이벤트 원자적 저장
+        Objects.requireNonNull(command, "command");
+        // Validate both principals before outbox or journal writes, including canonical maker/checker separation.
+        String maker = JournalActor.canonicalize(command.actor());
+        String approver = JournalActor.canonicalize(accountingProperties.getJournalApproverActor());
+        if (!MACHINE_APPROVER.matcher(approver).matches()) {
+            throw new IllegalStateException("account.loan.accounting.journal-approver-actor must be a service principal");
+        }
+        if (JournalActor.sameIdentity(maker, approver)) {
+            throw new IllegalStateException("Loan journal maker and configured approver must differ");
+        }
+        // 1. 전표 호출 전 이벤트 기록. 기본 메모리 구현은 뒤따르는 실패에 함께 롤백되지 않습니다.
         JournalEntryCommand contractCommand = toContractCommand(command);
         String idempotencyKey = command.lineageSourceType() + ":" + command.lineageSourceId();
         
@@ -84,11 +102,11 @@ public class LoanJournalAdapter implements LoanJournalPort {
         command.lines().forEach(line -> entry.addDetail(toDetail(line, command.actor())));
         JournalEntry saved = journalUseCase.createJournalEntry(entry);
         journalUseCase.requestJournalEntryApproval(saved.getId(), command.actor());
-        journalUseCase.approveJournalEntry(saved.getId(), "SYSTEM_APPROVER");
+        journalUseCase.approveJournalEntry(saved.getId(), approver);
         journalUseCase.postJournalEntry(saved.getId(), command.actor());
         JournalEntry posted = journalUseCase.getJournalEntryWithDetails(saved.getId()).orElse(saved);
 
-        // 3. Outbox 이벤트 발행 성공 상태 갱신
+        // 3. 로컬 전기 호출 성공을 표시합니다. 메모리 표시만으로 외부 발행을 증명하지 않습니다.
         outboxPort.markJournalEventAsPublished(outboxEvent.getEventId(), LocalDateTime.now());
 
         return new PostedJournal(posted.getId(), posted.getSlipNo());
