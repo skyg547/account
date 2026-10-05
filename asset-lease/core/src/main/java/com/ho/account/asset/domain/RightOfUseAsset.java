@@ -103,6 +103,15 @@ public class RightOfUseAsset {
         return depreciate(currentBookValue);
     }
 
+    /**
+     * Applies the regular monthly amount, or clears the remaining book value on the final
+     * scheduled installment so rounding does not leave an active asset after the lease ends.
+     * Returns the amount actually applied for the accounting event.
+     */
+    public BigDecimal depreciate(boolean finalInstallment) {
+        return finalInstallment ? depreciateRemaining() : depreciate();
+    }
+
     private BigDecimal depreciate(BigDecimal targetAmount) {
         if (!STATUS_ACTIVE.equals(status)) {
             return BigDecimal.ZERO;

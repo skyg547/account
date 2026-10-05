@@ -300,8 +300,7 @@ public class LeaseEntryService implements LeaseUseCase {
                 .noneMatch(s -> "SCHEDULED".equals(s.getStatus())
                         && s.getPaymentDate().isAfter(schedule.getPaymentDate()));
         // The last period absorbs cent rounding so the ROU book value closes with the schedule.
-        BigDecimal depreciationAmount = finalInstallment
-                ? rouAsset.depreciateRemaining() : rouAsset.depreciate();
+        BigDecimal depreciationAmount = rouAsset.depreciate(finalInstallment);
         persistencePort.saveROUAsset(rouAsset);
 
         LeaseLiability leaseLiability = persistencePort.findLiabilityByContract(lockedContract)

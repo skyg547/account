@@ -25,6 +25,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.annotation.DirtiesContext;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -198,6 +199,97 @@ class LeaseEntryServiceTest {
         assertThat(rouAsset.getCurrentBookValue()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(rouAsset.getAccumulatedDepreciation()).isEqualByComparingTo("12000.00");
         assertEquals(RightOfUseAsset.STATUS_FULLY_DEPRECIATED, rouAsset.getStatus());
+    }
+
+    @Test
+    void processMonthlyLeaseAccountingUsesSoleRemainingScheduledInstallmentForRoundingTrueUp() {
+        LeaseContract contract = createIfrs16LeaseContract();
+        contract.setStartDate(LocalDate.of(2026, 1, 1));
+        contract.setEndDate(LocalDate.of(2026, 3, 31));
+        contract.setMonthlyPayment(new BigDecimal("33.39"));
+        contract.setDiscountRate(new BigDecimal("1.00"));
+        assertThat(contract.calculatePresentValue()).isEqualByComparingTo("100.00");
+        LeasePaymentSchedule january = createSchedule(contract);
+        january.setPaymentDate(LocalDate.of(2026, 1, 1));
+        january.setScheduledPaymentAmount(new BigDecimal("33.39"));
+        january.setInterestPortion(new BigDecimal("0.08"));
+        january.setPrincipalPortion(new BigDecimal("33.31"));
+        LeasePaymentSchedule february = createSchedule(contract);
+        february.setPaymentDate(LocalDate.of(2026, 2, 1));
+        february.setScheduledPaymentAmount(new BigDecimal("33.39"));
+        february.setInterestPortion(new BigDecimal("0.06"));
+        february.setPrincipalPortion(new BigDecimal("33.33"));
+        LeasePaymentSchedule march = createSchedule(contract);
+        march.setPaymentDate(LocalDate.of(2026, 3, 1));
+        march.setScheduledPaymentAmount(new BigDecimal("33.39"));
+        march.setInterestPortion(new BigDecimal("0.03"));
+        march.setPrincipalPortion(new BigDecimal("33.36"));
+        RightOfUseAsset rouAsset = createRightOfUseAsset(contract);
+        rouAsset.setInitialValue(contract.calculatePresentValue());
+        rouAsset.setCurrentBookValue(contract.calculatePresentValue());
+        rouAsset.setDepreciationAmountPerPeriod(contract.calculatePresentValue()
+                .divide(BigDecimal.valueOf(contract.calculateTermMonths()), 2, RoundingMode.HALF_UP));
+        assertThat(rouAsset.getDepreciationAmountPerPeriod()).isEqualByComparingTo("33.33");
+        LeaseLiability liability = createLeaseLiability(contract);
+        liability.setCurrentValue(new BigDecimal("100.00"));
+        RecordingAssetEventPort eventPort = new RecordingAssetEventPort();
+        LeaseEntryService service = new LeaseEntryService(
+                new FakeLeasePersistencePort(List.of(contract), List.of(january, february, march), rouAsset, liability),
+                eventPort,
+                new RecordingLeasePaymentResolutionPort(),
+                new StaticLeaseAccountMappingPort());
+
+        // Later months must wait while an earlier scheduled installment remains unpaid.
+        assertThrows(IllegalStateException.class, () ->
+                service.processMonthlyLeaseAccounting(LocalDate.of(2026, 3, 31), "lease-user"));
+        assertThat(eventPort.events).isEmpty();
+        assertThat(rouAsset.getCurrentBookValue()).isEqualByComparingTo("100.00");
+        assertThat(rouAsset.getAccumulatedDepreciation()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertEquals(RightOfUseAsset.STATUS_ACTIVE, rouAsset.getStatus());
+        assertThat(liability.getCurrentValue()).isEqualByComparingTo("100.00");
+        assertEquals("SCHEDULED", january.getStatus());
+        assertEquals("SCHEDULED", february.getStatus());
+        assertEquals("SCHEDULED", march.getStatus());
+
+        service.processMonthlyLeaseAccounting(LocalDate.of(2026, 1, 31), "lease-user");
+        assertThat((BigDecimal) eventPort.eventData.get("depreciationAmount")).isEqualByComparingTo("33.33");
+        assertThat(rouAsset.getCurrentBookValue()).isEqualByComparingTo("66.67");
+        assertEquals(RightOfUseAsset.STATUS_ACTIVE, rouAsset.getStatus());
+        assertEquals("PAID", january.getStatus());
+        assertEquals("SCHEDULED", february.getStatus());
+        assertEquals("SCHEDULED", march.getStatus());
+
+        assertThrows(IllegalStateException.class, () ->
+                service.processMonthlyLeaseAccounting(LocalDate.of(2026, 3, 31), "lease-user"));
+        assertThat(eventPort.events).hasSize(1);
+        assertThat(rouAsset.getCurrentBookValue()).isEqualByComparingTo("66.67");
+        assertThat(rouAsset.getAccumulatedDepreciation()).isEqualByComparingTo("33.33");
+        assertEquals(RightOfUseAsset.STATUS_ACTIVE, rouAsset.getStatus());
+        assertThat(liability.getCurrentValue()).isEqualByComparingTo("66.69");
+        assertEquals("PAID", january.getStatus());
+        assertEquals("SCHEDULED", february.getStatus());
+        assertEquals("SCHEDULED", march.getStatus());
+
+        service.processMonthlyLeaseAccounting(LocalDate.of(2026, 2, 28), "lease-user");
+        assertThat((BigDecimal) eventPort.eventData.get("depreciationAmount")).isEqualByComparingTo("33.33");
+        assertThat(rouAsset.getCurrentBookValue()).isEqualByComparingTo("33.34");
+        assertEquals(RightOfUseAsset.STATUS_ACTIVE, rouAsset.getStatus());
+        assertEquals("PAID", february.getStatus());
+        assertEquals("SCHEDULED", march.getStatus());
+
+        // Only March remains scheduled; the service must mark that installment as final.
+        service.processMonthlyLeaseAccounting(LocalDate.of(2026, 3, 31), "lease-user");
+        assertThat((BigDecimal) eventPort.eventData.get("depreciationAmount")).isEqualByComparingTo("33.34");
+        assertThat(rouAsset.getCurrentBookValue()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(rouAsset.getAccumulatedDepreciation()).isEqualByComparingTo("100.00");
+        assertEquals(RightOfUseAsset.STATUS_FULLY_DEPRECIATED, rouAsset.getStatus());
+        assertEquals("PAID", march.getStatus());
+        assertThat(eventPort.events).hasSize(3);
+
+        service.processMonthlyLeaseAccounting(LocalDate.of(2026, 3, 31), "lease-user");
+        assertThat(eventPort.events).hasSize(3);
+        assertThat(rouAsset.getAccumulatedDepreciation()).isEqualByComparingTo("100.00");
+        assertThat(liability.getCurrentValue()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
