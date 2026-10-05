@@ -136,20 +136,34 @@ public class PaymentService implements PaymentUseCase {
             Payable payable = payablePersistencePort.findById(payableId)
                     .orElseThrow(() -> new IllegalStateException("Payable not found: " + payableId));
 
-            // 지급 적격성 검증 (이미 지급 진행중이거나 완료된 채무의 중복 지급 생성 방지)
+            // 도메인 적격성 검사 후 DB 조건부 claim으로 동시 런의 최종 선점자를 결정합니다.
             if (!payable.isEligibleForPayment()) {
                 continue;
             }
 
-            // 채무 상태를 IN_PAYMENT로 원자적 전이 및 영속화
-            payable.markAsInPayment();
-            payablePersistencePort.save(payable);
+            int claimed = payablePersistencePort.claimForPayment(payableId);
+            if (claimed == 0) {
+                continue;
+            }
+            if (claimed != 1) {
+                throw new IllegalStateException("Unexpected payable claim count for " + payableId + ": " + claimed);
+            }
+
+            // 조건부 갱신 후 새로 읽어, 사이에 잔액이 변했더라도 최신 금액으로 후보를 만듭니다.
+            // claim과 Payment 삽입은 같은 트랜잭션에서 커밋됩니다.
+            Payable claimedPayable = payablePersistencePort.findById(payableId)
+                    .orElseThrow(() -> new IllegalStateException("Claimed payable not found: " + payableId));
+            if (claimedPayable.getStatus() != PayableStatus.IN_PAYMENT
+                    || claimedPayable.getOutstandingAmount() == null
+                    || claimedPayable.getOutstandingAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Claimed payable has invalid payment state or balance: " + payableId);
+            }
 
             Payment payment = new Payment();
             payment.setPaymentDate(runDate);
-            payment.setVendorCode(payable.getVendorCode());
-            payment.setPayableId(payable.getId());
-            payment.setAmount(payable.getOutstandingAmount());
+            payment.setVendorCode(claimedPayable.getVendorCode());
+            payment.setPayableId(claimedPayable.getId());
+            payment.setAmount(claimedPayable.getOutstandingAmount());
             payment.setStatus(PaymentStatus.INITIATED);
             payment.setPaymentRun(paymentRun);
             paymentPersistencePort.save(payment);

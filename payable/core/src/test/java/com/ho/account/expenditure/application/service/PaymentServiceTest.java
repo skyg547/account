@@ -44,6 +44,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -338,8 +340,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("initiatePaymentRun 호출 시 적격 채무를 IN_PAYMENT로 잠금 처리하고 Payment를 생성한다")
-    void initiatePaymentRunLocksPayablesInPaymentAndCreatesPayments() {
+    @DisplayName("initiatePaymentRun 호출 시 적격 채무 claim 성공 후 Payment를 생성한다")
+    void initiatePaymentRunClaimsPayablesAndCreatesPayments() {
         LocalDate runDate = LocalDate.of(2026, 6, 30);
         PaymentRunCommand command = new PaymentRunCommand(runDate, "Batch Payment Run", "admin-user");
 
@@ -359,17 +361,22 @@ class PaymentServiceTest {
         Payable payable = payable();
         payable.setId(101L);
         payable.setStatus(PayableStatus.OPEN);
+        Payable claimedPayable = payable();
+        claimedPayable.setId(101L);
+        claimedPayable.setStatus(PayableStatus.IN_PAYMENT);
 
         when(payablePersistencePort.findByDueDateBeforeAndStatusNot(runDate.plusDays(1), PayableStatus.PAID))
                 .thenReturn(List.of(payable));
-        when(payablePersistencePort.findById(101L)).thenReturn(Optional.of(payable));
-        when(payablePersistencePort.save(payable)).thenReturn(payable);
+        when(payablePersistencePort.findById(101L))
+                .thenReturn(Optional.of(payable), Optional.of(claimedPayable));
+        when(payablePersistencePort.claimForPayment(101L)).thenReturn(1);
         when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaymentRun result = service.initiatePaymentRun(command);
 
         assertThat(result).isNotNull();
-        assertThat(payable.getStatus()).isEqualTo(PayableStatus.IN_PAYMENT);
+        verify(payablePersistencePort).claimForPayment(101L);
+        verify(payablePersistencePort, never()).save(payable);
 
         ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentPersistencePort).save(paymentCaptor.capture());
@@ -378,6 +385,42 @@ class PaymentServiceTest {
         assertThat(savedPayment.getAmount()).isEqualByComparingTo("500.00");
         assertThat(savedPayment.getStatus()).isEqualTo(PaymentStatus.INITIATED);
         assertThat(savedPayment.getPaymentRun().getId()).isEqualTo(50L);
+    }
+
+    @Test
+    @DisplayName("서로 다른 지급 런이 같은 OPEN 채무를 읽어도 claim 실패한 런은 Payment를 만들지 않는다")
+    void processPaymentRunChunkSkipsDuplicateWhenSecondClaimFails() {
+        LocalDate runDate = LocalDate.of(2026, 6, 30);
+        PaymentRun firstRun = new PaymentRun();
+        firstRun.setId(50L);
+        PaymentRun secondRun = new PaymentRun();
+        secondRun.setId(51L);
+
+        // 각 런이 DB 갱신 전 읽은 별도의 OPEN 스냅샷을 가진 상황을 재현한다.
+        Payable firstSnapshot = payable();
+        Payable claimedSnapshot = payable();
+        claimedSnapshot.setStatus(PayableStatus.IN_PAYMENT);
+        claimedSnapshot.setOutstandingAmount(new BigDecimal("450.00"));
+        Payable secondSnapshot = payable();
+        when(paymentRunPersistencePort.findById(50L)).thenReturn(Optional.of(firstRun));
+        when(paymentRunPersistencePort.findById(51L)).thenReturn(Optional.of(secondRun));
+        when(payablePersistencePort.findById(100L))
+                .thenReturn(Optional.of(firstSnapshot), Optional.of(claimedSnapshot), Optional.of(secondSnapshot));
+        when(payablePersistencePort.claimForPayment(100L)).thenReturn(1, 0);
+        when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.processPaymentRunChunk(50L, runDate, List.of(100L));
+        service.processPaymentRunChunk(51L, runDate, List.of(100L));
+
+        verify(payablePersistencePort, times(2)).claimForPayment(100L);
+        ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentPersistencePort).save(paymentCaptor.capture());
+        assertThat(paymentCaptor.getValue().getPayableId()).isEqualTo(100L);
+        assertThat(paymentCaptor.getValue().getPaymentRun()).isSameAs(firstRun);
+        assertThat(paymentCaptor.getValue().getAmount()).isEqualByComparingTo("450.00");
+        assertThat(secondSnapshot.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        verify(payablePersistencePort, never()).save(any(Payable.class));
+        verify(paymentExecutionPort, never()).execute(any());
     }
 
     @Test
@@ -433,17 +476,23 @@ class PaymentServiceTest {
         Payable eligiblePayable = payable();
         eligiblePayable.setId(104L);
         eligiblePayable.setStatus(PayableStatus.APPROVED);
+        Payable claimedPayable = payable();
+        claimedPayable.setId(104L);
+        claimedPayable.setStatus(PayableStatus.IN_PAYMENT);
 
         when(payablePersistencePort.findByDueDateBeforeAndStatusNot(runDate.plusDays(1), PayableStatus.PAID))
                 .thenReturn(List.of(inPaymentPayable, paidPayable, eligiblePayable));
-        when(payablePersistencePort.findById(104L)).thenReturn(Optional.of(eligiblePayable));
-        when(payablePersistencePort.save(eligiblePayable)).thenReturn(eligiblePayable);
+        when(payablePersistencePort.findById(104L))
+                .thenReturn(Optional.of(eligiblePayable), Optional.of(claimedPayable));
+        when(payablePersistencePort.claimForPayment(104L)).thenReturn(1);
         when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaymentRun result = service.initiatePaymentRun(command);
 
         assertThat(result).isNotNull();
-        assertThat(eligiblePayable.getStatus()).isEqualTo(PayableStatus.IN_PAYMENT);
+        verify(payablePersistencePort).claimForPayment(104L);
+        verify(payablePersistencePort, never()).claimForPayment(102L);
+        verify(payablePersistencePort, never()).claimForPayment(103L);
 
         // 104L만 처리되고 102L, 103L은 제외됨
         ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);

@@ -65,8 +65,11 @@ flowchart TD
     B --> C[PaymentRunCommand]
     C --> D[PaymentService.initiatePaymentRun]
     D --> E[기준일 도래 Payable 조회]
-    E --> F[Payment 생성]
-    F --> G[Payment.payableId에 정확한 채무 ID 저장]
+    E --> F{DB 조건부 claim 1행 성공?}
+    F -->|0행, 다른 런이 선점| H
+    F -->|1행| G0[채무 최신 잔액 다시 조회]
+    G0 --> G1[Payment 생성]
+    G1 --> G[Payment.payableId에 정확한 채무 ID 저장]
     G --> H[PaymentRun PROCESSING]
     H --> I[PaymentRunResponse 반환]
 
@@ -85,6 +88,8 @@ flowchart TD
 ```
 
 지급 실행은 `PAYMENT:{paymentId}` 멱등 키를 사용한다. 장애 후 같은 지급을 재시도해도 로컬 어댑터는 같은 참조번호를 반환한다. 운영에서는 이 포트 자리에 은행 API 어댑터를 연결하되, 같은 멱등 키 규칙을 유지해야 한다.
+
+지급 후보를 만들기 전 `PayablePersistencePort.claimForPayment`가 채무 ID, 지급 가능 상태(`OPEN`, `APPROVED`, `UNPAID`, `PARTIAL_PAID`, `OVERDUE`), 양수 잔액을 한 DB UPDATE에서 검사하고 상태를 `IN_PAYMENT`로 바꾼다. 갱신 행 수가 1일 때만 최신 채무를 다시 읽어 그 잔액으로 `Payment`를 만든다. 0이면 다른 런이 먼저 선점했거나 상태가 바뀐 것이므로 후보를 만들지 않는다. claim과 후보 삽입은 같은 서비스 트랜잭션에서 커밋 또는 롤백된다. 따라서 실패한 트랜잭션은 claim을 남기지 않고 다시 시도할 수 있다. 초보자 관점에서는 같은 빚에 붙이는 '지급 중' 표식을 DB가 한 사람에게만 허용하는 셈이다.
 
 ## 선급금과 상계 흐름
 
