@@ -1,269 +1,43 @@
 {
   "schemaVersion": 1,
   "targets": [
-    {
-      "name": "config-server",
-      "kind": "java-infra",
-      "enabled": true,
-      "gradleProject": ":config-server",
-      "jarDirectory": "config-server"
-    },
-    {
-      "name": "discovery",
-      "kind": "java-infra",
-      "enabled": true,
-      "gradleProject": ":discovery",
-      "jarDirectory": "discovery"
-    },
-    {
-      "name": "gateway",
-      "kind": "java-infra",
-      "enabled": true,
-      "gradleProject": ":gateway",
-      "jarDirectory": "gateway"
-    },
-    {
-      "name": "account-mart-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":account-mart:mart-api",
-      "jarDirectory": "account-mart/mart-api"
-    },
-    {
-      "name": "account-mart-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":account-mart:mart-batch",
-      "jarDirectory": "account-mart/mart-batch"
-    },
-    {
-      "name": "asset-lease-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":asset-lease:api",
-      "jarDirectory": "asset-lease/api"
-    },
-    {
-      "name": "asset-lease-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":asset-lease:batch",
-      "jarDirectory": "asset-lease/batch"
-    },
-    {
-      "name": "auth-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":auth:api",
-      "jarDirectory": "auth/api"
-    },
-    {
-      "name": "budget-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":budget:api",
-      "jarDirectory": "budget/api"
-    },
-    {
-      "name": "budget-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":budget:batch",
-      "jarDirectory": "budget/batch"
-    },
-    {
-      "name": "closing-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":closing:api",
-      "jarDirectory": "closing/api"
-    },
-    {
-      "name": "closing-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":closing:batch",
-      "jarDirectory": "closing/batch"
-    },
-    {
-      "name": "deposit-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":deposit:api",
-      "jarDirectory": "deposit/api"
-    },
-    {
-      "name": "deposit-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":deposit:batch",
-      "jarDirectory": "deposit/batch"
-    },
-    {
-      "name": "ecl-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":ecl:ecl-api",
-      "jarDirectory": "ecl/ecl-api"
-    },
-    {
-      "name": "ecl-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":ecl:ecl-batch",
-      "jarDirectory": "ecl/ecl-batch"
-    },
-    {
-      "name": "expenditure-resolution-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":expenditure-resolution:api",
-      "jarDirectory": "expenditure-resolution/api"
-    },
-    {
-      "name": "expenditure-resolution-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":expenditure-resolution:batch",
-      "jarDirectory": "expenditure-resolution/batch"
-    },
-    {
-      "name": "internal-audit-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":internal-audit:api",
-      "jarDirectory": "internal-audit/api"
-    },
-    {
-      "name": "journal-ledger-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":journal-ledger:api",
-      "jarDirectory": "journal-ledger/api"
-    },
-    {
-      "name": "journal-ledger-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":journal-ledger:batch",
-      "jarDirectory": "journal-ledger/batch"
-    },
-    {
-      "name": "loan-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":loan:api",
-      "jarDirectory": "loan/api"
-    },
-    {
-      "name": "loan-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":loan:batch",
-      "jarDirectory": "loan/batch"
-    },
-    {
-      "name": "master-data-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":master-data:api",
-      "jarDirectory": "master-data/api"
-    },
-    {
-      "name": "master-data-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":master-data:batch",
-      "jarDirectory": "master-data/batch"
-    },
-    {
-      "name": "payable-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":payable:api",
-      "jarDirectory": "payable/api"
-    },
-    {
-      "name": "payable-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":payable:batch",
-      "jarDirectory": "payable/batch"
-    },
-    {
-      "name": "receivable-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":receivable:api",
-      "jarDirectory": "receivable/api"
-    },
-    {
-      "name": "receivable-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":receivable:batch",
-      "jarDirectory": "receivable/batch"
-    },
-    {
-      "name": "reconciliation-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":reconciliation:api",
-      "jarDirectory": "reconciliation/api"
-    },
-    {
-      "name": "reconciliation-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":reconciliation:batch",
-      "jarDirectory": "reconciliation/batch"
-    },
-    {
-      "name": "reporting-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":reporting:api",
-      "jarDirectory": "reporting/api"
-    },
-    {
-      "name": "reporting-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":reporting:batch",
-      "jarDirectory": "reporting/batch"
-    },
-    {
-      "name": "tax-api",
-      "kind": "java-api",
-      "enabled": true,
-      "gradleProject": ":tax:api",
-      "jarDirectory": "tax/api"
-    },
-    {
-      "name": "tax-batch",
-      "kind": "java-batch",
-      "enabled": true,
-      "gradleProject": ":tax:batch",
-      "jarDirectory": "tax/batch"
-    },
-    {
-      "name": "frontend",
-      "kind": "frontend",
-      "enabled": true,
-      "context": "frontend",
-      "containerfile": "frontend/Containerfile"
-    },
-    {
-      "name": "cashflow-api",
-      "kind": "spring-boot",
-      "gradleProject": ":cashflow:api",
-      "jarDirectory": "cashflow/api"
-    },
-    {
-      "name": "cashflow-batch",
-      "kind": "spring-boot",
-      "gradleProject": ":cashflow:batch",
-      "jarDirectory": "cashflow/batch"
-    }
+    {"name": "config-server", "kind": "java-infra", "enabled": true, "gradleProject": ":config-server", "jarDirectory": "config-server"},
+    {"name": "discovery", "kind": "java-infra", "enabled": true, "gradleProject": ":discovery", "jarDirectory": "discovery"},
+    {"name": "gateway", "kind": "java-infra", "enabled": true, "gradleProject": ":gateway", "jarDirectory": "gateway"},
+
+    {"name": "account-mart-api", "kind": "java-api", "enabled": true, "gradleProject": ":account-mart:mart-api", "jarDirectory": "account-mart/mart-api"},
+    {"name": "account-mart-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":account-mart:mart-batch", "jarDirectory": "account-mart/mart-batch"},
+    {"name": "asset-lease-api", "kind": "java-api", "enabled": true, "gradleProject": ":asset-lease:api", "jarDirectory": "asset-lease/api"},
+    {"name": "asset-lease-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":asset-lease:batch", "jarDirectory": "asset-lease/batch"},
+    {"name": "auth-api", "kind": "java-api", "enabled": true, "gradleProject": ":auth:api", "jarDirectory": "auth/api"},
+    {"name": "budget-api", "kind": "java-api", "enabled": true, "gradleProject": ":budget:api", "jarDirectory": "budget/api"},
+    {"name": "budget-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":budget:batch", "jarDirectory": "budget/batch"},
+    {"name": "closing-api", "kind": "java-api", "enabled": true, "gradleProject": ":closing:api", "jarDirectory": "closing/api"},
+    {"name": "closing-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":closing:batch", "jarDirectory": "closing/batch"},
+    {"name": "deposit-api", "kind": "java-api", "enabled": true, "gradleProject": ":deposit:api", "jarDirectory": "deposit/api"},
+    {"name": "deposit-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":deposit:batch", "jarDirectory": "deposit/batch"},
+    {"name": "ecl-api", "kind": "java-api", "enabled": true, "gradleProject": ":ecl:ecl-api", "jarDirectory": "ecl/ecl-api"},
+    {"name": "ecl-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":ecl:ecl-batch", "jarDirectory": "ecl/ecl-batch"},
+    {"name": "expenditure-resolution-api", "kind": "java-api", "enabled": true, "gradleProject": ":expenditure-resolution:api", "jarDirectory": "expenditure-resolution/api"},
+    {"name": "expenditure-resolution-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":expenditure-resolution:batch", "jarDirectory": "expenditure-resolution/batch"},
+    {"name": "internal-audit-api", "kind": "java-api", "enabled": true, "gradleProject": ":internal-audit:api", "jarDirectory": "internal-audit/api"},
+    {"name": "journal-ledger-api", "kind": "java-api", "enabled": true, "gradleProject": ":journal-ledger:api", "jarDirectory": "journal-ledger/api"},
+    {"name": "journal-ledger-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":journal-ledger:batch", "jarDirectory": "journal-ledger/batch"},
+    {"name": "loan-api", "kind": "java-api", "enabled": true, "gradleProject": ":loan:api", "jarDirectory": "loan/api"},
+    {"name": "loan-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":loan:batch", "jarDirectory": "loan/batch"},
+    {"name": "master-data-api", "kind": "java-api", "enabled": true, "gradleProject": ":master-data:api", "jarDirectory": "master-data/api"},
+    {"name": "master-data-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":master-data:batch", "jarDirectory": "master-data/batch"},
+    {"name": "payable-api", "kind": "java-api", "enabled": true, "gradleProject": ":payable:api", "jarDirectory": "payable/api"},
+    {"name": "payable-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":payable:batch", "jarDirectory": "payable/batch"},
+    {"name": "receivable-api", "kind": "java-api", "enabled": true, "gradleProject": ":receivable:api", "jarDirectory": "receivable/api"},
+    {"name": "receivable-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":receivable:batch", "jarDirectory": "receivable/batch"},
+    {"name": "reconciliation-api", "kind": "java-api", "enabled": true, "gradleProject": ":reconciliation:api", "jarDirectory": "reconciliation/api"},
+    {"name": "reconciliation-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":reconciliation:batch", "jarDirectory": "reconciliation/batch"},
+    {"name": "reporting-api", "kind": "java-api", "enabled": true, "gradleProject": ":reporting:api", "jarDirectory": "reporting/api"},
+    {"name": "reporting-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":reporting:batch", "jarDirectory": "reporting/batch"},
+    {"name": "tax-api", "kind": "java-api", "enabled": true, "gradleProject": ":tax:api", "jarDirectory": "tax/api"},
+    {"name": "tax-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":tax:batch", "jarDirectory": "tax/batch"},
+
+    {"name": "frontend", "kind": "frontend", "enabled": true, "context": "frontend", "containerfile": "frontend/Containerfile"}
   ]
 }
