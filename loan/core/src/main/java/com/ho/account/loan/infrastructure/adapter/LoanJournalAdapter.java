@@ -83,8 +83,7 @@ public class LoanJournalAdapter implements LoanJournalPort {
 
         command.lines().forEach(line -> entry.addDetail(toDetail(line, command.actor())));
         JournalEntry saved = journalUseCase.createJournalEntry(entry);
-        journalUseCase.requestJournalEntryApproval(saved.getId(), command.actor());
-        journalUseCase.approveJournalEntry(saved.getId(), "SYSTEM_APPROVER");
+        journalUseCase.approveJournalEntry(saved.getId(), command.actor());
         journalUseCase.postJournalEntry(saved.getId(), command.actor());
         JournalEntry posted = journalUseCase.getJournalEntryWithDetails(saved.getId()).orElse(saved);
 
