@@ -15,7 +15,6 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
-@org.junit.jupiter.api.Disabled("Temporary disable for unblocking")
 class ContainerImagePolicyTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
