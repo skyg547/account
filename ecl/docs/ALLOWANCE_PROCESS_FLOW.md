@@ -18,7 +18,7 @@
 | 4 | EAD/LGD | 잔액, 한도, 상품 CCF, 담보, 모델 LGD | EAD/CRM/LGD 계산 | `EadCalculationResult`; 비율 범위 오류 시 실패 |
 | 5 | Weighted ECL | Stage, PD, LGD, EAD, 적용 연도의 시나리오 | 시나리오 확률 검증 후 미래전망 가중 평균 | 계좌별 `weighted_ecl`; 가중치 오류 시 중단 |
 | 6 | Completion | 산출 완료 계좌 결과 | 완료 상태 확정 | `COMPLETED` 결과만 summary 대상 |
-| 7 | Summary | 완료 결과와 계정 매핑 | 기준일 summary 검증 후 교체 | `allowance_summary`; 매핑 누락 시 기존 summary 보존 후 실패 |
+| 7 | Summary | 완료 결과와 계정 매핑 | 완료 결과 건수·계정 매핑 검증 후 기준일 summary 교체 | `allowance_summary`; 집계 가능한 `COMPLETED` 결과 0건 또는 매핑 누락 시 Step 실패, 기존 같은 기준일 summary 보존 |
 
 ## EAD/LGD 단계 상세 흐름
 
@@ -46,6 +46,8 @@ flowchart LR
 - `baseDate`는 어떤 시점의 입력과 결과인지 결정합니다.
 - `runId`는 같은 기준일의 실행 이력을 구분합니다.
 - `modelVersion`은 사용한 모델 정책을 추적합니다.
-- summary는 계정 매핑 검증이 끝난 뒤 교체하여, 실패한 재실행이 기존 정상 결과를 지우지 않게 합니다.
+- summary는 완료 결과와 계정 매핑 검증이 끝난 뒤 교체하여, 실패한 재실행이 기존 정상 결과를 지우지 않게 합니다.
+- 집계 가능한 `COMPLETED` 결과가 0건이면 `allowanceSummaryStep`이 실패합니다. 단독 summary Job과 표준 Job 모두 기존 같은 기준일 summary를 유지하므로, 입력과 산출 상태를 복구해 결과를 완료한 뒤 재실행합니다.
+- 실제로 빈 포트폴리오를 확정할 명시적 완료 marker 계약은 현재 없습니다. 따라서 0건 결과만으로 기존 summary를 삭제하거나 0원으로 처리하지 않습니다.
 
 Job/Step과 클래스 단위 호출은 [BATCH_EXECUTION_FLOW.md](BATCH_EXECUTION_FLOW.md)를 참고합니다.
