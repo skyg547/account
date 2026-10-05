@@ -107,17 +107,31 @@ public class IntegratedPositionProcessor {
     }
 
     private BigDecimal convertToKrw(String currency, BigDecimal amount, LocalDate baseDate) {
-        if (currency == null || CurrencyCode.KRW.name().equals(currency) || baseDate == null) {
+        if (CurrencyCode.KRW.name().equals(currency)) {
             return amount.setScale(4, RoundingMode.HALF_UP);
         }
 
-        CurrencyCode baseCurrency = CurrencyCode.valueOf(currency);
-        return exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
-                        baseDate,
-                        baseCurrency,
-                        CurrencyCode.KRW)
-                .map(ExchangeRate::getBaseRate)
-                .map(rate -> amount.multiply(rate).setScale(4, RoundingMode.HALF_UP))
-                .orElseGet(() -> amount.setScale(4, RoundingMode.HALF_UP));
+        // 외화 원금을 환율 없이 원화 평가액으로 저장하면 정상 적재처럼 보이므로 배치를 중단한다.
+        if (baseDate == null) {
+            throw new IllegalStateException("외화 환산 기준일이 없습니다: " + currency);
+        }
+        CurrencyCode baseCurrency;
+        try {
+            baseCurrency = CurrencyCode.valueOf(currency);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("지원하지 않는 외화 통화 코드입니다: " + currency, e);
+        }
+        ExchangeRate exchangeRate = exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
+                        baseDate, baseCurrency, CurrencyCode.KRW)
+                .orElseThrow(() -> new IllegalStateException(
+                        "기준일 외화 환율이 없습니다: " + baseDate + " " + currency + "/KRW"));
+        BigDecimal rate = exchangeRate.getBaseRate();
+        if (!baseDate.equals(exchangeRate.getBaseDate())
+                || baseCurrency != exchangeRate.getBaseCurrency()
+                || CurrencyCode.KRW != exchangeRate.getQuoteCurrency()
+                || rate == null || rate.signum() <= 0) {
+            throw new IllegalStateException("기준일 외화 환율이 유효하지 않습니다: " + baseDate + " " + currency + "/KRW");
+        }
+        return amount.multiply(rate).setScale(4, RoundingMode.HALF_UP);
     }
 }

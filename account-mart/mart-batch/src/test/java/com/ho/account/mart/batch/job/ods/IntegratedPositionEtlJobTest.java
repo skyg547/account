@@ -7,6 +7,7 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
@@ -21,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -129,6 +131,60 @@ public class IntegratedPositionEtlJobTest {
                 String.class,
                 java.sql.Date.valueOf(baseDate));
         assertThat(auditType).isEqualTo("NEGATIVE_BALANCE");
+    }
+
+    @Test
+    @DisplayName("기준일 USD 환율이 없으면 CDM 적재와 Job이 실패하고 snapshot을 만들지 않는다")
+    public void shouldFailJobWhenForeignRateIsMissing() throws Exception {
+        jdbcTemplate.update("DELETE FROM market_exchange_rate WHERE base_dt = ? AND base_currency = 'USD' AND quote_currency = 'KRW'",
+                java.sql.Date.valueOf(BASE_DATE));
+
+        assertForeignRateFailure("missing-rate");
+    }
+
+    @Test
+    @DisplayName("기준일 USD 환율이 0이면 CDM 적재와 Job이 실패하고 snapshot을 만들지 않는다")
+    public void shouldFailJobWhenForeignRateIsInvalid() throws Exception {
+        jdbcTemplate.update("UPDATE market_exchange_rate SET base_rate = 0 WHERE base_dt = ? AND base_currency = 'USD' AND quote_currency = 'KRW'",
+                java.sql.Date.valueOf(BASE_DATE));
+
+        assertForeignRateFailure("invalid-rate");
+    }
+
+    @Test
+    @DisplayName("지원하지 않는 외화 통화 코드면 CDM 적재와 Job이 실패한다")
+    public void shouldFailJobWhenForeignCurrencyIsUnsupported() throws Exception {
+        jdbcTemplate.update("UPDATE ods_acc_ledger SET currency = 'XYZ' WHERE acc_no = 'DEMO-ACC005'");
+        jdbcTemplate.update("UPDATE ods_balance_hist SET currency = 'XYZ' WHERE base_dt = ? AND account_no = 'DEMO-ACC005'",
+                java.sql.Date.valueOf(BASE_DATE));
+        jdbcTemplate.update("UPDATE ods_general_ledger SET currency = 'XYZ' WHERE base_dt = ? AND gl_code = 'L005'",
+                java.sql.Date.valueOf(BASE_DATE));
+
+        assertForeignRateFailure("unsupported-currency");
+    }
+
+    private void assertForeignRateFailure(String scenario) throws Exception {
+        JobParameters parameters = new JobParametersBuilder()
+                .addString("baseDate", BASE_DATE.toString())
+                .addString("scenario", scenario + "-" + UUID.randomUUID())
+                .toJobParameters();
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(parameters);
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(execution.getStepExecutions())
+                .anySatisfy(step -> {
+                    assertThat(step.getStepName()).isEqualTo("cdmLoadStep");
+                    assertThat(step.getStatus()).isEqualTo(BatchStatus.FAILED);
+                });
+        Integer usdPositions = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_input_positions WHERE base_dt = ? AND acc_no = 'DEMO-ACC005'",
+                Integer.class, java.sql.Date.valueOf(BASE_DATE));
+        assertThat(usdPositions).isZero();
+        Integer snapshots = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_exposure_snapshots WHERE base_date = ?",
+                Integer.class, java.sql.Date.valueOf(BASE_DATE));
+        assertThat(snapshots).isZero();
     }
 
     private void seedDemoSourceData(LocalDate baseDate) {
@@ -300,4 +356,3 @@ public class IntegratedPositionEtlJobTest {
                 branchCode);
     }
 }
-

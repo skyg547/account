@@ -18,3 +18,8 @@ subprojects {
         }
     }
 }
+
+// 모듈 집계 테스트가 하위 core/API/batch 검증을 빠뜨리지 않도록 연결한다.
+tasks.named('test') {
+    dependsOn ':account-mart:mart-core:test', ':account-mart:mart-api:test', ':account-mart:mart-batch:test'
+}
