@@ -897,3 +897,11 @@
 - Controller, service, SQL, and test agents used disjoint auth file ownership. Parent handled feature docs, shared records, Git/GitHub. `/root/pat_review` found no remaining P0–P3; Q1–Q4 PASS. PAT uses verified Bearer JWT/current exact AuthUser and current administrator role; audit rows include actor/owner and conditional revoke prevents duplicate transition events.
 - Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
 - Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
+
+## 2026-10-06 GH-860 reconciliation target-side matching
+
+- Status: implementation, local verification, and independent read-only review complete; [Draft PR #869](https://github.com/skyg547/account/pull/869) OPEN with `Refs #860`. Branch `agent/860-target-side-match`, worktree `/tmp/account-860-target-side-match`, base `origin/main@973d76dd`, code head `97c42b94`.
+- Scope: three reconciliation production/test/function-document files plus these three explicitly requested parent-owned AI-harness records. Service and test agents had disjoint files; parent owns documentation, verification, Git/PR/records; independent reviewer made no edits.
+- Result: targetSide filters target details for DEBIT/CREDIT; source and target detail counts/BigDecimal sums must match aggregates before matching. Matcher counts/amounts drive the run summary. Same-date successful rerun remains idempotent.
+- Verification: before/after core test PASS; final core 141 tests/21 suites, failures/errors/skips 0; focused service 19/19; `:reconciliation:test` PASS (parent task NO-SOURCE, core dependency); API/Batch compile PASS; whitespace/markers clean. Independent review P0–P3 none, Q1–Q4 PASS.
+- Limits/next owner: synthetic tests do not prove live Journal/bank/DB rollback or cross-call remote snapshot consistency. Historical false SUCCESS is not automatically re-evaluated. Human reviewer owns Ready/merge and any approved historical correction; no Issue close or cleanup.

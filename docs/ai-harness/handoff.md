@@ -4026,3 +4026,10 @@
 - Local gates: auth core143/API52/Gateway74 tests PASS, PAT full HTTP9 and H2 conditional JPA1 PASS, auth API bootJar PASS, harness quality32 PASS, diff/markers clean. Independent `/root/pat_review` found no blocking findings and Q1–Q4 PASS. No PostgreSQL runtime/concurrent-request, deployment, or real credentials used.
 - Rollback: reviewed Issue-scoped code revert; use a reviewed forward migration for schema correction and preserve audit rows. Next owner is human PR reviewer and PostgreSQL/CI integration gate before Ready or merge. Issue closure and worktree/branch removal remain separate gates.
 - Remote CI on Draft PR #814 initial head `d225857b` failed before steps (no runner assigned and no logs). Next owner should restore/rerun checks and verify the final head before Ready; this is not a failed auth test result.
+
+## 2026-10-06 GH-860 reconciliation handoff
+
+- Issue #860 remains OPEN; [Draft PR #869](https://github.com/skyg547/account/pull/869) has `Refs #860`. Branch `agent/860-target-side-match`, isolated worktree `/tmp/account-860-target-side-match`, base `origin/main@973d76dd`, code commit `97c42b94`.
+- Changed: service targetSide filtering and source/target aggregate-to-item invariants; focused service regressions; reconciliation process-flow documentation; the three parent-owned records. No other module, policy document, shared contract, migration, or DB data changed.
+- Evidence: core141/141 tests PASS; focused service19/19; requested parent `:reconciliation:test` PASS (NO-SOURCE, core test dependency); API/Batch compile PASS; diff whitespace/marker gates PASS. Read-only independent reviewer: Q1–Q4 PASS, no outstanding P0–P3.
+- Residual: actual DB rollback, remote Journal snapshot consistency, real bank data, and historical bad SUCCESS repair are unverified/out of this PR. Reviewed revert of the Issue files is the rollback path; no migration. Next owner is human PR reviewer/CI gate. Keep Draft until review and checks; Ready, merge, Issue close, branch/worktree removal, and operational data correction need their own authorized decisions.

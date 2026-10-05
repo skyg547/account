@@ -3153,3 +3153,18 @@ git diff --name-only --diff-filter=U
 | Q2 | PASS | `auth/docs/process-flow.md:15`, `auth/docs/schema.md:47`; JWT→AuthUser→권한→감사 흐름·실패 설명 | 해당 없음: 핵심 흐름 변경 | 실제 PostgreSQL 트랜잭션 확인 필요 | `/root/pat_review` 확인 |
 | Q3 | PASS | `auth/README.md:54`, `auth/docs/beginner-guide.md:44`, `auth/docs/local-run.md:61`, `auth/docs/schema.md:73`; V74/요청 예시/결과·한계 | 해당 없음: 기능 문서 변경 | Gateway 미노출은 문서에 명시 | `/root/pat_review` 확인 |
 | Q4 | PASS | `JwtPatCredentialVerifier.java:75`, `PersonalAccessTokenService.java:99`, `PersonalAccessTokenPersistenceAdapter.java:41`, `auth/build.gradle:1`; 조건부 폐기 H2 1/1, quality32/32 | 해당 없음: 비자명 로직 변경 | PostgreSQL 동시성 실증 필요 | `/root/pat_review` 확인 |
+
+## 2026-10-06 GH-860 reconciliation opposite-side match prevention
+
+- Trace: Issue #860 OPEN; `agent/860-target-side-match` at `/tmp/account-860-target-side-match`, based on fetched `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; [Draft PR #869](https://github.com/skyg547/account/pull/869), `Refs #860`. Code commit `97c42b94`.
+- Service change: apply the same `targetSide` to target aggregate and account-detail selection. Compare source item count/sum to source snapshot and selected target item count/sum to target aggregate with `BigDecimal.compareTo`; fail before matching, difference saves, or adjustment writes on mismatch. Remove synthetic summary items and aggregate/item max/min count overrides. Run matched/unmatched metrics now come directly from matcher output.
+- Tests/doc: DEBIT/CREDIT same-date mixed journal details leave the unmatched bank item traceable and exclude opposite-side IDs; source/target count, amount, and nonzero-aggregate/empty-detail mismatches fail; successful same-date rerun does not duplicate writes. `reconciliation/docs/process-flow.md` explains filters, invariant, rollback, example, and historical SUCCESS limit.
+- Verification: pre-change `./gradlew :reconciliation:core:test --offline --no-daemon --console=plain --max-workers=2` PASS. Final same command plus `:reconciliation:api:compileJava :reconciliation:batch:compileJava` PASS: core XML 141 tests/21 suites, zero failures/errors/skips; focused `ReconciliationServiceTest` 19/19. `./gradlew :reconciliation:test --offline --no-daemon --console=plain --max-workers=2` PASS, parent test task NO-SOURCE with core test dependency. `git diff --check` and scoped conflict-marker scan PASS. No real bank, remote Journal, or DB integration was run.
+- Review/rollback: separate read-only reviewer initially found a source-population P1, writers fixed it, and final review found no P0–P3; Q1–Q4 PASS. No conflict or migration. Roll back by reviewed Issue-scoped revert; investigate historic false SUCCESS separately. Human review, CI, Ready, merge, Issue close, and resource cleanup remain later gates.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `ReconciliationExecutionService.java:344` count/amount validation; final core141 PASS | 해당 없음: production code 변경 | remote snapshot 변동 실증 필요 | `/root/independent_review`, P0–P3 없음 |
+| Q2 | PASS | `reconciliation/docs/process-flow.md:46` input→filter→failure/match→rerun flow | 해당 없음: 금융 흐름 변경 | DB rollback 실증 필요 | 독립 리뷰 PASS |
+| Q3 | PASS | `reconciliation/docs/process-flow.md:83` DEBIT/CREDIT example, historic SUCCESS limitation | 해당 없음: 기능 문서 변경 | 기존 데이터 정정 별도 승인 | 독립 리뷰 PASS |
+| Q4 | PASS | `ReconciliationExecutionService.java:360`, `:376` reason comments; service19/19 PASS | 해당 없음: 비자명 로직 변경 | adapter contract 변경 시 재검토 | 독립 리뷰 PASS |
