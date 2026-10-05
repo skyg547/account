@@ -16,9 +16,13 @@ import com.ho.account.contracts.tax.TaxInvoiceQueryPort;
 import com.ho.account.expenditure.application.port.in.ExpenditureResolutionCommand;
 import com.ho.account.expenditure.application.port.out.BudgetPersistencePort;
 import com.ho.account.expenditure.application.port.out.ExpenditureResolutionPersistencePort;
+import com.ho.account.expenditure.adapter.out.persistence.BudgetPersistenceAdapter;
+import com.ho.account.expenditure.adapter.out.persistence.ExpenditureResolutionPersistenceAdapter;
 import com.ho.account.expenditure.domain.Budget;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
+import com.ho.account.expenditure.repository.BudgetRepository;
+import com.ho.account.expenditure.repository.ExpenditureResolutionRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -30,14 +34,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 지출결의 생성/수정/반려 시 예산 통제(Budget Control) 연동 검증 통합 테스트
  */
 class ExpenditureResolutionBudgetIntegrationTest {
 
-    private BudgetPersistencePort budgetPersistencePort;
-    private ExpenditureResolutionPersistencePort resolutionPersistencePort;
+    private InMemoryBudgetPersistencePort budgetPersistencePort;
+    private InMemoryExpenditureResolutionPersistencePort resolutionPersistencePort;
     private MasterDataQueryPort masterDataQueryPort;
     private JournalPostingPort journalPostingPort;
     private AssetRegistrationPort assetRegistrationPort;
@@ -155,6 +169,7 @@ class ExpenditureResolutionBudgetIntegrationTest {
         );
 
         assertThrows(IllegalStateException.class, () -> resolutionService.createResolution(command));
+        assertEquals(0, resolutionPersistencePort.saveCalls);
 
         // 예산은 차감되지 않고 10,000 유지
         assertEquals(0, new BigDecimal("10000.00").compareTo(
@@ -238,8 +253,7 @@ class ExpenditureResolutionBudgetIntegrationTest {
     }
 
     @Test
-    void expenditureResolutionCreationSucceedsWithoutOrphanFailureWhenNoBudgetConfigured() {
-        // 예산이 별도로 설정되지 않은 상태에서도 default fallback으로 인해 결의 생성이 차단되지 않음
+    void expenditureResolutionCreationFailsWithoutBudgetAndDoesNotSave() {
         ExpenditureResolutionCommand command = new ExpenditureResolutionCommand(
                 "자유 지출",
                 LocalDate.of(2026, 4, 15),
@@ -255,9 +269,59 @@ class ExpenditureResolutionBudgetIntegrationTest {
                 ))
         );
 
+        assertThrows(IllegalStateException.class, () -> resolutionService.createResolution(command));
+        assertEquals(0, resolutionPersistencePort.saveCalls);
+        assertEquals(0, resolutionPersistencePort.store.size());
+    }
+
+    @Test
+    void increasedUpdateToMissingBudgetFailsBeforeAnotherSave() {
+        budgetService.assignBudget("202604", "D001", "EXP001", new BigDecimal("50000.00"));
+        ExpenditureResolutionCommand original = new ExpenditureResolutionCommand(
+                "기존 결의", LocalDate.of(2026, 4, 15), LocalDate.of(2026, 4, 30),
+                "D001", "PAY001", null,
+                List.of(new ExpenditureResolutionCommand.DetailCommand(
+                        "EXP001", new BigDecimal("20000.00"), "BP001", "기존 구매"))
+        );
+        ExpenditureResolution resolution = resolutionService.createResolution(original);
+        assertEquals(1, resolutionPersistencePort.saveCalls);
+        assertEquals(0, new BigDecimal("30000.00").compareTo(
+                budgetService.getRemainingBudget("202604", "D001", "EXP001")));
+
+        ExpenditureResolutionCommand increased = new ExpenditureResolutionCommand(
+                "증액 결의", LocalDate.of(2026, 4, 15), LocalDate.of(2026, 4, 30),
+                "D001", "PAY001", null,
+                List.of(new ExpenditureResolutionCommand.DetailCommand(
+                        "EXP999", new BigDecimal("35000.00"), "BP001", "미설정 예산 구매"))
+        );
+
+        assertThrows(IllegalStateException.class,
+                () -> resolutionService.updateResolution(resolution.getId(), increased));
+        assertEquals(1, resolutionPersistencePort.saveCalls);
+        // 기존 DRAFT의 차감 예산이 복원된 후 신규 조합에서 실패한다.
+        assertEquals(0, new BigDecimal("50000.00").compareTo(
+                budgetService.getRemainingBudget("202604", "D001", "EXP001")));
+        // 이 메모리 포트는 엔티티를 참조로 보관하므로 DB 트랜잭션의 롤백까지 검증하지 않는다.
+    }
+
+    @Test
+    void rejectionFailsBeforeSaveIfPreviouslyDeductedBudgetRowDisappears() {
+        budgetService.assignBudget("202604", "D001", "EXP001", new BigDecimal("50000.00"));
+        ExpenditureResolutionCommand command = new ExpenditureResolutionCommand(
+                "반려 대상", LocalDate.of(2026, 4, 15), LocalDate.of(2026, 4, 30),
+                "D001", "PAY001", null,
+                List.of(new ExpenditureResolutionCommand.DetailCommand(
+                        "EXP001", new BigDecimal("20000.00"), "BP001", "기존 구매"))
+        );
         ExpenditureResolution resolution = resolutionService.createResolution(command);
-        assertNotNull(resolution);
-        assertEquals(ExpenditureResolutionStatus.DRAFT, resolution.getStatus());
+        resolutionService.requestApproval(resolution.getId());
+        assertEquals(2, resolutionPersistencePort.saveCalls);
+
+        budgetPersistencePort.store.clear();
+
+        assertThrows(IllegalStateException.class,
+                () -> resolutionService.rejectResolution(resolution.getId(), "예산 행 누락"));
+        assertEquals(2, resolutionPersistencePort.saveCalls);
     }
 
     static class InMemoryBudgetPersistencePort implements BudgetPersistencePort {
@@ -285,9 +349,11 @@ class ExpenditureResolutionBudgetIntegrationTest {
     static class InMemoryExpenditureResolutionPersistencePort implements ExpenditureResolutionPersistencePort {
         private final Map<Long, ExpenditureResolution> store = new ConcurrentHashMap<>();
         private final AtomicLong seq = new AtomicLong(1);
+        private int saveCalls;
 
         @Override
         public ExpenditureResolution save(ExpenditureResolution resolution) {
+            saveCalls++;
             if (resolution.getId() == null) {
                 org.springframework.test.util.ReflectionTestUtils.setField(resolution, "id", seq.getAndIncrement());
             }
@@ -314,6 +380,113 @@ class ExpenditureResolutionBudgetIntegrationTest {
                     .filter(r -> !r.getResolutionDate().isBefore(startDate) && !r.getResolutionDate().isAfter(endDate))
                     .sorted(Comparator.comparing(ExpenditureResolution::getId))
                     .toList();
+        }
+    }
+}
+
+/**
+ * 서비스 프록시와 실제 JPA 어댑터를 사용해 실패한 수정의 DB 롤백을 확인한다.
+ */
+@SpringBootTest(
+        classes = ExpenditureResolutionJpaRollbackTest.TestApplication.class,
+        properties = {
+                "spring.datasource.url=jdbc:h2:mem:expenditure-budget-rollback;DB_CLOSE_DELAY=-1",
+                "spring.datasource.driver-class-name=org.h2.Driver",
+                "spring.jpa.hibernate.ddl-auto=create-drop",
+                "spring.cloud.vault.enabled=false"
+        })
+class ExpenditureResolutionJpaRollbackTest {
+
+    @Autowired
+    private BudgetService budgetService;
+
+    @Autowired
+    private ExpenditureResolutionService resolutionService;
+
+    @Autowired
+    private BudgetRepository budgetRepository;
+
+    @Autowired
+    private ExpenditureResolutionRepository resolutionRepository;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Test
+    void failedIncreaseToMissingBudgetRollsBackRestorationAndResolutionChanges() {
+        budgetService.assignBudget("202604", "D001", "EXP001", new BigDecimal("50000.00"));
+        ExpenditureResolutionCommand original = new ExpenditureResolutionCommand(
+                "기존 결의", LocalDate.of(2026, 4, 15), LocalDate.of(2026, 4, 30),
+                "D001", "PAY001", null,
+                List.of(new ExpenditureResolutionCommand.DetailCommand(
+                        "EXP001", new BigDecimal("20000.00"), "BP001", "기존 구매"))
+        );
+        Long id = resolutionService.createResolution(original).getId();
+
+        ExpenditureResolutionCommand increased = new ExpenditureResolutionCommand(
+                "증액 결의", LocalDate.of(2026, 4, 15), LocalDate.of(2026, 4, 30),
+                "D001", "PAY001", null,
+                List.of(new ExpenditureResolutionCommand.DetailCommand(
+                        "EXP999", new BigDecimal("35000.00"), "BP001", "미설정 예산 구매"))
+        );
+        assertThrows(IllegalStateException.class, () -> resolutionService.updateResolution(id, increased));
+
+        // 별도 트랜잭션에서 DB를 다시 읽어 수정 내용과 복원된 예산이 남지 않았는지 확인한다.
+        new TransactionTemplate(transactionManager).execute(status -> {
+            ExpenditureResolution reloaded = resolutionRepository.findById(id).orElseThrow();
+            Budget budget = budgetRepository
+                    .findByYearMonthAndDeptCodeAndAccountCode("202604", "D001", "EXP001")
+                    .orElseThrow();
+            assertEquals("기존 결의", reloaded.getTitle());
+            assertEquals(1, reloaded.getDetails().size());
+            assertEquals("EXP001", reloaded.getDetails().get(0).getAccountCode());
+            assertEquals(0, new BigDecimal("20000.00").compareTo(reloaded.getDetails().get(0).getAmount()));
+            assertEquals(0, new BigDecimal("20000.00").compareTo(budget.getUsedAmount()));
+            assertEquals(1, resolutionRepository.count());
+            return null;
+        });
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @EntityScan(basePackageClasses = ExpenditureResolution.class)
+    @EnableJpaRepositories(basePackageClasses = {BudgetRepository.class, ExpenditureResolutionRepository.class})
+    @Import({BudgetService.class, ExpenditureResolutionService.class,
+            BudgetPersistenceAdapter.class, ExpenditureResolutionPersistenceAdapter.class})
+    static class TestApplication {
+        @Bean
+        MasterDataQueryPort masterDataQueryPort() {
+            return new MasterDataQueryPort() {
+                @Override
+                public Optional<DepartmentRef> findDepartment(String code) {
+                    return Optional.of(new DepartmentRef(code, code, "COST_CENTER"));
+                }
+
+                @Override
+                public Optional<AccountSubjectRef> findAccountSubject(String code) {
+                    return Optional.of(new AccountSubjectRef(code, code, false, false));
+                }
+
+                @Override
+                public Optional<BusinessPartnerRef> findBusinessPartner(String code) {
+                    return Optional.of(new BusinessPartnerRef(code, code, "VENDOR", true));
+                }
+            };
+        }
+
+        @Bean
+        JournalPostingPort journalPostingPort() {
+            return org.mockito.Mockito.mock(JournalPostingPort.class);
+        }
+
+        @Bean
+        AssetRegistrationPort assetRegistrationPort() {
+            return org.mockito.Mockito.mock(AssetRegistrationPort.class);
+        }
+
+        @Bean
+        TaxInvoiceQueryPort taxInvoiceQueryPort() {
+            return id -> Optional.empty();
         }
     }
 }
