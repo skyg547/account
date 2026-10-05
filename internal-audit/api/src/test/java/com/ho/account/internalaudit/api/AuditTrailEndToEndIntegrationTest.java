@@ -3,6 +3,8 @@ package com.ho.account.internalaudit.api;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ho.account.internalaudit.api.adapter.in.web.EvaluationController;
+import com.ho.account.internalaudit.api.adapter.in.web.InternalAuditIdentityFilter;
+import com.ho.account.internalaudit.api.adapter.in.web.InternalAuditPrincipal;
 import com.ho.account.internalaudit.api.adapter.in.web.RcmController;
 import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
 import com.ho.account.internalaudit.core.domain.AuditLogEntry;
@@ -18,15 +20,33 @@ import jakarta.persistence.EntityManager;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("local")
 class AuditTrailEndToEndIntegrationTest {
+
+    @BeforeEach
+    void verifiedActorFixture() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE,
+                new InternalAuditPrincipal("auditor_e2e", List.of("ROLE_AUDITOR"), 1));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+    }
+
+    @AfterEach
+    void clearVerifiedActorFixture() {
+        RequestContextHolder.resetRequestAttributes();
+    }
 
     @Autowired
     private RcmController rcmController;
