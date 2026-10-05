@@ -12,6 +12,11 @@ sequenceDiagram
 
     API->>Service: generate(type, baseDate)
     Service->>Ledger: getAccountBalances(baseDate)
+    Note over Ledger: GL 잔액을 통화 필터 없이 조회하고 모든 행의 KRW 여부 확인
+    alt 통화 누락 또는 KRW 이외 행
+        Ledger-->>Service: 예외
+        Service-->>API: 생성 실패 (FINAL 저장 없음)
+    else 모든 유효 행이 KRW
     Ledger-->>Service: Map<accountCode, BigDecimal>
     Service->>Snapshot: findFinalizedStatement(type, baseDate - 1 year)
     Snapshot-->>Service: previous FINAL statement
@@ -21,7 +26,16 @@ sequenceDiagram
     Service->>Snapshot: saveFinalized(statement)
     Service-->>API: FINAL statement domain result
     API-->>API: FinancialStatementResponseDto 변환
+    end
 ```
+
+`LedgerClientAdapter`는 기준일의 GL 잔액을 통화 조건 없이 가져와 각 행의 `currencyCode`를 확인합니다. 보고 통화는 `KRW`입니다. 같은 계정의 KRW와 USD가 섞여 있거나 USD만 있거나 통화가 빠진 행이 하나라도 있으면 집계를 중단하고 예외를 전달합니다. 통화 조건을 조회에 미리 넣으면 외화 행을 숨겨 이 실패를 확인할 수 없습니다. 예외는 `ReportingService.generate`의 첫 원장 조회에서 발생하므로 `saveFinalized`가 호출되지 않고 FINAL 스냅샷이 저장되지 않습니다. 재실행 때도 원장 행의 통화가 유효해질 때까지 같은 요청은 실패합니다.
+
+모든 유효 행이 KRW이면 같은 계정의 잔액을 `BigDecimal`로 합산합니다. `endingBalance`가 없는 행은 기존처럼 `debitAmount - creditAmount`를 사용하며, 차변 또는 대변이 없으면 0으로 계산합니다. 계정 코드가 없는 행과 null 응답 요소는 기존처럼 합산에서 제외합니다.
+
+초보자 확인 방법: 저장소 루트에서 `./gradlew --offline :reporting:core:test --tests com.ho.account.reporting.infrastructure.persistence.LedgerClientAdapterTest --console=plain --max-workers=1 --no-daemon`을 실행합니다. 오프라인 의존성이 준비되어 있으면 KRW 합산과 대체 계산, 혼합/외화/통화 누락 거부, 실패 시 FINAL 저장 차단 테스트가 모두 통과해야 합니다. 이 검사는 실제 원장 DB나 원격 API 호출까지 확인하지는 않습니다.
+
+전체 reporting 검증은 `./gradlew --offline :reporting:test --console=plain --max-workers=1 --no-daemon`으로 실행합니다. 부모 프로젝트에는 테스트 소스가 없으므로 이 작업은 `:reporting:core:test`, `:reporting:api:test`, `:reporting:batch:test`를 실행하도록 연결되어 있습니다. `BUILD SUCCESSFUL`만 보지 말고 세 하위 테스트 작업이 실행됐는지도 확인합니다.
 
 ## 감독보고 제출본 등록
 
