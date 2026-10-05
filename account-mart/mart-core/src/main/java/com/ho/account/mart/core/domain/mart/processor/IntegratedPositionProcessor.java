@@ -107,17 +107,25 @@ public class IntegratedPositionProcessor {
     }
 
     private BigDecimal convertToKrw(String currency, BigDecimal amount, LocalDate baseDate) {
-        if (currency == null || CurrencyCode.KRW.name().equals(currency) || baseDate == null) {
+        if (CurrencyCode.KRW.name().equals(currency)) {
             return amount.setScale(4, RoundingMode.HALF_UP);
         }
 
+        if (baseDate == null) {
+            throw new IllegalStateException("외화 환산 기준일이 없습니다: " + currency);
+        }
+
         CurrencyCode baseCurrency = CurrencyCode.valueOf(currency);
-        return exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
-                        baseDate,
-                        baseCurrency,
-                        CurrencyCode.KRW)
-                .map(ExchangeRate::getBaseRate)
-                .map(rate -> amount.multiply(rate).setScale(4, RoundingMode.HALF_UP))
-                .orElseGet(() -> amount.setScale(4, RoundingMode.HALF_UP));
+        ExchangeRate exchangeRate = exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
+                        baseDate, baseCurrency, CurrencyCode.KRW)
+                .orElseThrow(() -> new IllegalStateException(
+                        "기준일 외화 환율이 없습니다: " + baseDate + " " + baseCurrency + "/KRW"));
+        BigDecimal rate = exchangeRate.getBaseRate();
+        // 조회 실패나 비정상 환율을 1:1 환산으로 대체하면 CDM 평가금액이 조용히 오염된다.
+        if (rate == null || rate.signum() <= 0) {
+            throw new IllegalStateException(
+                    "기준일 외화 환율이 유효하지 않습니다: " + baseDate + " " + baseCurrency + "/KRW");
+        }
+        return amount.multiply(rate).setScale(4, RoundingMode.HALF_UP);
     }
 }

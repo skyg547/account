@@ -7,10 +7,12 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,6 +131,45 @@ public class IntegratedPositionEtlJobTest {
                 String.class,
                 java.sql.Date.valueOf(baseDate));
         assertThat(auditType).isEqualTo("NEGATIVE_BALANCE");
+    }
+
+    @Test
+    @DisplayName("기준일 USD/KRW 환율이 누락되면 CDM Step과 Job이 실패하고 평가액을 적재하지 않는다")
+    void shouldFailJobWhenUsdRateIsMissing() throws Exception {
+        jdbcTemplate.update("DELETE FROM market_exchange_rate WHERE base_dt = ? AND base_currency = 'USD' AND quote_currency = 'KRW'",
+                java.sql.Date.valueOf(BASE_DATE));
+
+        assertFailedFxJob("missing-rate");
+    }
+
+    @Test
+    @DisplayName("기준일 USD/KRW 환율이 0이면 CDM Step과 Job이 실패하고 평가액을 적재하지 않는다")
+    void shouldFailJobWhenUsdRateIsZero() throws Exception {
+        jdbcTemplate.update("UPDATE market_exchange_rate SET base_rate = 0 WHERE base_dt = ? AND base_currency = 'USD' AND quote_currency = 'KRW'",
+                java.sql.Date.valueOf(BASE_DATE));
+
+        assertFailedFxJob("zero-rate");
+    }
+
+    private void assertFailedFxJob(String fxCase) throws Exception {
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addString("baseDate", BASE_DATE.toString())
+                .addString("fxCase", fxCase)
+                .toJobParameters();
+        JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
+        StepExecution cdmLoadStep = jobExecution.getStepExecutions().stream()
+                .filter(step -> "cdmLoadStep".equals(step.getStepName()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(cdmLoadStep.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_input_positions WHERE base_dt = ? AND acc_no = 'DEMO-ACC005'",
+                Integer.class, java.sql.Date.valueOf(BASE_DATE))).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_exposure_snapshots WHERE base_date = ?",
+                Integer.class, java.sql.Date.valueOf(BASE_DATE))).isZero();
     }
 
     private void seedDemoSourceData(LocalDate baseDate) {
@@ -300,4 +341,3 @@ public class IntegratedPositionEtlJobTest {
                 branchCode);
     }
 }
-
