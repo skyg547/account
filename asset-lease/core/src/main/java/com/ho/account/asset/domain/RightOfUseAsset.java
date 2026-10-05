@@ -2,6 +2,7 @@ package com.ho.account.asset.domain;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -60,7 +61,8 @@ public class RightOfUseAsset {
     /**
      * 🎓 [교육적 주석 - IFRS 16 사용권자산 장부가액 음수 불가 원칙 & 안전 상각액 산출]
      * IFRS 16(리스) 회계기준에 따라 사용권자산(Right-of-Use Asset)은 차감상각(Depreciation)을 진행하지만,
-     * 상각 누적액이 최초 인식가액을 초과하여 장부가액(Net Book Value)이 음수(Negative)가 되는 것은 엄격히 금지됩니다.
+     * 재측정은 최초 인식가액을 보존하면서 현재 장부가액을 조정합니다. 상각은 조정된 장부가액을
+     * 기준으로 하며 장부가액(Net Book Value)이 음수(Negative)가 되는 것은 엄격히 금지됩니다.
      *
      * 이 메서드는 계획된 상각액(targetAmount)이 현재 잔여 장부가액을 초과하더라도,
      * 자산의 장부가액이 0원 미만으로 떨어지지 않도록 남은 장부가액 범위 내에서만 안전하게 상각액을 한도 조정(Limit)합니다.
@@ -93,11 +95,20 @@ public class RightOfUseAsset {
      * @return 실제 반영된 감가상각액 (0원 이상)
      */
     public BigDecimal depreciate() {
+        return depreciate(depreciationAmountPerPeriod);
+    }
+
+    /** Clear rounding residue when the final scheduled installment is processed. */
+    public BigDecimal depreciateRemaining() {
+        return depreciate(currentBookValue);
+    }
+
+    private BigDecimal depreciate(BigDecimal targetAmount) {
         if (!STATUS_ACTIVE.equals(status)) {
             return BigDecimal.ZERO;
         }
 
-        BigDecimal safeAmount = calculateSafeDepreciationAmount(depreciationAmountPerPeriod);
+        BigDecimal safeAmount = calculateSafeDepreciationAmount(targetAmount);
         if (safeAmount.compareTo(BigDecimal.ZERO) <= 0) {
             this.status = STATUS_FULLY_DEPRECIATED;
             return BigDecimal.ZERO;
@@ -105,8 +116,8 @@ public class RightOfUseAsset {
 
         BigDecimal accumulated = accumulatedDepreciation != null ? accumulatedDepreciation : BigDecimal.ZERO;
         BigDecimal newAccumulated = accumulated.add(safeAmount);
-        BigDecimal baseInitial = initialValue != null ? initialValue : (currentBookValue != null ? currentBookValue.add(accumulated) : safeAmount);
-        BigDecimal newBookValue = baseInitial.subtract(newAccumulated);
+        // Remeasurement changes current book value without rewriting original recognition or past depreciation.
+        BigDecimal newBookValue = currentBookValue.subtract(safeAmount);
 
         // 하한선 보정: 음수 방지 0원 Floor
         if (newBookValue.compareTo(BigDecimal.ZERO) <= 0) {
@@ -123,6 +134,23 @@ public class RightOfUseAsset {
         this.currentBookValue = newBookValue;
 
         return safeAmount;
+    }
+
+    public void applyRemeasurement(BigDecimal adjustmentAmount, int remainingPeriods) {
+        if (!STATUS_ACTIVE.equals(status) && !STATUS_FULLY_DEPRECIATED.equals(status)) {
+            throw new IllegalStateException("ROU asset is not available for remeasurement");
+        }
+        if (adjustmentAmount == null || currentBookValue == null || remainingPeriods <= 0) {
+            throw new IllegalArgumentException("ROU remeasurement requires a book value and remaining periods");
+        }
+        BigDecimal adjustedBookValue = currentBookValue.add(adjustmentAmount);
+        if (adjustedBookValue.signum() < 0) {
+            throw new IllegalStateException("ROU adjustment exceeds remaining book value");
+        }
+        this.currentBookValue = adjustedBookValue;
+        this.depreciationAmountPerPeriod = adjustedBookValue.divide(
+                BigDecimal.valueOf(remainingPeriods), 2, RoundingMode.HALF_UP);
+        this.status = adjustedBookValue.signum() == 0 ? STATUS_FULLY_DEPRECIATED : STATUS_ACTIVE;
     }
 
     // Getter 및 Setter
