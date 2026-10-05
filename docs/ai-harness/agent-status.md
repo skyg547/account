@@ -897,3 +897,10 @@
 - Controller, service, SQL, and test agents used disjoint auth file ownership. Parent handled feature docs, shared records, Git/GitHub. `/root/pat_review` found no remaining P0–P3; Q1–Q4 PASS. PAT uses verified Bearer JWT/current exact AuthUser and current administrator role; audit rows include actor/owner and conditional revoke prevents duplicate transition events.
 - Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
 - Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
+
+## 2026-10-05 — GH-833 Tax invoice amount precision
+
+- Owner/status: Codex parent Integrator; Issue #833 OPEN / `status:needs-review`; branch `agent/833-tax-amount-precision`; worktree `/tmp/account-833-tax-amount-precision`; base `973d76dd`; Draft PR [#851](https://github.com/skyg547/account/pull/851) (`Refs #833`).
+- Result: five tax files implement pre-mutation lossless `NUMERIC(19,2)` checks in core and HTTP 400 validation in API, preserving sum comparison and accepting `1.000`. No cross-module or shared-kernel changes.
+- Evidence: core 19/API 5/batch 2 tests PASS, 0 failures/errors/skips; `:tax:test` `NO-SOURCE`; harness quality 32/32, validator, diff/marker checks PASS. Independent read-only `/root/review_833` found no P0–P3 and Q1–Q4 PASS. PR `tax` CI passed; discipline guard initially failed on missing PR metadata and deliberate Draft/trust gates. PR label/body metadata has been supplied; Draft/trust remain blocking for Ready/merge.
+- Next owner: human reviewer checks PR/CI and approves any Ready or merge transition. PostgreSQL conversion and live HTTP remain unverified; rollback is PR commit revert. No merge, Issue close, or resource cleanup was performed.
