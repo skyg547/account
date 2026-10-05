@@ -3167,3 +3167,5 @@ git diff --name-only --diff-filter=U
 | Q2 | PASS | `process-flow.md:78-80`; 불일치·재시도 테스트 | 해당 없음: 실행 흐름 변경 | DB 실패 이력 지속 검증 | `/root/independent_review` PASS |
 | Q3 | PASS | `process-flow.md:78-80`의 양방향 예제·실패 경계 | 해당 없음: 기능 문서 변경 | 실제 원격 데이터 별도 | `/root/independent_review` PASS |
 | Q4 | PASS | 실행 서비스 `:199`, 테스트 `:376`, `:449` 의도 주석 | 해당 없음: 비자명 코드 변경 | 해당 없음: 현재 근거 확인 | `/root/independent_review` PASS |
+
+- 최종 리뷰 게이트: 부모의 새 오프라인 강제 실행에서 core 137/137(21 suites), API·Batch 컴파일, 요청된 `:reconciliation:test` 모두 PASS. 별도 `/root/review_860`은 이 PR의 Q1–Q4 PASS 및 추가 P1/P2 없음으로 확인했다. 중복 PR #869는 원천 집계 `long`→`int` 범위 검사 누락에 따른 false SUCCESS 가능성이 발견되어 #876으로 통합하고 닫았다. #860은 `status:needs-review` / `agent:codex`로 이관했다. #876의 구현 head에서 module/harness CI는 PASS였고 Agent Merge Guard discipline은 Draft 및 저장소 신뢰 정책 미설정 게이트로 FAIL이었다. 기록 갱신 head의 CI와 사람 리뷰·신뢰 정책 결정 전 Ready·merge·Issue close는 보류한다.

@@ -904,3 +904,4 @@
 - Service writer는 실행 서비스, Test writer는 서비스 테스트를 각자 소유했고 부모는 `reconciliation/docs/process-flow.md`와 명시 요청된 세 AI harness 기록, Git/GitHub를 소유했다. 단일 모듈이므로 다른 모듈이나 공유 계약은 변경하지 않았다.
 - Core 137/137, 요청된 `:reconciliation:test`, API·Batch 컴파일, diff/marker 검사 PASS. 독립 `/root/independent_review`: P0–P3 없음, Q1–Q4 PASS. 실제 DB·원격 Journal 검증과 현재 head CI는 남아 있다.
 - 다음 소유자: 사람 PR 리뷰어. Ready·merge·Issue close·브랜치/워크트리 삭제는 별도 게이트이며 수행하지 않았다.
+- 최종 확인: #860은 `status:needs-review` / `agent:codex`, #876은 OPEN/DRAFT. 부모 강제 core 137/137 및 API·Batch 컴파일, 요청된 `:reconciliation:test` PASS; 별도 `/root/review_860` Q1–Q4 PASS·추가 P1/P2 없음. 결함이 있던 중복 PR #869는 #876을 지정하고 닫았으며 워크트리는 보존했다. #876 구현 head의 Module/Harness CI PASS, Merge Guard discipline은 Draft·미설정 trust policy로 FAIL; 기록 갱신 head CI와 사람 리뷰가 다음 게이트다.

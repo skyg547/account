@@ -4033,3 +4033,4 @@
 - `targetSide=DEBIT/CREDIT`와 다른 차대 라인은 매칭에서 제외된다. 원천·대상 집계와 건별 건수·금액 불일치는 성공 처리 전에 예외로 중단하고, 요약값은 실제 매칭 결과에서 저장한다. 동일 날짜의 양방향, 건수·금액 불일치, 실패 후 정정 재시도, 정상 완료 재실행을 테스트했다.
 - 수정 전/후 core 테스트 PASS, 최종 137/137. 요청된 `:reconciliation:test` PASS(의존 core 테스트 실행), API·Batch 컴파일 PASS, diff/marker 검사 PASS. 독립 리뷰: P0–P3 없음, Q1–Q4 PASS.
 - 잔여 위험: 원격 Journal·실제 은행 데이터 및 DB 트랜잭션은 미검증이다. 예외 재전파가 FAILED 실행 이력을 롤백할 수 있어 durable FAILED를 주장하지 않는다. 현재 head CI와 사람 리뷰, 필요시 실제 DB 트랜잭션 검증이 다음 게이트다. 롤백은 Issue 범위의 커밋을 검토 후 revert; 스키마·운영 데이터 복구는 필요 없다. Ready·merge·Issue close·자원 삭제는 별도 권한이다.
+- 최신 인계: 부모가 #876에서 core 137/137 강제 재실행, API·Batch 컴파일, 요청된 모듈 테스트를 재확인했다. 별도 `/root/review_860`은 Q1–Q4 PASS 및 추가 P1/P2 없음으로 확인했다. 중복 #869는 `long`→`int` 집계 건수 범위 검사 누락 결함으로 닫고 #876을 단일 리뷰 경로로 정했다. #860은 `status:needs-review`; #876 구현 head의 module/harness CI는 PASS, Agent Merge Guard discipline은 Draft와 저장소 trust policy 미설정으로 FAIL이다. 다음 소유자는 기록 갱신 head CI를 확인할 사람 PR 리뷰어와 저장소 정책 결정자다.
