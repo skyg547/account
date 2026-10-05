@@ -897,3 +897,10 @@
 - Controller, service, SQL, and test agents used disjoint auth file ownership. Parent handled feature docs, shared records, Git/GitHub. `/root/pat_review` found no remaining P0–P3; Q1–Q4 PASS. PAT uses verified Bearer JWT/current exact AuthUser and current administrator role; audit rows include actor/owner and conditional revoke prevents duplicate transition events.
 - Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
 - Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
+
+## 2026-10-06 GH-865 ECL macro scenario weight guard
+
+- Issue #865 OPEN / `status:needs-review`; branch `agent/865-ecl-scenario-weight`; worktree `/tmp/account-865-ecl-scenario-weight`; base `origin/main@973d76dd`; [Draft PR #877](https://github.com/skyg547/account/pull/877) with `Refs #865`.
+- Exact four Issue-listed ecl files implement/cache-live test the 0~1 and exact-sum-1 guard, batch failure before weighted ECL/COMPLETED/summary, valid weighted value and zero-scenario fallback. Parent owns this and the two other requested AI harness records; no other module/shared contract changed.
+- Focused core12/batch4 PASS; full offline core70/batch18 PASS, failures/errors/skips 0. Requested `:ecl:test` exited 0 but is `NO-SOURCE`. Harness quality32/32 and validator PASS; diff, marker and unmerged-index gates PASS. `/root/ecl_review` read-only: no blocker, Q1–Q4 PASS; reviewer checked XML without rerunning Gradle.
+- Next owner: human reviewer/CI gate. PostgreSQL/live batch, multiple-account partial failure, prior summary preservation and repair/restart remain unverified. Keep Draft; Ready, merge, Issue close and branch/worktree removal require the separate authorized gate. Rollback is a reviewed Issue-scoped revert; no migration/data recovery.

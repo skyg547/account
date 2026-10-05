@@ -3153,3 +3153,18 @@ git diff --name-only --diff-filter=U
 | Q2 | PASS | `auth/docs/process-flow.md:15`, `auth/docs/schema.md:47`; JWT→AuthUser→권한→감사 흐름·실패 설명 | 해당 없음: 핵심 흐름 변경 | 실제 PostgreSQL 트랜잭션 확인 필요 | `/root/pat_review` 확인 |
 | Q3 | PASS | `auth/README.md:54`, `auth/docs/beginner-guide.md:44`, `auth/docs/local-run.md:61`, `auth/docs/schema.md:73`; V74/요청 예시/결과·한계 | 해당 없음: 기능 문서 변경 | Gateway 미노출은 문서에 명시 | `/root/pat_review` 확인 |
 | Q4 | PASS | `JwtPatCredentialVerifier.java:75`, `PersonalAccessTokenService.java:99`, `PersonalAccessTokenPersistenceAdapter.java:41`, `auth/build.gradle:1`; 조건부 폐기 H2 1/1, quality32/32 | 해당 없음: 비자명 로직 변경 | PostgreSQL 동시성 실증 필요 | `/root/pat_review` 확인 |
+
+## 2026-10-06 — GH-865 ECL macro scenario probability validation
+
+- Issue #865 (`RISK_ECL_03`, P1); branch `agent/865-ecl-scenario-weight`; reused clean external worktree `/tmp/account-865-ecl-scenario-weight`; base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; [Draft PR #877](https://github.com/skyg547/account/pull/877) with `Refs #865`.
+- Scope: exact four Issue-listed `ecl/**` production/test/process-flow files, plus only the three parent-owned AI harness records explicitly requested by the user. Service and test writers used disjoint file ownership; parent owns module documentation, Git/GitHub and records; `/root/ecl_review` stayed read-only. No shared contract, API, SQL, migration, build or other module change.
+- Input → processing → output: `ForwardLookingEclService` checks every nonempty year's cached or live scenario list before any ECL calculation. Null, negative or above-one `probabilityWeight`, or an exact `BigDecimal.compareTo` sum other than 1, throws a model-input `IllegalArgumentException`. This stops batch weighted ECL writes and skips completion/summary; valid weighted ECL and the zero-scenario fallback remain.
+- Verification: focused core 12/12 and batch integration 4/4 PASS. Required `./gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --offline --no-daemon --console=plain --max-workers=1` PASS: core 70, batch 18, total 88, failures/errors/skips 0. Requested `./gradlew :ecl:test` exited 0 but reported `:ecl:test NO-SOURCE`, so it is not test evidence. `node --test tools/ci/harness-quality-contract.test.cjs` 32/32 PASS and `python3 tools/ci/validate-harness.py` exit 0. `git diff --check`, changed-file conflict marker scan and unmerged-index check PASS. Independent read-only reviewer checked test XML and diff, found no blocking issue and confirmed Q1–Q4 PASS; it did not independently rerun Gradle.
+- Residual: real PostgreSQL model data/live batch, multiple-account partial-run behavior, existing-summary preservation after a failed run and repair/restart have not been exercised. Remote PR CI and human review remain before Ready/merge. No conflict occurred. Rollback: reviewed Issue-scoped revert of the implementation and records, with no schema or data migration recovery.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `ForwardLookingEclService.java:92,127`; core70/batch18 PASS | 해당 없음: core invariant 변경 | PostgreSQL batch 미실행 | `/root/ecl_review`, 차단 결함 없음 |
+| Q2 | PASS | `ecl/docs/ALLOWANCE_PROCESS_FLOW.md:38`; `AllowanceEclBatchIntegrationTest.java:306` 실패 경계 2건 PASS | 해당 없음: 산출 흐름 변경 | 복수 계좌·기존 summary·재실행 후속 확인 | `/root/ecl_review` 확인 |
+| Q3 | PASS | `ecl/docs/ALLOWANCE_PROCESS_FLOW.md:40` 검증·폴백·복구 설명 | 해당 없음: 기능 문서 갱신 | 운영 모델 데이터는 별도 게이트 | `/root/ecl_review` 확인 |
+| Q4 | PASS | `ForwardLookingEclService.java:92` 계산 전 검증 의도 주석 | 해당 없음: 비자명 검증 변경 | 해당 없음: 주석과 구현 일치 | `/root/ecl_review` 확인 |
