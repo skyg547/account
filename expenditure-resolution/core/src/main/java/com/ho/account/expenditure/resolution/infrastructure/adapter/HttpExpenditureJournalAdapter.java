@@ -85,6 +85,12 @@ public class HttpExpenditureJournalAdapter implements JournalPostingPort {
             if (result == null) {
                 throw new IllegalStateException("Journal ledger posting returned null result");
             }
+            if (result.journalEntryId() == null || result.journalEntryId() <= 0) {
+                throw new IllegalStateException("Journal ledger posting returned invalid journal entry ID");
+            }
+            if (!"DRAFT".equals(result.status())) {
+                throw new IllegalStateException("Journal ledger posting returned invalid draft status");
+            }
             return result;
         } catch (RestClientException e) {
             throw new IllegalStateException("Journal ledger posting failed", e);
