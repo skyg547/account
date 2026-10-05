@@ -3,6 +3,7 @@ package com.ho.account.loan.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,8 +19,38 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class LoanControllerTest {
+
+    @Test
+    void rejectsUnsupportedPaymentFrequenciesAtHttpContractBoundary() throws Exception {
+        LoanUseCase useCase = mock(LoanUseCase.class);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LoanController(useCase))
+                .setControllerAdvice(new LoanApiExceptionHandler())
+                .build();
+        for (Loan.PaymentFrequency frequency : Loan.PaymentFrequency.values()) {
+            if (frequency == Loan.PaymentFrequency.MONTHLY) {
+                continue;
+            }
+            String request = """
+                    {"loanNumber":"LN-API-UNSUPPORTED","businessPartnerId":100,
+                     "currencyCode":"KRW","loanType":"TERM_LOAN","principalAmount":1200.00,
+                     "interestRate":0.1200,"disbursalDate":"2026-01-01",
+                     "maturityDate":"2026-04-01","paymentFrequency":"%s"}
+                    """.formatted(frequency);
+            mvc.perform(post("/api/loan/loans").contentType(MediaType.APPLICATION_JSON).content(request))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                            "paymentFrequency " + frequency)));
+        }
+        verifyNoInteractions(useCase);
+    }
 
     @Test
     void defaultEventReturnsEventWithoutArtificialRecalculation() {
