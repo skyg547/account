@@ -1,3 +1,10 @@
+## 2026-10-06 — GH-858 account-mart FX rate requirement / Draft PR #875
+
+- State: `status:needs-review`; branch `agent/858-require-fx-rate`; worktree `/tmp/account-858-require-fx-rate`; base `origin/main@973d76dd`; [Draft PR #875](https://github.com/skyg547/account/pull/875), `Refs #858`.
+- Scope: four Issue-listed `account-mart/**` files. Missing/invalid base-date foreign/KRW rate now fails CDM conversion, Step, and Job; valid rate uses `BigDecimal` scale 4 `HALF_UP`.
+- Verification: targeted 8 core/3 batch PASS; full child suites 22 core/10 batch/3 API PASS; final batch cause-assertion targeted 3 PASS. Requested aggregate `:account-mart:test` was `NO-SOURCE`. Diff/markers PASS. Independent reviewer: no remaining P0–P3; Q1–Q4 PASS (PR evidence table).
+- Next owner: human PR reviewer for current-head checks and merge decision. Ready, merge, Issue close, and resource cleanup are pending. Rollback of the four files restores the unsafe fallback and needs FX completeness protection.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)

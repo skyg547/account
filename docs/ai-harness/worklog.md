@@ -1,3 +1,11 @@
+## 2026-10-06 — GH-858 account-mart foreign FX fail-closed CDM conversion
+
+- Issue #858, `agent/858-require-fx-rate`, `/tmp/account-858-require-fx-rate`, base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`, Draft PR [#875](https://github.com/skyg547/account/pull/875) (`Refs #858`). Only the four Issue-listed `account-mart/**` code, test, and ETL spec files changed in implementation commit `950a7e47`; no other module or shared contract was changed.
+- `IntegratedPositionProcessor` requires a dated positive foreign/KRW `base_rate`; missing, null, zero, or negative rate raises `IllegalStateException` outside the CDM Step's `IllegalArgumentException` skip rule. Valid FX retains `BigDecimal` scale 4 `HALF_UP`. Core tests cover conversion and invalid boundaries; H2 batch tests prove CDM Step/Job failure, exact rate cause, no USD CDM row, and no snapshot.
+- Verification: targeted core 8/batch 3 PASS; aggregate `./gradlew :account-mart:test --offline --console=plain --max-workers=1 --no-daemon` succeeded but was `NO-SOURCE`; actual child suites core 22/batch 10/API 3 PASS, zero failures/errors/skips. The final assertion-only batch test update passed its targeted 3 tests. `git diff --check` and changed-file conflict marker scan PASS. No package/dependency download or production DB access.
+- Independent read-only reviewer found no remaining P0–P3 after the batch failure-cause assertion was added. Q1 PASS: core conversion rule and core/batch tests; Q2 PASS: ETL spec input-to-failure/retry flow; Q3 PASS: rate prerequisite, rounding, status, and operator guidance; Q4 PASS: nearby comment explaining why 1:1 fallback corrupts CDM values. Evidence is in PR #875's table.
+- Rollback: review a revert of the four implementation files, knowing it restores the unsafe fallback; keep foreign jobs paused or assure FX completeness first. Residual verification: production-scale parallel CDM and corrected-rate/prior-snapshot rerun were not exercised. Issue is `status:needs-review`; human reviewer owns current-head/CI and merge decision. Draft PR remains Draft; no merge, Issue close, or cleanup was performed.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
