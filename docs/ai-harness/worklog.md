@@ -3153,3 +3153,13 @@ git diff --name-only --diff-filter=U
 | Q2 | PASS | `auth/docs/process-flow.md:15`, `auth/docs/schema.md:47`; JWT→AuthUser→권한→감사 흐름·실패 설명 | 해당 없음: 핵심 흐름 변경 | 실제 PostgreSQL 트랜잭션 확인 필요 | `/root/pat_review` 확인 |
 | Q3 | PASS | `auth/README.md:54`, `auth/docs/beginner-guide.md:44`, `auth/docs/local-run.md:61`, `auth/docs/schema.md:73`; V74/요청 예시/결과·한계 | 해당 없음: 기능 문서 변경 | Gateway 미노출은 문서에 명시 | `/root/pat_review` 확인 |
 | Q4 | PASS | `JwtPatCredentialVerifier.java:75`, `PersonalAccessTokenService.java:99`, `PersonalAccessTokenPersistenceAdapter.java:41`, `auth/build.gradle:1`; 조건부 폐기 H2 1/1, quality32/32 | 해당 없음: 비자명 로직 변경 | PostgreSQL 동시성 실증 필요 | `/root/pat_review` 확인 |
+
+## 2026-10-05 — GH-829 교차 고객 수납·채권 반제 차단 / Draft PR #844
+
+- Issue: [#829](https://github.com/skyg547/account/issues/829), `SUBLEDGER_CORE_02`, receivable 단일 모듈 P1. Branch: `agent/829-receivable-customer-match`; isolated worktree: `/tmp/account-829-receivable-customer-match`; base: `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; Draft PR: [#844](https://github.com/skyg547/account/pull/844), `Refs #829`.
+- 범위: `CollectionService.processMatch`의 고객 코드 일치 사전 검증, `CollectionServiceTest`의 수동·자동 교차 고객 거부 및 정상 부분 매칭 회귀, `receivable/docs/process-flow.md`의 흐름·명령 설명. 변경한 업무 파일은 Issue 제안의 3개뿐이다. 공용 계약, DB, 타 모듈은 변경하지 않았다.
+- 수납 고객 코드가 비어 있거나 채권 고객 코드와 다르면 도메인 상태 변경·저장·배분 이력·인보이스 변경·전표 작성 전에 `IllegalArgumentException`으로 거부한다. 정상 부분 매칭의 BigDecimal 잔액·상태와 GL 거래처 코드는 보존한다.
+- 검증: 집중 `./gradlew :receivable:core:test --tests com.ho.account.receivable.application.service.CollectionServiceTest --offline --no-daemon --console=plain --max-workers=2` 10/10 PASS; 요청 명령 `./gradlew :receivable:test --offline --no-daemon --console=plain --max-workers=2` PASS (core 47/47, 상위 task는 `NO-SOURCE`); `./gradlew :receivable:api:test :receivable:batch:test --offline --no-daemon --console=plain --max-workers=2` API 14/14·Batch 1/1 PASS. 모두 실패·건너뜀 0. `git diff --check`와 변경 파일 충돌 마커 검사 PASS.
+- 독립 읽기 전용 Reviewer: 지적 사항 없음. Q1 PASS—공통 guard와 음성·정상 테스트(`CollectionService.java:138`, `CollectionServiceTest.java:218`); Q2 PASS—입력·검증 순서·결과(`CollectionService.java:139`, `process-flow.md:84`); Q3 PASS—사용 예·명령·한계(`process-flow.md:84`); Q4 PASS—상태 변경 전 검증 의도 주석(`CollectionService.java:139`). 네 항목 모두 N/A 사유 해당 없음(PASS)이며 실제 DB·원격 연동은 후속 검증 게이트다.
+- 한계: 실제 PostgreSQL·원격 GL과 HTTP 종단 요청, 기존 잘못된 배분의 데이터 정정은 수행하지 않았다. 롤백은 이 PR의 코드·테스트·기능 문서 변경 커밋을 되돌리는 것이며 운영 데이터와 마이그레이션은 변경하지 않았다.
+- 권한: Service/Test 작성자는 지정 파일만, Reviewer는 읽기 전용으로 작업했다. 부모 Integrator만 Git/PR·공유 기록을 갱신했다. 사람 리뷰와 최신 head/base·CI 확인 후 별도 승인 단계에서 Ready/merge/Issue close를 판단한다. 다음 소유자는 사람 리뷰어다.
