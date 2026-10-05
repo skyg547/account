@@ -193,8 +193,12 @@ public class ReconciliationExecutionService {
             ReconciliationSnapshot sourceSnapshot = buildSourceSnapshot(reconciliationUnit, reconciliationDate);
             ReconciliationSnapshot targetSnapshot = buildTargetSnapshot(reconciliationUnit, reconciliationDate);
 
-            List<ReconciliationItem> sourceItems = buildSourceItems(reconciliationUnit, reconciliationDate, sourceSnapshot);
-            List<ReconciliationItem> targetItems = buildTargetItems(reconciliationUnit, reconciliationDate, targetSnapshot);
+            List<ReconciliationItem> sourceItems = buildSourceItems(reconciliationUnit, reconciliationDate);
+            List<ReconciliationItem> targetItems = buildTargetItems(reconciliationUnit, reconciliationDate);
+
+            // Reject incomplete or differently scoped detail reads before matching or posting adjustments.
+            validateSnapshotItems("Source", sourceSnapshot, sourceItems);
+            validateSnapshotItems("Target", targetSnapshot, targetItems);
 
             BigDecimal sourceAmount = sourceSnapshot.amount();
             BigDecimal amountTolerance = tolerancePolicy.resolveAmountTolerance(rules, sourceAmount);
@@ -252,26 +256,11 @@ public class ReconciliationExecutionService {
                 }
             }
 
-            long sourceCount = Math.max((long) sourceSnapshot.count(), result.totalSourceCount());
-            long targetCount = Math.max((long) targetSnapshot.count(), result.totalTargetCount());
-            BigDecimal sourceTotalAmount = sourceSnapshot.amount() != null && sourceSnapshot.amount().compareTo(BigDecimal.ZERO) != 0 ? sourceSnapshot.amount() : result.totalSourceAmount();
-            BigDecimal targetTotalAmount = targetSnapshot.amount() != null && targetSnapshot.amount().compareTo(BigDecimal.ZERO) != 0 ? targetSnapshot.amount() : result.totalTargetAmount();
-
-            long matchedCount = result.matchedItemsCount();
-            BigDecimal matchedAmount = result.matchedAmount();
-            long unmatchedCount = result.unmatchedItemsCount();
-
-            if (sourceSnapshot.count() != sourceItems.size() || targetSnapshot.count() != targetItems.size()) {
-                matchedCount = Math.min(sourceCount, targetCount);
-                matchedAmount = sourceTotalAmount.min(targetTotalAmount);
-                unmatchedCount = result.discrepancyGroups().isEmpty() ? 0L : Math.abs(sourceCount - targetCount);
-            }
-
             run.completeRun(
-                    sourceCount, sourceTotalAmount,
-                    targetCount, targetTotalAmount,
-                    matchedCount, matchedAmount,
-                    unmatchedCount, result.unmatchedAmount()
+                    result.totalSourceCount(), result.totalSourceAmount(),
+                    result.totalTargetCount(), result.totalTargetAmount(),
+                    result.matchedItemsCount(), result.matchedAmount(),
+                    result.unmatchedItemsCount(), result.unmatchedAmount()
             );
 
         } catch (Exception e) {
@@ -300,6 +289,9 @@ public class ReconciliationExecutionService {
         if (snapshot == null) {
             throw new RuntimeException("External adapter failed to return source snapshot for unit: " + reconciliationUnit.getId());
         }
+        if (snapshot.count() > Integer.MAX_VALUE) {
+            throw new IllegalStateException("Source detail count exceeds supported reconciliation count range.");
+        }
 
         return new ReconciliationSnapshot((int) snapshot.count(), snapshot.amount() == null ? BigDecimal.ZERO : snapshot.amount());
     }
@@ -307,8 +299,7 @@ public class ReconciliationExecutionService {
     private ReconciliationSnapshot buildTargetSnapshot(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         String targetAccountCode = readText(root, "targetAccountCode");
-        String sideStr = readText(root, "targetSide");
-        JournalSide targetSide = !sideStr.isBlank() ? JournalSide.valueOf(sideStr.trim().toUpperCase()) : JournalSide.DEBIT;
+        JournalSide targetSide = resolveTargetSide(root);
 
         JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregateByAccount(
                 reconciliationDate,
@@ -320,11 +311,27 @@ public class ReconciliationExecutionService {
             return new ReconciliationSnapshot(0, BigDecimal.ZERO);
         }
         long detailCount = aggregate.getDetailCount();
-        if (detailCount > Integer.MAX_VALUE) {
+        if (detailCount < 0 || detailCount > Integer.MAX_VALUE) {
             throw new IllegalStateException("Target journal detail count exceeds supported reconciliation count range.");
         }
         BigDecimal totalAmount = aggregate.getTotalAmount() == null ? BigDecimal.ZERO : aggregate.getTotalAmount();
         return new ReconciliationSnapshot((int) detailCount, totalAmount);
+    }
+
+    private JournalSide resolveTargetSide(JsonNode criteria) {
+        String side = readText(criteria, "targetSide");
+        return side.isBlank() ? JournalSide.DEBIT : JournalSide.valueOf(side.toUpperCase());
+    }
+
+    private void validateSnapshotItems(String stage, ReconciliationSnapshot snapshot, List<ReconciliationItem> items) {
+        BigDecimal itemAmount = items.stream()
+                .map(ReconciliationItem::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (snapshot.count() != items.size() || snapshot.amount().compareTo(itemAmount) != 0) {
+            throw new IllegalStateException(stage + " detail count/amount does not match aggregate snapshot: "
+                    + "aggregateCount=" + snapshot.count() + ", detailCount=" + items.size()
+                    + ", aggregateAmount=" + snapshot.amount() + ", detailAmount=" + itemAmount);
+        }
     }
 
     private String readText(JsonNode root, String fieldName) {
@@ -352,7 +359,7 @@ public class ReconciliationExecutionService {
         }
     }
 
-    private List<ReconciliationItem> buildSourceItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate, ReconciliationSnapshot snapshot) {
+    private List<ReconciliationItem> buildSourceItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         List<ReconciliationItem> items = externalReconSnapshotPort.loadItems(
                 com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest.of(
@@ -364,55 +371,32 @@ public class ReconciliationExecutionService {
                         readText(root, "legalEntityCode")
                 )
         );
-        if (items != null && !items.isEmpty()) {
-            return items;
-        }
-        if (snapshot.count() > 0 || (snapshot.amount() != null && snapshot.amount().compareTo(BigDecimal.ZERO) != 0)) {
-            return List.of(ReconciliationItem.ofSource(
-                    "SUMMARY-SRC-" + reconciliationUnit.getId(),
-                    reconciliationDate,
-                    "SUMMARY",
-                    readText(root, "legalEntityCode"),
-                    readText(root, "sourceProductCode"),
-                    snapshot.amount(),
-                    reconciliationUnit.getName()
-            ));
-        }
-        return List.of();
+        return items == null ? List.of() : items;
     }
 
-    private List<ReconciliationItem> buildTargetItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate, ReconciliationSnapshot snapshot) {
+    private List<ReconciliationItem> buildTargetItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         String targetAccountCode = readText(root, "targetAccountCode");
+        JournalSide targetSide = resolveTargetSide(root);
         List<String> accountCodes = !targetAccountCode.isBlank() ? List.of(targetAccountCode) : List.of();
         List<JournalDetailSummary> details = journalQueryPort.getJournalDetailsByAccountCodes(
                 reconciliationDate, reconciliationDate, accountCodes
         );
-        if (details != null && !details.isEmpty()) {
-            return details.stream()
-                    .map(d -> ReconciliationItem.ofTarget(
-                            String.valueOf(d.getId()),
-                            d.getAccountingDate(),
-                            d.getSlipNo(),
-                            d.getBusinessPartnerCode(),
-                            d.getAccountCode(),
-                            d.getBaseAmount() != null ? d.getBaseAmount() : d.getAmount(),
-                            d.getDetailDescription()
-                    ))
-                    .collect(Collectors.toList());
+        if (details == null) {
+            return List.of();
         }
-        if (snapshot.count() > 0 || (snapshot.amount() != null && snapshot.amount().compareTo(BigDecimal.ZERO) != 0)) {
-            return List.of(ReconciliationItem.ofTarget(
-                    "SUMMARY-TGT-" + reconciliationUnit.getId(),
-                    reconciliationDate,
-                    "SUMMARY",
-                    null,
-                    targetAccountCode,
-                    snapshot.amount(),
-                    reconciliationUnit.getName()
-            ));
-        }
-        return List.of();
+        return details.stream()
+                .filter(d -> d.getSide() == targetSide)
+                .map(d -> ReconciliationItem.ofTarget(
+                        String.valueOf(d.getId()),
+                        d.getAccountingDate(),
+                        d.getSlipNo(),
+                        d.getBusinessPartnerCode(),
+                        d.getAccountCode(),
+                        d.getBaseAmount() != null ? d.getBaseAmount() : d.getAmount(),
+                        d.getDetailDescription()
+                ))
+                .collect(Collectors.toList());
     }
 
     private String buildItemRefJson(List<ReconciliationItem> items, LocalDate date, String unitName) {
