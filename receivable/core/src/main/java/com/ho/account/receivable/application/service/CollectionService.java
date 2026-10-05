@@ -136,6 +136,13 @@ public class CollectionService implements CollectionUseCase {
     }
 
     private void processMatch(Collection collection, Receivable receivable, BigDecimal amount) {
+        // 자동 매칭 후보도 이 경로를 지나므로 고객 귀속을 상태 변경 전에 함께 검증합니다.
+        String customerCode = collection.getCustomerCode();
+        if (customerCode == null || customerCode.isBlank()
+                || !customerCode.equals(receivable.getCustomerCode())) {
+            throw new IllegalArgumentException("Collection and receivable customer codes must match.");
+        }
+
         // DDD: 엔티티 내부 로직 호출
         receivable.applyCollection(amount);
         collection.applyAllocation(amount);
