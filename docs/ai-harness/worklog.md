@@ -3153,3 +3153,17 @@ git diff --name-only --diff-filter=U
 | Q2 | PASS | `auth/docs/process-flow.md:15`, `auth/docs/schema.md:47`; JWT→AuthUser→권한→감사 흐름·실패 설명 | 해당 없음: 핵심 흐름 변경 | 실제 PostgreSQL 트랜잭션 확인 필요 | `/root/pat_review` 확인 |
 | Q3 | PASS | `auth/README.md:54`, `auth/docs/beginner-guide.md:44`, `auth/docs/local-run.md:61`, `auth/docs/schema.md:73`; V74/요청 예시/결과·한계 | 해당 없음: 기능 문서 변경 | Gateway 미노출은 문서에 명시 | `/root/pat_review` 확인 |
 | Q4 | PASS | `JwtPatCredentialVerifier.java:75`, `PersonalAccessTokenService.java:99`, `PersonalAccessTokenPersistenceAdapter.java:41`, `auth/build.gradle:1`; 조건부 폐기 H2 1/1, quality32/32 | 해당 없음: 비자명 로직 변경 | PostgreSQL 동시성 실증 필요 | `/root/pat_review` 확인 |
+
+## 2026-10-06 — GH-860 reconciliation 대상 차대 불변식
+
+- Issue #860 / branch `agent/860-reconciliation-target-side` / worktree `/tmp/account-860-reconciliation-target-side` / base `origin/main@973d76dd` / [Draft PR #876](https://github.com/skyg547/account/pull/876) (`Refs #860`). 변경은 `reconciliation`의 실행 서비스·테스트·흐름 문서 3파일과 부모 소유의 이 세 기록 파일뿐이다.
+- 대상 집계와 건별 매칭에 동일한 `targetSide`를 적용하고, 원천·대상 집계의 건수와 BigDecimal 합계가 실제 건별 목록과 다르면 매칭·차이 저장·조정 전표 생성 전에 중단한다. 실행 통계는 매칭 결과만 사용한다. 요약용 가상 항목은 제거했다.
+- 수정 전 core 테스트 PASS. 수정 후 core 137/137, 서비스 15/15, Journal 금융 조회 39/39 PASS. 요청된 `:reconciliation:test` PASS(루트 태스크 자체 `NO-SOURCE`, 의존 core 테스트 실행), API·Batch `compileJava` PASS. `git diff --check`와 승인 파일 conflict marker 검사 PASS. 독립 read-only 리뷰는 P0–P3 없음, Q1–Q4 PASS를 확인했다.
+- 미검증: 실제 은행·원격 Journal·DB 트랜잭션. Mockito의 FAILED 상태 확인은 `@Transactional` 예외 재전파 뒤 FAILED 이력의 DB 지속을 입증하지 않는다. 다음 게이트는 현재 PR head CI, 실제 트랜잭션 경계 검증 및 사람 리뷰다. 롤백은 Issue 코드·테스트·문서 커밋을 검토 후 revert하며 DB 스키마·운영 데이터 변경은 없다.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `ReconciliationExecutionService.java:193`, `ReconciliationServiceTest.java:345`; core 137/137 | 해당 없음: 코드 변경 | 원격 통합 별도 | `/root/independent_review` PASS |
+| Q2 | PASS | `process-flow.md:78-80`; 불일치·재시도 테스트 | 해당 없음: 실행 흐름 변경 | DB 실패 이력 지속 검증 | `/root/independent_review` PASS |
+| Q3 | PASS | `process-flow.md:78-80`의 양방향 예제·실패 경계 | 해당 없음: 기능 문서 변경 | 실제 원격 데이터 별도 | `/root/independent_review` PASS |
+| Q4 | PASS | 실행 서비스 `:199`, 테스트 `:376`, `:449` 의도 주석 | 해당 없음: 비자명 코드 변경 | 해당 없음: 현재 근거 확인 | `/root/independent_review` PASS |

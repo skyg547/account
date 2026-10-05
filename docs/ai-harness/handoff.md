@@ -4026,3 +4026,10 @@
 - Local gates: auth core143/API52/Gateway74 tests PASS, PAT full HTTP9 and H2 conditional JPA1 PASS, auth API bootJar PASS, harness quality32 PASS, diff/markers clean. Independent `/root/pat_review` found no blocking findings and Q1–Q4 PASS. No PostgreSQL runtime/concurrent-request, deployment, or real credentials used.
 - Rollback: reviewed Issue-scoped code revert; use a reviewed forward migration for schema correction and preserve audit rows. Next owner is human PR reviewer and PostgreSQL/CI integration gate before Ready or merge. Issue closure and worktree/branch removal remain separate gates.
 - Remote CI on Draft PR #814 initial head `d225857b` failed before steps (no runner assigned and no logs). Next owner should restore/rerun checks and verify the final head before Ready; this is not a failed auth test result.
+
+## 2026-10-06 — GH-860 reconciliation 대상 차대 handoff
+
+- Issue #860 / `agent/860-reconciliation-target-side` / `/tmp/account-860-reconciliation-target-side` / `origin/main@973d76dd`; [Draft PR #876](https://github.com/skyg547/account/pull/876) contains `Refs #860`. 변경 범위는 reconciliation 실행 서비스·테스트·기능 문서와 사용자가 갱신을 지정한 세 AI harness 기록이다.
+- `targetSide=DEBIT/CREDIT`와 다른 차대 라인은 매칭에서 제외된다. 원천·대상 집계와 건별 건수·금액 불일치는 성공 처리 전에 예외로 중단하고, 요약값은 실제 매칭 결과에서 저장한다. 동일 날짜의 양방향, 건수·금액 불일치, 실패 후 정정 재시도, 정상 완료 재실행을 테스트했다.
+- 수정 전/후 core 테스트 PASS, 최종 137/137. 요청된 `:reconciliation:test` PASS(의존 core 테스트 실행), API·Batch 컴파일 PASS, diff/marker 검사 PASS. 독립 리뷰: P0–P3 없음, Q1–Q4 PASS.
+- 잔여 위험: 원격 Journal·실제 은행 데이터 및 DB 트랜잭션은 미검증이다. 예외 재전파가 FAILED 실행 이력을 롤백할 수 있어 durable FAILED를 주장하지 않는다. 현재 head CI와 사람 리뷰, 필요시 실제 DB 트랜잭션 검증이 다음 게이트다. 롤백은 Issue 범위의 커밋을 검토 후 revert; 스키마·운영 데이터 복구는 필요 없다. Ready·merge·Issue close·자원 삭제는 별도 권한이다.

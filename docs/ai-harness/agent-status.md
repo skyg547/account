@@ -897,3 +897,10 @@
 - Controller, service, SQL, and test agents used disjoint auth file ownership. Parent handled feature docs, shared records, Git/GitHub. `/root/pat_review` found no remaining P0–P3; Q1–Q4 PASS. PAT uses verified Bearer JWT/current exact AuthUser and current administrator role; audit rows include actor/owner and conditional revoke prevents duplicate transition events.
 - Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
 - Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
+
+## 2026-10-06 — GH-860 reconciliation 대상 차대
+
+- Status: core 수정·검증과 독립 read-only 리뷰 완료; [Draft PR #876](https://github.com/skyg547/account/pull/876) OPEN/DRAFT, `Refs #860`. Issue #860 OPEN. Branch `agent/860-reconciliation-target-side`, worktree `/tmp/account-860-reconciliation-target-side`, base `origin/main@973d76dd`.
+- Service writer는 실행 서비스, Test writer는 서비스 테스트를 각자 소유했고 부모는 `reconciliation/docs/process-flow.md`와 명시 요청된 세 AI harness 기록, Git/GitHub를 소유했다. 단일 모듈이므로 다른 모듈이나 공유 계약은 변경하지 않았다.
+- Core 137/137, 요청된 `:reconciliation:test`, API·Batch 컴파일, diff/marker 검사 PASS. 독립 `/root/independent_review`: P0–P3 없음, Q1–Q4 PASS. 실제 DB·원격 Journal 검증과 현재 head CI는 남아 있다.
+- 다음 소유자: 사람 PR 리뷰어. Ready·merge·Issue close·브랜치/워크트리 삭제는 별도 게이트이며 수행하지 않았다.
