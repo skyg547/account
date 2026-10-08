@@ -4,6 +4,7 @@ import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,8 +38,10 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
             throw new IllegalArgumentException("거래처 등록 명령은 필수입니다.");
         }
         BusinessPartner businessPartner = command.toDomain();
+        // 조회 포트는 날짜/useYn과 무관한 전체 이력 존재 여부를 확인합니다.
         if (businessPartnerPersistencePort.existsByBusinessPartnerCode(businessPartner.getBusinessPartnerCode())) {
-            throw new IllegalArgumentException("이미 존재하는 거래처 코드입니다: " + businessPartner.getBusinessPartnerCode());
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 거래처 코드입니다: "
+                    + businessPartner.getBusinessPartnerCode());
         }
         return businessPartnerPersistencePort.save(businessPartner);
     }
