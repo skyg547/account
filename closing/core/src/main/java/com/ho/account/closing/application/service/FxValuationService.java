@@ -7,13 +7,13 @@ import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import lombok.RequiredArgsConstructor;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * [결산 Core - 외화 평가 서비스 (FX Valuation Service)]
@@ -36,8 +36,20 @@ public class FxValuationService {
     private final ClosingAccountingProperties accountingProperties;
     private final FxValuationEligibilityResolver eligibilityResolver;
 
-    @Transactional
     public void processFxValuationForAccount(FxValuationBalance balance, LocalDate valuationDate, Long valuationBatchId) {
+        prepareFxValuationForAccount(balance, valuationDate, valuationBatchId)
+                .ifPresent(this::postPreparedFxValuation);
+    }
+
+    /**
+     * Validates one posted-ledger balance and prepares its deterministic journal without writing it.
+     * This separation lets API and Batch validate a complete unit of work before the first remote
+     * journal effect occurs.
+     */
+    public Optional<ClosingJournalEntryCommand> prepareFxValuationForAccount(
+            FxValuationBalance balance,
+            LocalDate valuationDate,
+            Long valuationBatchId) {
         Objects.requireNonNull(balance, "balance must not be null");
         Objects.requireNonNull(valuationDate, "valuationDate must not be null");
         if (valuationBatchId == null || valuationBatchId <= 0) {
@@ -45,7 +57,7 @@ public class FxValuationService {
         }
         String reportingCurrencyCode = accountingProperties.requireFxValuationReportingCurrencyCode();
         if (balance.currencyCode().equalsIgnoreCase(reportingCurrencyCode)) {
-            return;
+            return Optional.empty();
         }
 
         BigDecimal foreignAmount = balance.foreignEndingBalance();
@@ -56,10 +68,10 @@ public class FxValuationService {
         }
         // Direct callers must not bypass the dated gate, even for zero balances or unchanged rates.
         if (!eligibilityResolver.isEligible(balance.accountCode(), valuationDate)) {
-            return;
+            return Optional.empty();
         }
         if (foreignAmount.signum() == 0 && bookReportingAmount.signum() == 0) {
-            return;
+            return Optional.empty();
         }
         if (foreignAmount.signum() == 0 || bookReportingAmount.signum() == 0) {
             throw new IllegalStateException("FX transaction and reporting balances are inconsistent for account "
@@ -81,24 +93,34 @@ public class FxValuationService {
         BigDecimal revaluedReportingAmount = foreignAmount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal difference = revaluedReportingAmount.subtract(bookReportingAmount);
         if (difference.signum() == 0) {
-            return;
+            return Optional.empty();
         }
 
-        createValuationJournalEntry(
+        return Optional.of(createValuationJournalEntry(
                 balance.accountCode(),
                 balance.currencyCode(),
                 difference,
                 valuationDate,
                 valuationBatchId,
-                reportingCurrencyCode);
+                reportingCurrencyCode));
     }
 
-    private void createValuationJournalEntry(String accountCode,
-                                             String sourceCurrencyCode,
-                                             BigDecimal difference,
-                                             LocalDate valuationDate,
-                                             Long batchId,
-                                             String reportingCurrencyCode) {
+    /** Creates the prepared draft and applies the explicitly configured auto-post policy. */
+    public ClosingJournalEntryResult postPreparedFxValuation(ClosingJournalEntryCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+        ClosingJournalEntryResult result = closingJournalEntryPort.createDraftAdjustment(command);
+        if (accountingProperties.isAutoPostAdjustments()) {
+            closingJournalEntryPort.approveAndPost(result.journalEntryId(), SYSTEM_ACTOR);
+        }
+        return result;
+    }
+
+    private ClosingJournalEntryCommand createValuationJournalEntry(String accountCode,
+                                                                    String sourceCurrencyCode,
+                                                                    BigDecimal difference,
+                                                                    LocalDate valuationDate,
+                                                                    Long batchId,
+                                                                    String reportingCurrencyCode) {
         BigDecimal absDiff = difference.abs();
 
         ClosingJournalSide accountSide = difference.signum() > 0
@@ -111,7 +133,7 @@ public class FxValuationService {
                 ? accountingProperties.getFxTranslationGainAccountCode()
                 : accountingProperties.getFxTranslationLossAccountCode();
 
-        ClosingJournalEntryCommand command = new ClosingJournalEntryCommand(
+        return new ClosingJournalEntryCommand(
                 valuationDate,
                 valuationDate,
                 "Month-end FX Valuation",
@@ -138,10 +160,5 @@ public class FxValuationService {
                                 absDiff,
                                 absDiff,
                                 "FX Translation Gain/Loss")));
-
-        ClosingJournalEntryResult result = closingJournalEntryPort.createDraftAdjustment(command);
-        if (accountingProperties.isAutoPostAdjustments()) {
-            closingJournalEntryPort.approveAndPost(result.journalEntryId(), SYSTEM_ACTOR);
-        }
     }
 }

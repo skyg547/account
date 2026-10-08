@@ -36,10 +36,9 @@ class EclProvisionValidationTest {
 
     @BeforeEach
     void setUp() {
-        var rule = new ClosingAccountingProperties.AutomatedJournalRule();
+        var rule = new ClosingAccountingProperties.EclAccountMapping();
         rule.setDebitAccountCode("550100");
         rule.setCreditAccountCode("129100");
-        rule.setAmount(BigDecimal.ONE);
         properties.getProvisionRules().put(ProvisionBatch.ProvisionType.ECL, rule);
         service = new EclProvisionService(balances, journals, properties, summaries, rates);
         when(summaries.loadSummaries(DATE)).thenReturn(List.of(summary("USD", "100", "480100")));
