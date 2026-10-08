@@ -1,3 +1,10 @@
+## 2026-10-06 — GH-858 Draft PR #875 handoff
+
+- Source: [Issue #858](https://github.com/skyg547/account/issues/858), `status:needs-review`; implementation branch `agent/858-require-fx-rate` in `/tmp/account-858-require-fx-rate`, based on `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; [Draft PR #875](https://github.com/skyg547/account/pull/875) uses `Refs #858`.
+- Changed files: `account-mart/mart-core/.../IntegratedPositionProcessor.java`, its unit test, `account-mart/mart-batch/.../IntegratedPositionEtlJobTest.java`, and `account-mart/docs/ETL_INTERFACE_SPEC.md`. A missing or nonpositive foreign FX rate now fails the CDM Step/Job instead of storing principal as KRW market value. No batch wiring/schema/other module changed.
+- Commands/results: targeted core 8 and batch 3 PASS; `./gradlew :account-mart:test --offline --console=plain --max-workers=1 --no-daemon` success but `NO-SOURCE`; child suites core 22, batch 10, API 3 PASS; final targeted batch 3 PASS after test-only review fix. `git diff --check` and conflict marker scan PASS. Separate read-only review has no remaining P0–P3 and Q1–Q4 PASS; see PR body for file/test evidence.
+- Rollback: reviewed four-file revert only after foreign-rate completeness is assured or affected jobs are paused, because the old 1:1 fallback returns. Residual limits: H2 tests do not prove production-scale parallel CDM or corrected-rate/prior-snapshot rerun. Next: human review, current-head CI, then separately authorized Ready/merge/Issue close; preserve branch/worktree until merge verification.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
