@@ -43,6 +43,7 @@ class JwtTokenIssuerTest {
                 .getBody();
         assertThat(claims.getSubject()).isEqualTo("admin");
         assertThat(claims.getIssuer()).isEqualTo("auth-test");
+        assertThat(claims.getAudience()).isEqualTo("account-api");
         assertThat(claims.getIssuedAt()).isEqualTo(Date.from(issuedAt));
         assertThat(claims.getExpiration()).isEqualTo(Date.from(issuedAt.plusSeconds(600L)));
         assertThat(claims.get("roles", List.class)).containsExactly("ROLE_ADMIN");
