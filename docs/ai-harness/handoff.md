@@ -4026,3 +4026,11 @@
 - Local gates: auth core143/API52/Gateway74 tests PASS, PAT full HTTP9 and H2 conditional JPA1 PASS, auth API bootJar PASS, harness quality32 PASS, diff/markers clean. Independent `/root/pat_review` found no blocking findings and Q1–Q4 PASS. No PostgreSQL runtime/concurrent-request, deployment, or real credentials used.
 - Rollback: reviewed Issue-scoped code revert; use a reviewed forward migration for schema correction and preserve audit rows. Next owner is human PR reviewer and PostgreSQL/CI integration gate before Ready or merge. Issue closure and worktree/branch removal remain separate gates.
 - Remote CI on Draft PR #814 initial head `d225857b` failed before steps (no runner assigned and no logs). Next owner should restore/rerun checks and verify the final head before Ready; this is not a failed auth test result.
+
+## 2026-10-05 — GH-829 교차 고객 수납 반제 방지 / Draft PR #844
+
+- Issue [#829](https://github.com/skyg547/account/issues/829), branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`, [Draft PR #844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 변경: `CollectionService.java` 공통 매칭의 고객 일치 사전 검증; `CollectionServiceTest.java`의 교차 고객 무변경·포트 미호출 및 같은 고객 수동·자동 부분 매칭 테스트; `receivable/docs/process-flow.md`의 기능·초보자 검증 설명. 다른 모듈·공용 계약·DB는 변경하지 않았다.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; `git diff --check`·충돌 마커 PASS. 독립 읽기 전용 리뷰 지적 사항 없음, Q1–Q4 PASS. 자세한 명령·근거는 `worklog.md`와 PR 본문 참조.
+- 남은 위험: 실제 PostgreSQL·원격 GL 및 HTTP 종단 실행을 검증하지 않았고 기존 오배분 데이터는 정정하지 않았다. 변경 롤백은 PR 코드·테스트·문서 커밋 revert이며 운영 데이터·마이그레이션은 변경 없음.
+- 다음 소유자: 사람 리뷰어가 최신 head/base·CI와 운영 연동 위험을 검토한다. 작성자와 독립 리뷰어의 권한은 분리했고 Git/PR·기록은 부모 Integrator가 소유한다. PR은 Draft이며 별도 승인 전 Ready·merge·Issue close·branch/worktree 삭제 없음.
