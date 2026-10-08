@@ -18,6 +18,7 @@ import com.ho.account.expenditure.application.port.out.PaymentPersistencePort;
 import com.ho.account.expenditure.application.port.out.PaymentExecutionPort;
 import com.ho.account.expenditure.application.port.out.PaymentRunPersistencePort;
 import com.ho.account.expenditure.domain.AdvancePayment;
+import com.ho.account.expenditure.domain.AdvancePaymentStatus;
 import com.ho.account.expenditure.domain.Payable;
 import com.ho.account.expenditure.domain.PayableStatus;
 import com.ho.account.expenditure.domain.Payment;
@@ -43,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -168,7 +170,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("채무와 선급금 상계 전표 생성 시 상계 계정 매핑을 반영한다")
+    @DisplayName("동일 공급업체의 부분 상계는 잔액과 상태를 갱신하고 동일 금액의 상계 전표를 생성한다")
     void offsetPayableWithAdvancePaymentUsesMappedAccounts() {
         Payable payable = payable();
         AdvancePayment advance = advancePayment();
@@ -191,13 +193,104 @@ class PaymentServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(40L, "SLIP-4", "DRAFT"));
 
-        service.offsetPayableWithAdvancePayment(new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00")));
+        Payable result = service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00")));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
 
+        assertThat(result).isSameAs(payable);
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("400.00");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.PARTIAL_PAID);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("100.00");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.ACTIVE);
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("AP-004", "ADV-004");
+        assertThat(commandCaptor.getValue().lines()).extracting("amount")
+                .containsExactly(new BigDecimal("100.00"), new BigDecimal("100.00"));
+        assertThat(commandCaptor.getValue().lines()).extracting("businessPartnerCode")
+                .containsExactly("V001", "V001");
+    }
+
+    @Test
+    @DisplayName("다른 공급업체의 선급금은 채무 상계 전에 거부하고 잔액, 상태, 전표를 그대로 둔다")
+    void offsetPayableWithAdvancePaymentRejectsDifferentVendorBeforeMutation() {
+        Payable payable = payable();
+        AdvancePayment advance = advancePayment();
+        advance.setVendorCode("V002");
+
+        when(payablePersistencePort.findById(100L)).thenReturn(Optional.of(payable));
+        when(advancePaymentPersistencePort.findById(200L)).thenReturn(Optional.of(advance));
+
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("공급업체 코드가 일치하지 않습니다");
+
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.OPEN);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("200.00");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.ACTIVE);
+        verify(payablePersistencePort, org.mockito.Mockito.never()).save(any(Payable.class));
+        verify(advancePaymentPersistencePort, org.mockito.Mockito.never()).save(any(AdvancePayment.class));
+        verifyNoInteractions(payableAccountMappingPort, journalPostingPort);
+    }
+
+    @Test
+    @DisplayName("공급업체 코드가 양쪽 모두 공백이면 상계 없이 거부한다")
+    void offsetPayableWithAdvancePaymentRejectsBlankVendorCodes() {
+        Payable payable = payable();
+        AdvancePayment advance = advancePayment();
+        payable.setVendorCode("  ");
+        advance.setVendorCode("  ");
+
+        when(payablePersistencePort.findById(100L)).thenReturn(Optional.of(payable));
+        when(advancePaymentPersistencePort.findById(200L)).thenReturn(Optional.of(advance));
+
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("공급업체 코드가 일치하지 않습니다");
+
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.OPEN);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("200.00");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.ACTIVE);
+        verify(payablePersistencePort, org.mockito.Mockito.never()).save(any(Payable.class));
+        verify(advancePaymentPersistencePort, org.mockito.Mockito.never()).save(any(AdvancePayment.class));
+        verifyNoInteractions(payableAccountMappingPort, journalPostingPort);
+    }
+
+    @Test
+    @DisplayName("동일 공급업체의 전액 상계는 양쪽 잔액을 0으로 만들고 전액의 상계 전표를 생성한다")
+    void offsetPayableWithAdvancePaymentFullySettlesSameVendor() {
+        Payable payable = payable();
+        AdvancePayment advance = advancePayment();
+        advance.setAmount(new BigDecimal("500.00"));
+        advance.setOutstandingAmount(new BigDecimal("500.00"));
+
+        when(payablePersistencePort.findById(100L)).thenReturn(Optional.of(payable));
+        when(advancePaymentPersistencePort.findById(200L)).thenReturn(Optional.of(advance));
+        when(payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable))
+                .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+
+        service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("500.00")));
+
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("0");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.PAID);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("0");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.OFFSET);
+        verify(payablePersistencePort).save(payable);
+        verify(advancePaymentPersistencePort).save(advance);
+        ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().lines()).extracting("amount")
+                .containsExactly(new BigDecimal("500.00"), new BigDecimal("500.00"));
+        assertThat(commandCaptor.getValue().lines()).extracting("businessPartnerCode")
+                .containsExactly("V001", "V001");
     }
 
     @Test
