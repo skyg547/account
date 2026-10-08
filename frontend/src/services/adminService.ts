@@ -18,7 +18,7 @@ export interface UserInfo {
 export interface ApprovalRequestResult {
   requestId: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  effectiveDate: string;
+  effectiveDate: string | null;
 }
 
 class AdminService {
@@ -75,29 +75,39 @@ class AdminService {
         },
         body: JSON.stringify(payload),
       });
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          requestId: String(data.id ?? data.approvalId ?? `${user.id}-${Date.now()}`),
-          status: data.status ?? 'PENDING',
-          effectiveDate: data.effectiveDate ?? effectiveDate,
-        };
+      if (!response.ok) {
+        throw new Error('Role approval request was not accepted');
       }
-    } catch (err) {
-      console.warn('Falling back to local role approval request:', err);
-    }
 
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const targetUser = this.mockUsers.find(u => u.id === user.id);
-        const requestId = `ROLE-${user.id}-${Date.now()}`;
-        if (targetUser) {
-          targetUser.status = 'PENDING';
-          targetUser.pendingRequestId = requestId;
-        }
-        resolve({ requestId, status: 'PENDING', effectiveDate });
-      }, 500);
-    });
+      const data: unknown = await response.json();
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        throw new Error('Invalid role approval response');
+      }
+
+      const approval = data as Record<string, unknown>;
+      const id = approval.id;
+      // The approval API returns its persisted Long id; an uncertain id must never become a local success.
+      const validId = typeof id === 'number'
+        ? Number.isSafeInteger(id) && id > 0
+        : typeof id === 'string' && /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id));
+      const status = approval.status;
+      const validStatus = status === 'PENDING' || status === 'APPROVED' || status === 'REJECTED';
+      const responseDate = approval.effectiveDate;
+      const validDate = responseDate == null ||
+        (typeof responseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(responseDate));
+      if (!validId || !validStatus || !validDate) {
+        throw new Error('Incomplete role approval response');
+      }
+
+      return {
+        requestId: String(id),
+        status,
+        effectiveDate: responseDate ?? null,
+      };
+    } catch {
+      // Transport and response failures have the same safe UI outcome; never expose server details.
+      throw new Error('권한 변경 요청 결과를 확인하지 못했습니다. 관리자에게 요청 상태를 확인해 주세요.');
+    }
   }
 
   async requestUserOnboarding(): Promise<ApprovalRequestResult> {
