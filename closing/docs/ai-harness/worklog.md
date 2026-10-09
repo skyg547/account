@@ -1,5 +1,29 @@
 # Closing worklog
 
+## 2026-10-09 — GH-888 annual close bounded snapshot
+
+- Branch/worktree/base: `agent/888-annual-close-aggregate`, `/tmp/account-888-annual-close-aggregate`, `9348966a26a1bf279d03c5ac982fc9c13c928d4c`. Issue [#888](https://github.com/skyg547/account/issues/888) was claimed from `status:ready` as Codex `status:in-progress` with the Closing-only allowlist.
+- Changed Closing core service/port/JDBC adapter, non-dev embedded API wiring, focused/core/API/PostgreSQL tests, `core/build.gradle`, and module README/process/local-run/beginner/schema/evidence docs. No schema migration, other module, or common harness change.
+- The source path uses two bounded JDBC cursor passes in one repeatable-read Journal transaction, preserves the exact V2 canonical digest (including 10-digit ID/C collation order), compares streamed BigDecimal base totals/counts/max ID to an independent SQL control, and validates prior DRAFT/POSTED annual lineage before residual draft creation. Dated Master lookups are cached with a 10,000-key cap; prior annual entries/details are capped; local H2 stays fail-closed. Embedded non-dev reads and writes use the same primary Journal DB; dev separate source needs explicit opt-in.
+- Audited `a97d10ab` isolated RED: `AnnualClosingNoNPlusOneRegressionTest` 1 failure from the former `JournalQueryPort` field; same test GREEN here. This is a structural N+1 guard; the 20,000 balanced-journal regression and actual PostgreSQL test provide behavioral evidence.
+- Required `./gradlew :closing:test --console=plain` final sole run PASS: Core379 (1 opt-in PG skipped), API164, Batch102, total645/1 skipped/0 failure/0 error. The earlier overlapping Gradle run failed writing test XML and was discarded; no test assertion failed in that run. Separate PostgreSQL 16 test 1/1 PASS, captured in sanitized `../annual-close-postgres-junit.xml`. `./gradlew :closing:api:bootJar :closing:batch:bootJar --console=plain` PASS; `git diff --check` and Closing-only marker scan PASS.
+- PostgreSQL 16 synthetic evidence: 250,000 POSTED balanced journals and 500,000 details; final SQL `EXPLAIN (ANALYZE, BUFFERS)` cursor 2.154s and aggregate 0.423s with external merge sort. A 1ms statement timeout canceled a query, and a later query succeeded. In a real JDBC test, a concurrent insert was invisible to both passes/control and visible on restart. Exact plans, fixture and boundaries are in `../annual-close-postgresql-evidence.md`.
+
+| 품질 항목 | 판정 | 파일·검증 근거 | N/A 사유 | 위험·다음 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 코드·책임 | PASS | `AnnualClosingService`, `AnnualJournalReadPort`, `JdbcAnnualJournalReadAdapter`; 20k regression, V2 golden, PG cursor test | 해당 없음: 적용 항목 | 100M/heap 부하 검증 | 별도 읽기 전용 reviewer PASS |
+| Q2 흐름·이유 | PASS | `../process-flow.md` 연차 절; repeatable-read/cutoff/reconciliation tests | 해당 없음: 적용 항목 | 운영 원장 동시성 검증 | 별도 읽기 전용 reviewer PASS |
+| Q3 기능·초보자 문서 | PASS | `../README.md`, `../local-run.md`, `../beginner-guide.md`, `../annual-close-postgresql-evidence.md` | 해당 없음: 적용 항목 | 운영 계획·원격 지연 미측정 | 별도 읽기 전용 reviewer PASS |
+| Q4 의도 주석 | PASS | `AnnualClosingService` V2 길이/두 번째 순회, JDBC cursor 트랜잭션·정렬 주석 | 해당 없음: 적용 항목 | 변경된 SQL 계획 유지 확인 | 별도 읽기 전용 reviewer PASS |
+
+Rollback is a reviewed revert of this Closing-only commit; retain existing posted annual journals, inspect pending drafts/lineage, and do not delete financial rows. No conflict occurred. Draft PR is a human review gate; 100M and operational verification still limit Issue closure.
+
+### Draft publication
+
+- Published [Draft PR #903](https://github.com/skyg547/account/pull/903) to `main` with `Refs #888`; implementation commit `56ac870aab70b3ac262e9b65d1ce52586f7894f1`. Issue moved to `status:needs-review` and remains OPEN. Worktree and branch are retained.
+- Implementation-head hosted Harness Validation and Closing Module Validation PASS. Agent Merge Guard's implementation-discipline job FAIL reports `IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, `TRUST_POLICY_UNCONFIGURED`; its workflow leaves trust policy unconfigured. This is a remote review-policy gate, not a Closing test failure, and this PR does not change the out-of-scope policy. A later records-only commit still requires current-head CI confirmation.
+- Next owner: human reviewer/repository policy owner for current-head CI and trust-policy setup, then workload owner for 100M/production PostgreSQL and distributed verification. Ready, merge, Issue close, deployment and resource deletion are not authorized by this Draft.
+
 ## 2026-09-25 — contract and reproduction
 
 The user authorized implementation within `closing/**`, a dedicated branch/worktree, verification and Draft PR publication. The explicit ban on shared harness edits takes precedence over the generic shared-record rule. These three module-local records are the parent-owned handoff.

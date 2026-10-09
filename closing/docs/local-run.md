@@ -196,7 +196,7 @@ account:
 증거가 아닙니다.
 
 1. 2026년 설정 규칙과 2026-12-31 기준으로 정확한 코드·`EQUITY`·`CREDIT`인 Master 계정을 준비합니다. 설정 누락/중복, `postable` 미승인, 증빙 누락, Master 조회 누락/코드 불일치, 자산·부채·수익·비용·알 수 없는 분류, 차변 정상잔액은 Journal 조회 전에 실패해야 합니다.
-2. 2026년 `POSTED` 매출 1,000을 준비하고, 상세에 지원 `accountCategory`를 넣거나 같은 계정·회계일자의 Master Data 분류를 준비합니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
+2. 2026년 `POSTED` 매출 1,000과 같은 계정·회계일자의 Master Data 분류를 준비합니다. JDBC Journal 상세에는 분류 컬럼이 없습니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
 3. 원천과 설정을 바꾸지 않고 다시 호출합니다. 헤더·lineage·모든 라인이 같은 초안이면 HTTP 200이고 두 번째 초안은 생기지 않습니다.
 4. pending 초안 상태에서 원천 금액·계정·분류, 설정의 법인·계정·`postable`·승인자·변경 참조, 또는 초안 헤더/라인을 바꾸면 HTTP 409와 `WORKFLOW_STATE_CONFLICT`가 기대 결과입니다. 설정 identity도 #775 source snapshot에 들어가므로 오래된 초안은 자동 교체하지 않습니다.
 5. 최초 초안을 승인·전기하고 기존 승인 흐름으로 연도를 재오픈한 뒤 `POSTED` 매출 500을 추가해 다시 호출합니다. 기존 1,000이 아니라 매출 차변 500, 이익잉여금 대변 500의 별도 delta `DRAFT`가 기대 결과입니다. 연차 서비스가 `ReopenApproval`을 직접 조회·검증하지는 않습니다.
@@ -204,8 +204,8 @@ account:
 7. 순손실과 순액 0 케이스도 같은 설정·연말 Master 검증을 먼저 합니다. 순액 0이면 검증을 통과한 후 새 전표만 만들지 않습니다.
 
 지원 `accountCategory`는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`,
-`NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 상세가 이 값을 제공하면 우선 사용하고, 없으면
-계정 코드와 상세 회계일자로 Master Data의 유효 계정을 조회합니다. dev에서는
+`NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 연차 JDBC 읽기는
+계정 코드와 상세 회계일자로 Master Data의 유효 계정을 조회하며 동일 키는 실행 중 캐시합니다. dev에서는
 `closing.master-data.remote.enabled=true`일 때 `HttpClosingMasterDataQueryAdapter`가
 `closing.master-data.base-url`의 날짜 지정 조회를 사용합니다. 계정 조회 누락·다른 계정 반환·빈 값·
 미지원 분류와 연차 라인의 원천 분류 불일치는 실패합니다. 실제 손익 대체 금액에는
@@ -464,8 +464,11 @@ Journal에 게시합니다. ECL source query는 최대 1,001개 그룹과 60초 
 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표의 단일 history ID는 `null`입니다.
 
 `dev` profile은 `closing.sources.enabled`가 없거나 `false`이면 외부 source와 Journal 접근을
-fail-closed합니다. 실제 연결 검증 때만 승인된 별도 source 설정과 함께 `true`를 명시합니다.
-자격증명이나 완성된 URL은 문서/명령행에 기록하지 않습니다.
+fail-closed합니다. `dev`/`local` 이외의 내장 모놀리스는 플래그와 무관하게 쓰기와 동일한
+primary PostgreSQL의 Journal을 연차 cursor로 읽습니다. `local` H2는 snapshot 포트 부재로
+실패합니다. `dev`의 명시적 `true`는 별도 읽기 전용 source를 선택하며 Journal/ECL/Master
+연결 설정이 모두 필요합니다. 실제 연결 검증 때만 승인된
+source 설정을 사용하고 자격증명이나 완성된 URL은 문서/명령행에 기록하지 않습니다.
 
 두 Job의 날짜와 batch ID는 생략할 수 없습니다. 누락·잘못된 ISO 날짜·0 이하 ID는 Job 시작 전에 실패하며, 시스템 날짜나 날짜 기반 임시 ID로 대체하지 않습니다. ECL summary가 비어 있는 경우도 성공으로 처리하지 않습니다.
 

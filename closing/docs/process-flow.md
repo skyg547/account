@@ -538,8 +538,8 @@ Data가 목적지를 정확한 `EQUITY`/`CREDIT` 계정으로 확인한 뒤에�
 flowchart TD
     A[API 본문의 year] --> B[단일 법인·정확한 연도 설정 규칙]
     B --> C[12월 31일 Master의 정확한 EQUITY/CREDIT 검증]
-    C --> D[연도 내 Journal summary 조회]
-    D --> E[POSTED 비연차 원천의 헤더와 상세 검증]
+    C --> D[Journal MVCC cutoff에서 두 번 JDBC cursor 조회]
+    D --> E[POSTED 비연차 원천 검증 및 공급자 합계 대사]
     E --> F[원천 및 설정 통제 identity의 source snapshot]
     F --> G[기존 연차 DRAFT와 POSTED의 헤더·상세 검증]
     G --> H[필요 대체액 - 누적 POSTED 결산액]
@@ -560,10 +560,15 @@ flowchart TD
 
 ### Source snapshot 입력과 식별
 
+- #888부터 `AnnualJournalReadPort`의 Journal 읽기 전용 PostgreSQL 연결을 사용합니다. 하나의 `REPEATABLE READ READ ONLY` 트랜잭션 안에서 동일한 정렬 cursor를 두 번 순차 조회합니다. 첫 번째는 유효성·계정별 기준통화 잔액·정규화 문자열 길이를 계산하고, 두 번째는 기존 V2 SHA-256을 스트리밍합니다. 별도 SQL `COUNT(DISTINCT 전표 ID)`, 상세 건수, 차변·대변 `base_amount` 합계, 최댓값 ID를 같은 MVCC snapshot에서 구해 애플리케이션 계산과 대사합니다. Journal SQL 요청은 3회로 고정되고 전체 연도 Java 목록이나 전표별 HTTP 요청이 없습니다. 단, JDBC cursor는 fetch size 1,000에 따라 원천 행 수에 비례한 네트워크 패킷을 전송하므로 대역폭과 전체 수행 시간은 원천 규모에 비례합니다. 이후 커밋된 원천은 다음 실행의 delta 대상입니다.
+- JDBC fetch size는 1,000행, 각 SQL timeout은 60초입니다. 한 전표의 상세는 최대 10,000행, 기준일·계정 분류 키는 최대 10,000개, 기존 연차 전표는 최대 1,000개/상세 100,000행입니다. 한도를 넘으면 일부만 마감하지 않고 실패합니다. 분류가 Journal 행에 없으면 계정·회계일별 Master 조회를 1회만 하고 캐시에 보관하므로 원천 전표 건수와 무관하게 외부 Master 호출도 유한합니다. Journal과 Master는 별도 DB이므로 두 시스템의 동시 원자적 동결은 제공하지 않으며 승인된 기준일 분류 변경 통제가 필요합니다.
+- `dev`/`local` 이외의 내장 모놀리스는 같은 primary PostgreSQL에 Journal 읽기·쓰기를 묶습니다. `closing.sources.enabled` 값과 무관하게 연차 cursor도 primary DB를 사용해 다른 DB의 원천을 읽고 primary DB에 초안을 쓰는 오류를 막습니다. `dev`는 `closing.sources.enabled=true`일 때만 별도 읽기 전용 source(`closing.sources.journal.*`)를 열며 Journal/ECL/Master source 설정이 함께 필요합니다. `dev`에서 source가 꺼지거나 `local` H2이면 연차 실행은 fail-closed 합니다. 초안 쓰기에는 승인된 `JournalPostingPort`가 필요합니다. 합성 PostgreSQL 실행계획, 시간 제한, 재시작 증거와 100M 미검증 한계는 [검증 기록](annual-close-postgresql-evidence.md)에 있습니다.
+- 내장 모놀리스의 연차 유즈케이스는 primary DB 트랜잭션 안에서 별도 읽기 전용 cursor 연결을 엽니다. primary connection pool은 동시에 최소 2개 연결을 제공해야 하며, 단일 연결 풀은 대기/timeout을 일으킬 수 있습니다. 실행 중 장시간 cursor가 보유하는 연결과 Journal 쓰기·다른 업무 연결의 여유도 용량 산정에 포함합니다.
+
 - 대상은 1월 1일부터 12월 31일까지의 `POSTED`이면서 연차 결산이 아닌 전표입니다. `DRAFT` 원천은 금액과 identity에서 제외합니다.
 - 전표 헤더의 ID, 전표번호, 전표일·회계일, 설명, 상태, 유형, 통화, lineage 쌍과 각 상세의 ID, 계정, 유효 분류, 차대변, 금액·기준통화금액, 회계일, 헤더 연결 값, 상세 설명과 부서·거래처·계좌 차원을 정규화합니다.
-- 상세와 전표 순서를 정렬하고 연도·이익잉여금 계정·정규화한 설정 통제 identity와 함께 SHA-256으로 식별합니다. 설정 identity는 `legalEntityCode`, 연도, 계정 코드, `postable`, `approvedBy`, `changeReference`를 포함합니다. 공급자의 반환 순서만 바뀌면 identity는 같지만, 원천 금액·계정·분류·헤더/lineage나 이 설정 증빙이 바뀌면 다른 snapshot입니다.
-- 상세가 비어 있지 않은 지원 `accountCategory`를 제공하면 그 값을 사용합니다. 값이 없으면 상세의 계정 코드와 회계일자로 `MasterDataQueryPort.findAccountSubjectAt`을 호출하며, 같은 실행의 동일 계정·일자는 캐시합니다. dev에서 remote Master Data 설정을 활성화한 경우의 구현은 `HttpClosingMasterDataQueryAdapter`입니다.
+- 상세와 전표 순서를 기존 V2 canonical 문자열 순서로 정렬하고 연도·이익잉여금 계정·정규화한 설정 통제 identity와 함께 SHA-256으로 식별합니다. 설정 identity는 `legalEntityCode`, 연도, 계정 코드, `postable`, `approvedBy`, `changeReference`를 포함합니다. 이미 생성된 V2 초안/전기분의 lineage와 같은 원천이라면 동일한 해시가 나오므로 재실행과 잔여 판정 규칙이 유지됩니다. 원천 금액·계정·분류·헤더/lineage나 설정 증빙이 바뀌면 다른 snapshot입니다.
+- Journal JDBC 스키마에는 상세 `accountCategory` 컬럼이 없으므로 실행 시 상세의 계정 코드와 회계일자로 `MasterDataQueryPort.findAccountSubjectAt`을 호출하며, 같은 실행의 동일 계정·일자는 캐시합니다. 테스트 공급자가 분류를 직접 제공하면 그 값을 검증하고 사용합니다. dev에서 remote Master Data 설정을 활성화한 경우의 구현은 `HttpClosingMasterDataQueryAdapter`입니다.
 - 지원 분류는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`, `NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 기준일 계정 조회 누락, 다른 계정 코드 반환, 빈 분류, 미지원 분류와 연차 라인의 현재 원천 분류 불일치는 실패합니다. `REVENUE`와 `EXPENSES`만 대체 금액에 포함되며, 한 계정이 두 손익 분류로 나타나거나 이익잉여금 계정이 손익 계정이면 실패합니다.
 
 새 연차 전표는 `ANNUAL_CLOSING` lineage에 `연도|이익잉여금 계정 식별자|source snapshot identity`를
