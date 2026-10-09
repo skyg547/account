@@ -220,6 +220,8 @@ public class JournalFxValuationBalanceSource
             return toBalance(resultSet);
         });
         reader.setFetchSize(fetchSize);
+        // PostgreSQL only streams a positive-fetch cursor when auto-commit is disabled.
+        reader.setConnectionAutoCommit(false);
         reader.setSaveState(true);
         return reader;
     }
