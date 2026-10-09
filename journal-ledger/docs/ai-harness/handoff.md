@@ -1,3 +1,17 @@
+# GH-883 handoff
+
+[Issue #883](https://github.com/skyg547/account/issues/883) is presented in [Draft PR #898](https://github.com/skyg547/account/pull/898) with `Refs #883`. Branch `agent/883-jpa-rebuild-cleanup` and worktree `/tmp/account-883-jpa-rebuild-cleanup` are based on `origin/main@9348966a`; audited RED proof remains at `/tmp/account-883-audited-proof@a97d10ab`.
+
+- `journal-ledger/**` only: new core regression, Batch GL/SL date-boundary and rollback integration test, beginner and PostgreSQL functional docs, and these three module-local records. No production source/migration, other module or repository-wide harness/history edits. Current base already contains the predicate bulk DELETE.
+- Audited RED 1/1; current module 435/435 PASS with failures/errors/skips 0; disposable PostgreSQL 16.13 JPA/Flyway integration 1/1 PASS; synthetic 200,000 GL and SL rows show narrow Bitmap and broad Seq Scan with rollback to 200,000 after both ranges. Logs and exact commands are in [worklog.md](worklog.md). The owned PostgreSQL container is stopped.
+- Independent reviewer stayed read-only and found no P0–P3 after the writer corrected one test comment; Q1–Q4 PASS. Diff/marker gates passed.
+- Rollback: revert this PR's tests/docs/records; no schema/data migration is included. Large cleanup remains one transaction; target-environment plans, lock waits, WAL, transaction time, production load and full PostgreSQL restart still need review. No deployment claim is made.
+- Authority: user authorized Draft publication; module writer authored tests/docs, independent reviewer only inspected, parent Integrator owns records and Git/GitHub. Human reviewer owns current-head CI, Ready, merge, Issue close, deployment and branch/worktree cleanup. Keep this PR Draft until those gates pass.
+
+---
+
+The following is retained historical handoff and is not a current GH-883 report.
+
 # GH-879 handoff
 
 Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
