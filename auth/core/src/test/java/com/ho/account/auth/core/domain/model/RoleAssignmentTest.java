@@ -15,7 +15,7 @@ class RoleAssignmentTest {
     void effectivePeriodIncludesStartAndExcludesEnd() {
         RoleAssignment assignment = new RoleAssignment(
                 "ROLE_ADMIN",
-                "FIN",
+                "GLOBAL",
                 START,
                 END,
                 true);
@@ -28,11 +28,11 @@ class RoleAssignmentTest {
     @Test
     void rejectsEmptyOrReversedEffectivePeriod() {
         assertThatThrownBy(() -> new RoleAssignment(
-                "ROLE_ADMIN", "FIN", START, START, true))
+                "ROLE_ADMIN", "GLOBAL", START, START, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("validFrom");
         assertThatThrownBy(() -> new RoleAssignment(
-                "ROLE_ADMIN", "FIN", END, START, true))
+                "ROLE_ADMIN", "GLOBAL", END, START, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("validFrom");
     }
@@ -46,5 +46,16 @@ class RoleAssignmentTest {
                 "ROLE_ADMIN", "S".repeat(81), null, null, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("80");
+    }
+
+    @Test
+    void retainsLegacyScopeTextForExplicitAuthorizationCheck() {
+        // Malformed stored rows must hydrate without silently gaining GLOBAL authorization.
+        for (String dataScope : new String[] {null, "", " ", "FIN", " GLOBAL "}) {
+            RoleAssignment assignment = new RoleAssignment("ROLE_ADMIN", dataScope, null, null, true);
+            assertThat(assignment.dataScope()).isEqualTo(dataScope);
+            assertThat(assignment.hasSupportedAuthorizationScope()).isFalse();
+        }
+        assertThat(RoleAssignment.approved("ROLE_ADMIN").hasSupportedAuthorizationScope()).isTrue();
     }
 }

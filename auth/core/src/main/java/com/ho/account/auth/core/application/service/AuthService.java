@@ -110,6 +110,12 @@ public class AuthService implements AuthUseCase {
 
         verifySecondFactor(command, user.getUsername(), isLdap);
 
+        // Even an expired or inactive scoped assignment can be present in an older signed JWT.
+        if (!hasOnlyGlobalAssignments(user)) {
+            loginAttemptPort.recordFailure(username, "UNSUPPORTED_DATA_SCOPE");
+            throw new UserAccessDeniedException("User has unsupported role data scope");
+        }
+
         Instant authenticatedAt = clock.instant();
         List<RoleAssignment> effectiveAssignments = user.effectiveRoleAssignmentsAt(authenticatedAt);
         if (effectiveAssignments.isEmpty()) {
@@ -221,8 +227,14 @@ public class AuthService implements AuthUseCase {
         return authUserQueryPort.findByUsername(username.trim())
                 .filter(AuthUser::isActive)
                 .filter(user -> !user.isLocked())
+                .filter(this::hasOnlyGlobalAssignments)
                 .filter(user -> !user.effectiveRoleAssignmentsAt(validatedAt).isEmpty())
                 .map(user -> user.getRoleVersion() == roleVersion)
                 .orElse(false);
+    }
+
+    private boolean hasOnlyGlobalAssignments(AuthUser user) {
+        // Inspect the stored list, not only currently effective grants, to revoke mixed legacy tokens.
+        return user.getRoleAssignments().stream().allMatch(RoleAssignment::hasSupportedAuthorizationScope);
     }
 }

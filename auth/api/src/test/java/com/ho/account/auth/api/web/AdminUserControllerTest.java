@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ho.account.auth.AuthApplication;
+import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.model.AdminUserView;
 import com.ho.account.auth.core.application.port.in.AdminUserQueryUseCase;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
@@ -61,7 +62,7 @@ class AdminUserControllerTest {
 
     @Test
     void signedAdminTokenPassesRealFilterAndController() throws Exception {
-        when(adminUserQueryUseCase.findAllUsers()).thenReturn(List.of(new AdminUserView(
+        when(adminUserQueryUseCase.findAllUsers("admin")).thenReturn(List.of(new AdminUserView(
                 281_474_976_710_656L, "alpha", "alpha", "ACCOUNTING_ADMIN", "ACTIVE", "", "FIN")));
         when(authUseCase.validateTokenVersion("admin", 1L)).thenReturn(true);
         String token = token("auth-service", "account-api", List.of("ROLE_SYSTEM_ADMIN"),
@@ -76,7 +77,27 @@ class AdminUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(281_474_976_710_656L))
                 .andExpect(jsonPath("$[0].role").value("ACCOUNTING_ADMIN"));
-        verify(adminUserQueryUseCase).findAllUsers();
+        verify(adminUserQueryUseCase).findAllUsers("admin");
+    }
+
+    @Test
+    void signedAdminTokenRejectsCallerWithoutStoredGlobalSystemAdminAssignment() throws Exception {
+        when(adminUserQueryUseCase.findAllUsers("admin"))
+                .thenThrow(new UserAccessDeniedException("System administrator role is required."));
+        when(authUseCase.validateTokenVersion("admin", 1L)).thenReturn(true);
+        String token = token("auth-service", "account-api", List.of("ROLE_SYSTEM_ADMIN"),
+                Instant.now().minusSeconds(5), Instant.now().plusSeconds(600), SIGNING_KEY);
+
+        mockMvc.perform(get("/api/admin/users")
+                        .header("Authorization", "Bearer " + token)
+                        .header("X-Auth-User", "admin")
+                        .header("X-Auth-Roles", "ROLE_SYSTEM_ADMIN")
+                        .header("X-Auth-Role-Version", "1")
+                        .header("X-Auth-Department", "FIN"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("USER_ACCESS_DENIED"));
+
+        verify(adminUserQueryUseCase).findAllUsers("admin");
     }
 
     @Test

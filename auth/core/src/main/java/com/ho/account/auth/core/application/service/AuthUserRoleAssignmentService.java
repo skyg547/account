@@ -39,6 +39,10 @@ public class AuthUserRoleAssignmentService implements AuthUserRoleAssignmentUseC
         String username = requireText(command.username(), "username", 80);
         String approvedBy = requireText(command.approvedBy(), "approvedBy", 80);
         String approvalTraceId = requireText(command.approvalTraceId(), "approvalTraceId", 160);
+        // Scoped grants have no enforcement path yet; reject before constructing or fingerprinting a replacement.
+        if (!"GLOBAL".equals(command.dataScope())) {
+            throw new IllegalArgumentException("Only GLOBAL dataScope is supported.");
+        }
         List<String> roleCodes = normalizeRoleCodes(command.roleCodes());
         if (roleCodes.isEmpty()) {
             throw new IllegalArgumentException("At least one roleCode is required.");
