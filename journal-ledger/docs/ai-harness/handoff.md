@@ -1,3 +1,19 @@
+# GH-884 handoff
+
+Issue [#884](https://github.com/skyg547/account/issues/884) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #899](https://github.com/skyg547/account/pull/899) is open with `Refs #884`.
+
+- Branch/worktrees: `agent/884-kafka-accounting-date`, `/tmp/account-884-kafka-accounting-date`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; audited proof `/tmp/account-884-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope: eight production/test/feature-document files plus these three module-local records under `journal-ledger/**`; other modules and repository-level shared harness/history files are untouched.
+- Behavior: Kafka payload must carry a validated explicit ISO accounting date. Missing/invalid values fail before journal generation and use existing retry/DLT recovery. Replayed unmatched events use the stored accounting date. A closed-period source date is rejected before persistence; the separate authenticated HTTP maker workflow can choose an explicit open adjustment date and returns a draft.
+- Verification: SHA-256-identical regression failed 1/1 on audited `a97d10ab`; final forced `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=1 --rerun-tasks` passed 442/442 (core326/API79/Batch37), failures/errors/skips0. Static scope, whitespace, conflict-marker and unmerged-index gates passed.
+- Independent review: initial P3 shallow adjustment test was returned to its writer and corrected. Final read-only verdict has no P0-P3; Q1-Q4 PASS with file/test evidence in [worklog.md](worklog.md).
+- Rollback/limits: reviewed Issue-scoped revert after pausing affected Kafka consumption; no migration or automated data repair. No live broker/DLT, PostgreSQL, distributed/load, production data, deployment, or fully composed HTTP-to-rule test. Deliberately falsified producer dates cannot be detected without an independent source-date/trust contract.
+- Authority/next owner: writer was restricted to module code/tests/feature docs; reviewer remained read-only; parent Integrator alone wrote these records and owns Git/GitHub. Human reviewer examines the Draft and current-head CI before separate Ready/merge/Issue-close decisions; branch/worktree cleanup is not part of this handoff.
+
+---
+
+The following entries are retained history and are not current GH-884 evidence.
+
 # GH-879 handoff
 
 Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.

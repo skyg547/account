@@ -304,6 +304,24 @@ V18의 `journal_event_quarantine`에 `(source_topic, source_partition, source_of
 operation identity로 저장합니다. 같은 broker record의 재전달은 새 예외 행을 만들지 않습니다.
 일반 journal lineage는 한 원천이 여러 전표를 만들 수 있으므로 이 고유 키로 사용하지 않습니다.
 
+Kafka payload의 `accountingDate`는 필수 ISO 날짜 문자열(`YYYY-MM-DD`)입니다. 빠짐, `null`,
+빈 문자열, 잘못된 날짜나 다른 타입은 전표 생성과 quarantine 저장 전에 소비 실패로 처리되어
+아래의 재시도/DLT 경로로 갑니다. 리스너는 소비 시각의 날짜를 대신 쓰지 않습니다. 정상적으로
+격리된 미매칭 이벤트는 최초 수신 시 확정한 회계일을 별도 열에 보존하고, 월말·연말 이후
+재생해도 그 날짜로 규칙과 마감 검증을 다시 실행합니다. 재생 API는 다른 회계일을
+지정하는 파라미터가 없으며, payload의 날짜도 저장된 회계일을 덮어쓰지 못합니다.
+
+원천 회계일이 마감 기간이면 규칙 매칭 후 `ClosingLockValidationFilter`가 해당 날짜를
+거부하고 전표를 저장하지 않습니다. 이는 규칙 미매칭 quarantine과 달리 처리 실패이므로
+재시도/DLT로 조사합니다. 개방 기간에 조정 전표가 필요한 회계 담당자는 원천 Kafka record를
+수정하거나 재생 날짜를 바꾸는 대신, 인증된 별도 HTTP 생성 흐름에서 회계일을 명시합니다.
+예를 들어 `ROLE_ACCOUNTING_ADMIN`과 `X-Auth-User`를 가진 담당자가 유효한 조정 룰 및
+개방 기간을 확인한 후 `POST /api/journals/from-event?accountingDate=2026-10-01`에
+`{"eventData":{"ruleCode":"ADJUSTMENT_RULE","amount":"100.00"}}`를 보냅니다.
+이 API는 maker 역할을 검사하고 요청자 신원을 payload보다 우선하며, 마감 회계일은 생성
+검증에서 거부합니다. 생성된 초안은 기존 승인·전기 흐름과 자기 승인 금지를 따릅니다.
+조정 룰과 개방 기간이 준비되지 않으면 이 예시는 성공하지 않습니다.
+
 `ROLE_ACCOUNTING_ADMIN` 또는 `ROLE_ADMIN`은 `X-Auth-User`와 함께 다음 control API를 사용합니다.
 
 - `GET /api/journals/event-quarantine/summary`: 미해결/재생 완료 수와 가장 오래된 미해결 시각

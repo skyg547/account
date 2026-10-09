@@ -3,15 +3,19 @@ package com.ho.account.journalledger.application.service.journal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
+import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
 import com.ho.account.journalledger.domain.journal.domain.ReversalOperationStatus;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -64,6 +68,56 @@ class JournalEntryServiceTest {
         verify(journalValidationEngine).validate(entry);
         verify(journalPersistencePort).save(entry);
         assertThat(entry.getSlipNo()).isEqualTo("JE-" + java.time.format.DateTimeFormatter.BASIC_ISO_DATE.format(entry.getSlipDate()) + "-00000001");
+    }
+
+    @Test
+    void closedSourceEventDateFailsBeforeJournalPersistence() {
+        LocalDate sourceDate = LocalDate.of(2026, 8, 31);
+        Map<String, Object> event = Map.of("ruleCode", "SOURCE_EVENT");
+        JournalEntry generated = balancedDraft("service:journal-kafka-maker");
+        generated.setAccountingDate(sourceDate);
+        when(journalRuleEngine.generateJournalEntry(event, sourceDate)).thenReturn(Optional.of(generated));
+        AccountingPeriodStatusPort periods = org.mockito.Mockito.mock(AccountingPeriodStatusPort.class);
+        when(periods.isClosed(sourceDate)).thenReturn(true);
+        JournalEntryService realPeriodService = new JournalEntryService(
+                journalPersistencePort, journalReversalPersistencePort, journalRuleEngine,
+                postingService, new JournalValidationEngine(List.of(new ClosingLockValidationFilter(periods))));
+
+        assertThatThrownBy(() -> realPeriodService.createJournalEntryFromEvent(event, sourceDate))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간");
+
+        verify(journalRuleEngine).generateJournalEntry(event, sourceDate);
+        verify(periods).isClosed(sourceDate);
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void explicitOpenAdjustmentDateCreatesDraftWithoutReplacingItWithSourceDate() {
+        LocalDate sourceDate = LocalDate.of(2026, 8, 31);
+        LocalDate chosenDate = LocalDate.of(2026, 10, 1);
+        Map<String, Object> event = Map.of(
+                "ruleCode", "ADJUSTMENT", "sourceEventDate", sourceDate.toString());
+        JournalEntry generated = balancedDraft("accounting-admin");
+        generated.setSlipDate(chosenDate);
+        generated.setAccountingDate(chosenDate);
+        when(journalRuleEngine.generateJournalEntry(event, chosenDate)).thenReturn(Optional.of(generated));
+        AccountingPeriodStatusPort periods = org.mockito.Mockito.mock(AccountingPeriodStatusPort.class);
+        when(periods.isClosed(chosenDate)).thenReturn(false);
+        when(journalPersistencePort.save(generated)).thenReturn(generated);
+        JournalEntryService realPeriodService = new JournalEntryService(
+                journalPersistencePort, journalReversalPersistencePort, journalRuleEngine,
+                postingService, new JournalValidationEngine(List.of(new ClosingLockValidationFilter(periods))));
+
+        JournalEntry saved = realPeriodService.createJournalEntryFromEvent(event, chosenDate).orElseThrow();
+
+        assertThat(saved).isSameAs(generated);
+        assertThat(saved.getStatus().name()).isEqualTo("DRAFT");
+        assertThat(saved.getAccountingDate()).isEqualTo(chosenDate).isNotEqualTo(sourceDate);
+        verify(journalRuleEngine).generateJournalEntry(event, chosenDate);
+        verify(periods).isClosed(chosenDate);
+        verify(periods, never()).isClosed(sourceDate);
+        verify(journalPersistencePort).save(generated);
     }
 
     @Test
