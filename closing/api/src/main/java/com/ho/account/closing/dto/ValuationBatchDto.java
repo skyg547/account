@@ -20,6 +20,9 @@ public class ValuationBatchDto {
     private LocalDateTime runDateTime;
     private ValuationBatch.ValuationBatchStatus status;
     private Long generatedJournalEntryId;
+    private String executionKey;
+    private Integer journalCount;
+    private boolean financialEffectsPending;
     private String reportLink;
     private String runBy;
     private LocalDateTime createdAt;
@@ -36,6 +39,11 @@ public class ValuationBatchDto {
                 .runDateTime(entity.getRunDateTime())
                 .status(entity.getStatus())
                 .generatedJournalEntryId(entity.getGeneratedJournalEntryId())
+                .executionKey(entity.getExecutionKey())
+                .journalCount(entity.getJournalCount())
+                .financialEffectsPending(entity.getStatus() == ValuationBatch.ValuationBatchStatus.RUNNING
+                        || entity.getStatus() == ValuationBatch.ValuationBatchStatus.RECONCILIATION_REQUIRED
+                        || entity.getStatus() == ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL)
                 .reportLink(entity.getReportLink())
                 .runBy(entity.getRunBy())
                 .createdAt(entity.getCreatedAt())

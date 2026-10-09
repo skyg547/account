@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,8 @@ class ClosingBatchExecutionRecorderTest {
     private ValuationBatchPersistencePort valuationBatchPersistencePort;
     @Mock
     private ProvisionBatchPersistencePort provisionBatchPersistencePort;
+    @Mock
+    private com.ho.account.closing.application.port.out.ClosingFinancialRunLockPort runLocks;
 
     private ClosingBatchExecutionRecorder recorder;
     private FiscalPeriodRef period;
@@ -34,7 +37,8 @@ class ClosingBatchExecutionRecorderTest {
     void setUp() {
         recorder = new ClosingBatchExecutionRecorder(
                 valuationBatchPersistencePort,
-                provisionBatchPersistencePort);
+                provisionBatchPersistencePort,
+                runLocks);
         period = new FiscalPeriodRef(
                 10L,
                 "2026",
@@ -45,77 +49,91 @@ class ClosingBatchExecutionRecorderTest {
     }
 
     @Test
-    void valuationHistoryMovesFromRunningToPendingApproval() {
-        when(valuationBatchPersistencePort.save(any(ValuationBatch.class)))
-                .thenAnswer(invocation -> {
-                    ValuationBatch batch = invocation.getArgument(0);
-                    batch.setId(77L);
-                    return batch;
-                });
+    void sameKeyReturnsOriginalCompletedValuationAndRejectsChangedContent() {
+        ValuationBatch original = new ValuationBatch();
+        original.setId(77L);
+        original.setFiscalPeriodId(period.id());
+        original.setValuationType(ValuationBatch.ValuationType.FX_RATE);
+        original.setRunBy("ADMIN");
+        original.setStatus(ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
+        original.setGeneratedJournalEntryId(900L);
+        when(valuationBatchPersistencePort.findByExecutionKey("same-key"))
+                .thenReturn(Optional.of(original));
 
-        ValuationBatch running = recorder.startValuation(
-                period,
-                ValuationBatch.ValuationType.FX_RATE,
-                " ADMIN ");
-        when(valuationBatchPersistencePort.findById(77L)).thenReturn(Optional.of(running));
+        ValuationBatch retry = recorder.claimValuation(
+                period, ValuationBatch.ValuationType.FX_RATE, "ADMIN", "same-key");
 
-        ValuationBatch pending = recorder.markValuationPendingApproval(
-                77L,
-                900L,
-                "/reports/valuation/77",
-                "ADMIN");
-
-        assertThat(pending.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
-        assertThat(pending.getGeneratedJournalEntryId()).isEqualTo(900L);
-        assertThat(pending.getRunBy()).isEqualTo("ADMIN");
-        assertThat(pending.getFiscalPeriodId()).isEqualTo(10L);
+        assertThat(retry).isSameAs(original);
+        assertThat(retry.getGeneratedJournalEntryId()).isEqualTo(900L);
+        assertThatThrownBy(() -> recorder.claimValuation(
+                period, ValuationBatch.ValuationType.FX_RATE, "OTHER", "same-key"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different business content");
     }
 
     @Test
-    void valuationFailureRemainsExplicit() {
+    void unknownProvisionOutcomeReclaimsSameRunAndRecordsMultiJournalEffect() {
+        ProvisionBatch original = new ProvisionBatch();
+        original.setId(88L);
+        original.setFiscalPeriodId(period.id());
+        original.setProvisionType(ProvisionBatch.ProvisionType.ECL);
+        original.setRunBy("ADMIN");
+        original.setStatus(ProvisionBatch.ProvisionBatchStatus.RUNNING);
+        when(provisionBatchPersistencePort.findById(88L)).thenReturn(Optional.of(original));
+        when(provisionBatchPersistencePort.findByExecutionKey("same-key"))
+                .thenReturn(Optional.of(original));
+        when(provisionBatchPersistencePort.save(original)).thenReturn(original);
+
+        recorder.provisionOutcomeUnknown(88L, 2, "ADMIN");
+        assertThat(original.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.RECONCILIATION_REQUIRED);
+        assertThat(original.getJournalCount()).isEqualTo(2);
+
+        ProvisionBatch retry = recorder.claimProvision(
+                period, ProvisionBatch.ProvisionType.ECL, "ADMIN", "same-key");
+        assertThat(retry.getId()).isEqualTo(88L);
+        verify(provisionBatchPersistencePort, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.argThat(
+                batch -> batch != original));
+    }
+
+    @Test
+    void completedValuationStoresZeroCountWithoutInventingJournalId() {
+        ValuationBatch batch = new ValuationBatch();
+        batch.setId(77L);
+        when(valuationBatchPersistencePort.findById(77L)).thenReturn(Optional.of(batch));
+        when(valuationBatchPersistencePort.save(batch)).thenReturn(batch);
+
+        ValuationBatch finished = recorder.finishValuation(77L, 0, null, false, "ADMIN");
+
+        assertThat(finished.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.COMPLETED);
+        assertThat(finished.getJournalCount()).isZero();
+        assertThat(finished.getGeneratedJournalEntryId()).isNull();
+    }
+
+    @Test
+    void preparationFailureWithoutManifestHasNoPendingFinancialEffects() {
         ValuationBatch batch = new ValuationBatch();
         batch.setId(77L);
         batch.setStatus(ValuationBatch.ValuationBatchStatus.RUNNING);
         when(valuationBatchPersistencePort.findById(77L)).thenReturn(Optional.of(batch));
+        when(valuationBatchPersistencePort.save(batch)).thenReturn(batch);
 
-        recorder.markValuationFailed(77L, "ADMIN");
+        recorder.valuationNoEffectFailure(77L, "ADMIN");
 
         assertThat(batch.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.FAILED);
-        verify(valuationBatchPersistencePort).save(batch);
+        assertThat(batch.getJournalCount()).isZero();
     }
 
     @Test
-    void provisionHistoryMovesFromRunningToPendingApproval() {
-        when(provisionBatchPersistencePort.save(any(ProvisionBatch.class)))
-                .thenAnswer(invocation -> {
-                    ProvisionBatch batch = invocation.getArgument(0);
-                    batch.setId(88L);
-                    return batch;
-                });
-
-        ProvisionBatch running = recorder.startProvision(
-                period,
-                ProvisionBatch.ProvisionType.ECL,
-                "ADMIN");
-        when(provisionBatchPersistencePort.findById(88L)).thenReturn(Optional.of(running));
-
-        ProvisionBatch pending = recorder.markProvisionPendingApproval(88L, 901L, "ADMIN");
-
-        assertThat(pending.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
-        assertThat(pending.getGeneratedJournalEntryId()).isEqualTo(901L);
-        assertThat(pending.getFiscalPeriodId()).isEqualTo(10L);
-    }
-
-    @Test
-    void provisionFailureRemainsExplicit() {
+    void pendingProvisionStoresMultipleDraftCountWithoutInventingSingleId() {
         ProvisionBatch batch = new ProvisionBatch();
         batch.setId(88L);
-        batch.setStatus(ProvisionBatch.ProvisionBatchStatus.RUNNING);
         when(provisionBatchPersistencePort.findById(88L)).thenReturn(Optional.of(batch));
+        when(provisionBatchPersistencePort.save(batch)).thenReturn(batch);
 
-        recorder.markProvisionFailed(88L, "ADMIN");
+        ProvisionBatch finished = recorder.finishProvision(88L, 2, null, false, "ADMIN");
 
-        assertThat(batch.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.FAILED);
-        verify(provisionBatchPersistencePort).save(batch);
+        assertThat(finished.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
+        assertThat(finished.getJournalCount()).isEqualTo(2);
+        assertThat(finished.getGeneratedJournalEntryId()).isNull();
     }
 }

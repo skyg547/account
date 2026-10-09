@@ -27,8 +27,8 @@ public interface ClosingUseCase {
     void unlockPeriod(Long fiscalPeriodId, String user);
     ReopenApproval requestPeriodReopen(Long fiscalPeriodId, String requestedBy, String reason);
     ReopenApproval updateReopenApprovalStatus(Long approvalId, ReopenApprovalStatus newStatus, String approvedBy);
-    ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType, String runBy);
-    ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType, String runBy);
+    ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType, String runBy, String executionKey);
+    ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType, String runBy, String executionKey);
     ClosingAdjustment createClosingAdjustment(Long fiscalPeriodId, Long journalEntryId, ClosingAdjustment.AdjustmentType adjustmentType, String description, String approvedBy);
     ClosingCalendar determineClosingStatus(Long calendarId, String user);
 }

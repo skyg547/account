@@ -38,9 +38,9 @@
 ## 금융 실행의 현재 한계
 
 - remote Journal 호출과 로컬 Batch metadata는 하나의 트랜잭션이 아닙니다. 재시도는 결정적 slip과 Journal 멱등성에 의존합니다.
-- API 요청 자체의 멱등 key와 다중 전표 ID 조회 모델은 아직 없습니다. 단일 history ID 컬럼은 0건 또는 여러 건일 때 `null`입니다.
+- API 요청 키는 각 평가/충당 endpoint 안에서 고유하며, 다중 전표 ID 조회 모델은 아직 없습니다. 단일 history ID 컬럼은 0건 또는 여러 건일 때 `null`이고 `journalCount`가 건수를 보존합니다.
 - production PostgreSQL 실행계획과 대용량 부하는 별도 검증이 필요합니다.
-- 이 변경은 기존 Closing 스키마를 그대로 사용하며 새 migration을 추가하지 않습니다.
+- V54 migration이 실행 키 고유 제약과 전표 건수 컬럼을 추가합니다.
 
 ## 보존한 이전 문서
 

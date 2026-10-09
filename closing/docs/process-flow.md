@@ -618,11 +618,12 @@ loopback 테스트도 이 인증 통합을 증명하지 않습니다.
 
 - 기준일과 양수 batch ID는 필수이며, 동일 입력은 결정적 전표번호와 lineage를 생성합니다.
 - ECL summary가 없으면 정상 무처리로 간주하지 않고 실패합니다. 0건 포트폴리오를 성공 처리하려면 향후 명시적인 zero-portfolio 완료 마커가 필요합니다.
-- API 평가/충당 실행 이력은 전표 트랜잭션과 분리해 `RUNNING -> COMPLETED`, `PENDING_APPROVAL`, 또는 `FAILED`를 보존합니다. DRAFT 전표 생성만으로 `COMPLETED`가 되지 않습니다.
-- API 결과가 0건이거나 지원되는 어댑터에서 실제 자동 전기이면 `COMPLETED`, DRAFT 전표가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표는 scalar history ID로 표현할 수 없어 ID를 `null`로 둡니다.
-- remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 여러 전표 중 일부만 작성된 뒤 `FAILED`가 기록되면, 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태 및 Closing 이력을 대사합니다. 원격 DRAFT를 자동 삭제하거나 요청을 맹목적으로 재전송하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
-- API 요청 멱등 key와 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경도 별도 검증/운영 통제가 필요합니다.
-- 이 흐름은 새 테이블·컬럼·migration 없이 기존 이력과 원천 스키마를 사용합니다.
+- API 평가/충당 요청에는 필수 `executionKey`를 넣습니다. 키 범위는 평가와 충당 각각의 API이며, 같은 API에서 기간·유형·인증된 실행자가 달라지면 409입니다. DB 고유 제약이 동시 최초 요청을 직렬화합니다. 진행 중 중복 요청은 같은 키의 DB 잠금이 풀릴 때까지 대기하고, 원래 배치 ID로 결과를 재확인합니다.
+- 완료된 키는 원래 실행 ID와 DRAFT 결과를 반환합니다. 첫 Journal 쓰기 전에 확정 명령 전체를 별도 트랜잭션에 저장합니다. 명령 목록 저장 전 검증 실패는 `FAILED`/`journalCount=0`이고, 저장 후 전표 생성 또는 실행 이력 완료 중 예외가 발생하면 `RECONCILIATION_REQUIRED`로 기록합니다. `journalCount=null`은 건수 불명, 양수는 확인된 건수입니다. 같은 키로 다시 호출하면 **같은 배치 ID와 저장된 명령 목록**으로 Journal의 결정적 slip 조회와 전체 내용 검증을 수행합니다. 원천이 바뀌어도 일부 생성된 전표의 명령을 누락하지 않습니다. 저장된 전표 내용이 명령과 다르면 충돌로 막고 복구 필요 상태를 유지합니다. `generatedJournalEntryId`는 여러 전표를 담지 못하므로 건수가 둘 이상이면 null입니다.
+- 프로세스가 예고 없이 종료되어 `RUNNING`에 남으면 DB가 실행 키 잠금을 해제합니다. 같은 키의 다음 요청은 잠금을 획득하고 원래 배치 ID와 영속 명령 목록으로 Journal 결과를 다시 확인합니다. `RUNNING`과 복구 필요 상태는 모두 `financialEffectsPending=true`로 노출합니다. 명령 내용이 저장된 전표와 다르면 자동 성공으로 바꾸지 않고 대사를 요구합니다.
+- remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 부분 전표 뒤 `RECONCILIATION_REQUIRED`이면 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태를 대사합니다. 원격 DRAFT를 자동 삭제하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
+- 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경은 별도 검증/운영 통제가 필요합니다.
+- V54가 기존 실행 이력에 실행 키와 전표 건수 컬럼을 추가합니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.
 - 결산 조정 등록은 전표 상세의 차변/대변 합계가 같은지 검증합니다.
 - `dev`의 원격 Journal HTTP 어댑터는 `account.closing.accounting.auto-post-adjustments=true`를 첫 전표 쓰기 전에 거부합니다. maker 승인 요청→별도 checker 승인→poster 전기와 불확실한 응답 후 상태 확인을 위한 신뢰된 서비스 주체 계약이 없기 때문입니다. 기본 `false`의 DRAFT는 Journal 담당자가 별도 승인·전기합니다.

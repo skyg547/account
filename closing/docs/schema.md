@@ -96,8 +96,12 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 판단하지 말고 캘린더 상태와 미완료 전이를 함께 확인해야 합니다.
 동시성 경계와 운영 복구 조건은 [업무 흐름](process-flow.md#월말-동시-결정과-복구-gh-774)에 설명합니다.
 
-V52와 후속 V53은 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
-새 API/Batch를 시작하기 전에 V53까지 release-time migrate/validate를 수행해야 합니다.
+V52와 후속 V53/V54는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
+새 API/Batch를 시작하기 전에 V54까지 release-time migrate/validate를 수행해야 합니다.
+
+V54는 평가·충당 실행 이력에 endpoint별 고유 `execution_key`와 `journal_count`,
+실행 키 잠금 테이블과 불변 명령 manifest 테이블을 추가합니다.
+기존 이력은 임의 키를 부여하지 않고 null로 남깁니다. 새 API 호출은 키가 필수입니다.
 기존 버전 writer는 새 잠금·전이 규칙을 모르므로 혼합 버전 쓰기를 허용하지 않습니다.
 미해결 전이 컬럼을 삭제하는 down migration이나 데이터 초기화는 롤백 방법이 아닙니다.
 
@@ -136,8 +140,8 @@ FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineag
 기존 lineage의 backfill은 필요하지 않습니다. 근거 없는 레거시 식별자는 별도 대사가 필요합니다.
 
 API와 Batch의 FX/ECL 원장 조회는 core의 `PostedJournalContributionQuery`를 공유합니다.
-API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 이번 금융
-실행 변경에는 스키마나 migration 추가가 없습니다.
+API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 실행 키와
+전표 건수는 V54에서 기존 이력 테이블에 추가합니다.
 
 ## `allowance_summary` 연결 기준
 
@@ -180,11 +184,11 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. 새 writer를 시작하기 전에 V53까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. 새 writer를 시작하기 전에 V54까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
 - `period_locks`는 현재 unlock 시 감사 로그를 남기고 활성 행을 삭제합니다. `active`, `unlocked_by`, `unlocked_at`, `unlock_reason`을 추가하는 forward migration 후 이력 행 보존 방식으로 전환해야 합니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
-- `valuation_batches`/`provision_batches`에는 기간·유형·기준일·요청 키의 멱등 unique key가 아직 없습니다. 중복 요청과 crash recovery를 포함한 migration이 필요합니다.
+- V54는 `valuation_batches`/`provision_batches`에 API별 고유 `execution_key`를 추가하고 `closing_financial_run_locks`로 동시 실행을 직렬화합니다. 기간·유형·인증된 실행자는 같은 키 재사용 시 application에서 검증합니다. `closing_financial_run_manifests`는 첫 Journal 쓰기 전에 확정된 명령 전체를 저장합니다.
 - 두 history 테이블의 `generated_journal_entry_id`는 scalar라서 0건/다중 전표 실행 ID를 표현하지 못합니다. 현재는 `null`이며, 다중 전표 조회 모델은 후속 설계가 필요합니다.
 
 원격 Journal의 멱등 slip 처리와 로컬 history/Batch metadata 사이 원자성, FX Batch validation과

@@ -6,4 +6,5 @@ import java.util.Optional;
 public interface ValuationBatchPersistencePort {
     ValuationBatch save(ValuationBatch valuationBatch);
     Optional<ValuationBatch> findById(Long id);
+    Optional<ValuationBatch> findByExecutionKey(String executionKey);
 }

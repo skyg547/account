@@ -262,8 +262,8 @@ public class ClosingController {
             @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
         String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
         ValuationBatch batch = closingUseCase.runValuationBatch(
-                requestDto.getFiscalPeriodId(), requestDto.getValuationType(), trustedActor);
-        return new ResponseEntity<>(ValuationBatchDto.fromEntity(batch), HttpStatus.CREATED);
+                requestDto.getFiscalPeriodId(), requestDto.getValuationType(), trustedActor, requestDto.getExecutionKey());
+        return ResponseEntity.ok(ValuationBatchDto.fromEntity(batch));
     }
 
     // --- ProvisionBatch (충당/손상 배치) API ---
@@ -280,8 +280,8 @@ public class ClosingController {
             @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
         String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles);
         ProvisionBatch batch = closingUseCase.runProvisionBatch(
-                requestDto.getFiscalPeriodId(), requestDto.getProvisionType(), trustedActor);
-        return new ResponseEntity<>(ProvisionBatchDto.fromEntity(batch), HttpStatus.CREATED);
+                requestDto.getFiscalPeriodId(), requestDto.getProvisionType(), trustedActor, requestDto.getExecutionKey());
+        return ResponseEntity.ok(ProvisionBatchDto.fromEntity(batch));
     }
 
     // --- ClosingAdjustment (결산 조정) API ---

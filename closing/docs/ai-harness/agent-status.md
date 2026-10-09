@@ -167,3 +167,10 @@
 
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
+
+## GH-886 — 2026-10-09 Draft review handoff
+
+- Issue [#886](https://github.com/skyg547/account/issues/886), CL10/P2, OPEN/`status:needs-review`; branch `agent/886-closing-run-idempotency`, worktree `/tmp/account-886-closing-run-idempotency`, base `origin/main@9348966a`, implementation `7690a7ff`, [Draft PR #901](https://github.com/skyg547/account/pull/901) (`Refs #886`).
+- Scope: only `closing/**`; module-local worklog/status/handoff are parent-owned records. `gpt-6-sol`/high writer and independent read-only reviewer were separate. No shared harness or other module change.
+- Status: requested module suite PASS653 (API168/Batch103/Core382), API/Batch bootJar PASS, local API startup and missing-key HTTP400 PASS, diff/scope/marker PASS. Independent review Q1–Q4 PASS, no open P0–P3. PR is OPEN/DRAFT, initially MERGEABLE; hosted checks were QUEUED at publication, not a CI PASS.
+- Residual gates: live PostgreSQL, actual process kill, remote Journal response-loss injection, production load and human current-head review. Next owner: human reviewer and deployment/financial operations owner. Ready, merge, Issue close, deployment and resource deletion are unperformed.

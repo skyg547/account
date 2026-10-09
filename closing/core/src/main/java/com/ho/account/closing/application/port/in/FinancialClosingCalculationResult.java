@@ -8,7 +8,11 @@ import java.util.List;
  * <p>A single journal ID is retained for the legacy batch history column. Zero or multiple
  * journals cannot be represented by that scalar column and therefore deliberately carry no ID.</p>
  */
-public record FinancialClosingCalculationResult(int journalCount, Long singleJournalEntryId) {
+public record FinancialClosingCalculationResult(int journalCount, Long singleJournalEntryId, boolean allPosted) {
+
+    public FinancialClosingCalculationResult(int journalCount, Long singleJournalEntryId) {
+        this(journalCount, singleJournalEntryId, false);
+    }
 
     public FinancialClosingCalculationResult {
         if (journalCount < 0) {

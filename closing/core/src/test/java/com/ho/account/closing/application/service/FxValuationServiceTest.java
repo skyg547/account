@@ -94,6 +94,20 @@ class FxValuationServiceTest {
     }
 
     @Test
+    void alreadyPostedReplayDoesNotApproveAgain() {
+        accountingProperties.setAutoPostAdjustments(true);
+        ClosingJournalEntryCommand command = org.mockito.Mockito.mock(ClosingJournalEntryCommand.class);
+        when(closingJournalEntryPort.createDraftAdjustment(command))
+                .thenReturn(new ClosingJournalEntryResult(501L, "FX-EXISTING", "POSTED"));
+
+        ClosingJournalEntryResult result = service.postPreparedFxValuation(command);
+
+        assertThat(result.status()).isEqualTo("POSTED");
+        org.mockito.Mockito.verify(closingJournalEntryPort, org.mockito.Mockito.never())
+                .approveAndPost(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     @DisplayName("대변 정상잔액 계정은 평가 증가를 손실로 보고 계정 라인을 대변에 기록한다")
     void processFxValuationReversesSideForCreditNormalBalanceAccount() {
         LocalDate valuationDate = LocalDate.of(2026, 5, 31);

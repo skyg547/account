@@ -51,6 +51,13 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 태스크 상태 변경 | `PUT /api/closing/tasks/{id}/status` |
 | 게이트 생성 | `POST /api/closing/gates` |
 | 게이트 검사·통과 | `PUT /api/closing/gates/{id}/check` |
+| FX 평가 실행 | `POST /api/closing/valuation-batches/run` |
+| ECL 충당 실행 | `POST /api/closing/provision-batches/run` |
+
+FX 요청 예: `{"fiscalPeriodId":12,"valuationType":"FX_RATE","executionKey":"fx-2026-01-run-1"}`.
+ECL은 `provisionType":"ECL"`과 별도의 고정 실행 키를 사용합니다. 재전송에는 원래 키를
+그대로 보내고, 새로운 업무 실행에만 새 키를 부여합니다. 응답의 `journalCount`와
+`financialEffectsPending`을 함께 확인합니다.
 | 기간 잠금 | `POST /api/closing/period-locks` |
 | 기간 잠금 해제 | `DELETE /api/closing/period-locks/{fiscalPeriodId}` |
 | 재오픈 요청 | `POST /api/closing/reopen-approvals` |
@@ -122,7 +129,7 @@ EOD 변경 명령에는 기존과 같이 Gateway가 JWT에서 만든 `X-Auth-Use
 필요합니다. 허용 역할과 직접 API 호출의 한계는 일반 변경 API와 같지만, Issue #771은 EOD 상태
 규칙이나 조회 계약을 변경하지 않습니다.
 
-Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스, V52 월말 전이 기록을 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
+Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49~V54를 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
 
 Closing API 조합 루트는 실제로 사용하는 Master Data의 `FiscalPeriodControlPort`와 `MasterDataQueryPort` 어댑터, 그리고 이들이 요구하는 최소 persistence adapter/mapper를 함께 명시 import합니다. 이는 Closing의 회계기간 제어와 평가 조회 포트를 완성하는 조합 책임이며, Master Data 전체 infrastructure 패키지를 scan하거나 local 전용 fallback으로 production 어댑터를 가리지 않습니다.
 
@@ -316,9 +323,9 @@ maker 승인 요청, 별도 checker 승인, poster 전기를 거쳐야 하지만
 조회에서 404만 전표 없음으로 처리하며 302를 전표 없음이나 성공으로 바꾸지 않습니다.
 초안 생성은 수신 Journal 계약에 맞춰 `X-Auth-User`와 `ROLE_JOURNAL_MAKER`를 전달하고,
 기존 actor·lineage도 유지합니다. HTTP timeout이나 응답 유실, 부분 전표 생성 뒤 Closing
-이력이 `FAILED`이면 전표번호·lineage로 원격 상태와 상세를 확인하고 담당자가 대사한 뒤
-재실행 또는 승인·정정 절차를 결정합니다. 이미 생긴 DRAFT를 자동 삭제하거나 맹목적으로
-재전송하지 않습니다.
+이력이 `RECONCILIATION_REQUIRED`이면 같은 실행 키로 재요청하고 전표번호·lineage로
+원격 상태와 상세를 대사합니다. 내용 충돌은 담당자가 승인·정정 절차를 결정합니다.
+이미 생긴 DRAFT를 자동 삭제하지 않습니다.
 본문 actor는 인증된 서비스 주체를 대신하지 않습니다.
 
 ```bash
@@ -461,7 +468,8 @@ API FX는 posted-journal evidence를 한 번 스트리밍하면서 기본 10,000
 Journal에 게시합니다. ECL source query는 최대 1,001개 그룹과 60초 timeout으로 제한되며,
 1,000개를 넘으면 그룹별 원장/환율 조회 전에 실패합니다. 통과한 전체 command만 게시합니다.
 전표 0건 또는 지원되는 어댑터에서 실제 자동 전기되면 history는 `COMPLETED`, DRAFT가 하나 이상이면
-`PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표의 단일 history ID는 `null`입니다.
+`PENDING_APPROVAL`, 결과가 불확실한 예외이면 `RECONCILIATION_REQUIRED`입니다. 여러 전표의 단일
+history ID는 `null`이며 `journalCount`가 건수를 보존합니다.
 
 `dev` profile은 `closing.sources.enabled`가 없거나 `false`이면 외부 source와 Journal 접근을
 fail-closed합니다. 실제 연결 검증 때만 승인된 별도 source 설정과 함께 `true`를 명시합니다.
