@@ -24,6 +24,8 @@
 - 장애 시 같은 식별 JobParameters로 같은 JobInstance를 재시작합니다. 다음 날이나 자정 이후여도 저장된 owner 유효 범위와 JobExecutionContext를 재사용하며, 완료된 cleanup과 이미 커밋된 chunk checkpoint는 유지됩니다. 다른 인스턴스, 전기, 수동 cleanup, 잔액 조회는 거부됩니다.
 - 마지막 Step은 안정된 POSTED 입력과 GL/SL의 날짜·전체 key·nullable BP/부서·일별 차대·기초/기말을 compact DB 집계로 대사합니다. 정확히 일치할 때만 `OPEN`/새 epoch로 공개합니다.
 
+core의 공개 `LedgerService.reaggregateLedgerBalancesForPeriod(startDate, endDate)`는 별도 직접 서비스 계약입니다. 유효한 날짜 범위를 검증하고 모든 계정 잠금과 `OPEN` 확인 후 종료일을 기존 GL/SL 최종일 또는 최신 `POSTED` 회계일까지 확장합니다. 그 범위의 잔액 삭제, `POSTED` 상세 전체 조회, 날짜 오름차순 재생성을 한 트랜잭션에서 수행하며 상세 조회 결과의 순서에 의존하지 않습니다. 이 메서드는 Batch의 owner barrier, chunk checkpoint, 최종 대사 단계를 사용하지 않습니다. 현재 모듈의 실행 진입점은 위 Job이며 직접 메서드의 모듈 내 호출은 테스트에서 확인됩니다. 대량 재집계와 장애 재시작은 위 Job 흐름을 따릅니다.
+
 초보자 설명: Spring Batch의 JobInstance는 Job 이름과 **식별(identifying) JobParameters** 조합으로
 구분합니다. 아래처럼 launcher에 전달한 날짜 파라미터는 별도 non-identifying 지정이 없으면 식별값입니다.
 실패 복구에는 파라미터 이름과 값을 그대로 다시 사용해야 하며, 같은 날짜라도 별칭을 바꾸거나

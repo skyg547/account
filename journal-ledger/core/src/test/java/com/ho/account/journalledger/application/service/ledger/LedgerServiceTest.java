@@ -22,7 +22,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -36,6 +38,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 
 @ExtendWith(MockitoExtension.class)
 class LedgerServiceTest {
@@ -142,6 +146,94 @@ class LedgerServiceTest {
         verify(ledgerBalancePersistencePort).deleteBalancesBetween(requestedStart, latest);
         verify(ledgerBalancePersistencePort).findPostedJournalDetailsBetween(requestedStart, latest);
         verify(ledgerBalancePersistencePort, never()).shiftSuccessorBalances(any(), any(), any());
+    }
+
+    @Test
+    void directRebuildCarriesPriorPeriodOpeningAcrossInterleavedPostedDates() {
+        LocalDate first = LocalDate.of(2026, 9, 1);
+        LocalDate second = first.plusDays(1);
+        LocalDate third = first.plusDays(2);
+        JournalDetail firstDebit = detail(first, JournalSide.DEBIT, "10100", "100.00");
+        JournalDetail firstCredit = detail(first, JournalSide.CREDIT, "10100", "10.00");
+        JournalDetail secondDebit = detail(second, JournalSide.DEBIT, "10100", "20.00");
+        JournalDetail thirdCredit = detail(third, JournalSide.CREDIT, "10100", "5.00");
+
+        RebuildBalances chronological = rebuildWithPostedSource(first, third,
+                List.of(firstDebit, firstCredit, secondDebit, thirdCredit));
+        RebuildBalances interleaved = rebuildWithPostedSource(first, third,
+                List.of(secondDebit, firstDebit, thirdCredit, firstCredit));
+
+        assertThat(interleaved).isEqualTo(chronological);
+        assertThat(interleaved.gl()).containsExactly(
+                org.assertj.core.api.Assertions.entry(first, new Amounts("50.00", "100.00", "10.00", "140.00")),
+                org.assertj.core.api.Assertions.entry(second, new Amounts("140.00", "20.00", "0.00", "160.00")),
+                org.assertj.core.api.Assertions.entry(third, new Amounts("160.00", "0.00", "5.00", "155.00")));
+        assertThat(interleaved.sl()).isEqualTo(interleaved.gl());
+    }
+
+    private RebuildBalances rebuildWithPostedSource(LocalDate first, LocalDate last,
+                                                     List<JournalDetail> source) {
+        LedgerBalancePersistencePort port = mock(LedgerBalancePersistencePort.class);
+        NavigableMap<LocalDate, GlBalance> gl = new TreeMap<>();
+        NavigableMap<LocalDate, SlBalance> sl = new TreeMap<>();
+        LocalDate priorPeriod = first.minusDays(1);
+        gl.put(priorPeriod, glBalance("10100", "KRW", priorPeriod, "0.00", "50.00", "0.00"));
+        sl.put(priorPeriod, slBalance("10100", "BP-001", "D-10", "KRW",
+                priorPeriod, "0.00", "50.00", "0.00"));
+        when(port.findPostedJournalDetailsBetween(first, last)).thenReturn(source);
+        when(port.findGlBalance(any(), any(), any(), any())).thenAnswer(invocation ->
+                Optional.ofNullable(gl.get(invocation.getArgument(2))));
+        when(port.findSlBalance(any(), any(), any(), any(), any(), any())).thenAnswer(invocation ->
+                Optional.ofNullable(sl.get(invocation.getArgument(4))));
+        when(port.findPreviousGlBalance(any(), any(), any())).thenAnswer(invocation ->
+                Optional.ofNullable(gl.lowerEntry(invocation.getArgument(2))).map(java.util.Map.Entry::getValue));
+        when(port.findPreviousSlBalance(any(), any(), any(), any(), any())).thenAnswer(invocation ->
+                Optional.ofNullable(sl.lowerEntry(invocation.getArgument(4))).map(java.util.Map.Entry::getValue));
+        doAnswer(invocation -> {
+            gl.subMap(first, true, last, true).clear();
+            sl.subMap(first, true, last, true).clear();
+            return null;
+        }).when(port).deleteBalancesBetween(first, last);
+        doAnswer(invocation -> {
+            List<GlBalance> balances = invocation.getArgument(0);
+            balances.forEach(balance -> gl.put(balance.getBalanceDate(), balance));
+            return null;
+        }).when(port).saveGlBalances(any());
+        doAnswer(invocation -> {
+            List<SlBalance> balances = invocation.getArgument(0);
+            balances.forEach(balance -> sl.put(balance.getBalanceDate(), balance));
+            return null;
+        }).when(port).saveSlBalances(any());
+
+        new LedgerService(port, reaggregationControlPort).reaggregateLedgerBalancesForPeriod(first, last);
+
+        verify(port, never()).shiftSuccessorBalances(any(), any(), any());
+        return new RebuildBalances(amountsWithin(gl, first), amountsWithin(sl, first));
+    }
+
+    private <T> NavigableMap<LocalDate, Amounts> amountsWithin(NavigableMap<LocalDate, T> balances,
+                                                                 LocalDate first) {
+        NavigableMap<LocalDate, Amounts> result = new TreeMap<>();
+        balances.tailMap(first, true).forEach((date, balance) -> {
+            if (balance instanceof GlBalance gl) {
+                result.put(date, new Amounts(gl.getBeginningBalance(), gl.getDebitAmount(),
+                        gl.getCreditAmount(), gl.getEndingBalance()));
+            } else if (balance instanceof SlBalance sl) {
+                result.put(date, new Amounts(sl.getBeginningBalance(), sl.getDebitAmount(),
+                        sl.getCreditAmount(), sl.getEndingBalance()));
+            }
+        });
+        return result;
+    }
+
+    private record RebuildBalances(NavigableMap<LocalDate, Amounts> gl,
+                                   NavigableMap<LocalDate, Amounts> sl) {}
+
+    private record Amounts(BigDecimal beginning, BigDecimal debit, BigDecimal credit, BigDecimal ending) {
+        private Amounts(String beginning, String debit, String credit, String ending) {
+            this(new BigDecimal(beginning), new BigDecimal(debit),
+                    new BigDecimal(credit), new BigDecimal(ending));
+        }
     }
 
     @Test

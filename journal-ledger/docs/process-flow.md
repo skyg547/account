@@ -504,29 +504,33 @@ GET /api/fx/dashboard
 sequenceDiagram
     participant Scheduler as 운영자/스케줄러
     participant Batch as dailyBalanceReaggregationJob
-    participant Tasklet as BalanceCleanUpTasklet / Chunk
+    participant Tasklet as Start / Cleanup / Chunk / Finalize
+    participant Control as BalanceReaggregationService
     participant Service as LedgerService
     participant Port as LedgerBalancePersistencePort
     participant DB as GL/SL Balance
 
     Scheduler->>Batch: startDate/endDate 또는 baseDate 전달
     Batch->>Tasklet: start Step: 기간 고정 / owner barrier 획득
-    Tasklet->>Service: owner cleanup Step 실행
-    Service->>Port: 전체 잠금 + owner 검증 → 기간 잔액 삭제
+    Tasklet->>Control: owner cleanup Step 실행
+    Control->>Port: 전체 잠금 + owner 검증 → 기간 잔액 삭제
     Note over Batch, DB: cleanup 트랜잭션 커밋
     Batch->>Tasklet: POSTED 상세를 날짜순 100건 chunk로 조회
     Tasklet->>Service: updateLedgerBalancesBulkForReaggregation(owner, range, details)
     Service->>Port: chunk 계정 잠금 + owner 검증 → 최신 GL/SL 조회
     Service->>Port: 금액 집계 → bulk 저장
     Port->>DB: 각 chunk와 checkpoint 트랜잭션 커밋
-    Batch->>Service: 전체 stripe 잠금 → POSTED/GL/SL exact reconciliation
-    Service->>DB: 일치할 때만 OPEN / epoch 증가
+    Batch->>Control: 전체 stripe 잠금 → POSTED/GL/SL exact reconciliation
+    Control->>DB: 일치할 때만 OPEN / epoch 증가
 ```
 
-초보자 관점에서는 "과거 날짜의 전표가 바뀌면 그 기간 장부를 다시 더한다"고 이해하면 됩니다. Batch는 날짜 파라미터를 해석하고 core 서비스를 호출할 뿐이며, 실제 잔액 계산과 저장 순서는 `LedgerService`와 출력 포트가 담당합니다.
+초보자 관점에서는 "과거 날짜의 전표가 바뀌면 그 기간 장부를 다시 더한다"고 이해하면 됩니다. 이 그림은 현재 연결된 Batch Job의 흐름입니다. Batch는 날짜 파라미터와 Step·chunk를 관리하고, core의 `BalanceReaggregationService`는 owner 시작·삭제·최종 대사를, `LedgerService`는 날짜별 잔액 계산을 맡습니다. core 계산은 chunk 안의 상세 순서에 의존하지 않고 날짜 오름차순으로 저장합니다.
 V15 barrier가 전체 Job 수명 동안 입력과 공개를 통제합니다. 실패하면 부분 잔액은 DB에 남을 수
 있지만 조회·전기에는 수락되지 않습니다. 같은 JobInstance 재시작은 성공한 cleanup/chunk를
 건너뛰고 checkpoint에서 계속하며, 다른 인스턴스는 owner 충돌로 실패합니다.
+
+별도의 `LedgerService.reaggregateLedgerBalancesForPeriod(startDate, endDate)`는 전체 상세를 한 번에 읽어 단일 트랜잭션에서 삭제·재생성합니다. 유효한 범위와 `OPEN` 상태가 필요하고, 요청 종료일은 기존 잔액 또는 최신 `POSTED` 일자까지 확장됩니다. 이 직접 경로에는 위 Job의 owner barrier·checkpoint·최종 대사가 없으며 현재 모듈에서 확인되는 호출은 테스트뿐입니다. 운영의 대량·재시작 가능 재집계는 위 Batch Job 경로를 사용합니다.
+
 ## 재시도와 정합성 주의사항
 
 - 동일 반제 참조번호는 다시 적용하지 않습니다.
