@@ -1,3 +1,38 @@
+# 2026-10-09 — GH-883 JPA rebuild cleanup evidence
+
+## Contract and change
+
+- [Issue #883](https://github.com/skyg547/account/issues/883) / GL17; base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; `agent/883-jpa-rebuild-cleanup`; `/tmp/account-883-jpa-rebuild-cleanup`. Audited proof is detached at `a97d10ab6efc2570a88f83d630242cd748f8be57` in `/tmp/account-883-audited-proof`.
+- Applied `account-issue-loop`, `account-hexagonal-change`, single-module `account-module-parallel`, and `account-review-handoff`. The module writer used `gpt-6-sol` high and owned only `journal-ledger/**`; the independent reviewer was read-only. Parent Integrator alone changed these module-local records and Git/GitHub. User scope excludes repository-wide harness/history and other modules.
+- Audited source loaded `findByBalanceDateBetween` results into `deleteAllInBatch`. Current base already has JPQL date-predicate GL/SL bulk deletes from #766 with flush/clear; no production source or migration changed here. New `LedgerBalanceCleanupRegressionTest` checks both repository invocations without referencing new methods, so byte-identical test source runs on the audited version. `BalanceReaggregationBatchConfigTest` checks both inclusive dates, outside-date preservation and transaction rollback through the real JPA port on H2 and optional PostgreSQL. Existing Batch restart/publication suite remains in place.
+- Updated `docs/beginner-guide.md` and `docs/posting-concurrency.md` with cleanup input→port→DB result, GL13 owner/restart behavior, reproducible synthetic SQL, PostgreSQL plan and timing limits. No shared contract changed.
+
+## Verification
+
+- Audited RED: `./gradlew :journal-ledger:core:test --tests '*LedgerBalanceCleanupRegressionTest' --offline --console=plain --max-workers=1` at `a97d10ab`: 1 test failed as expected; XML records `findByBalanceDateBetween` then `deleteAllInBatch`. Current focused regression: PASS.
+- Current `./gradlew :journal-ledger:test --offline --console=plain --max-workers=1`: 435 PASS (API 74, batch 38, core 323); failures/errors/skips 0. Final literal `./gradlew :journal-ledger:test`: PASS after PostgreSQL test, with Batch rerun and the same 435 XML total. Final local log: `/tmp/account-883-module-final.log`.
+- Disposable PostgreSQL 16.13: `JOURNAL_BALANCE_CLEANUP_TEST_POSTGRES_URL=<loopback disposable fixture> ./gradlew :journal-ledger:batch:test --tests '*BalanceReaggregationBatchConfigTest.cleanupDateBoundariesAndRollbackForBothLedgers' --offline --rerun-tasks --console=plain --max-workers=1`: 1/1 PASS with actual JPA/Flyway PostgreSQL. Preserved `/tmp/account-883-pg-integration.log` and `/tmp/account-883-pg-integration.xml`; the owned `account-883-pg` container was stopped and reports `exited 0`.
+- Synthetic PostgreSQL plan script/log: `/tmp/account-883-pg-plan.sql` and `/tmp/account-883-pg-plan.log`. GL/SL each 200,000 rows; one-day 500-row cleanup used Bitmap Index/Heap Scan; whole-range cleanup used Seq Scan; rollback restored 200,000 each after both narrow and broad deletion. First wide-run pair took 1,267.9 ms before rollback and 1,276.3 ms through rollback; rerun timing varied with cache while plan, row count and rollback results matched. Existing account-leading indexes scan 238 index buffers for the one-day filter, so this does not establish a date-leading index benefit.
+- `git diff --check` PASS; anchored conflict marker scan of changed module files found none. Independent read-only reviewer found no P0–P3 after the original writer corrected a stale H2-only fixture comment. No other module or shared harness changes.
+
+## Code/documentation quality review
+
+| Item | Verdict | File/test evidence | N/A reason | Risk/next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | JPA adapter bulk path; `LedgerBalanceCleanupRegressionTest`, Batch boundary/rollback; 435 PASS | None: behavior covered | Target data/lock profile | PASS, no P0–P3 |
+| Q2 | PASS | `docs/posting-concurrency.md` explains port, transaction, GL13 restart; PostgreSQL integration PASS | None: flow documented | PostgreSQL full Job restart | PASS |
+| Q3 | PASS | `docs/beginner-guide.md` and `docs/posting-concurrency.md` match executed commands/results | None: module docs updated | Production plan/WAL review | PASS |
+| Q4 | PASS | Core regression explains audited-compatible invocation inspection; Batch test fixture comment names H2/PostgreSQL | None: non-obvious tests changed | Recheck on adapter evolution | PASS after comment fix |
+
+## Rollback, limits and handoff
+
+- Implementation commit `8ce0b4e52c6eb85af9a31b0918ed72f1b19a98b8`; [Draft PR #898](https://github.com/skyg547/account/pull/898) uses `Refs #883` and includes verification and authority separation. Revert this PR's tests/docs/records if needed; no migration, production source or data rewrite belongs to this branch. The existing bulk DELETE remains in base.
+- The synthetic simplified tables and disposable PostgreSQL prove plan shape, transaction timing and rollback only in that environment. They do not prove production distribution, concurrent lock waits, WAL/replication/storage cost, production load, or full PostgreSQL Job restart. Validate those before deployment/Ready. Human reviewer controls current-head CI, Ready/merge/Issue close and cleanup.
+
+---
+
+The following is retained historical worklog and is not a current GH-883 report.
+
 # 2026-10-09 — GH-879 durable slip number allocation
 
 ## Intake and scope

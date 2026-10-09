@@ -1,3 +1,19 @@
+# GH-883 agent status
+
+- Issue [#883](https://github.com/skyg547/account/issues/883) is handed off for review in [Draft PR #898](https://github.com/skyg547/account/pull/898) with `Refs #883`.
+- Base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; branch `agent/883-jpa-rebuild-cleanup`; isolated worktree `/tmp/account-883-jpa-rebuild-cleanup`; audited proof `/tmp/account-883-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope is `journal-ledger/**` only. The `gpt-6-sol` high-reasoning module writer changed tests and functional docs; the independent reviewer remained read-only. The parent Integrator owns these module-local records and Git/GitHub state. Other modules and repository-wide harness/history remain untouched.
+- Current production already has date-predicate GL/SL bulk DELETE from #766. This PR adds audited RED/current GREEN regression, inclusive date/rollback integration coverage, and PostgreSQL plan/timing guidance. No production source or migration changed.
+- Audited regression: 1/1 expected failure on entity materialization path. Current `./gradlew :journal-ledger:test`: 435/435 PASS (core 323, API 74, batch 38), failures/errors/skips 0. Disposable PostgreSQL 16.13 JPA/Flyway cleanup integration: 1/1 PASS. Synthetic 200,000 rows per ledger: narrow Bitmap Index/Heap Scan, broad Seq Scan, and both rollbacks restored 200,000 rows per table. The owned PostgreSQL container is stopped.
+- Independent read-only review: no P0–P3 findings after a test-comment correction; Q1–Q4 PASS. Whitespace and changed-file conflict marker checks passed.
+- Residual gate: synthetic SQL timing does not measure production lock waits, WAL, storage or load; PostgreSQL full Job restart was not run. Human reviewer owns current-head CI, target environment validation, Ready/merge/Issue close, deployment, and resource cleanup. Rollback is a scoped revert of tests/docs/records; the prior production bulk DELETE remains.
+
+See [worklog.md](worklog.md) for commands, evidence and Q1–Q4 review.
+
+---
+
+The following is retained historical status and is not a current GH-883 report.
+
 # GH-879 agent status
 
 - Issue: [#879](https://github.com/skyg547/account/issues/879), review handoff `status:needs-review`; [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
