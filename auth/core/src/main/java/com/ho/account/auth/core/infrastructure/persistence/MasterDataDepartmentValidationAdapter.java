@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
+import com.ho.account.auth.core.application.exception.DepartmentValidationUnavailableException;
 import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
 import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,7 +18,6 @@ import org.springframework.web.client.RestClientResponseException;
 @Component
 @ConditionalOnProperty(name = "auth.master-data.enabled", havingValue = "true")
 public class MasterDataDepartmentValidationAdapter implements DepartmentValidationPort {
-    private static final String UNAVAILABLE_MESSAGE = "Department validation is unavailable";
     // Prove one complete object: default conversion can ignore trailing tokens and overwrite duplicate identities.
     private static final ObjectReader DEPARTMENT_RESPONSE_READER = new ObjectMapper().readerFor(Map.class)
             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
@@ -59,8 +59,8 @@ public class MasterDataDepartmentValidationAdapter implements DepartmentValidati
         }
     }
 
-    private static IllegalStateException unavailable() {
-        // The API logs exceptions; retaining a remote cause or message would expose the URI, code or body.
-        return new IllegalStateException(UNAVAILABLE_MESSAGE);
+    private static DepartmentValidationUnavailableException unavailable() {
+        // Keep remote details out of both the public response and any exception logging.
+        return new DepartmentValidationUnavailableException();
     }
 }
