@@ -1,3 +1,30 @@
+# 2026-10-09 — GH-881 core reaggregation source order
+
+## Intake and scope
+
+- Live [Issue #881](https://github.com/skyg547/account/issues/881) was claimed from `status:ready` to `status:in-progress` and is handed to `status:needs-review`. Base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; branch `agent/881-journal-reaggregation-order`; isolated worktree `/tmp/account-881-journal-reaggregation-order`; detached audited proof `/tmp/account-881-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`; [Draft PR #896](https://github.com/skyg547/account/pull/896), `Refs #881`.
+- Used `account-issue-loop`, `account-hexagonal-change`, single-module `account-module-parallel`, and `account-review-handoff`. The only service module is journal-ledger, so no shared contract or other module writer was dispatched. Service, SQL, and documentation roles wrote disjoint module files; read-only independent Reviewer checked the combined diff; parent Integrator owns Git/GitHub and these three module-local records. Repository-wide harness/history were not modified per the user allowlist.
+- Goal: make the supported direct core rebuild independent of source detail order and prove GL/SL results through both balance adapters with prior-period opening. Existing financial posting, Batch owner, precision, and restart controls remain in force. No live PostgreSQL, production data, schema migration, or cross-module contract work was authorized.
+
+## Implementation and regression evidence
+
+- `origin/main@9348966a` already groups details by date with `TreeMap` in `LedgerService.updateLedgerBalancesBulkAfterGuard` (`LedgerService.java:117`); that correction is prior work and not claimed as this branch's production edit. `JournalDetailRepository.java:105` now orders the shared direct rebuild source by `je.accountingDate, je.id, jd.id`, keeping the date range and `POSTED` filter. Both JPA and JDBC bulk balance adapters delegate to this repository method. Stable tie order makes direct reads predictable while the core date grouping remains the correctness guard.
+- `LedgerServiceTest.java:151` compares chronological and interleaved direct rebuilds, including GL/SL beginning/debit/credit/ending amounts with prior opening. `DirectReaggregationOrderIntegrationTest.java:94` executes the public method against Flyway H2 and real JPA/JDBC balance adapters for chronological/reversed insertion (4 cases), including prior-period opening and both debit/credit accounts. `AuditedSourceOrderRegressionTest.java:20` is intentionally source-compatible with the audited service; SHA-256 `af5c2149e17ccc90fbf0b6c82b1d2610999a86c62d15981d04b48d0e5a73e142` is identical in both worktrees. It failed on audited `a97d10a` (1 test, assertion at line 42) and passed on this branch (1 test).
+- Module README and `docs/README.md`, `beginner-guide.md`, `ledger-carry-forward.md`, `process-flow.md` now distinguish the currently wired 100-row chunk Job and owner/checkpoint/reconciliation from the direct single-transaction service that materializes all POSTED details and has no Batch checkpoint or final reconciliation. The period *query* minimum-date rule remains separate from rebuild ordering.
+
+## Verification, review, and limits
+
+- Focused direct-service unit and integration cases passed individually. Parent ran the portable audited RED and current GREEN, then literal `./gradlew :journal-ledger:test --no-daemon --console=plain --max-workers=1`: PASS, Core 328 / API 74 / Batch 37 = 439 tests across 68 suites, failures/errors/skips 0. The aggregate `:journal-ledger:test` task itself is `NO-SOURCE` and depends on the three executed subproject test tasks.
+- One earlier core suite invoked while two writers shared the same Gradle build output exited 1 while writing XML test results. It did not establish a code-test outcome; the subsequent serial parent module run passed all 439. `git diff --cached --check` and module conflict-marker scan passed. Independent read-only Reviewer found no open P0–P3 and confirmed Q1–Q4.
+- The H2 PostgreSQL-mode integration does not prove a live PostgreSQL execution plan, sort cost at scale, production data state, distributed fault recovery, or deployment. The direct path materializes all details; the wired Batch Job remains the operational large-volume/restartable entry point. Rollback is a reviewed revert of Issue #881's query/test/module-doc commits; no migration or data rollback is needed. Human review controls Ready/merge/Issue close and resource cleanup.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 코드·책임 | PASS | `JournalDetailRepository.java:105`; `LedgerServiceTest.java:151`; `DirectReaggregationOrderIntegrationTest.java:94`; module 439/439 | 해당 없음: PASS | PostgreSQL 실행 계획·대량 부하 | 읽기 전용 Reviewer, P0–P3 없음 |
+| Q2 흐름·이유 | PASS | `LedgerService.java:70,117` 및 `docs/ledger-carry-forward.md:43`; 감사 RED/현재 GREEN | 해당 없음: PASS | 분산 장애 검증 | 읽기 전용 Reviewer 확인 |
+| Q3 기능·초보자 문서 | PASS | `docs/process-flow.md:504`, `docs/beginner-guide.md:103`, `README.md:121`; Batch/직접 경로 대조 | 해당 없음: PASS | 사람 리뷰 | 읽기 전용 Reviewer 확인 |
+| Q4 근접 의도 주석 | PASS | `JournalDetailRepository.java:105`의 안정 정렬 이유; `LedgerService.java:117`의 선행일 저장 이유 | 해당 없음: PASS | 해당 없음: 현재 의도 설명 충족 | 읽기 전용 Reviewer 확인 |
+
 # 2026-10-09 — GH-879 durable slip number allocation
 
 ## Intake and scope
