@@ -47,7 +47,7 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     @Override
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
         businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, command.code());
-        // 아직 활성화되지 않은 미래 이력도 CREATE 재사용을 막아야 합니다.
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
         if (accountSubjectPersistencePort.existsByCode(command.code())) {
             throw new MasterDataVersionConflictException("이미 이력이 존재하는 계정과목 코드입니다: " + command.code());
         }

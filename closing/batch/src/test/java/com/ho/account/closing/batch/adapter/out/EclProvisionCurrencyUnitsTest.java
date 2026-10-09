@@ -2,6 +2,9 @@ package com.ho.account.closing.batch.adapter.out;
 
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.closing.application.service.EclProvisionService;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
+import com.ho.account.closing.infrastructure.external.MasterDataFxExchangeRateLookupAdapter;
+import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

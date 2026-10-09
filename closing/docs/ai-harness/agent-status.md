@@ -141,3 +141,29 @@
 - Annual requests now contain only `year`. Exact-year approved configuration supplies the destination, approval metadata and explicit postability attestation; the Dec31 Master account must be the exact `EQUITY`/`CREDIT` account before any Journal access. Mapping identity joins #775's V2 snapshot, so configuration changes stale a pending draft while a financially complete posted close remains a no-op.
 - Limits: Master Data has no actual postability field and Journal has no legal-entity dimension. No live PostgreSQL/load/distributed-fault test, provider-side atomic snapshot or authenticated remote Journal write was performed. Configuration metadata is review evidence, not an authenticated maker/checker workflow.
 - Draft publication with `Refs #776` is authorized. Ready, merge, Issue close, deployment, branch/worktree deletion and billing/configuration changes remain separate gates.
+
+## GH-777 — verified, awaiting Draft publication
+
+- Issue #777 / CL07, branch `agent/777-financial-run-evidence`, worktree `/tmp/account-777-financial-run-evidence`, base `f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Closing-only implementation removes configured fixed amounts and routes API `FX_RATE`/`ECL` runs through the same core evidence policy and posted-journal SQL as Batch. Missing evidence fails before Journal; history records 0/1/many, auto-post and failure outcomes.
+- FX API uses a single bounded evidence pass and exact immutable command plan. ECL source groups and query time are bounded before per-group reads. Batch adds restart-safe write-free validation while preserving partition/cursor/chunk/checkpoint behavior.
+- Required `./gradlew :closing:test`: PASS512 (API127/Batch100/Core285), failure/error/skip0. API/Batch bootJar PASS. Scope, whitespace, conflict, dependency and no-migration gates pass.
+- Independent read-only review returned APPROVE, no open P0–P3, Q1–Q4 PASS after maker-header and monolith ECL bean defects were fixed and rerun.
+- Parent Integrator now owns authorized commit/push/Draft PR/module-record publication. Ready, merge, Issue close, deployment and branch/worktree deletion remain unperformed. Next owner after Draft: human current-head/CI reviewer and authorized operations owner for real PostgreSQL/source freeze/deployed Journal gates.
+
+### GH-777 Draft published
+
+- [PR #808](https://github.com/skyg547/account/pull/808) was initially MERGEABLE as a Draft with `Refs #777` and was later CLOSED after the independent P1 Journal review; initial implementation commit `8fa4d8fb`. Issue #777 remains OPEN; worktree retained.
+- Hosted module/harness/merge-guard jobs did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. This is an external service gate, not a code/test result. Human current-head review and operational gates remain next.
+
+## GH-777 — 2026-10-01 remediation verified for new Draft
+
+- Branch/worktree `agent/777-financial-run-evidence` / `/tmp/account-777-financial-run-evidence`; original Issue base `f128a5dd`, latest integrated `main@b06e7de3`. Old PR #808 is CLOSED after P1 Journal review; Issue #777 is OPEN.
+- Remote HTTP auto-post is rejected before the first write. Direct remote approve/post is disabled; default remote DRAFT and the shared FX/ECL evidence policy remain. HTTP and shared adapters reject invalid or different-slip draft responses. Main #771/#775/#776 changes are integrated and conflict decisions are in [conflict-log](conflict-log.md).
+- Final Closing suite PASS597 (API141/Batch102/Core354; failures/errors/skips0); API/Batch bootJar PASS; Journal authorization MVC5 PASS; Node quality32 PASS. Diff scope, whitespace, marker and unmerged-index gates PASS. Independent read-only `/root/closing_777_review` returned Draft-ready and Q1–Q4 PASS.
+- Ready/deployment risks: trusted Journal service authentication, same-slip concurrent provider dedupe, source freeze, live PostgreSQL/load and distributed faults. Next owner is human Draft/current-head reviewer, then authorized accounting/operations owner. No Ready, merge, Issue close, deployment or resource cleanup.
+
+### GH-777 Draft #819 published
+
+- [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
+- Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.

@@ -57,6 +57,21 @@ public class ClosingBatchExecutionRecorder {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ValuationBatch markValuationCompleted(
+            Long batchId,
+            Long journalEntryId,
+            String reportLink,
+            String actor) {
+        ValuationBatch batch = valuationBatchPersistencePort.findById(batchId)
+                .orElseThrow(() -> new EntityNotFoundException("ValuationBatch not found: " + batchId));
+        batch.setGeneratedJournalEntryId(journalEntryId);
+        batch.setStatus(ValuationBatch.ValuationBatchStatus.COMPLETED);
+        batch.setReportLink(reportLink);
+        batch.setAuditUser(requireActor(actor));
+        return valuationBatchPersistencePort.save(batch);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markValuationFailed(Long batchId, String actor) {
         ValuationBatch batch = valuationBatchPersistencePort.findById(batchId)
                 .orElseThrow(() -> new EntityNotFoundException("ValuationBatch not found: " + batchId));
@@ -89,6 +104,19 @@ public class ClosingBatchExecutionRecorder {
                 .orElseThrow(() -> new EntityNotFoundException("ProvisionBatch not found: " + batchId));
         batch.setGeneratedJournalEntryId(journalEntryId);
         batch.setStatus(ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
+        batch.setAuditUser(requireActor(actor));
+        return provisionBatchPersistencePort.save(batch);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ProvisionBatch markProvisionCompleted(
+            Long batchId,
+            Long journalEntryId,
+            String actor) {
+        ProvisionBatch batch = provisionBatchPersistencePort.findById(batchId)
+                .orElseThrow(() -> new EntityNotFoundException("ProvisionBatch not found: " + batchId));
+        batch.setGeneratedJournalEntryId(journalEntryId);
+        batch.setStatus(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
         batch.setAuditUser(requireActor(actor));
         return provisionBatchPersistencePort.save(batch);
     }

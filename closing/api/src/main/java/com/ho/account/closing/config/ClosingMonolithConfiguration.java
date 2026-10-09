@@ -1,6 +1,7 @@
 package com.ho.account.closing.config;
 
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithExchangeRateQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubjectPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPersistenceAdapter;
@@ -37,6 +38,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 })
 @Import({
         MonolithFiscalPeriodControlAdapter.class,
+        MonolithExchangeRateQueryAdapter.class,
         MonolithMasterDataQueryAdapter.class,
         JpaFiscalPeriodPersistenceAdapter.class,
         FiscalPeriodMapper.class,

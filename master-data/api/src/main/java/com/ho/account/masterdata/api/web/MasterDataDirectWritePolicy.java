@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Gateway가 검증해 전달한 역할 헤더를 직접 쓰기 경계에서 확인해, 역할이 없거나 허용되지 않으면
+ * 서비스 입구가 JWT와 일치시킨 역할 헤더를 직접 쓰기 경계에서 확인해, 역할이 없거나 허용되지 않으면
  * 승인 우회 mutation을 fail-closed 합니다.
  *
  * <p>높은 우선순위의 scoped advice가 정책의 {@link ResponseStatusException}을 먼저 처리해 공통

@@ -2,6 +2,7 @@ package com.ho.account.closing.dto;
 
 import com.ho.account.closing.domain.ValuationBatch;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 /**
@@ -10,6 +11,7 @@ import lombok.Data;
 @Data
 public class ValuationBatchRequestDto {
     @NotNull
+    @Positive
     private Long fiscalPeriodId;
 
     @NotNull

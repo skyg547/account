@@ -2,13 +2,15 @@
 
 ## 핵심 테이블
 
-Flyway V70~V73 기준으로 Auth는 사용자, 역할, 로그인 실패, 승인 반영 이력과 Personal Access Token을 저장합니다.
+Flyway V70~V74 기준으로 Auth는 사용자, 역할, 로그인 실패, 승인 반영 이력과 Personal Access Token 및 PAT 수명주기 감사를 저장합니다.
 
 ```mermaid
 erDiagram
     AUTH_USERS ||--o{ AUTH_ROLE_ASSIGNMENTS : has
     AUTH_USERS ||--o| AUTH_LOGIN_ATTEMPTS : login_failure_state
     AUTH_USERS ||--o{ AUTH_ROLE_ASSIGNMENT_APPLY_LOG : approval_history
+    AUTH_USERS ||..o{ AUTH_PERSONAL_ACCESS_TOKENS : owns
+    AUTH_PERSONAL_ACCESS_TOKENS ||..o{ AUTH_PAT_LIFECYCLE_EVENTS : records
     AUTH_USERS {
         String username PK
         String stored_password
@@ -42,7 +44,24 @@ erDiagram
         Long applied_role_version
         Instant applied_at
     }
+    AUTH_PERSONAL_ACCESS_TOKENS {
+        String id PK
+        String username
+        String token_hash
+        String status
+        LocalDateTime expires_at
+    }
+    AUTH_PAT_LIFECYCLE_EVENTS {
+        String event_id PK
+        String token_id
+        String action
+        String actor_username
+        String owner_username
+        LocalDateTime occurred_at
+    }
 ```
+
+점선은 username/token ID의 논리적 연결을 나타냅니다. V73·V74에는 해당 외래 키가 없어 감사 이력은 향후 PAT 행을 정리해도 유지됩니다.
 
 ## 마이그레이션 책임
 
@@ -52,6 +71,7 @@ erDiagram
 | `V71` | 여러 Auth 인스턴스가 공유하는 로그인 실패/잠금 상태 |
 | `V72` | Governance 역할 승인 재시도를 막는 멱등 수신 이력 |
 | `V73` | Personal Access Token 해시와 만료/폐기 상태 |
+| `V74` | PAT 생성·폐기 감사 이벤트와 PAT 소유자 username 길이(80자) 정합화 |
 
 ## 주요 설정
 
@@ -74,3 +94,4 @@ erDiagram
 - 같은 trace의 내용이 달라지면 승인 오염으로 보고 거부합니다.
 - `validFrom`은 포함, `validTo`는 제외하는 반개구간으로 역할 유효성을 판단합니다.
 - token-version 검증은 버전뿐 아니라 계정 활성/관리 잠금/유효 역할도 확인합니다.
+- PAT 소유자는 `AuthUser.username`과 대소문자까지 정확히 일치해야 합니다. 감사 이력은 행위자와 소유자를 별도로 저장하며 원문 토큰이나 해시를 기록하지 않습니다.

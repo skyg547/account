@@ -1,0 +1,86 @@
+[ {
+  "id" : "P01",
+  "kind" : "positive-control",
+  "observation" : "empty, single, transaction/base imbalance, zero, negative, fractional cent and overflow rejected; balanced and lossless trailing-zero values accepted",
+  "status" : "PASS"
+}, {
+  "id" : "P02",
+  "kind" : "defect-reproduction",
+  "observation" : "creator maker approved own DRAFT directly without submission",
+  "status" : "PASS"
+}, {
+  "id" : "P03",
+  "kind" : "defect-reproduction",
+  "observation" : "POSTED accepted date change, line amount change, and clearDetails in memory; no HTTP/delete or DB-cascade success asserted",
+  "status" : "PASS"
+}, {
+  "id" : "P04",
+  "kind" : "defect-reproduction",
+  "observation" : "two independent inverted reversal objects created; original remains POSTED; persistence/date validation occurs in service",
+  "status" : "PASS"
+}, {
+  "id" : "P05",
+  "kind" : "defect-reproduction",
+  "observation" : "USD100 at rate1300 accepted with base100 on each side, instead of base130000",
+  "status" : "PASS"
+}, {
+  "id" : "P06",
+  "kind" : "defect-reproduction",
+  "observation" : "untyped JSON 900719925474099.11 becomes 900719925474099.10 and passes ledger precision",
+  "status" : "PASS"
+}, {
+  "id" : "P07",
+  "kind" : "defect-reproduction",
+  "observation" : "CLOSING_IN_PROGRESS returned isClosed=false",
+  "status" : "PASS"
+}, {
+  "id" : "P08",
+  "kind" : "defect-reproduction",
+  "observation" : "out-of-order bulk input: day2 ending20, expected120",
+  "status" : "PASS"
+}, {
+  "id" : "P09",
+  "kind" : "defect-reproduction",
+  "observation" : "backdated +10 changes day1 to110 but day2 remains120, expected130",
+  "status" : "PASS"
+}, {
+  "id" : "P10",
+  "kind" : "defect-reproduction",
+  "observation" : "partner null and literal NULL collapsed into one SL row30",
+  "status" : "PASS"
+}, {
+  "id" : "P11",
+  "kind" : "defect-reproduction",
+  "observation" : "5000 same-day create calls generated 197 duplicate slip numbers (observational random sample)",
+  "status" : "PASS"
+}, {
+  "id" : "P12",
+  "kind" : "defect-reproduction",
+  "observation" : "actual SQL ignores posted KRW200 prior adjustment; service generates another200 at unchanged rate12",
+  "status" : "PASS"
+}, {
+  "id" : "P13",
+  "kind" : "defect-reproduction",
+  "observation" : "fixedAsset=true historical-cost candidate revalued by200 with no eligibility check",
+  "status" : "PASS"
+}, {
+  "id" : "P14",
+  "kind" : "defect-reproduction",
+  "observation" : "USD target100 minus stored base credit104000 generates allowance DEBIT103900; expected USD20 addition at rate1300",
+  "status" : "PASS"
+}, {
+  "id" : "P15",
+  "kind" : "defect-reproduction",
+  "observation" : "target allowance100 accepted with stage totals1+2+3=6; constructor checks only nonnegative values",
+  "status" : "PASS"
+}, {
+  "id" : "P16",
+  "kind" : "defect-reproduction",
+  "observation" : "close/reopen/start/reclose accepted original completed task and passed gate",
+  "status" : "PASS"
+}, {
+  "id" : "P17",
+  "kind" : "defect-reproduction",
+  "observation" : "annual close accepted CASH_ASSET as retained earnings; source1000->1500 left original1000 draft unchanged",
+  "status" : "PASS"
+} ]

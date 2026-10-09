@@ -1,52 +1,22 @@
-# GH-753 worklog
+# Master Data AI Worklog
 
-## 2026-10-01 KST — intake and baseline
+## 2026-10-01 — #754 Reject sequential duplicate future-dated CREATE intervals
 
-Created the isolated branch/worktree from fetched `origin/main@b06e7de3`. Preserved the dirty primary checkout. Issue claim: https://github.com/skyg547/account/issues/753#issuecomment-5918115498.
+- Contract: CREATE is first use of a business key for account subjects, departments, products, and business partners. Historical, current, inactive, and future rows reserve that key. Inclusive touching, adjacent disjoint, and gapped disjoint intervals all reject a second CREATE; a truly new key succeeds. Approved CREATE retains its history-count guard at request, approval, and apply.
+- Isolation: `agent/754-future-create-intervals`, `/tmp/account-754-future-create-intervals`, base `origin/main@b06e7de3a2e26c1e14a15d73486c02fa7216e8b8`. Parent Integrator claimed Issue #754 before implementation edits. The sole writer used `gpt-6-sol` with `xhigh` reasoning and owned only specified `master-data/**` files.
+- Change: the four core create services call code-wide existence ports and raise `MasterDataVersionConflictException` before save. `JpaDepartmentPersistenceAdapter.existsByCode` now calls the repository's all-history existence method; `BusinessPartnerRepository.existsByBusinessPartnerCode` now uses Spring Data's code-wide query without date or `useYn` filtering. The exception description, four-type core regression, BP/Department H2 adapter checks, four direct HTTP 409 regressions, README, process-flow, and beginner guide were updated. No other module, common harness document, migration, or build file changed.
+- RED evidence: before the guard fix, 15/20 direct core CREATE cases failed and both H2 adapter existence cases failed. Before unifying the conflict type, 20 direct core cases failed their expected exception assertion. These were expected regression failures, not final results.
+- GREEN evidence: focused direct/approved core, JPA existence, and HTTP 409 tests passed. `./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2` passed with XML totals core 470, API 72, Batch 5, failures/errors/skips 0. `./gradlew :master-data:test` returned BUILD SUCCESSFUL with `:master-data:test NO-SOURCE`; it does not replace the three subproject tests. Staged `git diff --check` and scoped conflict-marker scan passed before implementation commit `19b7ade5`.
+- CI admission: remote PR head `56598909` showed Module Validation, Harness Validation, and Agent Merge Guard failures before any job step. Each check annotation attributes non-start to account billing/spending limit, so these are not code-test failures or remote PASS. Local mirrors passed: `python3 tools/ci/validate-harness.py` (schema PASS), `python3 -m unittest discover -s tools/ci -p test_validate_harness.py -v` (22/22), `node --test tools/ci/harness-pr-contract.test.cjs` (32/32), and `node --test tools/ci/agent-merge-guard.test.cjs` (89/89). The repository owner must resolve the GitHub billing gate and rerun current-head CI before Ready/merge.
+- Independent review: a separate read-only `gpt-6-sol/xhigh` reviewer found two issues, which the original writer fixed: direct HTTP 400 versus approved 409, and documentation that overstated reactivation through UPDATE. Final review found no blocking findings and judged Q1–Q4 PASS.
 
-Before implementation, the requested `./gradlew :master-data:test --offline --no-daemon --console=plain --max-workers=2` returned success with `NO-SOURCE`: the parent project did not run child tests. Added a module-local aggregate dependency so this command will execute core/API/Batch tests.
+| Quality item | Result | File and test evidence | N/A reason | Risk and next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 responsibility and readable code | PASS | `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/AccountSubjectService.java:45`, `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/DepartmentService.java:30`, `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/ProductService.java:32`, `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/BusinessPartnerService.java:42`; `master-data/core/src/main/java/com/ho/account/masterdata/core/infrastructure/persistence/JpaDepartmentPersistenceAdapter.java:27`, `master-data/core/src/main/java/com/ho/account/masterdata/core/infrastructure/persistence/repository/BusinessPartnerRepository.java:91`; module tests 547/547 PASS | Not applicable: assessed | #753 PostgreSQL/concurrency gate | PASS, read-only reviewer |
+| Q2 flow and rationale | PASS | `master-data/docs/process-flow.md:13`; `master-data/core/src/test/java/com/ho/account/masterdata/core/application/service/MasterDataCreateHistoryTest.java:52` covers five date relations and first-row preservation; focused test PASS | Not applicable: assessed | Concurrent writers remain #753 scope | PASS, read-only reviewer |
+| Q3 feature and beginner docs | PASS | `master-data/README.md:130`, `master-data/docs/process-flow.md:13`, `master-data/docs/beginner-guide.md:35` describe HTTP 409 and active-only UPDATE; API 72/72 PASS | Not applicable: assessed | Expired/future-only key reactivation unsupported | PASS, read-only reviewer |
+| Q4 nearby intent comments | PASS | `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/AccountSubjectService.java:44`, `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/DepartmentService.java:29`, `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/ProductService.java:31`, `master-data/core/src/main/java/com/ho/account/masterdata/core/application/service/BusinessPartnerService.java:41`; `master-data/core/src/main/java/com/ho/account/masterdata/core/infrastructure/persistence/repository/BusinessPartnerRepository.java:90`; `master-data/core/src/main/java/com/ho/account/masterdata/core/domain/exception/MasterDataVersionConflictException.java:4` | Not applicable: assessed | No further comment gate | PASS, read-only reviewer |
 
-Baseline explicit core/API/Batch suite: core444 + API68 + Batch5 = 517 tests, failures/errors/skips0, exit0. Existing H2 tests do not prove PostgreSQL concurrency. Added acceptance regressions before production changes and prepared a dedicated PostgreSQL16 container using an already-cached image, synthetic fixtures only.
-
-Design: exact tuple lock row for absent/existing keys; transaction-owned key locks precede version recheck and mutation. Stable lock order for request operations. V8 portable lock/validity schema; V9 PostgreSQL all-history inclusive exclusion. H2 local target8 is explicit; production release SQL packaging continues to include both migrations. Existing bad data causes migration failure and requires reviewed remediation, without automatic repair.
-
-## Regression and independent review checkpoints
-
-- First real PostgreSQL RED:33 tests/24 failures/errors0/skips0, exit1. Every failure expected409 but received200; all4 types reproduced distinct-approved and direct/approved races and missing exclusion. No production fixes had been applied.
-- First implementation targeted service check:370 tests PASS (3 suites),0 failures/errors/skips. PostgreSQL first GREEN:61 tests (49 concurrency+12 migrations),0 failures/errors/skips, exit0. These are checkpoints, not final-head evidence.
-- Independent read-only reviewer identified P2: a DEACTIVATE ending today leaves the row active and history count unchanged; a stale approved open-ended UPDATE returned400. Narrow application interval conflict validation now distinguishes this409 from malformed input400.
-- Reviewer also identified P1: an outer transaction can preload JPA entities before the key lock. New regression RED4/4 (expected400, actual200) reproduced a losing DEACTIVATE extending the winner's shortened end in all4 types. Added explicit fresh mutation-read ports/adapters so only the selected entity is refreshed after key lock; approved applier checks also use these fresh reads. Global clear is intentionally avoided.
-- Related beginner documentation was corrected after Q3 review. Shared documents remain untouched.
-
-Static deployment evidence: migration-runner/build.gradle:43 and70–76 already copy all module migration SQL to `db/contexts/master-data`. Runtime grant script `postgres/runtime/grant-runtime-privileges.sh:27–39` grants schema usage and SELECT/INSERT/UPDATE/DELETE on every public table except Flyway history, including the new lock table when run after migrations. This is source evidence; no production grants or release deployment were performed.
-
-- Full core initially exposed one implicit H2 Flyway composition (`BusinessPartnerHistoricalActiveIntegrationTest`):454 tests/2 context failures because V9 was attempted in H2. Pinning this H2 fixture to target8 produced454/454 PASS, failures/errors/skips0. No domain assertions were relaxed.
-- Expanded full API checkpoint:142 tests/2 failures; new same-request and applyDue/single-request races returned500 because the request repository attempted an optimistic-version-aware lock before refreshing stale cached state. Request mutation read now flushes pending local state and uses one `refresh(PESSIMISTIC_WRITE)` for row lock/current reload; a same-outer-transaction request→approve→apply regression guards preservation of the local decision. Final full verification follows this correction.
-
-## Final module verification and integration boundary
-
-Final forced command:
-
-```bash
-MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:17533/master_data_753 \
-JAVA_HOME=/home/ho/.jdks/jdk-17.0.20.1+1 \
-./gradlew :master-data:test :master-data:api:bootJar :master-data:batch:bootJar \
-  --offline --no-daemon --console=plain --max-workers=2 --rerun-tasks
-```
-
-Result: exit0,3m12s,22tasks executed. Core454/API143/Batch5 = **602 tests**,28 suites, failures/errors/skips0. API includes **75 actual PostgreSQL tests** (63 concurrency+12 migration); these are included in602, not additive. Both bootJars contain the core V8/V9 migrations and PostgreSQL driver. The40 frozen source/build/test hashes match; whitespace, exact-scope conflict-marker and local Markdown-link checks pass. Independent read-only `/root/review_753` inspected the same XML and hashes.
-
-The deployment-consumer check actually ran:
-
-```bash
-./gradlew :migration-runner:test \
-  --tests '*MigrationExecutorH2Test.masterDataBaselineContainsEveryJpaOwnedTableAndConstraint' \
-  --tests '*MigrationExecutorH2Test.masterDataPublishedHistoryUpgradesForwardFromV5ToV6' \
-  --offline --no-daemon --console=plain --max-workers=2
-```
-
-Result: exit1,33s,2 tests/2 failures in existing H2 fixtures attempting PostgreSQL-only V9. This is a real integration regression, not a missing dependency or a passing test. Runner `processResources` copied V8/V9 byte-identically, confirming release delivery. The user forbids other-module edits, so a reviewed one-file H2 test-fixture correction is prepared separately and an explicit scope exception was requested before any such edit. Q1/integration remains held while this boundary is unresolved; module test success is not overall integration approval.
-
-## Draft publication
-
-Published implementation commit `2f4a3bbc` on `agent/753-scd2-business-key` and created [Draft PR #820](https://github.com/skyg547/account/pull/820) with `Refs #753`, complete module validation and explicit integration HOLD/Q1 FAIL. The Issue remains open and blocked on the outside-scope H2 test correction; parent requested the narrow exception without assuming approval. No Ready/merge/close, data repair, resource deletion or shared-harness changes. This publication record changes no tested source.
+- Rollback: reviewed revert of this Issue's module code, tests, and docs. Preserve existing master rows; no schema/data rollback applies.
+- Limits: in-memory service tests plus H2 adapter/API tests do not prove PostgreSQL exclusion or concurrent requests. F07/#753 Draft PR #820 overlaps service/adapter/docs files and may require a rebase and semantic review before either PR merges.
+- Publication: Draft PR https://github.com/skyg547/account/pull/821 uses `Refs #754`. The writer implemented, a different agent reviewed read-only, and the parent Integrator committed/pushed/published. Human review controls Ready, merge, Issue closure, and cleanup.

@@ -46,8 +46,10 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
         BusinessPartner businessPartner = command.toDomain();
         // 도메인이 정규화한 실제 저장 코드로 잠가 공백이 있는 직접 입력도 같은 키로 직렬화합니다.
         businessKeyLockPort.lock(MasterDataType.BUSINESS_PARTNER, businessPartner.getBusinessPartnerCode());
+        // 조회 포트는 날짜/useYn과 무관한 전체 이력 존재 여부를 확인합니다.
         if (businessPartnerPersistencePort.existsByBusinessPartnerCode(businessPartner.getBusinessPartnerCode())) {
-            throw new MasterDataVersionConflictException("이미 이력이 존재하는 거래처 코드입니다: " + businessPartner.getBusinessPartnerCode());
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 거래처 코드입니다: "
+                    + businessPartner.getBusinessPartnerCode());
         }
         return businessPartnerPersistencePort.save(businessPartner);
     }

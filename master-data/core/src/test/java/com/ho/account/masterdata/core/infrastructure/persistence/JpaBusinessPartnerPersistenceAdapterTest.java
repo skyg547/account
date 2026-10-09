@@ -131,6 +131,21 @@ class JpaBusinessPartnerPersistenceAdapterTest {
     }
 
     @Test
+    void existenceIncludesFutureAndExpiredRowsRegardlessOfUseFlag() {
+        LocalDate today = LocalDate.now();
+        adapter.save(reconstitute("BP-FUTURE-EXISTS", "미래 거래처", true,
+                today.plusDays(21), today.plusDays(30), List.of()));
+        adapter.save(reconstitute("BP-HISTORY-EXISTS", "과거 거래처", false,
+                today.minusDays(60), today.minusDays(30), List.of()));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(adapter.existsByBusinessPartnerCode("BP-FUTURE-EXISTS")).isTrue();
+        assertThat(adapter.existsByBusinessPartnerCode("BP-HISTORY-EXISTS")).isTrue();
+        assertThat(adapter.existsByBusinessPartnerCode("BP-NEW-KEY")).isFalse();
+    }
+
+    @Test
     void savesCopiedAccountsAsDifferentRowsForEachScd2Version() {
         LocalDate today = LocalDate.now();
         LocalDateTime timestamp = LocalDateTime.of(2026, 1, 2, 9, 30);

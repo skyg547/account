@@ -8,7 +8,7 @@
 
 MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `master-data`에 접근할 때 로그인하고, `journal-ledger`에 접근할 때 다시 로그인하게 할 수는 없습니다.
 
-그래서 사용자는 **한 번 `auth` 모듈에 로그인**합니다. 성공하면 `auth`는 서명된 **JWT(JSON Web Token)**를 발급합니다. 사용자는 이후 요청마다 이 출입증을 보내고, Gateway와 각 서비스는 서명·issuer·역할 버전을 검사해 접근을 결정합니다.
+그래서 사용자는 **한 번 `auth` 모듈에 로그인**합니다. 성공하면 `auth`는 서명된 **JWT(JSON Web Token)**를 발급합니다. audience는 `AUTH_JWT_AUDIENCE`로 설정하며 기본값은 `account-api`입니다. Gateway는 서명·issuer·시간·역할 버전을 검사하고, Auth 관리자 API와 Master Data 수신 검증기는 audience도 확인합니다. Auth 발급기와 Master Data 검증기의 audience 설정은 같은 값이어야 합니다.
 
 ---
 
@@ -50,6 +50,11 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 - 현재 DB의 `roleVersion`과 JWT 값이 같아야 합니다.
 - 사용자가 비활성, 관리 잠금 또는 유효 역할 없음 상태이면 버전이 같아도 `valid=false`입니다.
 - 역할 변경으로 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
+
+### 📌 PAT 관리
+
+- `POST/GET/DELETE /api/auth/pat` 계열은 로그인 JWT의 `Authorization: Bearer` 헤더를 검증하고 현재 AuthUser의 정확한 username에만 연결합니다. 요청의 `username`과 `X-Auth-*` 헤더는 권한에 사용하지 않습니다.
+- `/api/auth/admin/pat` 계열은 현재 유효한 시스템 관리자 역할이 있어야 하며, 생성·실제 폐기 시 행위자와 소유자를 감사 이력에 기록합니다. 자세한 흐름과 실패 코드는 [PAT 관리 권한 흐름](./docs/process-flow.md#pat-관리-권한-흐름)을 참고합니다.
 
 ### 📌 로그인 실패 감사와 임시 잠금
 
@@ -101,7 +106,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 2. 실행 구성에 `local` 프로파일과 JWT/internal-token 환경변수를 필수로 주입합니다. 로그인 사용자가 필요하면 저장소 밖의 승인된 런타임 입력으로 configured user를 추가합니다.
 3. `Auth bootRun`을 실행합니다.
 4. Config Server/Eureka/PostgreSQL 없이 내장 WAS가 `8081` 포트에서 시작됩니다.
-5. Flyway V70~V73 적용 후 Hibernate가 스키마를 검증합니다.
+5. Flyway V70~V74 적용 후 Hibernate가 스키마를 검증합니다.
 
 local SQL 데모 credential과 기본 사용자는 없으며 `spring.sql.init.mode=never`입니다. 선택적 configured user는 외부 런타임 입력/placeholder인 `AUTH_USERS_0_USERNAME`, `AUTH_USERS_0_PASSWORD` 등으로 제공하고, 저장소 파일·쉘 히스토리·로그에 값을 남기지 않습니다. `AUTH_USERS_0_PASSWORD`는 외부에서 준비한 정책 준수 인코딩 값이어야 합니다.
 
@@ -129,8 +134,11 @@ Remove-Item Env:AUTH_JWT_SECRET, Env:AUTH_INTERNAL_API_TOKEN -ErrorAction Silent
 **PowerShell 검증:**
 
 ```powershell
+.\gradlew :auth:test --no-daemon --console=plain --max-workers=2
 .\gradlew :auth:core:test :auth:api:test :auth:api:bootJar --no-daemon --console=plain --max-workers=1
 ```
+
+`:auth:test`는 auth 부모 프로젝트에 소스가 없어도 core와 API 테스트를 모두 실행합니다.
 
 **통합 Docker 실행 기록:**
 

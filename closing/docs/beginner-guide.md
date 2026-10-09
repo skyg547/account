@@ -34,6 +34,10 @@
 4. `ecl`은 IFRS 9 Stage/PD/LGD/EAD 계산 결과를 `allowance_summary`에 확정합니다.
 5. `closing:batch`는 `allowance_summary`와 실제 전기된 충당금 잔액을 같은 통화끼리 비교해 차이만 전표로 만듭니다.
 
+API로 실행해도 금액을 직접 입력하지 않습니다. 평가 API는 `FX_RATE`, 충당 API는 `ECL`만
+받고, Batch와 같은 core 계산 규칙 및 `POSTED` 전표 집계 SQL로 근거를 다시 읽습니다. 즉
+운영자가 임의의 고정 금액을 넣어 전표를 만드는 우회 경로는 없습니다.
+
 ECL 목표가100달러라면 기존 충당금80달러와 비교해야 합니다. 장부의 원화 금액104,000원을
 100달러에서 빼면 안 됩니다. 환율1,300에서 추가 전표는20달러/26,000원입니다.
 환율이1,400으로 바뀌었다면 기존80달러의 장부를 먼저112,000원으로 FX 평가·전기하고
@@ -83,7 +87,7 @@ Master Data의 유효 계정을 조회합니다. 계정이나 분류를 찾을 �
 delta 계산을 확인하지만 실제 PostgreSQL, 분산 장애, 운영 부하는 증명하지 않습니다.
 
 독립 Journal은 쓰기 요청에 신뢰된 `X-Auth-User`/`X-Auth-Roles` service principal을 요구하지만 현재
-Closing HTTP 어댑터는 이 헤더를 보내지 않습니다. 따라서 로컬·통제 포트 테스트가 실제 원격 초안 생성을
+Closing HTTP 어댑터는 maker 헤더를 보내지만 신뢰된 주체의 인증을 증명하지 못합니다. 따라서 로컬·통제 포트 테스트가 실제 원격 초안 생성을
 증명하지 않으며, 별도 승인된 인증 통합 전에는 배포 API 흐름이 검증됐다고 보면 안 됩니다.
 
 이미 기록한 평가손익도 다음 평가의 장부금액에 포함합니다. USD100을 KRW1,000에 취득한 뒤
@@ -104,7 +108,19 @@ KRW200을 평가이익으로 전기했다면 장부금액은 KRW1,200이고 달�
 
 FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니다. 결산 전표는 금액이 크고 재실행 가능성이 중요하므로, 운영자가 검토하고 승인/전기하는 흐름을 기본값으로 둡니다.
 
-자동 승인/전기는 `account.closing.accounting.auto-post-adjustments=true`일 때만 허용합니다. 로컬이나 검증 환경에서는 이 값을 기본 `false`로 두는 편이 안전합니다.
+`auto-post-adjustments`의 기본값은 `false`입니다. `dev` 원격 Journal 연결에서는 이 값을
+`true`로 바꾸어도 자동 승인/전기를 하지 않습니다. Closing이 Journal의 maker 승인 요청,
+다른 사람의 checker 승인, poster 전기를 안전하게 이어 줄 서비스 주체 계약을 갖추지 못했으므로
+첫 원격 전표 쓰기 전에 실패합니다. `false`로 실행해 만든 DRAFT는 권한 있는 담당자가
+Journal의 정상 승인 절차에 따라 검토합니다.
+
+API 실행 이력은 전표가 없거나 지원되는 어댑터에서 실제 자동 전기된 경우 `COMPLETED`, DRAFT 전표가 있으면
+`PENDING_APPROVAL`, 처리 중 예외가 나면 `FAILED`입니다. 여러 전표가 생성되어도 기존 이력
+테이블에는 ID 한 개만 담을 수 있으므로 `generated_journal_entry_id`는 `null`입니다.
+
+FX Batch는 먼저 전표를 쓰지 않는 전체 검사를 하고, 성공한 뒤 partition/cursor/chunk 전기를
+시작합니다. 재시작 시에도 검사를 다시 합니다. 다만 검사와 전기 사이를 묶는 분산 snapshot은
+없으므로 운영자는 실행 동안 원장, 기준일 환율, 평가 정책을 변경하지 않아야 합니다.
 
 ## 코드 위치
 
@@ -129,10 +145,12 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 - 결산 조정 전표의 회계일자가 대상 회계기간 안에 있는지 확인합니다.
 - ECL 충당 전표 실행 전 동일 기준일·단일 run/model·단일 법인의 `allowance_summary`가 생성되어 있는지 확인합니다. 현재 GL에는 법인 차원이 없어서 여러 법인을 한 실행에 섞으면 실패합니다.
 - FX 평가 전 기준일 환율, 전기된 외화 잔액, 기준일 유효 계정 정보와 계정별 명시적 평가 정책을 확인합니다.
+- `dev`에서 실제 금융 실행을 검증할 때만 승인된 source 설정과 함께 `closing.sources.enabled=true`를 명시합니다. 기본값 `false`/미설정은 외부 DB나 Journal 대신 가짜 성공을 주지 않고 실패합니다.
+- remote Journal의 멱등 slip 처리, API 중복 요청 방지, 여러 전표 ID 조회, production PostgreSQL 부하는 아직 별도 운영·검증 과제입니다.
 - 연차 실행 전 런타임이 한 법인만 전담하는지, 요청 연도와 정확히 일치하는 승인 규칙이 있는지, 연말 Master 계정이 `EQUITY`/`CREDIT`인지 확인합니다.
 - 연차 설정 변경은 동료 검토·버전 승인을 남기고, 연차 호출을 drain한 뒤 모든 instance를 재시작합니다. pending 초안이 있었다면 재시도로 덮지 말고 stale 충돌을 대사합니다.
 - 재오픈 요청자와 승인자가 다른지, 동일 기간에 대기 중인 요청이 없는지 확인합니다.
 - EOD 명령은 Gateway가 검증해 만든 actor/role 헤더를 통해서만 호출하고 서비스 포트를 외부에 노출하지 않습니다.
 - 일마감 상태의 `transactionAllowed=false`는 도메인 판단입니다. Journal 전표 생성 게이트에 연결되기 전까지는 월 회계기간 잠금과 별도로 운영 통제가 필요합니다.
 - 연차 손익 대체가 409로 실패하면 반복 호출로 덮으려 하지 말고, 현재 `POSTED` 원천과 모든 연차 전표의 lineage·상태·상세를 대사합니다. 이 API는 충돌 전표를 삭제·반려·역분개하지 않으며 생성 전표의 `SYSTEM` 처리자도 사람 승인 증거가 아닙니다.
-- 로컬 테스트는 실제 PostgreSQL 실행계획·대량 부하·분산 장애를 증명하지 않습니다. 또한 현재 Closing HTTP adapter는 독립 Journal이 요구하는 service-principal 인증 헤더를 보내지 않으므로 원격 Journal 쓰기는 별도 인증 통합 전까지 HOLD입니다.
+- 로컬 테스트는 실제 PostgreSQL 실행계획·대량 부하·분산 장애를 증명하지 않습니다. 현재 Closing HTTP adapter가 maker 헤더를 보내더라도 신뢰된 service principal의 인증을 증명하지 못하므로 원격 Journal 쓰기는 별도 인증 통합 전까지 HOLD입니다.

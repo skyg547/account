@@ -53,6 +53,12 @@ public interface PersonalAccessTokenPort {
     Optional<PersonalAccessToken> findById(String id);
 
     /**
+     * Atomically changes an ACTIVE PAT to REVOKED. Returns true only for the transaction that
+     * changed the row, so concurrent revocations produce one lifecycle event.
+     */
+    boolean markRevokedIfActive(String tokenId);
+
+    /**
      * 해시값(tokenHash)으로 PAT 도메인 객체를 조회합니다.
      *
      * @param tokenHash SHA-256 해시값

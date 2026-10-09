@@ -34,6 +34,7 @@ public class ProductService implements ProductUseCase {
      */
     public Product createProduct(ProductCommand command) {
         businessKeyLockPort.lock(MasterDataType.PRODUCT, command.productCode());
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
         if (productPersistencePort.existsByProductCode(command.productCode())) {
             throw new MasterDataVersionConflictException("이미 이력이 존재하는 상품 코드입니다: " + command.productCode());
         }

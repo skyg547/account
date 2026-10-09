@@ -1,8 +1,10 @@
 package com.ho.account.loan.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -38,6 +40,58 @@ import org.mockito.ArgumentCaptor;
 class LoanJournalPostingFlowTest {
 
     @Test
+    void closedPeriodDoesNotSaveLoanDisbursalOrJournalLineage() {
+        assertDisbursalJournalFailure(true);
+    }
+
+    @Test
+    void ledgerWriteFailureDoesNotSaveLoanDisbursalOrJournalLineage() {
+        assertDisbursalJournalFailure(false);
+    }
+
+    private void assertDisbursalJournalFailure(boolean closedPeriod) {
+        InMemoryJournalPersistencePort journalStore = new InMemoryJournalPersistencePort();
+        LedgerEntryPersistencePort ledgerEntries = mock(LedgerEntryPersistencePort.class);
+        AccountingPeriodStatusPort periodStatus = mock(AccountingPeriodStatusPort.class);
+        LocalDate date = LocalDate.of(2026, 5, 18);
+        when(periodStatus.isClosed(date)).thenReturn(closedPeriod);
+        if (!closedPeriod) {
+            org.mockito.Mockito.doThrow(new IllegalStateException("ledger write failed"))
+                    .when(ledgerEntries).save(any());
+        }
+        PostingService posting = new PostingService(journalStore, ledgerEntries,
+                mock(LedgerService.class), new ClosingLockValidationFilter(periodStatus));
+        JournalEntryService journal = new JournalEntryService(journalStore,
+                mock(JournalRuleEngine.class), posting,
+                new JournalValidationEngine(List.of(new BalanceValidationFilter())));
+        LoanPersistencePort persistence = mock(LoanPersistencePort.class);
+        LoanReferenceDataPort references = mock(LoanReferenceDataPort.class);
+        LoanAccountingProperties properties = new LoanAccountingProperties();
+        properties.setCashAccountCode("101900");
+        properties.setLoanReceivableAccountCode("131900");
+        properties.setJournalApproverActor("service:loan-checker");
+        LoanService loanService = new LoanService(persistence, mock(EIRCalculator.class),
+                references, properties, new LoanJournalAdapter(journal, properties));
+        Loan loan = Loan.create("LN-FAIL-001", 100L, "KRW", Loan.LoanType.TERM_LOAN,
+                new BigDecimal("2500000.00"), new BigDecimal("0.0450"), date,
+                LocalDate.of(2027, 5, 18), Loan.PaymentFrequency.MONTHLY, "loan-maker");
+        loan.setId(7L);
+        when(persistence.findLoanForUpdate(7L)).thenReturn(Optional.of(loan));
+        when(references.requireAccount("101900", date)).thenReturn(new AccountReference("101900", "Cash"));
+        when(references.requireAccount("131900", date))
+                .thenReturn(new AccountReference("131900", "Loan receivable"));
+
+        assertThatThrownBy(() -> loanService.disburseLoan(7L, date,
+                new BigDecimal("2500000.00"), "loan-maker"))
+                .isInstanceOf(RuntimeException.class);
+        verify(persistence, never()).saveLoan(any());
+        verify(persistence, never()).saveDisbursal(any());
+        if (closedPeriod) {
+            verify(ledgerEntries, never()).save(any());
+        }
+    }
+
+    @Test
     void loanDisbursementFlowsThroughLoanJournalAdapterToLedgerPosting() {
         InMemoryJournalPersistencePort journalStore = new InMemoryJournalPersistencePort();
         LedgerEntryPersistencePort ledgerEntryPersistencePort = mock(LedgerEntryPersistencePort.class);
@@ -60,13 +114,14 @@ class LoanJournalPostingFlowTest {
         LoanAccountingProperties properties = new LoanAccountingProperties();
         properties.setCashAccountCode("101900");
         properties.setLoanReceivableAccountCode("131900");
+        properties.setJournalApproverActor("service:loan-checker");
 
         LoanService loanService = new LoanService(
                 persistencePort,
                 mock(EIRCalculator.class),
                 referenceDataPort,
                 properties,
-                new LoanJournalAdapter(journalUseCase));
+                new LoanJournalAdapter(journalUseCase, properties));
 
         LocalDate disbursalDate = LocalDate.of(2026, 5, 18);
         when(periodStatusPort.isClosed(disbursalDate)).thenReturn(false);
@@ -102,6 +157,8 @@ class LoanJournalPostingFlowTest {
         assertThat(postedEntry.getSlipDate()).isEqualTo(disbursalDate);
         assertThat(postedEntry.getAccountingDate()).isEqualTo(disbursalDate);
         assertThat(postedEntry.getLineageSourceType()).isEqualTo("LOAN_DISBURSAL");
+        assertThat(postedEntry.getCreatedBy()).isEqualTo("loan-e2e");
+        assertThat(postedEntry.getApprovedBy()).isEqualTo("service:loan-checker");
         assertThat(disbursal.getJournalEntrySlipNo()).isEqualTo(postedEntry.getSlipNo());
         verify(periodStatusPort).isClosed(disbursalDate);
         verifyNoMoreInteractions(periodStatusPort);

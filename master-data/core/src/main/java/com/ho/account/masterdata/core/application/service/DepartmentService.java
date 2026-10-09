@@ -30,6 +30,7 @@ public class DepartmentService implements DepartmentUseCase {
     @Transactional
     public Department createDepartment(DepartmentCommand command) {
         businessKeyLockPort.lock(MasterDataType.DEPARTMENT, command.code());
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
         if (departmentPersistencePort.existsByCode(command.code())) {
             throw new MasterDataVersionConflictException("이미 이력이 존재하는 부서 코드입니다: " + command.code());
         }

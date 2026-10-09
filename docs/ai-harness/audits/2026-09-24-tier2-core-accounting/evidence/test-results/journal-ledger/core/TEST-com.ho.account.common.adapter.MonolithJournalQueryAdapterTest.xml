@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.common.adapter.MonolithJournalQueryAdapterTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:21" hostname="ho-To-Be-Filled-By-O-E-M" time="0.277">
+  <properties/>
+  <testcase name="journalDetailUsesAccountingDateForHistoricalAccountCategory()" classname="com.ho.account.common.adapter.MonolithJournalQueryAdapterTest" time="0.271"/>
+  <testcase name="getJournalDetailAggregateUsesRepositorySummary()" classname="com.ho.account.common.adapter.MonolithJournalQueryAdapterTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

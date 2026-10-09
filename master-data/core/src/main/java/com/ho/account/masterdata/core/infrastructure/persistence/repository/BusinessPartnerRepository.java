@@ -105,7 +105,7 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             @Param("businessPartnerCode") String businessPartnerCode,
             @Param("date") LocalDate date);
 
-    // CREATE는 종료/미래/비활성 이력이 있는 업무 키도 재사용하지 않습니다.
+    /** Checks the business key across all SCD2 rows without loading accounts or filtering by date/useYn. */
     boolean existsByBusinessPartnerCode(String businessPartnerCode);
 
     @EntityGraph(attributePaths = "accounts")

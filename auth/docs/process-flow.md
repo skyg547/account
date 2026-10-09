@@ -8,10 +8,23 @@
 | `POST` | `/api/auth/validate-token-version` | 버전과 현재 계정/유효 역할 상태를 확인합니다. |
 | `POST` | `/api/auth/internal/users/{username}/role-assignments` | Governance 승인 결과로 사용자 역할 목록을 멱등 교체합니다. |
 | `GET` | `/api/admin/users` | 프런트엔드 관리 화면용 사용자 목록을 username 순서로 조회합니다. |
+| `POST/GET` | `/api/auth/pat` | 인증된 사용자의 PAT 생성·목록 조회. |
+| `DELETE` | `/api/auth/pat/{id}` | 인증된 소유자의 PAT 폐기. |
+| `GET/DELETE` | `/api/auth/admin/pat[/{id}]` | 현재 시스템 관리자만 전체 목록 조회·강제 폐기. |
+
+## PAT 관리 권한 흐름
+
+모든 PAT 경로는 로그인에서 발급한 `Authorization: Bearer <JWT>`를 요구합니다. Auth는 JWT의 서명·issuer·만료와 역할 버전을 확인한 다음, JWT subject와 정확히 같은 키의 현재 `AuthUser`를 조회합니다. 활성·잠금·유효 역할 상태도 현재 계정에서 검사합니다. 일반 경로는 이 정식 username의 PAT만 처리하고, 관리자 경로는 현재 유효 역할에 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN`이 있는 경우만 허용합니다. JWT의 역할 문자열과 `X-Auth-*` 헤더, 요청 본문·쿼리의 `username`은 권한 근거가 아닙니다. 대소문자가 다른 username은 다른 사용자로 취급합니다.
+
+인증 정보가 없거나 유효하지 않으면 401, 검증된 일반 사용자가 관리자 경로를 호출하면 403입니다. 소유하지 않은 PAT의 일반 폐기는 내용을 드러내지 않는 404입니다. 생성된 원문 PAT는 생성 응답에서 한 번만 반환하고 저장소에는 해시만 남습니다. 성공한 생성·실제 상태 변경이 일어난 폐기는 동일 트랜잭션에서 행위자·소유자·토큰 ID·시각을 감사 이력으로 남깁니다. 반복 폐기는 새 감사 이벤트를 만들지 않습니다.
+
+현재 Gateway에는 PAT 라우트가 없습니다. 이 설명은 Auth 서비스에 직접 도달하는 요청의 보호 경계이며, Gateway 공개나 PAT를 다른 API 인증 수단으로 사용하는 기능을 뜻하지 않습니다.
 
 ## 관리자 사용자 목록 투영
 
-`GET /api/admin/users`는 Gateway가 JWT에서 다시 만든 신뢰 헤더 `X-Auth-Roles`에 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN`이 있을 때만 허용합니다. 헤더가 없거나 다른 역할뿐이면 저장소를 조회하지 않고 403으로 fail-closed합니다. 서비스는 역할 할당을 함께 읽고 하나의 요청 시각에서 유효 역할을 계산한 뒤 username 오름차순으로 반환합니다. 현재 Auth 스키마의 자연키는 username이며 숫자 ID, 별도 이름·이메일, 마지막 로그인 시각을 저장하지 않으므로 응답은 다음과 같은 제한된 표시용 투영입니다.
+`/api/admin/**` 수신 필터는 `Authorization: Bearer <JWT>` 하나를 요구하고 HS256 서명, issuer, 설정된 audience(`AUTH_JWT_AUDIENCE`, 기본값 `account-api`), 발급·만료 시각, 역할 형식, 현재 `roleVersion`을 확인합니다. Gateway가 전달한 `X-Auth-*`/`X-User-ID`가 있으면 JWT 신원과 정확히 일치해야 합니다. 없는 헤더는 JWT claim으로 대신하며, Controller는 검증된 claim 역할만 사용합니다. 원시 헤더만 있거나 위조·만료·불일치 토큰이면 use case 전에 401, 유효 토큰에 관리자 역할이 없으면 403입니다. `OPTIONS` preflight와 공개 `POST /api/auth/login`에는 이 관리자 필터가 적용되지 않습니다. 현재 Auth 스키마의 자연키는 username이며 숫자 ID, 별도 이름·이메일, 마지막 로그인 시각을 저장하지 않으므로 응답은 다음과 같은 제한된 표시용 투영입니다.
+
+관리자 경로 판별은 MVC가 라우팅 전에 제거하는 matrix parameter와 퍼센트 인코딩을 고려합니다. 예를 들어 `/api/admin;v=1/users`와 `/api/admin%3Bv=1/users`도 Bearer 검증을 거치며, 역할 헤더만 보낸 요청은 401이고 목록 조회에 도달하지 않습니다.
 
 - `id`: username의 SHA-256 앞 48비트에 1을 더한 표시용 값입니다. 목록 순서와 무관하게 안정적이고 JavaScript 안전 정수 범위 안이지만, 축약 해시라 충돌할 수 있으며 영속 식별자가 아닙니다.
 - `name`, `email`: 모두 username을 사용합니다.
@@ -135,4 +148,6 @@ AND 검증 시점의 유효 역할이 1개 이상
 
 ## Gateway와의 관계
 
-Gateway는 JWT 서명과 issuer를 검증하고 인증 헤더를 뒤쪽 서비스로 전달합니다. 역할 변경 직후 기존 JWT를 강하게 차단해야 하는 경로는 Auth token-version API를 호출하거나 동일 의미의 캐시 정책을 사용해야 합니다.
+Gateway는 JWT 서명·issuer·시간과 역할 버전을 검증하고 원시 신원 헤더를 제거한 뒤 검증된 헤더와 `Authorization`을 뒤쪽 서비스로 전달합니다. 현재 Gateway 검증기는 audience를 검사하지 않습니다. Auth 관리자 수신 필터는 JWT의 audience까지 독립 검증하고 `AuthUseCase.validateTokenVersion`으로 현재 역할 버전과 계정 상태를 확인합니다. 직접 호출도 동일하게 처리됩니다. 이 검사는 로컬 auth 사용자 저장소를 사용하며 Gateway의 별도 버전 검증 호출에 의존하지 않습니다.
+
+Auth 발급기의 `AUTH_JWT_AUDIENCE`와 Master Data 수신 검증기의 `AUTH_JWT_AUDIENCE`는 같은 값으로 설정합니다(기본값 `account-api`). 값이 다르면 Master Data의 보호된 요청은 401로 거부됩니다. Gateway에도 audience 검증을 추가할 경우 같은 값을 사용해야 합니다.

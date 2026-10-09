@@ -1,0 +1,29 @@
+{
+  "cluster": "reconciliation_assets",
+  "issues": [
+    {
+      "id": "RECONCILIATION_ASSETS_01",
+      "title": "[reconciliation] 반대 차대 전표가 은행 원천 거래와 매칭되어 누락 거래를 성공 처리",
+      "priority": "P1",
+      "module": "reconciliation",
+      "labels": ["module:reconciliation", "area:core", "type:financial", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "RECONCILIATION_ASSETS_01.md"
+    },
+    {
+      "id": "RECONCILIATION_ASSETS_02",
+      "title": "[asset-lease] 리스 재측정이 계약 조건만 변경하고 리스부채·사용권자산·상환표를 갱신하지 않음",
+      "priority": "P1",
+      "module": "asset-lease",
+      "labels": ["module:asset-lease", "area:core", "type:financial", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "RECONCILIATION_ASSETS_02.md"
+    },
+    {
+      "id": "RECONCILIATION_ASSETS_03",
+      "title": "[asset-lease] 사용권자산의 월 상각액 반올림 잔액을 마지막 회차에 상각하지 않음",
+      "priority": "P2",
+      "module": "asset-lease",
+      "labels": ["module:asset-lease", "area:core", "type:financial", "priority:p2", "agent-loop", "status:ready", "spec-driven"],
+      "file": "RECONCILIATION_ASSETS_03.md"
+    }
+  ]
+}

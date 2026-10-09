@@ -25,7 +25,7 @@ MAX_CONSECUTIVE_FAILURES = 2
 
 EFFORT_MAP = {
     "difficulty:very-high": "xhigh",
-    "difficulty:high": "high",
+    "difficulty:high": "xhigh",
     "difficulty:medium": "high",
     "difficulty:low": "high",
 }
@@ -42,6 +42,7 @@ def get_ready_issues(target_num=None):
     cmd = [
         "gh", "issue", "list",
         "--state", "open",
+        "--limit", "100",
         "--label", "status:ready",
         "--label", "agent-loop",
         "--json", "number,title,labels,body"
@@ -56,7 +57,11 @@ def get_ready_issues(target_num=None):
     if target_num:
         return [iss for iss in issues if iss["number"] == target_num]
 
-    # Priority sorting: p0 > p1 > p2, with dev server runtime/infra given top priority
+    # Priority sorting:
+    # 1. prio: p0 > p1 > p2
+    # 2. domain_tier: infra (0) > accounting (1: journal-ledger, closing) > foundation (2: auth, master-data) > other (3)
+    # 3. diff_tier: very-high (0) > high (1) > medium (2) > low (3)
+    # 4. num: issue number ascending
     def priority_key(iss):
         labels = [l['name'] for l in iss['labels']]
         prio = 3
@@ -64,13 +69,37 @@ def get_ready_issues(target_num=None):
         elif 'priority:p1' in labels: prio = 1
         elif 'priority:p2' in labels: prio = 2
 
+        diff_tier = 2
+        if 'difficulty:very-high' in labels: diff_tier = 0
+        elif 'difficulty:high' in labels: diff_tier = 1
+        elif 'difficulty:medium' in labels: diff_tier = 2
+        elif 'difficulty:low' in labels: diff_tier = 3
+
         title = iss.get('title', '').lower()
-        is_dev_runtime = any(kw in title for kw in [
+        num = iss.get('number', 999999)
+
+        is_frontend_auth = any(l in labels for l in ['module:frontend', 'module:auth']) or any(kw in title for kw in ['[frontend]', '[auth]', '프론트', '인증', '로그인', '권한'])
+
+        is_infra = any(kw in title for kw in [
             '[runtime]', '[dev]', '[infra]', '개발서버', '실기동', '컨테이너', 'compose'
         ]) or any(l in labels for l in ['module:infra', 'type:test'])
-        runtime_tier = 0 if is_dev_runtime else 1
 
-        return (prio, runtime_tier)
+        is_accounting = any(l in labels for l in ['module:journal-ledger', 'module:closing']) or any(kw in title for kw in ['[journal-ledger]', '[closing]', '회계', '결산', '원장'])
+
+        is_masterdata = any(l in labels for l in ['module:master-data']) or any(kw in title for kw in ['[master-data]', '기본정보', '기준정보'])
+
+        if is_frontend_auth:
+            domain_tier = 0
+        elif is_infra:
+            domain_tier = 1
+        elif is_accounting:
+            domain_tier = 2
+        elif is_masterdata:
+            domain_tier = 3
+        else:
+            domain_tier = 4
+
+        return (domain_tier, prio, diff_tier, num)
 
     filtered = []
     for iss in issues:
@@ -83,27 +112,35 @@ def get_ready_issues(target_num=None):
     filtered.sort(key=priority_key)
     return filtered
 
-def determine_model_and_effort(issue):
+def determine_model_and_effort(issue, forced_model=None):
     labels = [l['name'] for l in issue['labels']]
 
-    # Model tiering: default is gpt-5.6-sol. Escalate to gpt-6-astra for very-high or explicit astra label.
-    is_astra = (
-        'difficulty:very-high' in labels
-        or 'model:astra' in labels
-        or 'model:gpt-6-astra' in labels
-    )
-    model = "gpt-6-astra" if is_astra else "gpt-5.6-sol"
+    is_very_high = 'difficulty:very-high' in labels or 'model:astra' in labels or 'model:gpt-6-astra' in labels
+    is_high = 'difficulty:high' in labels
+    is_low_med = 'difficulty:low' in labels or 'difficulty:medium' in labels
 
-    effort = "high"
+    if forced_model:
+        model = forced_model
+    else:
+        # Tiered Model Policy:
+        # - 최상 (difficulty:very-high): astra xhigh (gpt-6-astra)
+        # - 상 (difficulty:high): sol 6 xhigh (gpt-6-sol)
+        # - 하~중 (difficulty:low/medium): sol 6 high (gpt-6-sol)
+        if is_very_high:
+            model = "gpt-6-astra"
+        elif is_high:
+            model = "gpt-6-sol"
+        elif is_low_med:
+            model = "gpt-6-sol"
+        else:
+            model = "gpt-6-sol"
+
+    effort = "xhigh" if (is_very_high or is_high) else "high"
     diff_label = "difficulty:standard"
     for l in labels:
         if l in EFFORT_MAP:
-            effort = EFFORT_MAP[l]
             diff_label = l
             break
-
-    if is_astra:
-        effort = "xhigh"
 
     return model, effort, diff_label
 
@@ -127,11 +164,11 @@ def block_issue(issue_num, reason):
     ]
     subprocess.run(comment_cmd, cwd=REPO_ROOT, capture_output=True, text=True)
 
-def run_issue(issue, dry_run=False):
+def run_issue(issue, forced_model=None, dry_run=False):
     num = issue["number"]
     title = issue["title"]
     body = issue.get("body", "") or ""
-    model, effort, diff_label = determine_model_and_effort(issue)
+    model, effort, diff_label = determine_model_and_effort(issue, forced_model=forced_model)
     modules, is_cross = extract_modules(issue)
 
     if is_cross:
@@ -140,7 +177,10 @@ def run_issue(issue, dry_run=False):
     elif modules:
         target_mod = modules[0]
         mod_summary = f"단일 모듈 작업 ({target_mod})"
-        scope_guide = f"- [모듈 스코프]: 단일 모듈 ({target_mod})\n- [허용 범위(Allowlist)]: {target_mod}/** (해당 모듈 디렉터리 내 헥사고날 수직 슬라이스 자유 수정/추가, 타 모듈 월경 금지)\n- [검증 명령]: ./gradlew :{target_mod}:test"
+        if target_mod == "frontend":
+            scope_guide = f"- [모듈 스코프]: 단일 모듈 (frontend)\n- [허용 범위(Allowlist)]: frontend/** (해당 모듈 내 지정 파일만 수정, 타 모듈 월경 금지)\n- [검증 명령]: cd frontend && npx --no-install tsc --noEmit && npm run lint -- --quiet"
+        else:
+            scope_guide = f"- [모듈 스코프]: 단일 모듈 ({target_mod})\n- [허용 범위(Allowlist)]: {target_mod}/** (해당 모듈 디렉터리 내 헥사고날 수직 슬라이스 자유 수정/추가, 타 모듈 월경 금지)\n- [검증 명령]: ./gradlew :{target_mod}:test"
     else:
         mod_summary = "일반 작업"
         scope_guide = "- [모듈 스코프]: 이슈 본문에 명시된 대상 파일 Allowlist 준수"
@@ -201,6 +241,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Inspect and route candidate issues without invoking Codex")
     parser.add_argument("--list", action="store_true", help="List ready issues and assigned model tiers")
     parser.add_argument("--issue", type=int, help="Run a specific issue number")
+    parser.add_argument("--model", type=str, default=None, help="Force specific model for execution (e.g. gpt-5.6-sol)")
     args = parser.parse_args()
 
     log("Codex Continuous Issue Runner (Harness v2) Started.")
@@ -212,7 +253,7 @@ def main():
     if args.list:
         log(f"Listing {len(issues)} ready issues:")
         for iss in issues:
-            model, effort, diff = determine_model_and_effort(iss)
+            model, effort, diff = determine_model_and_effort(iss, forced_model=args.model)
             print(f"  #{iss['number']}: {iss['title']} -> Model: {model} (effort: {effort}, {diff})")
         return
 
@@ -221,7 +262,7 @@ def main():
 
     for iss in issues:
         num = iss["number"]
-        status = run_issue(iss, dry_run=args.dry_run)
+        status = run_issue(iss, forced_model=args.model, dry_run=args.dry_run)
 
         if status == "RATE_LIMIT":
             log("Rate limit / Usage limit reached. Terminating runner immediately to preserve resources.")
@@ -236,6 +277,11 @@ def main():
 
         if not args.dry_run:
             time.sleep(5)
+
+        stop_file = os.path.join(REPO_ROOT, ".codex-stop")
+        if os.path.exists(stop_file):
+            log(f"Stop flag detected ({stop_file}). Stopping runner after completion.")
+            break
 
 if __name__ == "__main__":
     main()

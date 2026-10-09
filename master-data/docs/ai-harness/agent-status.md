@@ -1,47 +1,11 @@
-# GH-753 agent status
+# Master Data Agent Status
 
-- Issue: https://github.com/skyg547/account/issues/753
-- Branch: `agent/753-scd2-business-key`
-- Worktree: `/tmp/account-753-scd2-business-key`
-- Base: `b06e7de3a2e26c1e14a15d73486c02fa7216e8b8` (`origin/main`)
-- Scope: `master-data/**` only. The user prohibits shared harness edits, so the parent keeps these three module-local records instead.
-- Model requested for implementation/review: gpt-6-astra, xhigh.
-- State: module implementation verified; independent review HOLD for migration-runner H2 compatibility. Draft publication only; not integration-ready or complete.
+## 2026-10-01 — Issue #754 / Draft PR #821
 
-## Ownership
-
-Parent Integrator owns Git/GitHub, module documentation and these records. Service, SQL and Test roles have disjoint files; a separate read-only reviewer checks the frozen result. No other modules or shared contracts are editable.
-
-Exact parent implementation allowlist:
-
-- `master-data/build.gradle`
-- `master-data/api/build.gradle`
-- `master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataExceptionHandler.java`
-- `master-data/api/src/main/resources/application-local.yaml`
-- `master-data/batch/src/main/resources/application-local.yaml`
-- `master-data/api/src/test/java/com/ho/account/masterdata/MasterDataPostgresqlSchemaContextTest.java`
-- `master-data/batch/src/test/java/com/ho/account/masterdata/batch/MasterDataBatchPostgresqlSchemaContextTest.java`
-- `master-data/core/src/test/java/com/ho/account/masterdata/core/infrastructure/persistence/BusinessPartnerHistoricalActiveIntegrationTest.java` (implicit H2 Flyway target8)
-- `master-data/README.md`
-- `master-data/docs/README.md`
-- `master-data/docs/process-flow.md`
-- `master-data/docs/schema.md`
-- `master-data/docs/local-run.md`
-- `master-data/docs/beginner-guide.md` (review follow-up: directly affected SCD2 paragraphs only)
-- `master-data/docs/ai-harness/agent-status.md`
-- `master-data/docs/ai-harness/worklog.md`
-- `master-data/docs/ai-harness/handoff.md`
-
-Service owns the five mutation services, four typed appliers, new business-key lock port, BP/Product scalar-key persistence port additions, conflict-aware termination policy, and three existing core service test classes. SQL owns the lock adapter/entity, five affected persistence adapters, four supported type repositories, and V8/V9 forward SQL migrations. Test owns the new PostgreSQL acceptance test and existing change-request controller test. Exact paths were assigned in each delegation before edits; the final changed-file inventory is recorded in handoff.
-
-Publication authority: user-authorized branch push and Draft PR with `Refs #753`. Parent alone publishes. Ready, merge, Issue closure and resource deletion remain separate gates.
-
-## Verified checkpoint
-
-602 module tests PASS (core454/API143/Batch5; PostgreSQL75 included), failure/error/skip0. API/Batch bootJars and V8/V9 resource packaging verified. Separate runner compatibility2/2 FAIL on V9 PostgreSQL syntax in existing H2 fixtures. Source/build/test40 hashes unchanged.
-
-The parent requested a one-file scope exception for `migration-runner/src/test/java/com/ho/account/migration/MigrationExecutorH2Test.java`; no exception is assumed without a reply. A test-only V1–V8 H2 fixture patch is prepared outside the repository and independently reviewed. Until explicitly approved, the original module-only scope remains in force and the Draft carries this blocker.
-
-## Draft publication
-
-Draft PR: https://github.com/skyg547/account/pull/820 (`Refs #753`), published implementation commit `2f4a3bbc`. The Issue remains open with integration blocked by the existing runner H2 fixtures; no scope exception has been applied. Ready/merge/close remain unperformed.
+- State: `status:needs-review` handoff. Branch `agent/754-future-create-intervals`; worktree `/tmp/account-754-future-create-intervals`; base `origin/main@b06e7de3a2e26c1e14a15d73486c02fa7216e8b8`.
+- Scope: `master-data/**` only. Four direct CREATE services, Department JPA adapter, BusinessPartner repository, targeted core/API/JPA tests, and module feature documentation. No shared harness file, other module, schema, or production data changed.
+- Result: duplicate CREATE on any reused business key is rejected before a second save, including future and historical rows; direct and approved conflicts use HTTP 409. Approved CREATE history-count checks remain. New keys can be created; expired-only and future-only keys cannot currently be reactivated by CREATE or UPDATE.
+- Verification: core 470 + API 72 + Batch 5 = 547 tests PASS, zero failures/errors/skips; `./gradlew :master-data:test` is NO-SOURCE. Independent read-only review found no blocking issue and judged Q1–Q4 PASS.
+- Draft PR: https://github.com/skyg547/account/pull/821 (`Refs #754`); implementation commit `19b7ade5`.
+- Remote CI on head `56598909` did not start any steps: Module Validation, Harness Validation, and Agent Merge Guard failed at GitHub billing/spending-limit admission. Local equivalents passed (harness schema, Python 22, Node PR 32, merge-guard 89); remote CI must rerun after the repository owner resolves billing.
+- Residual gate: PostgreSQL and concurrent writer constraints remain in F07/#753, Draft PR #820. Human review handles any overlapping-file rebase, current-head CI, Ready/merge, and Issue closure.
