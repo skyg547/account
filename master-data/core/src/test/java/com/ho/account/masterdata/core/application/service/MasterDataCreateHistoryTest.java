@@ -16,6 +16,7 @@ import com.ho.account.masterdata.core.application.command.ProductCommand;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
@@ -71,7 +72,7 @@ class MasterDataCreateHistoryTest {
             rows.add(row);
             return row;
         });
-        AccountSubjectService service = new AccountSubjectService(port);
+        AccountSubjectService service = new AccountSubjectService(port, mock(MasterDataBusinessKeyLockPort.class));
 
         AccountSubject first = service.createAccountSubject(accountCommand(window.firstFromDate(), window.firstToDate()));
         assertThatThrownBy(() -> service.createAccountSubject(
@@ -96,7 +97,7 @@ class MasterDataCreateHistoryTest {
             rows.add(row);
             return row;
         });
-        DepartmentService service = new DepartmentService(port);
+        DepartmentService service = new DepartmentService(port, mock(MasterDataBusinessKeyLockPort.class));
 
         Department first = service.createDepartment(departmentCommand(window.firstFromDate(), window.firstToDate()));
         assertThatThrownBy(() -> service.createDepartment(
@@ -121,7 +122,7 @@ class MasterDataCreateHistoryTest {
             rows.add(row);
             return row;
         });
-        ProductService service = new ProductService(port);
+        ProductService service = new ProductService(port, mock(MasterDataBusinessKeyLockPort.class));
 
         Product first = service.createProduct(productCommand(window.firstFromDate(), window.firstToDate()));
         assertThatThrownBy(() -> service.createProduct(
@@ -144,7 +145,7 @@ class MasterDataCreateHistoryTest {
             rows.add(row);
             return row;
         });
-        BusinessPartnerService service = new BusinessPartnerService(port);
+        BusinessPartnerService service = new BusinessPartnerService(port, mock(MasterDataBusinessKeyLockPort.class));
 
         BusinessPartner first = service.createBusinessPartner(partnerCommand(window.firstFromDate(), window.firstToDate()));
         assertThatThrownBy(() -> service.createBusinessPartner(
@@ -166,7 +167,7 @@ class MasterDataCreateHistoryTest {
         when(applier.targetType()).thenReturn(type);
         when(versions.countPersistedVersions(type, CODE)).thenReturn(1L);
         MasterDataChangeRequestService service = new MasterDataChangeRequestService(
-                requests, versions, List.of(applier));
+                requests, versions, List.of(applier), mock(MasterDataBusinessKeyLockPort.class));
         MasterDataChangeRequestCommand command = new MasterDataChangeRequestCommand(
                 type, CODE, ChangeType.CREATE, TODAY.plusDays(21), 1,
                 "requester", "new key", "{}", null);

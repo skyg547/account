@@ -125,6 +125,8 @@ prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외�
 회계기간 상태 변경은 Closing 승인/gate를 우회하는 raw endpoint로 제공하지 않습니다.
 
 **연동 주의사항:**
+- 계정과목 이름만 수정할 때는 관리자 권한의 `PUT /api/basic/account-subjects/{code}`에 `{"name":"새 이름"}`을 보냅니다. 생략한 업무 필드(비영업 `accountType`, `regulatoryMappingCode`, category, 정산·고정자산 플래그 등)는 현재 버전에서 새 SCD2 버전으로 이어집니다. `unsettled`/`fixedAsset`를 명시적으로 `false`로 보내면 그 값으로 변경합니다.
+- `accountType` 또는 `regulatoryMappingCode`의 의도적인 변경과 매핑 해제는 승인 UPDATE 요청의 `payloadJson`에 각각 값을 넣거나 `"clearRegulatoryMappingCode":true`를 넣어 처리합니다. 승인 요청에는 이름과 시행일을 포함하고 요청자·승인자·사유·원문 payload·반영 시각이 변경 요청에 남습니다. 직접 PUT에서 이 세 필드를 보내면 HTTP 400으로 거부합니다. 분류 유형과 category가 맞지 않거나 매핑 값과 해제 플래그를 동시에 지정하면 접수·승인 전에 거부합니다. 명시적 `null`은 생략으로 취급하지 않고 거부하며, CREATE에서 매핑 해제 플래그도 거부합니다.
 - 다른 모듈에서 마스터 데이터를 조회할 때는 반드시 `contracts`의 `MasterDataQueryPort`를 사용하세요.
 - SCD2 수정은 이전 버전에 `closeVersion()`을 호출하고 새 버전을 저장합니다. 업무상 비활성화에만 `terminate()`를 사용합니다.
 - 계정과목·부서·상품·거래처의 `CREATE`는 신규 업무 키에만 사용합니다. 오늘 활성 행이 없어도 미래 예약 또는 종료된 이력이 하나라도 있으면 같은 키의 직접 생성과 승인 반영을 HTTP 409 충돌로 거부합니다. 날짜가 서로 닿거나 완전히 떨어져 있어도 키 재생성은 허용하지 않습니다. 현재 활성 버전이 있는 키의 변경은 SCD2 `UPDATE`를 사용하며, 종료 이력만 있거나 미래 버전만 있는 키의 재활성화는 현재 지원하지 않습니다.

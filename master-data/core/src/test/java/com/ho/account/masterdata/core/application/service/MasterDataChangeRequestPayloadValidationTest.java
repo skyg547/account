@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -37,6 +38,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.domain.exception.MasterDataIdempotencyConflictException;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.AccountSubject.AccountType;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.domain.model.Product;
@@ -53,6 +55,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentCaptor;
 
 class MasterDataChangeRequestPayloadValidationTest {
 
@@ -137,6 +140,176 @@ class MasterDataChangeRequestPayloadValidationTest {
         verifyNoInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = ChangeType.class, names = {"CREATE", "UPDATE"})
+    void rejectsInconsistentAccountCategoryAndTypeBeforeSavingRequest(ChangeType change) {
+        String payload = "{\"name\":\"Mismatch\",\"category\":\"ASSETS\","
+                + "\"accountType\":\"NON_OPERATING_INCOME\"}";
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, change);
+
+        assertThatThrownBy(() -> service.requestChange(
+                requestCommand(MasterDataType.ACCOUNT_SUBJECT, change, payload, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(persistence, never()).save(any());
+        verifyClassificationLookup(change, 1);
+        verifyNoInteractions(departments, products);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ChangeType.class, names = {"CREATE", "UPDATE"})
+    void rejectsPreviouslyStoredInconsistentAccountPayloadBeforeApproval(ChangeType change) {
+        String payload = "{\"name\":\"Mismatch\",\"category\":\"ASSETS\","
+                + "\"accountType\":\"NON_OPERATING_INCOME\"}";
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, change);
+        MasterDataChangeRequest request = pendingRequest(MasterDataType.ACCOUNT_SUBJECT,
+                change, payload, null);
+        when(persistence.findById(668L)).thenReturn(Optional.of(request));
+        when(persistence.findByIdForUpdate(668L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.approve(668L, "approver"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(request.getStatus()).isEqualTo(ChangeStatus.REQUESTED);
+        assertThat(request.getApprovedBy()).isNull();
+        assertThat(request.getApprovedAt()).isNull();
+        assertThat(request.getAppliedAt()).isNull();
+        assertThat(request.getPayloadJson()).isEqualTo(payload);
+        verify(persistence, never()).save(any());
+        verifyClassificationLookup(change, 1);
+        verifyNoInteractions(departments, products);
+    }
+
+    @Test
+    void rejectsAccountCreationThatAttemptsToClearMappingBeforeSavingRequest() {
+        String payload = "{\"name\":\"New account\",\"clearRegulatoryMappingCode\":true}";
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, ChangeType.CREATE);
+
+        assertThatThrownBy(() -> service.requestChange(requestCommand(
+                MasterDataType.ACCOUNT_SUBJECT, ChangeType.CREATE, payload, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(persistence, never()).save(any());
+        verifyNoInteractions(accounts, departments, products);
+    }
+
+    @Test
+    void rejectsStoredAccountCreationMappingClearBeforeApproval() {
+        String payload = "{\"name\":\"New account\",\"clearRegulatoryMappingCode\":true}";
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, ChangeType.CREATE);
+        MasterDataChangeRequest request = pendingRequest(MasterDataType.ACCOUNT_SUBJECT,
+                ChangeType.CREATE, payload, null);
+        when(persistence.findById(668L)).thenReturn(Optional.of(request));
+        when(persistence.findByIdForUpdate(668L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.approve(668L, "approver"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(request.getStatus()).isEqualTo(ChangeStatus.REQUESTED);
+        assertThat(request.getApprovedBy()).isNull();
+        assertThat(request.getApprovedAt()).isNull();
+        assertThat(request.getAppliedAt()).isNull();
+        assertThat(request.getPayloadJson()).isEqualTo(payload);
+        verify(persistence, never()).save(any());
+        verifyNoInteractions(accounts, departments, products);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unresolvableAccountClassifications")
+    void rejectsUnresolvableClassificationBeforeSavingRequest(ClassificationPayload input) {
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, input.change());
+
+        assertThatThrownBy(() -> service.requestChange(requestCommand(
+                MasterDataType.ACCOUNT_SUBJECT, input.change(), input.json(), null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(persistence, never()).save(any());
+        verifyClassificationLookup(input.change(), 1);
+        verifyNoInteractions(departments, products);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unresolvableAccountClassifications")
+    void rejectsStoredUnresolvableClassificationBeforeApproval(ClassificationPayload input) {
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, input.change());
+        MasterDataChangeRequest request = pendingRequest(MasterDataType.ACCOUNT_SUBJECT,
+                input.change(), input.json(), null);
+        when(persistence.findById(668L)).thenReturn(Optional.of(request));
+        when(persistence.findByIdForUpdate(668L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.approve(668L, "approver"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(request.getStatus()).isEqualTo(ChangeStatus.REQUESTED);
+        assertThat(request.getApprovedBy()).isNull();
+        assertThat(request.getApprovedAt()).isNull();
+        assertThat(request.getAppliedAt()).isNull();
+        assertThat(request.getPayloadJson()).isEqualTo(input.json());
+        verify(persistence, never()).save(any());
+        verifyClassificationLookup(input.change(), 1);
+        verifyNoInteractions(departments, products);
+    }
+
+    private static Stream<ClassificationPayload> unresolvableAccountClassifications() {
+        return Stream.of(
+                new ClassificationPayload(ChangeType.CREATE,
+                        "{\"name\":\"New account\",\"accountType\":\"NON_OPERATING_INCOME\"}"),
+                new ClassificationPayload(ChangeType.UPDATE,
+                        "{\"name\":\"Type only\",\"accountType\":\"NON_OPERATING_INCOME\"}"),
+                new ClassificationPayload(ChangeType.UPDATE,
+                        "{\"name\":\"Category only\",\"category\":\"REVENUE\"}"));
+    }
+
+    private record ClassificationPayload(ChangeType change, String json) {
+        @Override
+        public String toString() {
+            return change + " / " + json;
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("explicitNullClassificationPayloads")
+    void rejectsExplicitNullClassificationAtRequest(String payload) {
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE);
+
+        assertThatThrownBy(() -> service.requestChange(requestCommand(
+                MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE, payload, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(persistence, never()).save(any());
+        verifyNoInteractions(departments, products);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("explicitNullClassificationPayloads")
+    void rejectsStoredExplicitNullClassificationBeforeApproval(String payload) {
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE);
+        MasterDataChangeRequest request = pendingRequest(MasterDataType.ACCOUNT_SUBJECT,
+                ChangeType.UPDATE, payload, null);
+        when(persistence.findById(668L)).thenReturn(Optional.of(request));
+        when(persistence.findByIdForUpdate(668L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.approve(668L, "approver"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(request.getStatus()).isEqualTo(ChangeStatus.REQUESTED);
+        assertThat(request.getRequestedBy()).isEqualTo("requester");
+        assertThat(request.getRequestedAt()).isEqualTo(REQUESTED_AT);
+        assertThat(request.getApprovedBy()).isNull();
+        assertThat(request.getApprovedAt()).isNull();
+        assertThat(request.getAppliedAt()).isNull();
+        assertThat(request.getReason()).isEqualTo("payload validation");
+        assertThat(request.getPayloadJson()).isEqualTo(payload);
+        verify(persistence, never()).save(any());
+        verifyNoInteractions(departments, products);
+    }
+
+    private static Stream<String> explicitNullClassificationPayloads() {
+        return Stream.of(
+                "{\"name\":\"Explicit null\",\"accountType\":null}",
+                "{\"name\":\"Explicit null\",\"regulatoryMappingCode\":null}");
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("validPayloads")
     void acceptsThenApprovesValidPayloadWithoutBusinessCalls(ValidPayload input) {
@@ -159,7 +332,8 @@ class MasterDataChangeRequestPayloadValidationTest {
         assertThat(approved.getStatus()).isEqualTo(ChangeStatus.APPROVED);
         assertThat(approved.getApprovedBy()).isEqualTo("approver");
         assertThat(approved.getApprovedAt()).isNotNull();
-        verifyNoInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
+        verifyOnlyValidationRead(input.type(), input.change(), 2);
+        verifyNoInteractions(departments, products, accountRows, departmentRows, partnerRows, productRows);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -172,7 +346,8 @@ class MasterDataChangeRequestPayloadValidationTest {
         when(persistence.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.approve(668L, "approver");
-        verifyNoInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
+        verifyOnlyValidationRead(input.type(), input.change(), 1);
+        verifyNoInteractions(departments, products, accountRows, departmentRows, partnerRows, productRows);
         stubCurrentLookupForApply(input.type(), input.change());
 
         MasterDataChangeRequest applied = service.applyApprovedChange(668L);
@@ -210,6 +385,81 @@ class MasterDataChangeRequestPayloadValidationTest {
             default -> throw new IllegalArgumentException("Unexpected test type");
         }
         verifyNoMoreInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = AccountType.class, names = {"NON_OPERATING_INCOME", "NON_OPERATING_EXPENSES"})
+    void approvedNameOnlyAccountUpdateKeepsClassificationUnspecifiedAndPreservesAudit(AccountType originalType) {
+        String payload = "{\"name\":\"Renamed\"}";
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE);
+        stubCurrentLookupForApply(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE);
+        when(persistence.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        MasterDataChangeRequest request = pendingRequest(MasterDataType.ACCOUNT_SUBJECT,
+                ChangeType.UPDATE, payload, "account-755-" + originalType);
+        when(persistence.findById(668L)).thenReturn(Optional.of(request));
+        when(persistence.findByIdForUpdate(668L)).thenReturn(Optional.of(request));
+
+        assertThat(request.getStatus()).isEqualTo(ChangeStatus.REQUESTED);
+        service.approve(668L, "reviewer");
+        verifyClassificationLookup(ChangeType.UPDATE, 1);
+        MasterDataChangeRequest applied = service.applyApprovedChange(668L);
+
+        ArgumentCaptor<AccountSubjectCommand> command = ArgumentCaptor.forClass(AccountSubjectCommand.class);
+        verify(accounts).updateAccountSubject(org.mockito.ArgumentMatchers.eq(TARGET_KEY), command.capture());
+        assertThat(command.getValue().accountType()).isNull();
+        assertThat(command.getValue().regulatoryMappingCode()).isNull();
+        assertThat(command.getValue().clearRegulatoryMappingCode()).isFalse();
+        assertThat(command.getValue().unsettled()).isNull();
+        assertThat(command.getValue().fixedAsset()).isNull();
+        assertThat(applied.getRequestedBy()).isEqualTo("requester");
+        assertThat(applied.getApprovedBy()).isEqualTo("reviewer");
+        assertThat(applied.getReason()).isEqualTo("payload validation");
+        assertThat(applied.getPayloadJson()).isEqualTo(payload);
+        assertThat(applied.getAppliedAt()).isNotNull();
+        assertThat(applied.getStatus()).isEqualTo(ChangeStatus.APPLIED);
+    }
+
+    @Test
+    void approvedAccountUpdateCarriesExplicitClassificationAndMappingChanges() {
+        String payload = "{\"name\":\"Reclassified\",\"category\":\"EXPENSES\","
+                + "\"accountType\":\"NON_OPERATING_EXPENSES\","
+                + "\"regulatoryMappingCode\":\"REG-NEW\",\"unsettled\":false,\"fixedAsset\":true}";
+        AccountSubjectCommand command = applyApprovedAccountPayload(payload);
+        assertThat(command.accountType()).isEqualTo(AccountType.NON_OPERATING_EXPENSES);
+        assertThat(command.regulatoryMappingCode()).isEqualTo("REG-NEW");
+        assertThat(command.clearRegulatoryMappingCode()).isFalse();
+        assertThat(command.unsettled()).isFalse();
+        assertThat(command.fixedAsset()).isTrue();
+    }
+
+    @Test
+    void approvedAccountUpdateCarriesExplicitMappingClear() {
+        AccountSubjectCommand command = applyApprovedAccountPayload(
+                "{\"name\":\"Cleared\",\"clearRegulatoryMappingCode\":true}");
+        assertThat(command.accountType()).isNull();
+        assertThat(command.regulatoryMappingCode()).isNull();
+        assertThat(command.clearRegulatoryMappingCode()).isTrue();
+    }
+
+    private AccountSubjectCommand applyApprovedAccountPayload(String payload) {
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE);
+        stubCurrentLookupForApply(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE);
+        when(persistence.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        MasterDataChangeRequest request = pendingRequest(MasterDataType.ACCOUNT_SUBJECT,
+                ChangeType.UPDATE, payload, null);
+        when(persistence.findById(668L)).thenReturn(Optional.of(request));
+        when(persistence.findByIdForUpdate(668L)).thenReturn(Optional.of(request));
+        service.approve(668L, "reviewer");
+        service.applyApprovedChange(668L);
+        ArgumentCaptor<AccountSubjectCommand> command = ArgumentCaptor.forClass(AccountSubjectCommand.class);
+        verify(accounts).updateAccountSubject(org.mockito.ArgumentMatchers.eq(TARGET_KEY), command.capture());
+        assertThat(request.getStatus()).isEqualTo(ChangeStatus.APPLIED);
+        assertThat(request.getRequestedBy()).isEqualTo("requester");
+        assertThat(request.getApprovedBy()).isEqualTo("reviewer");
+        assertThat(request.getReason()).isEqualTo("payload validation");
+        assertThat(request.getPayloadJson()).isEqualTo(payload);
+        assertThat(request.getAppliedAt()).isNotNull();
+        return command.getValue();
     }
 
     @ParameterizedTest
@@ -332,7 +582,8 @@ class MasterDataChangeRequestPayloadValidationTest {
                             + "\"balanceType\":\"CREDIT\",\"reportLine\":\"REPORT\",\"unsettled\":true,\"fixedAsset\":true,"
                             + "\"validFrom\":\"2020-01-01\",\"validTo\":\"2027-12-31\"}",
                     new AccountSubjectCommand(TARGET_KEY, "account", "PARENT", AccountSubject.AccountCategory.LIABILITIES,
-                            AccountSubject.BalanceType.CREDIT, "REPORT", true, true, EFFECTIVE_DATE, LocalDate.of(2027, 12, 31))));
+                            AccountSubject.BalanceType.CREDIT, "REPORT", true, true, EFFECTIVE_DATE, LocalDate.of(2027, 12, 31),
+                            null, null, false)));
             cases.add(new ValidPayload(MasterDataType.DEPARTMENT, change, "all fields",
                     "{\"code\":\"MD-668\",\"name\":\"department\",\"parentCode\":\"PARENT\",\"type\":\"COST_CENTER\","
                             + "\"validFrom\":\"2020-01-01\",\"validTo\":\"2027-12-31\"}",
@@ -356,7 +607,8 @@ class MasterDataChangeRequestPayloadValidationTest {
     private static Object minimalExpectedCommand(MasterDataType type, String name, LocalDate validTo) {
         return switch (type) {
             case ACCOUNT_SUBJECT -> new AccountSubjectCommand(
-                    TARGET_KEY, name, null, null, null, null, false, false, EFFECTIVE_DATE, validTo);
+                    TARGET_KEY, name, null, null, null, null, null, null, EFFECTIVE_DATE, validTo,
+                    null, null, false);
             case DEPARTMENT -> new DepartmentCommand(TARGET_KEY, name, null, null, EFFECTIVE_DATE, validTo);
             case PRODUCT -> new ProductCommand(TARGET_KEY, name, null, null, null,
                     name == null ? null : Product.ProductType.SERVICE, EFFECTIVE_DATE, validTo);
@@ -471,6 +723,31 @@ class MasterDataChangeRequestPayloadValidationTest {
     private void stubValidVersion(MasterDataType type, ChangeType change) {
         // 잘못된 version stub 때문에 payload 검증 공백이 가려지지 않도록 정상 이력 수를 제공합니다.
         when(versions.countPersistedVersions(type, TARGET_KEY)).thenReturn(change == ChangeType.CREATE ? 0L : 1L);
+        if (type == MasterDataType.ACCOUNT_SUBJECT && change == ChangeType.UPDATE) {
+            AccountSubject current = new AccountSubject();
+            current.setCode(TARGET_KEY);
+            current.setCategory(AccountSubject.AccountCategory.LIABILITIES);
+            current.setAccountType(AccountType.LIABILITIES);
+            current.setBalanceType(AccountSubject.BalanceType.CREDIT);
+            when(accounts.findAccountSubjectByCode(TARGET_KEY)).thenReturn(Optional.of(current));
+        }
+    }
+
+    private void verifyClassificationLookup(ChangeType change, int expectedCount) {
+        if (change == ChangeType.UPDATE) {
+            verify(accounts, times(expectedCount)).findAccountSubjectByCode(TARGET_KEY);
+            verifyNoMoreInteractions(accounts);
+        } else {
+            verifyNoInteractions(accounts);
+        }
+    }
+
+    private void verifyOnlyValidationRead(MasterDataType type, ChangeType change, int expectedCount) {
+        if (type == MasterDataType.ACCOUNT_SUBJECT) {
+            verifyClassificationLookup(change, expectedCount);
+        } else {
+            verifyNoInteractions(accounts);
+        }
     }
 
     private static int requestedVersion(ChangeType change) {
