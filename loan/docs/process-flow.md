@@ -35,6 +35,10 @@ sequenceDiagram
 
 현재 모델은 원금과 같은 금액의 1회 실행만 허용합니다. 분할 실행이 필요하면 tranche aggregate, 미실행 잔액, 취소·역분개, 동시성 테스트를 먼저 설계해야 합니다.
 
+현재 계약 생성은 `paymentFrequency=MONTHLY`만 허용합니다. 예를 들어 `POST /api/loan/loans`에 `QUARTERLY`를 보내면 `paymentFrequency QUARTERLY is not supported; only MONTHLY is supported.` 오류와 HTTP 400을 반환합니다. 대출 저장과 원금 실행·전표 생성은 시작하지 않습니다. `DAILY`, `WEEKLY`, `BI_WEEKLY`, `SEMI_ANNUALLY`, `ANNUALLY`도 같은 방식으로 거부합니다. API 요청의 enum 값은 유지하지만 이 값들을 실제 상환 주기로 사용할 수는 없습니다.
+
+이미 저장된 `PENDING_DISBURSEMENT` 비월별 계약도 실행 시 같은 오류로 거부하며 원금 실행 전표를 보내거나 ACTIVE로 전환하지 않습니다.
+
 ## 이연 항목과 EIR
 
 1. 이연 유형 생성 시 유형의 계정 코드 또는 기본 계정 설정을 Master Data에서 검증합니다.
@@ -42,6 +46,10 @@ sequenceDiagram
 3. `EIRCalculator`가 현재 잔액과 포함 대상 현금흐름으로 소수 단위 연 EIR을 구합니다.
 4. 새 스케줄 전체를 먼저 계산합니다.
 5. 계산 성공 후에만 대상 기존 스케줄을 삭제하고 새 행을 저장합니다.
+
+월별 스케줄은 실행일 다음 달부터 만기일까지 생성하고 연 EIR을 12로 나눈 기간 이율을 적용합니다. 기존 DB에서 읽은 비월별 계약도 생성 경계에서 오류가 발생하므로 새 월별 현금흐름을 반환하거나 기존 스케줄을 교체하지 않습니다. 예를 들어 2026-01-01 실행·2026-04-01 만기인 `QUARTERLY` 계약에는 2월·3월 월별 상환을 만들지 않습니다. 기존에 이미 저장된 잘못된 스케줄을 자동 삭제하거나 과거 분개를 정정하지는 않으므로 해당 계약은 별도 대사가 필요합니다. 비월별 주기를 지원하려면 기간 이율, 마지막 단기 회차, 휴일과 day-count 정책을 먼저 확정해야 합니다.
+
+개발 검증: 저장소 루트에서 `./gradlew :loan:core:test :loan:api:test :loan:batch:test --offline --no-daemon --console=plain`을 실행합니다. 상위 `:loan:test`는 `NO-SOURCE`이므로 이 명령으로 실제 하위 프로젝트 테스트를 확인합니다. 월별 날짜·원금·이자와 비월별 거부는 `EIRAmortizationScheduleTest`, 교체/전표 차단은 `LoanServiceTest`, HTTP 400은 `LoanControllerTest`에서 확인합니다. 실제 고객 계약·외부 Journal·PostgreSQL의 스케줄/분개 대사는 별도 운영 검증 대상입니다.
 
 ## 이벤트 처리
 
