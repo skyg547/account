@@ -6,6 +6,8 @@ import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
@@ -302,6 +304,42 @@ public class AllowanceEclBatchIntegrationTest {
                 baseDate);
         assertThat(targetAllowanceAmount).isNotNull();
         assertThat(targetAllowanceAmount).isGreaterThan(BigDecimal.ZERO);
+    }
+
+    @ParameterizedTest(name = "scenario total {0} must fail before allowance finalization")
+    @ValueSource(strings = {"0.10", "0.30"})
+    @DisplayName("거시 시나리오 확률 합계가 1이 아니면 ECL과 summary를 확정하지 않는다")
+    void shouldFailBeforePersistingWeightedEclOrSummaryForInvalidScenarioTotal(String recessionWeight)
+            throws Exception {
+        // 기본 fixture의 BOOM 0.20 + BASE 0.60에 RECESSION을 바꾸어 합계 0.90/1.10을 만든다.
+        jdbcTemplate.update("UPDATE cr_macro_scenario SET probability_weight = ? WHERE scenario_type = 'RECESSION' AND apply_year = 2026",
+                new BigDecimal(recessionWeight));
+        String runId = "INVALID-SCENARIO-" + recessionWeight;
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addString("baseDate", "2026-04-15")
+                .addString("runId", runId)
+                .addString("modelVersion", "test-v1")
+                .addLong("time", System.currentTimeMillis())
+                .toJobParameters();
+
+        JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
+
+        assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jobExecution.getAllFailureExceptions()).isNotEmpty();
+        Integer finalizedResultCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM allowance_ecl_results
+                WHERE base_date = DATE '2026-04-15'
+                  AND (weighted_ecl IS NOT NULL OR status = 'COMPLETED')
+                """, Integer.class);
+        assertThat(finalizedResultCount).isZero();
+        Integer summaryCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_summary WHERE base_date = DATE '2026-04-15' AND run_id = ?",
+                Integer.class, runId);
+        assertThat(summaryCount).isZero();
+        List<String> executedSteps = jdbcTemplate.queryForList(
+                "SELECT STEP_NAME FROM BATCH_STEP_EXECUTION WHERE JOB_EXECUTION_ID = ?",
+                String.class, jobExecution.getId());
+        assertThat(executedSteps).doesNotContain("allowanceEclCompletionStep", "allowanceSummaryStep");
     }
 
     @Test
