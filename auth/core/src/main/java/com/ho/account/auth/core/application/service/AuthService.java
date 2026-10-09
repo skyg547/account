@@ -15,7 +15,9 @@ import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -117,7 +119,15 @@ public class AuthService implements AuthUseCase {
         }
 
         Instant authenticatedAt = clock.instant();
-        List<RoleAssignment> effectiveAssignments = user.effectiveRoleAssignmentsAt(authenticatedAt);
+        // A grant ending before one representable JWT second remains cannot be put into a
+        // usable signed snapshot. Keep longer-lived grants (such as USER) available instead.
+        List<RoleAssignment> effectiveAssignments = user.effectiveRoleAssignmentsAt(authenticatedAt).stream()
+                .filter(assignment -> assignment.validTo() == null
+                        || Duration.between(
+                                        authenticatedAt,
+                                        assignment.validTo().truncatedTo(ChronoUnit.SECONDS))
+                                .getSeconds() >= 1)
+                .toList();
         if (effectiveAssignments.isEmpty()) {
             loginAttemptPort.recordFailure(username, "NO_EFFECTIVE_ROLE");
             throw new UserAccessDeniedException("User has no approved effective roles");

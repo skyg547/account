@@ -8,10 +8,13 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -34,12 +37,26 @@ public class JwtTokenIssuer implements TokenIssuerPort {
         if (issuedAt == null) {
             throw new IllegalArgumentException("issuedAt is required.");
         }
-        long expirationSeconds = properties.getJwt().getExpirationSeconds();
-        Instant expiresAt = issuedAt.plusSeconds(expirationSeconds);
         List<RoleAssignment> assignments = subject.effectiveRoleAssignments();
         // A direct issuer call must not turn a legacy scoped grant into a flat gateway role.
         if (assignments.stream().anyMatch(assignment -> !assignment.hasSupportedAuthorizationScope())) {
             throw new IllegalArgumentException("Unsupported role assignment dataScope.");
+        }
+        Instant configuredExpiry = issuedAt.plusSeconds(properties.getJwt().getExpirationSeconds());
+        // JWT roles are a fixed snapshot. End the whole token when any included grant expires,
+        // even if a permanent basic role keeps roleVersion validation positive.
+        Instant expiresAt = assignments.stream()
+                .map(RoleAssignment::validTo)
+                .filter(Objects::nonNull)
+                .filter(validTo -> validTo.isBefore(configuredExpiry))
+                .min(Instant::compareTo)
+                .orElse(configuredExpiry)
+                .truncatedTo(ChronoUnit.SECONDS);
+        // JJWT serializes NumericDate to seconds; a sub-second boundary must round down,
+        // never up into an authorization interval that has already ended.
+        long expiresInSeconds = Duration.between(issuedAt, expiresAt).getSeconds();
+        if (expiresInSeconds < 1) {
+            throw new IllegalStateException("No issuable JWT lifetime remains for the role snapshot");
         }
         List<String> roles = assignments.stream()
                 .map(RoleAssignment::roleCode)
@@ -65,6 +82,6 @@ public class JwtTokenIssuer implements TokenIssuerPort {
         }
 
         String token = builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
-        return new IssuedToken(token, expirationSeconds);
+        return new IssuedToken(token, expiresInSeconds);
     }
 }

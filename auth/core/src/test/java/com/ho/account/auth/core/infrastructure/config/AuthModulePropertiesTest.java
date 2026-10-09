@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class AuthModulePropertiesTest {
 
@@ -24,6 +26,27 @@ class AuthModulePropertiesTest {
         properties.setUsers(List.of(user(randomUsername(), PasswordEncoderPolicy.encode(randomValue(), 4))));
 
         properties.validateFailClosedPolicy();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {-17L, 0L, 1L})
+    void rejectsJwtTtlBelowTwoSecondsWithoutEchoingConfiguredValue(long expirationSeconds) {
+        AuthModuleProperties properties = validProperties();
+        properties.getJwt().setExpirationSeconds(expirationSeconds);
+
+        // A one-second TTL can lose its entire usable lifetime when a fractional issue time is serialized.
+        assertThatThrownBy(properties::validateFailClosedPolicy)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("auth.jwt.expiration-seconds")
+                .hasMessageNotContaining(Long.toString(expirationSeconds));
+    }
+
+    @Test
+    void acceptsMinimumTwoSecondJwtTtl() {
+        AuthModuleProperties properties = validProperties();
+        properties.getJwt().setExpirationSeconds(2L);
+
+        assertThatCode(properties::validateFailClosedPolicy).doesNotThrowAnyException();
     }
 
     @Test
