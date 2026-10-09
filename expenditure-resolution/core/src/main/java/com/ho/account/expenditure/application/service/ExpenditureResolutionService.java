@@ -196,6 +196,8 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
 
         JournalEntryCommand command = buildJournalEntryCommand(resolution);
         JournalPostingResult postingResult = journalPostingPort.createDraftEntry(command);
+        // Reject malformed responses from every port implementation before asset/lease side effects or approval.
+        validateDraftPostingResult(postingResult);
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
             AccountSubjectRef accountSubject = requireAccountSubject(detail.getAccountCode());
@@ -210,6 +212,18 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
 
         resolution.approve(postingResult.journalEntryId());
         resolutionPersistencePort.save(resolution);
+    }
+
+    private static void validateDraftPostingResult(JournalPostingResult result) {
+        if (result == null) {
+            throw new IllegalStateException("Journal ledger posting returned null result");
+        }
+        if (result.journalEntryId() == null || result.journalEntryId() <= 0) {
+            throw new IllegalStateException("Journal ledger posting returned invalid journal entry ID");
+        }
+        if (!"DRAFT".equals(result.status())) {
+            throw new IllegalStateException("Journal ledger posting returned invalid draft status");
+        }
     }
 
     /**

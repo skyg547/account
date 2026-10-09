@@ -34,17 +34,21 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[POST /api/expenditures/{id}/approve] --> B[결의서 조회]
-    B --> C[도메인 상태 확인]
-    C --> D[전표 라인 생성]
-    D --> E[JournalUseCase.createJournalEntry]
-    E --> F[JournalUseCase.approveJournalEntry]
-    F --> G[고정자산 계정이면 AssetRegistrationPort 호출]
+    B --> C[전표 라인 생성 및 기준정보 확인]
+    C --> D[JournalPostingPort.createDraftEntry]
+    D --> E{응답: 양수 전표 ID와 DRAFT 상태?}
+    E -- 아니요 --> F[연계 실패: REQUESTED 유지, 결의서 저장 안 함]
+    E -- 예 --> G[고정자산 계정이면 AssetRegistrationPort 호출]
     G --> H[리스 계약 연결 시 activateLeaseContract]
-    H --> I[ExpenditureResolution.approve]
-    I --> J[저장]
+    H --> I[ExpenditureResolution.approve: 전표 ID 연결]
+    I --> J[APPROVED 저장]
 ```
 
 전표 생성 시 차변은 상세 비용 계정 라인이고, 대변은 지급 계정 라인이다. 이때 부서, 계정, 거래처 코드는 값으로 넘기며 외부 Aggregate를 직접 소유하지 않는다.
+
+신규 전표 생성의 기대 응답은 `DRAFT`이며, 이것만으로 전표가 승인·전기되었다고 판단하지 않는다. 같은 라인리지의 전표가 이미 있으면 Journal 포트가 기존 전표 상태를 돌려줄 수 있다. 서비스는 포트 구현이 HTTP, local, mock 중 무엇이든 응답의 전표 ID가 양수이고 상태가 정확히 `DRAFT`인지 먼저 확인한다. HTTP 어댑터도 HTTP 200 응답의 같은 필드가 누락되거나 잘못되면 연계 실패로 거부한다. 예를 들어 ID가 `null`, `0`, 음수이거나 상태가 없거나 `DRAFT`가 아니면 예외가 발생하고 결의서는 `REQUESTED`로 남으며 승인 저장 및 이후 자산·리스 연계를 시작하지 않는다. 유효한 응답은 전표 ID를 결의서에 저장하고 `APPROVED`로 전이한다.
+
+로컬 확인: 저장소 루트에서 `./gradlew :expenditure-resolution:core:test --offline --no-daemon --console=plain`을 실행한다. 서비스·HTTP 어댑터 회귀 테스트의 성공을 확인할 수 있다. 이 테스트는 원격 Journal 장애 시 재시도 원자성이나 실제 운영 전표의 승인·전기를 검증하지 않는다.
 
 ## AP 지급 흐름
 
