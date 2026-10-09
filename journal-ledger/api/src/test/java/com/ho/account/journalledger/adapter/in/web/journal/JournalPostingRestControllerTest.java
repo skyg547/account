@@ -4,6 +4,11 @@ import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -15,8 +20,35 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class JournalPostingRestControllerTest {
+
+    @Test
+    void allocatorOutageReturnsServiceUnavailable() throws Exception {
+        JournalPostingPort port = mock(JournalPostingPort.class);
+        JournalPostingRestController controller = new JournalPostingRestController(port);
+        JournalEntryCommand command = new JournalEntryCommand(
+                LocalDate.of(2026, 10, 9), LocalDate.of(2026, 10, 9), "journal",
+                "GENERAL", "KRW", BigDecimal.ONE, "maker", "maker",
+                "PAYABLE", "INV-879", List.of(
+                        new JournalLineCommand("DEBIT", "10100", BigDecimal.ONE, BigDecimal.ONE, null, null, "debit"),
+                        new JournalLineCommand("CREDIT", "20100", BigDecimal.ONE, BigDecimal.ONE, null, null, "credit")));
+        when(port.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenThrow(new SlipNumberAllocationException("database unavailable"));
+
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+        MockMvcBuilders.standaloneSetup(controller)
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
+                .build()
+                .perform(post("/api/v1/journals/posting")
+                        .header("X-Auth-User", "maker")
+                        .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(command)))
+                .andExpect(status().isServiceUnavailable());
+    }
 
     @Test
     @DisplayName("REST API 통해 전표 전기 요청 시 JournalPostingPort를 성공적으로 호출하고 200 OK 응답을 반환한다")

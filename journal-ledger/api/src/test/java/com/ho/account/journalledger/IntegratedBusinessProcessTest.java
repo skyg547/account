@@ -29,6 +29,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import com.ho.account.shared.infrastructure.SpringServiceDiscoveryRegistry;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -60,6 +61,9 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.kafka.listener.auto-startup=false"
         })
 @Transactional
+// This integration fixture uses Hibernate create-drop instead of Flyway; install the
+// production allocator migration before exercising payable -> journal creation.
+@Sql(scripts = "classpath:db/journal-migration/V19__journal_slip_number_sequence.sql")
 public class IntegratedBusinessProcessTest {
 
     @Autowired

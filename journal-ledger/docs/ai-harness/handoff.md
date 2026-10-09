@@ -1,3 +1,23 @@
+# GH-879 handoff
+
+Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
+
+- Branch/worktrees: `agent/879-slip-number-allocation`, `/tmp/account-879-slip-number-allocation`, base `origin/main@fa12d2b5`; audited proof `/tmp/account-879-audited-proof@a97d10ab`.
+- Scope: 21 implementation/test/feature-doc files plus these three module-local records under `journal-ledger/**`; other modules and repository-wide harness/history files remain untouched.
+- Behavior: DB sequence V19 allocates a global 8-character base36 suffix within the 20-character date-bearing slip; manual reserved-format inputs and historical namespace overlap are rejected. Missing sequence, DB errors, and sequence exhaustion fail closed and map to HTTP 503 for create routes. Legacy four-character slips remain valid.
+- Evidence: same SHA-256 regression fails on audited production with 4,800/5,000 distinct slips and passes on the fix. Final executed module test passes 433/433 (API 74, Batch 37, Core 322), no failures/errors/skips; literal command passes UP-TO-DATE. H2 covers 5,000 persisted rows, 200 concurrent allocations, exhaustion, migration refusal/legacy upgrade, adapter outage, and HTTP mappings. Static gates pass.
+- Review: independent reviewer returned manual collision and HTTP error-map findings; writer corrected them. Final review has no outstanding finding and Q1–Q4 PASS, with file evidence in [worklog.md](worklog.md).
+- Rollout: stop all old Journal writers, run V19, then start only the new version. Historical 20-character JE-shaped slips block migration; immutable POSTED rows need separate approved reconciliation, not in-place edits. The one-time guard scan and runtime sequence privileges must be checked on the approved PostgreSQL target. No live PostgreSQL, production data, distributed load, or deployment test was performed.
+- Rollback: retain the sequence and issued numbers. Quiesce writes and prepare a reviewed forward migration/code rollback; reverting code alone would restore the 16-bit collision risk.
+- Authority: user authorized Draft publication. Module writer wrote code/docs, reviewer made no edits, parent Integrator owns records and Git/GitHub; human review controls Ready, merge, Issue close, deployment, and resource cleanup.
+- Publication: reviewed implementation/record commit `5e500c1b9d2c67715ed89d4939e7b165b344876a` is pushed; this final record-only update does not alter reviewed production or tests.
+- Remote CI on Draft head `ff744c22`: three reported checks passed, while `Check implementer PR discipline` failed on required owner/verification/merge authority and intentionally unconfigured trust policy plus Draft state. No remote module-test failure is claimed; this governance gate needs human policy/owner action before Ready/merge.
+- Next owner: a human reviewer handles PostgreSQL/deployment verification and the remaining Ready, merge, Issue-close, and cleanup gates.
+
+---
+
+The following is retained historical handoff and is not a current GH-879 report.
+
 # GH-769 handoff
 
 Issue #769 implementation, audited RED/current GREEN proof, required verification, corrected independent review, and module-local records are complete. [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`; reviewed implementation commit `90d4c307` is published.

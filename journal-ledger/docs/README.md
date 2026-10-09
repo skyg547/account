@@ -83,8 +83,8 @@ journal-ledger:
 루트 [docs/local-development.md](../../docs/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
 
 API local과 Batch local은 서로 다른 H2 메모리 DB를 사용하지만 둘 다 module-owned Flyway
-V1~V18을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블,
-V17 역분개 operation 관계와 V18 event quarantine도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
+V1~V19를 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블,
+V17 역분개 operation 관계, V18 event quarantine, V19 전표번호 sequence도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
 승인된 별도 migration-runner가 먼저 적용한 스키마를 validate합니다.
 
 ```powershell
