@@ -1,61 +1,33 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "valuation_batches")
 public class ValuationBatch {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fiscal_period_id", nullable = false)
     private Long fiscalPeriodId;
 
-    @Transient
     private String fiscalYear;
 
-    @Transient
     private String fiscalPeriod;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
     private ValuationType valuationType;
 
-    @Column(nullable = false)
     private LocalDateTime runDateTime;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ValuationBatchStatus status;
 
-    @Column(name = "generated_journal_entry_id")
     private Long generatedJournalEntryId;
 
-    @Column(length = 200)
     private String reportLink;
 
-    @Column(length = 50)
     private String runBy;
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
     public enum ValuationType {
@@ -69,23 +41,6 @@ public class ValuationBatch {
         COMPLETED,
         FAILED,
         PENDING_APPROVAL
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null) {
-            this.status = ValuationBatchStatus.RUNNING;
-        }
-        if (this.auditUser == null) {
-            this.auditUser = "SYSTEM";
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 
     public Long getId() {

@@ -1,6 +1,5 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -10,65 +9,37 @@ import java.util.List;
  * <p>결산 진행 중 중요한 체크포인트를 표현합니다.
  * 초보자 관점에서는 "다음 단계로 넘어가기 전에 반드시 통과해야 하는 문"입니다.
  */
-@Entity
-@Table(name = "closing_gates")
+
 public class ClosingGate {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "calendar_id", nullable = false)
     private ClosingCalendar closingCalendar;
 
-    @Column(nullable = false, length = 100)
     private String name; // 게이트명 (예: "PRE-CLOSING 완료", "조정 전표 검토 완료")
 
-    @Column(length = 500)
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ClosingGateStatus status; // PENDING, PASSED, FAILED
 
     // 게이트 통과 조건(JSON). 예: 모든 필수 ClosingTask가 완료 상태인지 확인하는 조건.
-    @Column(columnDefinition = "TEXT")
+
     private String checkConditionJson;
 
-    @Column(length = 50)
     private String passedBy;
 
     private LocalDateTime passedAt;
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
-    @Transient
     private String gateCode;
 
     public enum ClosingGateStatus {
         PENDING, PASSED, FAILED
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
-            this.status = ClosingGateStatus.PENDING;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 
     // Getter and Setter

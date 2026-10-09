@@ -9,6 +9,7 @@ import com.ho.account.closing.domain.ClosingCalendar.ClosingCalendarStatus;
 import com.ho.account.closing.domain.ReopenApproval;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
 import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogRepository;
+import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogEntity;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import java.time.LocalDate;
@@ -104,7 +105,7 @@ class ClosingAuthorizationIntegrationTest {
 
         ReopenApproval persisted = approvals.findById(approvalId).orElseThrow();
         ClosingCalendar persistedCalendar = calendars.findById(calendar.getId()).orElseThrow();
-        ClosingAuditLog requestAudit = audits.findAll().stream()
+        ClosingAuditLogEntity requestAudit = audits.findAll().stream()
                 .filter(audit -> audit.getActionType() == ClosingAuditLog.ActionType.REOPEN_REQUEST)
                 .findFirst()
                 .orElseThrow();

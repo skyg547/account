@@ -13,7 +13,6 @@ import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort
 import com.ho.account.closing.application.service.ClosingTransitionPendingException;
 import com.ho.account.closing.application.service.ClosingTransitionTransactions;
 import com.ho.account.closing.application.service.FinalCloseEvidenceValidationException;
-import com.ho.account.closing.domain.ClosingAuditLog;
 import com.ho.account.closing.domain.ClosingAuditLog.ActionType;
 import com.ho.account.closing.domain.ClosingCalendar;
 import com.ho.account.closing.domain.ClosingCalendar.ClosingCalendarStatus;
@@ -24,6 +23,7 @@ import com.ho.account.closing.domain.ClosingTask.ClosingTaskStatus;
 import com.ho.account.closing.domain.ReopenApproval;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
 import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogRepository;
+import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogEntity;
 import com.ho.account.closing.web.ClosingController;
 import com.ho.account.closing.web.ClosingExceptionHandler;
 import java.time.LocalDate;
@@ -706,11 +706,11 @@ class ClosingTransitionRecoveryIntegrationTest {
                 });
     }
 
-    private List<ClosingAuditLog> terminalAudits(long calendarId) {
+    private List<ClosingAuditLogEntity> terminalAudits(long calendarId) {
         return calendarAudits(calendarId).stream().filter(a -> a.getActionType() == ActionType.REOPEN_APPROVED).toList();
     }
 
-    private List<ClosingAuditLog> calendarAudits(long calendarId) {
+    private List<ClosingAuditLogEntity> calendarAudits(long calendarId) {
         return audits.findAll().stream().filter(a -> a.getClosingCalendar().getId().equals(calendarId)).toList();
     }
 

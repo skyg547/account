@@ -1,6 +1,7 @@
 package com.ho.account.closing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.closing.application.port.out.DailyClosingStatusPersistencePort;
 import com.ho.account.closing.domain.DailyClosingStatus;
@@ -42,7 +43,10 @@ class DailyClosingStatusPersistenceIntegrationTest {
         assertThat(locked.getState()).isEqualTo(EodState.OPEN);
         assertThat(locked.getCreatedBy()).isEqualTo("opener");
         assertThat(persistencePort.findPreviousForUpdate(BUSINESS_DATE.plusDays(1)))
-                .containsSame(locked);
+                .hasValueSatisfying(previous -> {
+                    assertThat(previous.getBusinessDate()).isEqualTo(locked.getBusinessDate());
+                    assertThat(previous.getVersion()).isEqualTo(locked.getVersion());
+                });
 
         locked.prepareEod("closer", OPENED_AT.plusHours(10));
         DailyClosingStatus updated = persistencePort.save(locked);
@@ -54,5 +58,8 @@ class DailyClosingStatusPersistenceIntegrationTest {
         assertThat(reloaded.getPreparedBy()).isEqualTo("closer");
         assertThat(updated.getVersion()).isGreaterThan(initialVersion);
         assertThat(reloaded.getVersion()).isEqualTo(updated.getVersion());
+        assertThatThrownBy(() -> persistencePort.save(created))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("version changed");
     }
 }

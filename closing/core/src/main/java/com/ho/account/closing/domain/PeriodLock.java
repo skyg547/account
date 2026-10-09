@@ -1,66 +1,40 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
  * Period lock for a fiscal period.
  * Stores the fiscal period as an ID value to keep closing independent from master-data entities.
  */
-@Entity
-@Table(name = "period_locks")
+
 public class PeriodLock {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fiscal_period_id", nullable = false)
     private Long fiscalPeriodId;
 
-    @Transient
     private String fiscalYear;
 
-    @Transient
     private String fiscalPeriod;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
     private PeriodLockType lockType;
 
-    @Column(length = 50)
     private String lockedBy;
 
     private LocalDateTime lockedAt;
 
-    @Column(length = 1000)
     private String reason;
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
     public enum PeriodLockType {
         ALL_TRANSACTIONS,
         NON_ADJUSTMENT_ENTRIES,
         PARTIAL_LOCK
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 
     public Long getId() {
