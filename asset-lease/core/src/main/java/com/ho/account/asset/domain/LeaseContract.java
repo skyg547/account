@@ -8,6 +8,8 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * [DDD(도메인 주도 설계) - Aggregate Root]
@@ -129,24 +131,84 @@ public class LeaseContract {
         if (monthlyPayment == null || monthlyPayment.compareTo(BigDecimal.ZERO) <= 0 || termMonths <= 0) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
-        if (annualRate == null || annualRate.compareTo(BigDecimal.ZERO) <= 0) {
-            return monthlyPayment.multiply(BigDecimal.valueOf(termMonths)).setScale(2, RoundingMode.HALF_UP);
+        return calculatePresentValueLadder(monthlyPayment, termMonths, annualRate).get(termMonths);
+    }
+
+    /** Reprice only unpaid installments; original recognition values remain historical. */
+    public static Remeasurement calculateRemeasurement(BigDecimal currentLiability,
+                                                       BigDecimal monthlyPayment,
+                                                       int remainingPeriods,
+                                                       BigDecimal annualRate) {
+        if (currentLiability == null || currentLiability.signum() < 0) {
+            throw new IllegalStateException("current lease liability must be non-negative");
+        }
+        if (monthlyPayment == null || monthlyPayment.signum() <= 0
+                || monthlyPayment.stripTrailingZeros().scale() > 2) {
+            throw new IllegalArgumentException("monthly payment must be positive with at most two decimal places");
+        }
+        if (annualRate == null || annualRate.signum() < 0
+                || annualRate.stripTrailingZeros().scale() > 4) {
+            throw new IllegalArgumentException("discount rate must be non-negative with at most four decimal places");
+        }
+        if (remainingPeriods <= 0) {
+            throw new IllegalArgumentException("remeasurement requires unpaid installments");
+        }
+        BigDecimal presentValue = calculatePresentValue(monthlyPayment, remainingPeriods, annualRate);
+        return new Remeasurement(presentValue, presentValue.subtract(currentLiability));
+    }
+
+    public record Remeasurement(BigDecimal presentValue, BigDecimal adjustmentAmount) {}
+
+    /** Each rounded closing PV becomes the next opening balance, so cents telescope to zero. */
+    public static List<Installment> calculateInstallments(BigDecimal openingLiability, BigDecimal payment,
+                                                          int remainingPeriods, BigDecimal annualRate) {
+        if (openingLiability == null || openingLiability.signum() < 0
+                || payment == null || payment.signum() <= 0 || remainingPeriods <= 0
+                || annualRate == null || annualRate.signum() < 0) {
+            throw new IllegalArgumentException("installments require non-negative liability and rate, and positive cash flows");
+        }
+        List<BigDecimal> presentValues = calculatePresentValueLadder(payment, remainingPeriods, annualRate);
+        if (openingLiability.compareTo(presentValues.get(remainingPeriods)) != 0) {
+            throw new IllegalStateException("opening liability differs from remaining payment present value");
+        }
+        List<Installment> installments = new ArrayList<>(remainingPeriods);
+        BigDecimal opening = openingLiability;
+        for (int periodsLeft = remainingPeriods; periodsLeft > 0; periodsLeft--) {
+            BigDecimal closing = presentValues.get(periodsLeft - 1);
+            BigDecimal principal = opening.subtract(closing);
+            BigDecimal interest = payment.subtract(principal);
+            if (principal.signum() < 0 || interest.signum() < 0) {
+                throw new IllegalStateException("lease installment has a negative payment portion");
+            }
+            installments.add(new Installment(interest, principal, closing));
+            opening = closing;
+        }
+        return installments;
+    }
+
+    public record Installment(BigDecimal interest, BigDecimal principal, BigDecimal remainingLiability) {}
+
+    private static List<BigDecimal> calculatePresentValueLadder(BigDecimal payment, int periods, BigDecimal annualRate) {
+        List<BigDecimal> presentValues = new ArrayList<>(periods + 1);
+        presentValues.add(BigDecimal.ZERO.setScale(2));
+        if (annualRate == null || annualRate.signum() <= 0) {
+            for (int period = 1; period <= periods; period++) {
+                presentValues.add(payment.multiply(BigDecimal.valueOf(period)).setScale(2, RoundingMode.HALF_UP));
+            }
+            return presentValues;
         }
 
-        // 연 이자율(%) -> 월 할인율 (annualRate / 1200)
-        BigDecimal monthlyDiscountRate = annualRate.divide(new BigDecimal("1200"), 10, RoundingMode.HALF_UP);
-
-        BigDecimal totalPresentValue = BigDecimal.ZERO;
+        // Use the same ten-decimal discount term for every prefix PV as original recognition.
+        BigDecimal monthlyRate = annualRate.divide(new BigDecimal("1200"), 10, RoundingMode.HALF_UP);
+        BigDecimal onePlusRate = BigDecimal.ONE.add(monthlyRate);
         BigDecimal discountFactor = BigDecimal.ONE;
-        BigDecimal onePlusR = BigDecimal.ONE.add(monthlyDiscountRate);
-
-        for (int t = 1; t <= termMonths; t++) {
-            discountFactor = discountFactor.multiply(onePlusR);
-            BigDecimal presentValueOfPayment = monthlyPayment.divide(discountFactor, 10, RoundingMode.HALF_UP);
-            totalPresentValue = totalPresentValue.add(presentValueOfPayment);
+        BigDecimal total = BigDecimal.ZERO;
+        for (int period = 1; period <= periods; period++) {
+            discountFactor = discountFactor.multiply(onePlusRate);
+            total = total.add(payment.divide(discountFactor, 10, RoundingMode.HALF_UP));
+            presentValues.add(total.setScale(2, RoundingMode.HALF_UP));
         }
-
-        return totalPresentValue.setScale(2, RoundingMode.HALF_UP);
+        return presentValues;
     }
 
     /**
@@ -173,4 +235,3 @@ public class LeaseContract {
         this.initialLeaseLiabilityValue = calculatedPv;
     }
 }
-
