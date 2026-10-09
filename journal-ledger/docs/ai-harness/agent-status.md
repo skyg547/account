@@ -9,6 +9,7 @@
 - Independent review: preliminary manual-namespace and HTTP 400 findings were returned to the writer and corrected; final reviewer reports no outstanding finding and Q1–Q4 PASS.
 - Deployment/rollback: stop all old Journal writers before V19, inspect any historical 20-character JE-shaped slips, and use a separately approved reconciliation plan for immutable POSTED rows. Do not drop the sequence after issuing numbers; rollback requires a reviewed forward migration and code plan.
 - Publication: implementation/record commit `5e500c1b9d2c67715ed89d4939e7b165b344876a` was pushed; Draft PR #880 contains verification and authority separation. This final record-only update changes no production or test behavior.
+- Remote checks on Draft head `ff744c22`: Harness Validation Result, Validate harness contracts, and Test merge guard candidate passed. `Check implementer PR discipline` failed with `IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, and `TRUST_POLICY_UNCONFIGURED`; the workflow explicitly leaves trust policy unconfigured. This is a PR governance gate, not an executed module-test failure. Human ownership/policy resolution is required before Ready/merge.
 - Limits/next gate: H2 PostgreSQL mode tests do not prove live PostgreSQL sequence privileges, guard-scan duration, production load, or distributed behavior. A human reviewer owns PostgreSQL/deployment verification and subsequent Ready, merge, Issue close, and cleanup gates.
 
 See [worklog.md](worklog.md) for commands and Q1–Q4 evidence.

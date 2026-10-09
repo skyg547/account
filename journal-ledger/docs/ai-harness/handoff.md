@@ -11,6 +11,7 @@ Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audi
 - Rollback: retain the sequence and issued numbers. Quiesce writes and prepare a reviewed forward migration/code rollback; reverting code alone would restore the 16-bit collision risk.
 - Authority: user authorized Draft publication. Module writer wrote code/docs, reviewer made no edits, parent Integrator owns records and Git/GitHub; human review controls Ready, merge, Issue close, deployment, and resource cleanup.
 - Publication: reviewed implementation/record commit `5e500c1b9d2c67715ed89d4939e7b165b344876a` is pushed; this final record-only update does not alter reviewed production or tests.
+- Remote CI on Draft head `ff744c22`: three reported checks passed, while `Check implementer PR discipline` failed on required owner/verification/merge authority and intentionally unconfigured trust policy plus Draft state. No remote module-test failure is claimed; this governance gate needs human policy/owner action before Ready/merge.
 - Next owner: a human reviewer handles PostgreSQL/deployment verification and the remaining Ready, merge, Issue-close, and cleanup gates.
 
 ---
