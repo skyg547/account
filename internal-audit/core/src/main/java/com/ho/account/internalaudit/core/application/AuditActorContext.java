@@ -2,7 +2,7 @@ package com.ho.account.internalaudit.core.application;
 
 /**
  * Request-scoped context holder for authenticated actor and tracing lineage
- * (actor ID from #449 X-Auth-User, correlation ID, idempotency key).
+ * (actor ID from the API's verified JWT subject, correlation ID, idempotency key).
  */
 public final class AuditActorContext {
 

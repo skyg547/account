@@ -69,7 +69,7 @@ class RcmControllerTest {
                         .header(RcmController.AUTH_ROLES_HEADER, "ROLE_GUEST")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"processId\":\"proc-1\",\"processName\":\"General Ledger\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(useCase);
     }
@@ -80,6 +80,7 @@ class RcmControllerTest {
         when(useCase.createProcess(any())).thenReturn(saved);
 
         mockMvc.perform(post("/api/v1/internalaudit/rcms/processes")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(RcmController.AUTH_USER_HEADER, "trusted_auditor")
                         .header(RcmController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -99,6 +100,7 @@ class RcmControllerTest {
         when(useCase.addRisk(eq("proc-1"), any())).thenReturn(saved);
 
         mockMvc.perform(post("/api/v1/internalaudit/rcms/processes/proc-1/risks")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(RcmController.AUTH_USER_HEADER, "trusted_auditor")
                         .header(RcmController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -116,6 +118,7 @@ class RcmControllerTest {
         when(useCase.addControl(eq("risk-1"), any())).thenReturn(saved);
 
         mockMvc.perform(post("/api/v1/internalaudit/rcms/risks/risk-1/controls")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_admin", List.of("ROLE_ADMIN"), 1))
                         .header(RcmController.AUTH_USER_HEADER, "trusted_admin")
                         .header(RcmController.AUTH_ROLES_HEADER, "ROLE_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -135,6 +138,7 @@ class RcmControllerTest {
         when(useCase.getAllProcesses()).thenReturn(List.of(proc));
 
         mockMvc.perform(get("/api/v1/internalaudit/rcms/processes")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(RcmController.AUTH_USER_HEADER, "auditor")
                         .header(RcmController.AUTH_ROLES_HEADER, "ROLE_AUDITOR"))
                 .andExpect(status().isOk())
@@ -149,6 +153,7 @@ class RcmControllerTest {
         when(useCase.getRisksByProcess("proc-1")).thenReturn(List.of(risk));
 
         mockMvc.perform(get("/api/v1/internalaudit/rcms/processes/proc-1/risks")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(RcmController.AUTH_USER_HEADER, "auditor")
                         .header(RcmController.AUTH_ROLES_HEADER, "ROLE_AUDITOR"))
                 .andExpect(status().isOk())
@@ -164,6 +169,7 @@ class RcmControllerTest {
         when(useCase.getControlsByRisk("risk-1")).thenReturn(List.of(ctrl));
 
         mockMvc.perform(get("/api/v1/internalaudit/rcms/risks/risk-1/controls")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(RcmController.AUTH_USER_HEADER, "auditor")
                         .header(RcmController.AUTH_ROLES_HEADER, "ROLE_AUDITOR"))
                 .andExpect(status().isOk())

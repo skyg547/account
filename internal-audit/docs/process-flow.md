@@ -2,6 +2,34 @@
 
 내부감사 모듈은 기업의 내부회계관리제도(K-SOX) 및 통제 적정성을 검증하는 4단계 생명주기를 가집니다.
 
+## 요청 신원과 기능 권한 (GH-836)
+
+초보자에게는 다음 순서가 핵심이다. Auth에서 발급한 Bearer JWT를 요청에 넣고, API가 JWT를 직접 검증한 다음 Auth의 현재 roleVersion과 모듈의 로컬 기능 허가 매트릭스를 확인한다. 모두 통과해야 Controller가 업무 유즈케이스를 호출한다. Gateway를 거쳐도 같은 절차를 따른다.
+
+```mermaid
+sequenceDiagram
+    actor Caller as 감사인
+    participant API as Internal Audit API 필터
+    participant Auth as Auth
+    participant Policy as 로컬 기능 허가 매트릭스
+    participant Controller as RCM/평가 Controller
+    participant Core as 업무 유즈케이스
+    Caller->>API: Bearer JWT + RCM/평가 요청
+    API->>API: HS256 서명·issuer·시각·claim 검증
+    API->>Auth: POST /api/auth/validate-token-version
+    Auth-->>API: 현재 roleVersion 결과
+    API->>Policy: ROLE:FUNCTION:ACCESS 일치 여부 확인
+    Policy-->>API: 일치하는 허가 여부
+    API->>Controller: 검증된 주체 전달
+    Controller->>Core: JWT sub를 감사 actor로 설정 후 명령/조회
+```
+
+RCM 경로에는 기능 코드 `INTERNAL_AUDIT.RCM`, 평가 경로에는 `INTERNAL_AUDIT.EVALUATION`을 적용한다. GET은 `READ`, POST는 `WRITE`다. `internal-audit.identity.permission-grants` 설정을 `INTERNAL_AUDIT_PERMISSION_GRANTS` 환경변수로 주입하며, 허가는 `ROLE:FUNCTION:ACCESS` 형식이다. `X-Auth-User`, `X-Auth-Roles` 등 호출자가 보낸 신원 헤더는 검증된 주체를 대체할 수 없다. 헤더만 있는 직접 요청과 무효·회수된 토큰은 401, 일치하는 기능 허가 없음은 403, 신원 검증 설정 누락이나 Auth 이용 불가는 503으로 종료한다. 이 경우 업무 포트에 도달하지 않아야 한다.
+
+두 기능의 필요한 READ/WRITE 허가는 배포 설정에 등록해야 한다. 로컬 매트릭스는 중앙 Governance의 권한 변경과 자동 동기화되지 않으므로 배포 시 별도 검토가 필요하다. Auth 버전 API는 활성 역할 배정이 하나라도 있는지 확인하므로, 만료된 감사인 역할과 다른 활성 역할이 공존할 때 만료된 역할만 식별하지 못한다. 역할별 활성 상태를 조회하는 Auth 계약이 생기기 전까지 잔여 보안 게이트로 관리한다. 설정과 테스트 명령은 [모듈 README](../README.md)를 따른다.
+
+로컬 HTTP 스모크에서는 H2 API(18083), Auth 응답 스텁(18084), 단일 라우트 Gateway(18080)를 사용했다. 직접 호출의 헤더 전용 GET/POST는 401, 위조 헤더와 유효 JWT를 함께 보낸 GET/POST는 200이고 POST의 `ownerId`는 JWT `sub`였다. 잘못된 서명·roleVersion 2는 401, 로컬 허가 없는 ADMIN은 403이었다. Gateway 경유 GET도 헤더 전용 401, 유효 JWT와 위조 헤더 200, roleVersion 2는 401이었다. 이 검증에서는 API가 Auth 스텁을 매 요청 확인했고 Gateway 자체 버전 검사는 비활성화했다. 실제 Auth·Governance 연동과 배포망 접근 범위는 검증 범위 밖이다.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -50,7 +78,7 @@ sequenceDiagram
 
 HTTP JSON → `OperatingEvaluation` 생성자 → Controller → Service → 저장 포트 순서로
 처리한다. 생성자에서 불변식을 검사하므로 직접 생성, Lombok builder, JSON 역직렬화에
-같은 규칙이 적용된다. 유효한 인증 헤더를 사용한 잘못된 수치 요청은 HTTP 400이며
+같은 규칙이 적용된다. 검증된 Bearer JWT와 기능 허가를 사용한 잘못된 수치 요청은 HTTP 400이며
 평가 저장과 감사 이력 저장을 호출하지 않는다. null을 0으로 자동 보정해서 재시도하지 말고
 실제 검사 수치로 요청을 수정해야 한다.
 
