@@ -43,6 +43,11 @@ class LoginAttemptJpaEntity {
 
     void recordFailure(String reason, int maxFailures, long lockDurationMinutes, Clock clock) {
         Instant now = clock.instant();
+        // An expired lock starts a new failure window; reads never remove the shared row.
+        if (this.lockedUntil != null && !now.isBefore(this.lockedUntil)) {
+            this.failureCount = 0;
+            this.lockedUntil = null;
+        }
         this.failureCount = this.failureCount + 1;
         this.lastFailureReason = normalizeReason(reason);
         this.lastFailureAt = now;

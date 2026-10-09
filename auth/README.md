@@ -63,7 +63,8 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 - 로그인 성공/실패는 `LoginAttemptPort`로 기록합니다.
 - 기본 정책은 연속 5회 실패 시 15분 잠금입니다.
 - 단일 인스턴스는 memory, 다중 인스턴스는 `AUTH_LOGIN_SECURITY_STORE=jpa`를 사용합니다.
-- 기존 행의 공유 저장은 구현되어 있지만 여러 노드의 최초 실패 동시 insert를 원자화하는 후속 `@todo`가 남아 있습니다.
+- JPA 모드는 정규화한 username별 DB 행을 잠그고 최초 행 생성, 실패 증가, 만료 후 재시작, 성공 시 초기화를 직렬화합니다. 잠금 중 도착한 성공 기록은 갱신된 잠금을 해제하지 않습니다.
+- 이미 잠금 확인을 통과해 처리 중인 요청은 잠금이 생긴 뒤에도 실패를 기록하거나 JWT 발급을 끝낼 수 있습니다. 상세한 순서와 검증 범위는 [process-flow.md](./docs/process-flow.md)를 참조합니다.
 
 ### 📌 Governance 역할 할당 반영과 멱등성
 
@@ -154,11 +155,10 @@ docker-compose up -d auth
 포함합니다. 빠지면 Spring Boot 기본값(`localhost`)으로 접속을 시도해 `account-redis` 컨테이너를 찾지 못하고
 `/actuator/health`가 503을 반환합니다. (관련: [GH-474](https://github.com/skyg547/account/issues/474))
 
-현재 변경의 실제 검증 기준은 H2 단독 Gradle 실행입니다. Docker와 실제 PostgreSQL/Flyway는 별도 통합 환경에서 확인해야 합니다.
+로컬 기동은 H2를 사용하고, `:auth:core:test`에는 별도 트랜잭션의 임베디드 PostgreSQL 동시성 회귀가 포함됩니다. 운영 DB와 컨테이너 배포는 별도 검증 범위입니다.
 
 상세한 JAR 실행과 fail-closed 확인 절차는 [docs/local-run.md](./docs/local-run.md)를 따릅니다.
 
 ## 4. 남은 운영 고도화
 
-- 다중 노드 최초 로그인 실패 insert를 원자적 upsert 또는 DB lock으로 바꿔야 합니다.
 - 승인 멱등 이력은 감사 보존기간과 최대 재시도 기간을 고려한 archive/retention 정책이 필요합니다.

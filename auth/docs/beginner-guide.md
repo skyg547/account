@@ -56,5 +56,6 @@ curl -i -X POST http://localhost:8081/api/auth/pat \
 정상 응답은 HTTP 200이며 현재 사용자의 정식 `username`과 한 번만 볼 수 있는 `rawToken`이 포함됩니다. 같은 JWT로 `GET /api/auth/pat`을 호출하면 목록에는 `rawToken`이 없습니다. Gateway에는 이 경로가 아직 없으므로 예시는 Auth 로컬 포트에 직접 요청합니다.
 - 비활성·관리 잠금·유효 역할 없음 계정은 token-version 검증도 실패합니다.
 - memory 모드는 단일 프로세스용이며, 운영 다중 인스턴스는 JPA 로그인 실패 저장소를 사용합니다.
-- 레거시 평문 비밀번호, 최초 실패 동시 insert, 멱등 이력 보존 정책은 코드 `@todo`로 추적합니다.
+- JPA 저장소는 같은 사용자에 대한 실패를 차례로 기록하므로, 여러 서버에서 동시에 실패해도 잠금 기준에 도달한 횟수를 잃지 않습니다. 잠금 확인을 이미 통과한 요청은 잠금 직후에도 끝날 수 있습니다.
+- 레거시 평문 비밀번호와 멱등 이력 보존 정책은 별도 후속 과제입니다.
 - Auth의 `AUTH_INTERNAL_API_TOKEN`과 Governance의 `GOVERNANCE_AUTH_INTERNAL_TOKEN`은 같은 값을 사용해야 합니다.
