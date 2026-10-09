@@ -66,7 +66,7 @@ class ClosingAdmissionServiceTest {
         verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
         verify(closingCalendarPersistencePort, never()).save(any());
         verify(periodLockPersistencePort, never()).save(any());
-        verify(periodLockPersistencePort, never()).delete(any());
+        verify(periodLockPersistencePort, never()).saveAndFlush(any());
     }
 
     @ParameterizedTest

@@ -34,11 +34,15 @@ import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
@@ -215,14 +219,19 @@ public class ClosingService implements ClosingUseCase {
         requireActor(user, "user");
         Objects.requireNonNull(lockType, "lockType must not be null");
 
-        PeriodLock periodLock = new PeriodLock();
-        periodLock.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
-        periodLock.setLockType(lockType);
-        periodLock.setLockedBy(user);
-        periodLock.setLockedAt(LocalDateTime.now());
-        periodLock.setReason(reason);
-        periodLock.setAuditUser(user);
-        PeriodLock saved = periodLockPersistencePort.save(periodLock);
+        PeriodLock periodLock = PeriodLock.createActive(
+                fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod(),
+                lockType, user, reason);
+        PeriodLock saved;
+        try {
+            // Force the unique active-slot check before the audit log and response.
+            saved = periodLockPersistencePort.saveAndFlush(periodLock);
+        } catch (DataIntegrityViolationException failure) {
+            if (!isSlotConflict(failure, "uk_period_lock_active_period")) {
+                throw failure;
+            }
+            throw new IllegalStateException("Fiscal period is already locked.", failure);
+        }
 
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar,
@@ -250,9 +259,9 @@ public class ClosingService implements ClosingUseCase {
                 fiscalPeriod.closingStatus(),
                 user,
                 "Period lock released"));
-        // @todo Preserve the row with active=false, unlockedBy/At/reason after a forward migration.
-        // The immutable audit log above is the current recovery trail; deleting it is not allowed.
-        periodLockPersistencePort.delete(lock);
+        // Keep the original lock and its actor/time lineage; only release its unique active slot.
+        lock.release(user);
+        periodLockPersistencePort.save(lock);
     }
 
     @Override
@@ -277,7 +286,17 @@ public class ClosingService implements ClosingUseCase {
         ReopenApproval approval = new ReopenApproval();
         approval.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
         approval.request(requestedBy, reason);
-        ReopenApproval saved = reopenApprovalPersistencePort.save(approval);
+        ReopenApproval saved;
+        try {
+            // The pending-slot constraint is the final arbiter across application instances.
+            saved = reopenApprovalPersistencePort.saveAndFlush(approval);
+        } catch (DataIntegrityViolationException failure) {
+            if (!isSlotConflict(failure, "uk_reopen_approval_pending_period")) {
+                throw failure;
+            }
+            throw new IllegalStateException(
+                    "A pending reopen request already exists for the fiscal period.", failure);
+        }
 
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar, ActionType.REOPEN_REQUEST, "CLOSED", "REOPEN_PENDING", requestedBy, reason));
@@ -412,6 +431,31 @@ public class ClosingService implements ClosingUseCase {
     private ClosingCalendar lockCalendar(FiscalPeriodRef period) {
         return aggregatePersistencePort.lockCalendar(period.fiscalYear(), period.fiscalPeriod())
                 .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found"));
+    }
+
+    private boolean isSlotConflict(DataIntegrityViolationException failure, String slotConstraint) {
+        boolean uniqueViolation = false;
+        boolean expectedConstraint = false;
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+                uniqueViolation = true;
+                expectedConstraint |= namesConstraint(sql.getMessage(), slotConstraint);
+            }
+            if (cause instanceof ConstraintViolationException violation) {
+                expectedConstraint |= namesConstraint(violation.getConstraintName(), slotConstraint);
+            }
+        }
+        // A different unique key (for example, a drifted primary-key sequence) is not a period conflict.
+        return uniqueViolation && expectedConstraint;
+    }
+
+    private boolean namesConstraint(String value, String constraint) {
+        if (value == null) {
+            return false;
+        }
+        // H2 reports the backing index name with _INDEX_<n>; PostgreSQL reports the constraint name.
+        return Pattern.compile("(?i)(?<![a-z0-9_])" + Pattern.quote(constraint)
+                + "(?:_INDEX_[0-9]+)?(?![a-z0-9_])").matcher(value).find();
     }
 
     private void requireNewEntity(Long id) {

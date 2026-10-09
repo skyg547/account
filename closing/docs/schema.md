@@ -49,6 +49,40 @@ erDiagram
 
 월·연 기간 상태는 `closing_calendars`와 Master Data의 `fiscal_periods`가 권위 모델입니다. 별도 `closing_period` 테이블과 setter 기반 병렬 엔티티는 사용하지 않습니다. 연차 손익 대체는 `AnnualClosingService`가 담당합니다.
 
+## 기간 잠금과 재오픈 고유성 (GH-887)
+
+V54는 기존 잠금 행을 활성으로 backfill합니다. 예전 unlock은 잠금 행을 삭제했으므로 남아 있는
+행은 일단 활성으로 취급합니다. 새 `active_fiscal_period_id`는 활성일 때 기간 ID, 해제 후에는
+`NULL`이고, 고유 제약과 상태 대응 CHECK가 이 값을 보호합니다. `unlocked_by`와 `unlocked_at`은
+해제 행의 감사 정보를 보존합니다. `reopen_approvals.pending_fiscal_period_id`도 `PENDING`일 때만
+기간 ID이고 결정 후 `NULL`입니다. 승인·반려는 원 행과 요청자/결정자 정보를 지우지 않습니다.
+`NULL`인 이력 키는 여러 행이 가능하지만 활성/대기 키는 기간별 한 행만 가능합니다.
+
+배포 전에는 Closing writer를 중지하고 같은 데이터베이스에서 다음 읽기 전용 사전 점검을
+실행합니다. 두 결과가 모두 0행이어야 V54를 적용할 수 있습니다.
+
+```sql
+SELECT fiscal_period_id, COUNT(*) AS row_count
+FROM period_locks GROUP BY fiscal_period_id HAVING COUNT(*) > 1;
+SELECT fiscal_period_id, COUNT(*) AS row_count
+FROM reopen_approvals WHERE status = 'PENDING'
+GROUP BY fiscal_period_id HAVING COUNT(*) > 1;
+```
+
+중복을 발견하면 배포와 쓰기를 중단합니다. 운영자가 원 잠금/요청, Closing 감사 기록,
+Master 상태를 대사하고 권한 있는 업무 결정과 별도 승인된 보정 절차를 기록해야 합니다.
+레거시 잠금에는 비활성 표시가 없으므로 V54 이전 중복 행에서 어느 하나를 자동으로
+활성으로 선택할 근거가 없습니다. 보정은 전체 원본과 결정 근거를 감사 가능한 보관소에
+보존한 후 별도의 검토된 순방향 변경으로 수행해야 합니다. 재오픈 중복도 임의 승인/반려
+시각이나 결정자를 꾸며 넣지 않습니다. 대사가 끝나기 전에는 V54 고유 제약 실패를
+우회하거나 앱을 시작하지 않습니다. V54 자체는 중복을 삭제하거나 승자를 선택하지 않습니다.
+
+적용 순서는 기존 writer 중지·배출, 사전 점검과 보정 승인, V54 migrate/validate, 새
+API/Batch 기동입니다. 기존 writer는 새 활성/대기 슬롯을 유지하지 않으므로 혼합 버전
+쓰기를 허용하지 않습니다. 롤백도 이력 행과 새 제약을 삭제하는 down migration이 아니라
+쓰기 중지·대사 후 검토된 순방향 보정으로 수행합니다. 로컬 H2 회귀는 제약과 경합을
+검증하지만 운영 PostgreSQL 데이터/부하 검증을 대체하지 않습니다.
+
 ## 연차 이익잉여금 설정 모델 (GH-776)
 
 연차 목적지는 DB 테이블이 아니라 버전 관리·동료 검토된
@@ -180,9 +214,9 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. 새 writer를 시작하기 전에 V53까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. V54는 활성 잠금·대기 요청 고유 키를 추가합니다. 기존 writer를 배출하고 V54까지 migrate/validate한 후 새 writer를 시작합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
-- `period_locks`는 현재 unlock 시 감사 로그를 남기고 활성 행을 삭제합니다. `active`, `unlocked_by`, `unlocked_at`, `unlock_reason`을 추가하는 forward migration 후 이력 행 보존 방식으로 전환해야 합니다.
+- V54부터 `period_locks` unlock은 행을 비활성화하고 해제자·시각을 보존합니다. 별도 `unlock_reason` 컬럼은 아직 없으며 기존 해제 감사 로그의 사유가 남습니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
 - `valuation_batches`/`provision_batches`에는 기간·유형·기준일·요청 키의 멱등 unique key가 아직 없습니다. 중복 요청과 crash recovery를 포함한 migration이 필요합니다.
 - 두 history 테이블의 `generated_journal_entry_id`는 scalar라서 0건/다중 전표 실행 ID를 표현하지 못합니다. 현재는 `null`이며, 다중 전표 조회 모델은 후속 설계가 필요합니다.

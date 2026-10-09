@@ -18,6 +18,10 @@ public class ReopenApproval {
     @Column(name = "fiscal_period_id", nullable = false)
     private Long fiscalPeriodId;
 
+    // A nullable unique slot lets decided requests remain as immutable history.
+    @Column(name = "pending_fiscal_period_id")
+    private Long pendingFiscalPeriodId;
+
     @Transient
     private String fiscalYear;
 
@@ -62,6 +66,7 @@ public class ReopenApproval {
         this.updatedAt = LocalDateTime.now();
         if (this.status == null)
             this.status = ReopenApprovalStatus.PENDING;
+        syncPendingFiscalPeriodId();
         if (this.auditUser == null)
             this.auditUser = "SYSTEM";
     }
@@ -85,6 +90,7 @@ public class ReopenApproval {
 
     public void setFiscalPeriodId(Long fiscalPeriodId) {
         this.fiscalPeriodId = fiscalPeriodId;
+        syncPendingFiscalPeriodId();
     }
 
     public String getFiscalYear() {
@@ -104,7 +110,7 @@ public class ReopenApproval {
     }
 
     public void assignFiscalPeriod(Long fiscalPeriodId, String fiscalYear, String fiscalPeriod) {
-        this.fiscalPeriodId = fiscalPeriodId;
+        setFiscalPeriodId(fiscalPeriodId);
         this.fiscalYear = fiscalYear;
         this.fiscalPeriod = fiscalPeriod;
     }
@@ -139,6 +145,7 @@ public class ReopenApproval {
 
     public void setStatus(ReopenApprovalStatus status) {
         this.status = status;
+        syncPendingFiscalPeriodId();
     }
 
     public String getApprovedBy() {
@@ -197,7 +204,7 @@ public class ReopenApproval {
         this.requestedBy = actor;
         this.requestedAt = LocalDateTime.now();
         this.reason = reason.trim();
-        this.status = ReopenApprovalStatus.PENDING;
+        setStatus(ReopenApprovalStatus.PENDING);
         this.auditUser = actor;
     }
 
@@ -217,7 +224,7 @@ public class ReopenApproval {
         if (actor.equals(this.requestedBy)) {
             throw new IllegalStateException("Reopen requester cannot approve or reject their own request.");
         }
-        this.status = decision;
+        setStatus(decision);
         this.approvedBy = actor;
         this.approvedAt = LocalDateTime.now();
         this.auditUser = actor;
@@ -228,5 +235,10 @@ public class ReopenApproval {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         return value.trim();
+    }
+
+    private void syncPendingFiscalPeriodId() {
+        this.pendingFiscalPeriodId = this.status == ReopenApprovalStatus.PENDING
+                ? this.fiscalPeriodId : null;
     }
 }
