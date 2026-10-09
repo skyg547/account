@@ -65,6 +65,7 @@ public class AuthModuleProperties {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
         }
+        masterData.validateTimeouts();
         validateConfiguredUsers();
     }
 
@@ -262,6 +263,9 @@ public class AuthModuleProperties {
 
     public static class MasterData {
         private String baseUrl = "http://localhost:8082";
+        // Bind text first so even malformed external values produce only a field-path validation error.
+        private String connectTimeoutMillis = "1000";
+        private String readTimeoutMillis = "3000";
 
         public String getBaseUrl() {
             return baseUrl;
@@ -269,6 +273,47 @@ public class AuthModuleProperties {
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
+        }
+
+        public String getConnectTimeoutMillis() {
+            return connectTimeoutMillis;
+        }
+
+        public void setConnectTimeoutMillis(String connectTimeoutMillis) {
+            this.connectTimeoutMillis = connectTimeoutMillis;
+        }
+
+        public String getReadTimeoutMillis() {
+            return readTimeoutMillis;
+        }
+
+        public void setReadTimeoutMillis(String readTimeoutMillis) {
+            this.readTimeoutMillis = readTimeoutMillis;
+        }
+
+        public int validatedConnectTimeoutMillis() {
+            return boundedTimeout(connectTimeoutMillis, "auth.master-data.connect-timeout-millis");
+        }
+
+        public int validatedReadTimeoutMillis() {
+            return boundedTimeout(readTimeoutMillis, "auth.master-data.read-timeout-millis");
+        }
+
+        private void validateTimeouts() {
+            validatedConnectTimeoutMillis();
+            validatedReadTimeoutMillis();
+        }
+
+        private static int boundedTimeout(String value, String fieldPath) {
+            try {
+                int millis = Integer.parseInt(value);
+                if (millis > 0 && millis <= 10_000) {
+                    return millis;
+                }
+            } catch (NumberFormatException ignored) {
+                // Keep the supplied text out of the startup error, including nested causes.
+            }
+            throw failClosed(fieldPath + " must be between 1 and 10000 milliseconds.");
         }
     }
 
