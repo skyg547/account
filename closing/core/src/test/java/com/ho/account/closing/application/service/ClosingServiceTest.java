@@ -60,6 +60,8 @@ public class ClosingServiceTest {
 
     @Mock
     private ClosingAggregatePersistencePort aggregates;
+    @Mock
+    private FinalCloseEvidenceService finalCloseEvidenceService;
     private ClosingService closingService;
     private ClosingAdmissionService closingAdmissionService;
 
@@ -72,7 +74,7 @@ public class ClosingServiceTest {
                 fiscalPeriodControlPort, closingCalendarPersistencePort, periodLockPersistencePort);
         ClosingTransitionTransactions transactions = new ClosingTransitionTransactions(aggregates,
                 closingCalendarPersistencePort, reopenApprovalPersistencePort, closingAuditLogPersistencePort,
-                fiscalPeriodControlPort);
+                fiscalPeriodControlPort, finalCloseEvidenceService);
         ClosingPeriodTransitionService transitions = new ClosingPeriodTransitionService(transactions,
                 closingCalendarPersistencePort);
         lenient().when(aggregates.lockCalendar(any(Long.class))).thenAnswer(call ->
@@ -442,6 +444,11 @@ public class ClosingServiceTest {
         when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
 
         when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        FinalCloseEvidenceSet bound = validEvidence("unit-success", calendar, openPeriod);
+        when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod)).thenReturn(bound);
+        when(fiscalPeriodControlPort.findFiscalPeriodById(openPeriod.id())).thenReturn(Optional.of(openPeriod));
+        when(finalCloseEvidenceService.requireBoundForFinalClose(calendar, openPeriod, bound.evidenceSetId()))
+                .thenReturn(bound);
         when(fiscalPeriodControlPort.updateClosingStatus(1L, "CLOSED", "ADMIN")).thenReturn(
                 new FiscalPeriodRef(
                         1L,
@@ -459,6 +466,42 @@ public class ClosingServiceTest {
         assertThat(result.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
         assertThat(result.getClosedBy()).isEqualTo("ADMIN");
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
+        verify(finalCloseEvidenceService).requireBoundForFinalClose(calendar, openPeriod, bound.evidenceSetId());
+    }
+
+    @Test
+    void completedConditionFreeChecklistCannotMutateTransitionAuditOrMasterWithoutTypedEvidence() {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setId(10L);
+        calendar.setFiscalYear("2026");
+        calendar.setFiscalPeriod("01");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        ClosingTask task = new ClosingTask();
+        task.setMandatory(true);
+        task.setStatus(ClosingTask.ClosingTaskStatus.COMPLETED);
+        ClosingGate gate = new ClosingGate();
+        gate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
+        when(closingCalendarPersistencePort.findById(10L)).thenReturn(Optional.of(calendar));
+        when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(task));
+        when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod))
+                .thenThrow(new FinalCloseEvidenceValidationException("no evidence set exists for the calendar"));
+
+        assertThatThrownBy(() -> closingService.determineClosingStatus(10L, "ADMIN"))
+                .isInstanceOf(FinalCloseEvidenceValidationException.class).hasMessageContaining("no evidence");
+
+        assertThat(calendar.getTransitionId()).isNull();
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
+        verify(closingCalendarPersistencePort, never()).save(any());
+        verify(closingAuditLogPersistencePort, never()).save(any());
+    }
+
+    private FinalCloseEvidenceSet validEvidence(String id, ClosingCalendar calendar, FiscalPeriodRef period) {
+        return new FinalCloseEvidenceSet(id, calendar.getId(), period.id(), period.fiscalYear(), period.fiscalPeriod(),
+                period.endDate(), java.time.Instant.parse("2026-02-01T00:00:00Z"), "provider",
+                "a".repeat(64), List.of());
     }
 
     @Test
@@ -563,6 +606,8 @@ public class ClosingServiceTest {
         gate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
         when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(task));
         when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
+        when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod))
+                .thenReturn(validEvidence("admission-close", calendar, openPeriod));
         when(reopenApprovalPersistencePort.save(any())).thenAnswer(invocation -> {
             ReopenApproval approval = invocation.getArgument(0);
             approval.setId(20L);

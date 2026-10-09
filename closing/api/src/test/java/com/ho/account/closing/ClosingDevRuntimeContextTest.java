@@ -74,14 +74,14 @@ class ClosingDevRuntimeContextTest {
     void actualDevApplicationValidatesOnlyClosingSchemaAfterOwnedMigrations() {
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM flyway_schema_history_closing
-                WHERE version IN ('49', '50', '51') AND success = TRUE
-                """, Integer.class)).isEqualTo(3);
+                WHERE version IN ('49', '50', '51', '52', '53') AND success = TRUE
+                """, Integer.class)).isEqualTo(5);
         assertThat(entityManagerFactory.getMetamodel().getEntities()).isNotEmpty()
                 .allSatisfy(entity -> assertThat(entity.getJavaType().getPackageName())
-                        .isEqualTo("com.ho.account.closing.domain"));
+                        .isIn("com.ho.account.closing.domain", "com.ho.account.closing.infrastructure.persistence"));
         assertThat(context.getBeansOfType(Repository.class)).isNotEmpty();
         new Repositories(context).forEach(domain -> assertThat(domain.getPackageName())
-                .isEqualTo("com.ho.account.closing.domain"));
+                .isIn("com.ho.account.closing.domain", "com.ho.account.closing.infrastructure.persistence"));
     }
 
     @Test

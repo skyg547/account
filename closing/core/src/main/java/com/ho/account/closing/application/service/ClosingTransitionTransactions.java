@@ -11,18 +11,18 @@ import com.ho.account.closing.domain.ClosingCalendar.ClosingCalendarStatus;
 import com.ho.account.closing.domain.ClosingCalendar.TransitionStage;
 import com.ho.account.closing.domain.ReopenApproval;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
+import com.ho.account.closing.domain.FinalCloseEvidenceSet;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.Objects;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Each public phase commits independently, before the coordinator enters the next phase. */
 @Service
-@RequiredArgsConstructor
 @Transactional(propagation = Propagation.REQUIRES_NEW)
 public class ClosingTransitionTransactions {
     private final ClosingAggregatePersistencePort aggregates;
@@ -30,6 +30,37 @@ public class ClosingTransitionTransactions {
     private final ReopenApprovalPersistencePort approvals;
     private final ClosingAuditLogPersistencePort audits;
     private final FiscalPeriodControlPort master;
+    private final FinalCloseEvidenceService finalCloseEvidence;
+
+    @Autowired
+    public ClosingTransitionTransactions(
+            ClosingAggregatePersistencePort aggregates,
+            ClosingCalendarPersistencePort calendars,
+            ReopenApprovalPersistencePort approvals,
+            ClosingAuditLogPersistencePort audits,
+            FiscalPeriodControlPort master,
+            FinalCloseEvidenceService finalCloseEvidence) {
+        this.aggregates = aggregates;
+        this.calendars = calendars;
+        this.approvals = approvals;
+        this.audits = audits;
+        this.master = master;
+        this.finalCloseEvidence = finalCloseEvidence;
+    }
+
+    /**
+     * @deprecated Compatibility for callers that have not supplied the mandatory evidence gate.
+     * Final close remains fail-closed.
+     */
+    @Deprecated
+    public ClosingTransitionTransactions(
+            ClosingAggregatePersistencePort aggregates,
+            ClosingCalendarPersistencePort calendars,
+            ReopenApprovalPersistencePort approvals,
+            ClosingAuditLogPersistencePort audits,
+            FiscalPeriodControlPort master) {
+        this(aggregates, calendars, approvals, audits, master, null);
+    }
 
     public ClosingCalendar start(Long calendarId, String actor) {
         ClosingCalendar calendar = lock(calendarId);
@@ -48,7 +79,12 @@ public class ClosingTransitionTransactions {
         FiscalPeriodRef period = master.findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod())
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
         requirePeriod(calendar, period, "OPEN");
-        calendar.prepareTransition("CLOSED", period.id(), null, actor);
+        if (finalCloseEvidence == null) {
+            throw new FinalCloseEvidenceValidationException("mandatory evidence service is unavailable");
+        }
+        // Master identity is authoritative; validate under the same calendar lock before any durable intent.
+        FinalCloseEvidenceSet selected = finalCloseEvidence.requireForFinalClose(calendar, period);
+        calendar.prepareTransition("CLOSED", period.id(), null, selected.evidenceSetId(), actor);
         savePrepared(calendar);
         return calendar;
     }
@@ -87,7 +123,7 @@ public class ClosingTransitionTransactions {
         approval.assignFiscalPeriod(period.id(), period.fiscalYear(), period.fiscalPeriod());
         approvals.save(approval);
         if (decision == ReopenApprovalStatus.APPROVED) {
-            calendar.prepareTransition("OPEN", periodId, approvalId, actor);
+            calendar.prepareTransition("OPEN", periodId, approvalId, null, actor);
             savePrepared(calendar);
         } else {
             audits.save(ClosingAuditLog.create(calendar, ActionType.REOPEN_REJECTED,
@@ -98,8 +134,56 @@ public class ClosingTransitionTransactions {
 
     public void markDispatched(Long calendarId, String operationId) {
         ClosingCalendar calendar = lock(calendarId);
+        calendar.requireTransition(operationId);
+        if (calendar.getTransitionStage() != TransitionStage.PREPARED) {
+            throw new IllegalStateException("A dispatched fiscal period transition cannot be replayed.");
+        }
+        if ("CLOSED".equals(calendar.getTransitionTarget())) {
+            if (finalCloseEvidence == null) {
+                throw new FinalCloseEvidenceValidationException("mandatory evidence service is unavailable");
+            }
+            FiscalPeriodRef period = master.findFiscalPeriodById(calendar.getTransitionFiscalPeriodId())
+                    .orElseThrow(() -> new FinalCloseEvidenceValidationException(
+                            "bound fiscal period does not exist in Master"));
+            if (period.id() == null
+                    || !Objects.equals(calendar.getTransitionFiscalPeriodId(), period.id())
+                    || !Objects.equals(calendar.getFiscalYear(), period.fiscalYear())
+                    || !Objects.equals(calendar.getFiscalPeriod(), period.fiscalPeriod())
+                    || !"OPEN".equals(period.closingStatus())) {
+                throw new FinalCloseEvidenceValidationException(
+                        "bound fiscal period is no longer the OPEN calendar period");
+            }
+            // Under the calendar lock, validate the original immutable ID at the last local gate.
+            // A newer snapshot may only be used by cancelling and preparing a new operation.
+            finalCloseEvidence.requireBoundForFinalClose(
+                    calendar, period, calendar.getTransitionEvidenceSetId());
+        }
         calendar.markTransitionDispatched(operationId);
         calendars.save(calendar);
+    }
+
+    public ClosingCalendar cancelPreparedClose(Long calendarId, String operationId, String reason, String actor) {
+        String normalizedActor = requireBoundedText(actor, "actor", 50);
+        String normalizedReason = requireBoundedText(reason, "reason", 300);
+        ClosingCalendar calendar = lock(calendarId);
+        calendar.requireTransition(operationId);
+        if (calendar.getStatus() != ClosingCalendarStatus.IN_PROGRESS
+                || calendar.getTransitionStage() != TransitionStage.PREPARED
+                || !"CLOSED".equals(calendar.getTransitionTarget())) {
+            throw new IllegalStateException("Only a PREPARED final-close transition can be cancelled.");
+        }
+        FiscalPeriodRef period = master.findFiscalPeriodById(calendar.getTransitionFiscalPeriodId())
+                .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        requirePeriodId(calendar.getTransitionFiscalPeriodId(), period);
+        requirePeriod(calendar, period, "OPEN");
+        String priorBinding = transitionEvidence(calendar);
+        calendar.cancelPreparedClose(operationId, normalizedActor);
+        ClosingCalendar saved = calendars.save(calendar);
+        // This append keeps the original operation and evidence lineage after the intent is cleared.
+        audits.save(ClosingAuditLog.create(saved, ActionType.PERIOD_TRANSITION_CANCELLED,
+                "PENDING_CLOSED", saved.getStatus().name(), normalizedActor,
+                priorBinding + "; reason=" + normalizedReason));
+        return saved;
     }
 
     public ClosingCalendar dispatchAndFinish(Long calendarId, String operationId, String recoveryActor) {
@@ -172,7 +256,8 @@ public class ClosingTransitionTransactions {
     private String transitionEvidence(ClosingCalendar calendar) {
         return "operationId=" + calendar.getTransitionId()
                 + "; fiscalPeriodId=" + calendar.getTransitionFiscalPeriodId()
-                + "; approvalId=" + calendar.getTransitionApprovalId();
+                + "; approvalId=" + calendar.getTransitionApprovalId()
+                + "; evidenceSetId=" + calendar.getTransitionEvidenceSetId();
     }
 
     private ClosingCalendar lock(Long id) {
@@ -204,6 +289,17 @@ public class ClosingTransitionTransactions {
         if (actor == null || actor.isBlank()) {
             throw new IllegalArgumentException("recoveredBy must not be blank");
         }
+    }
+
+    private String requireBoundedText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " must not exceed " + maxLength + " characters");
+        }
+        return normalized;
     }
 
     public record PreparedDecision(ReopenApproval approval, ClosingCalendar calendar) { }

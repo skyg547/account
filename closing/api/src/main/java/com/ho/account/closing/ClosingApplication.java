@@ -7,7 +7,10 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication(scanBasePackages = "com.ho.account.closing")
-@EntityScan(basePackages = "com.ho.account.closing.domain")
+@EntityScan(basePackages = {
+        "com.ho.account.closing.domain",
+        "com.ho.account.closing.infrastructure.persistence"
+})
 @EnableJpaRepositories(basePackages = "com.ho.account.closing.infrastructure.persistence")
 @EnableDiscoveryClient
 public class ClosingApplication {

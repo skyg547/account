@@ -2,6 +2,7 @@ package com.ho.account.closing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ho.account.closing.application.port.in.ClosingUseCase;
+import com.ho.account.closing.application.port.in.FinalCloseEvidenceUseCase;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
 import com.ho.account.closing.application.port.out.PeriodLockPersistencePort;
 import com.ho.account.closing.domain.ClosingCalendar;
@@ -75,6 +76,8 @@ class ClosingAdmissionPersistenceIntegrationTest {
     private PeriodLockPersistencePort locks;
     @Autowired
     private ClosingAuditLogRepository audits;
+    @Autowired
+    private FinalCloseEvidenceUseCase finalCloseEvidence;
 
     @ParameterizedTest
     @EnumSource(PeriodLockType.class)
@@ -190,6 +193,8 @@ class ClosingAdmissionPersistenceIntegrationTest {
         gate.setName("Synthetic closing evidence");
         ClosingGate savedGate = closing.createClosingGate(gate);
         closing.checkAndPassClosingGate(savedGate.getId(), "gate-operator");
+        var period = fiscalControl.findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod()).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, calendar, period.id(), period.endDate());
     }
 
     private void assertAdmission(LocalDate date, boolean allowed) {

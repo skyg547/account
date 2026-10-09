@@ -242,6 +242,7 @@ account:
 | --- | --- |
 | 진행 중인 전이 조회 | `GET /api/closing/calendars/{id}/transition` |
 | 작업 ID에 묶인 복구 | `POST /api/closing/calendars/{id}/transition/recover` |
+| 미전송 최종 마감 의도 취소 | `POST /api/closing/calendars/{id}/transition/cancel-prepared` |
 
 복구는 Gateway가 검증해 넣은 `X-Auth-User`, `X-Auth-Roles`를 사용합니다.
 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다.
@@ -250,7 +251,8 @@ trim 후 50자를 넘는 actor는 transition use case 호출 전 400입니다.
 요청 본문에 처리자 이름을 넣어 권한을 대신하지 않습니다. Closing API를 외부에 직접 노출하지 않는
 기존 EOD와 같은 신뢰 경계를 전제로 합니다.
 
-먼저 조회한 작업 ID와 단계, 목표 상태를 확인합니다. `PREPARED`는 최초 전송을 재개할 수 있습니다.
+먼저 조회한 작업 ID와 단계, 목표 상태, 바인딩된 `evidenceSetId`를 확인합니다.
+`PREPARED` 최종 마감은 바인딩된 증빙이 현재도 유효할 때만 최초 전송을 재개할 수 있습니다.
 `DISPATCHED`이면 원 요청이 더 이상 Master에서 실행될 수 없음을 운영 절차로 확인한 후에만
 `remoteRequestTerminated=true`로 복구를 요청합니다. 이 값은 원격 종료를 자동 증명하지 않습니다.
 
@@ -268,7 +270,7 @@ Master가 원 상태에 남았으면 계속 차단합니다. 해당 경우는 �
 
 최초 마감·승인 호출 중 원격 반영이나 로컬 완료가 불명확하면 HTTP 503과
 `PERIOD_TRANSITION_RECOVERY_REQUIRED`를 반환합니다. 이 응답은 승인 결정이 롤백됐다는 뜻이 아닙니다.
-조회 결과의 `operationId`, `target`, `stage`, `decisionActor`를 확인하고 복구 흐름을 사용합니다.
+조회 결과의 `operationId`, `target`, `stage`, `evidenceSetId`, `decisionActor`를 확인하고 복구 흐름을 사용합니다.
 완료되면 `calendarStatus`가 목표 상태이며 진행 중인 전이 필드는 null입니다.
 경쟁 결정·오래된 작업 ID·확인 누락·Master 상태 불일치는 HTTP 409입니다.
 
@@ -472,3 +474,111 @@ FX Batch는 쓰기 없는 전체 validation step을 통과한 뒤 기존 partiti
 읽을 뿐 불변 분산 snapshot이 아닙니다. 실행 동안 원장·환율·정책을 운영 절차로 동결해야 합니다.
 remote Journal 장애 재시도는 결정적 slip과 Journal 멱등성에 의존합니다. API 요청 멱등 key,
 다중 전표 조회, production PostgreSQL 실행계획/부하는 아직 검증되지 않았습니다.
+
+## 최종 마감 증빙 제출과 검증 (GH-778)
+
+증빙 API는 공개 사용자용이 아니라 내부 공급자용입니다. Gateway가 클라이언트가 보낸
+`X-Auth-User`/`X-Auth-Roles`를 제거하고 검증한 서비스 identity로 다시 만들어야 합니다.
+`ROLE_CLOSING_EVIDENCE_PROVIDER` 역할과 trusted submitter allowlist가 모두 필요합니다. actor 누락은
+401, 역할 부족 또는 allowlist 불일치는 403입니다. 기본 allowlist는 비어 있어 모든 제출을 거부합니다.
+로컬에서 헤더를 직접 넣는 예시는 payload/상태 흐름 확인용일 뿐 Gateway 보안 검증이 아닙니다.
+
+```yaml
+account:
+  closing:
+    final-close-evidence:
+      max-age: PT24H
+      trusted-submitters:
+        - payable-close-provider
+```
+
+`trusted-submitters`는 최대 64개이며, 각 actor는 trim 후 100자 이하이고 대소문자까지 정확히
+`X-Auth-User`와 일치해야 합니다. 운영 환경의 승인된 서비스 identity만 설정하고 빈 값은 넣지 않습니다.
+`max-age`는 양수 Spring `Duration`이며 기본값은 `PT24H`입니다. `observedAt`은 현재 캘린더의
+마감 시작 시각보다 뒤이고 미래가 아니며 이 나이 안에 있어야 합니다. 미래 시각은 제출 단계에서
+거부되어 이후의 정상 증빙이 최신 선택에서 밀리지 않게 합니다. 아래 본문에는 의도적으로
+`submittedBy`가 없습니다. path/body `calendarId`, `fiscalPeriodId`, 회계연도·기간,
+`ledgerCutoff`은 최종 마감 때 Master identity/종료일과 정확히 일치해야 합니다.
+공급자는 `observedAt`의 나노초를 반올림하지 않고 마이크로초로 절삭한 ISO Instant를 body에 넣고,
+바로 그 문자열로 digest를 계산해야 합니다. 서버 응답도 PostgreSQL 호환 마이크로초 값입니다.
+
+```http
+POST /api/closing/calendars/10/final-close-evidence
+X-Auth-User: payable-close-provider
+X-Auth-Roles: ROLE_CLOSING_EVIDENCE_PROVIDER
+Content-Type: application/json
+```
+
+```json
+{
+  "evidenceSetId": "2026-04-close-0001",
+  "calendarId": 10,
+  "fiscalPeriodId": 104,
+  "fiscalYear": "2026",
+  "fiscalPeriod": "04",
+  "ledgerCutoff": "2026-04-30",
+  "observedAt": "2026-04-30T15:10:00.123456Z",
+  "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "controls": [
+    {
+      "type": "AP_SUBLEDGER",
+      "sourceSystem": "payable",
+      "sourceRunId": "ap-close-2026-04-30-7",
+      "outcome": "PASS",
+      "blockingItemCount": 0,
+      "totals": [
+        {"accountCode": "21000", "currencyCode": "KRW", "sourceTotal": 0, "postedTotal": 0}
+      ]
+    }
+  ]
+}
+```
+
+digest 값은 형식만 맞춘 placeholder이고, 예시는 명시적 `0/0`과 필드 모양만 보여 주므로 그대로
+제출하면 digest 불일치로 거부되며 최종 마감 조건도 충족하지 않습니다.
+일반 기간은 AP/AR/리스/대출/Journal 조정/ECL 여섯 통제를 각각 한 번, `YEAR`는 여기에
+`ANNUAL_TRANSFER`를 더해야 합니다. 각 통제의 expected `sourceSystem`, digest 정렬·길이-prefix·
+금액 정규화 규칙은 [업무 흐름](process-flow.md#최종-마감-증빙-gh-778)을 따릅니다.
+
+성공은 201과 저장된 `submittedBy`/digest/control count를 반환합니다. 같은 set ID와 digest 재시도는
+기존 set을 반환하고, 같은 ID의 다른 내용은 409입니다. 형식 위반은 400, 캘린더 없음은 404,
+digest/상태/identity 위반 또는 최종 마감 증빙 실패는 409입니다. 실패한 증빙을 무시하는 override는
+없습니다. 최신 set이 FAIL이면 새롭고 올바른 set을 append해야 합니다.
+
+마감 준비 후 지연되어 증빙이 만료되면 `PREPARED` 복구도 Master 호출 전에 거부됩니다.
+운영자는 전이 조회의 `operationId`가 정확히 같은지, Master가 아직 `OPEN`인지 확인하고
+아래처럼 미전송 의도를 사유와 함께 취소합니다. 응답에서 stage가 사라져야 하며 이전 증빙·
+PREPARED·취소 감사 기록은 남습니다. 그 다음 신뢰된 공급자가 새 증빙 ID로 제출하고 마감을
+다시 시작합니다. 이미 `DISPATCHED`인 의도는 이 명령으로 취소할 수 없으며 기존 원격 결과를
+대사해야 합니다.
+
+```http
+POST /api/closing/calendars/10/transition/cancel-prepared
+X-Auth-User: closing-operator
+X-Auth-Roles: ROLE_CLOSING_MANAGER
+Content-Type: application/json
+
+{"operationId":"the-prepared-operation-id","reason":"Evidence expired before first dispatch; request a new source run"}
+```
+
+검증 명령(실행 결과는 별도로 기록):
+
+```bash
+./gradlew :closing:core:test --tests '*FinalCloseEvidence*' --console=plain --max-workers=1 --no-daemon
+./gradlew :closing:api:test --tests '*FinalCloseEvidence*' --tests '*ClosingTransitionRecovery*' --console=plain --max-workers=1 --no-daemon
+./gradlew :closing:test --console=plain --max-workers=1 --no-daemon
+./gradlew :closing:api:bootJar :closing:batch:bootJar --offline --console=plain --max-workers=1 --no-daemon
+```
+
+생산 공급자들이 실제 확정 run과 완전한 계정·통화 차원을 보내는지, Gateway가 헤더를 제거/재구성하는지,
+실제 PostgreSQL의 migration·잠금과 원천 관측 후 Master 변경 사이 분산 TOCTOU는 사람이 감독하는
+end-to-end/운영 검증이 필요합니다. 헤더와 allowlist는 암호학적 identity 증명이 아니므로 production은
+사설 네트워크와 Gateway의 외부 헤더 제거/재구성을 검증해야 하며, 향후 mTLS나 서명된 서비스 토큰을
+사용할 수 있습니다. 이 검증이 없다는 이유로 fail-open하지 않습니다.
+
+V53 배포 전에 기존 `IN_PROGRESS` 캘린더를 목록화하고 각 행의 원래 애플리케이션 시간대와
+AP·AR·리스·대출·조정·ECL(연차이면 이체) 금융 통제의 완료 상태를 확인합니다. 이전 버전에서
+체크리스트 플래그만으로 마감을 끝내서는 안 됩니다. 이전 `closeInitiatedAt`은 서버 로컬 시각을
+시간대 없는 DB 값으로 저장했고 새 증빙 검사는 이를 UTC로 해석하므로, 작업을 안전하게 drain하지
+못한 행은 마감을 HOLD합니다. 원래 시간대·시작 시각·원천 증빙을 운영자가 대사하고 검토된
+forward correction으로 처리합니다. 자동 시각 변환이나 freshness 우회는 하지 않습니다.

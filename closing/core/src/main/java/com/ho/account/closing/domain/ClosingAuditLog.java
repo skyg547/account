@@ -63,6 +63,7 @@ public class ClosingAuditLog {
         GATE_PASSED,
         ADJUSTMENT_CREATED,
         PERIOD_TRANSITION_PREPARED,
+        PERIOD_TRANSITION_CANCELLED,
         PERIOD_TRANSITION_RECOVERED
     }
 
