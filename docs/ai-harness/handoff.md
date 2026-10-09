@@ -1,3 +1,10 @@
+## 2026-10-09 — GH-854 Draft PR #878 handoff
+
+- [Issue #854](https://github.com/skyg547/account/issues/854) is represented by `agent/854-cashflow-images` in `/tmp/account-854-cashflow-images`, based on `origin/main@6b4998ed89b4518a0f8bb568046c89a34f7ca7dd`; [Draft PR #878](https://github.com/skyg547/account/pull/878) uses `Refs #854`.
+- Implementation files: `deploy/image-targets.json`, `cashflow/api/Dockerfile`, `cashflow/batch/Dockerfile`, and `cashflow/README.md`; this PR also contains the three Issue-requested AI harness status records. Manifest entries are disabled so development Compose stays untouched; each Java 17 Dockerfile requires exactly one executable non-plain JAR. No business state, database, pipeline, or runtime deployment file changed.
+- Verification: `:config-server:test` PASS (119 tests, 11 skipped), cashflow core/API/Batch tests PASS (23), both `bootJar` tasks PASS, static manifest/Dockerfile/JAR checks PASS, diff and marker checks PASS. `:infra:test` has no Gradle project; aggregate `:cashflow:test` is `NO-SOURCE`.
+- Limits: the named `ContainerImagePolicyTest` is disabled and contains stale fixed counts; actual image builds were not run. Independent read-only review found no in-scope blocker and Q1–Q4 PASS. Current-head cashflow CI PASS; implementer PR discipline check FAIL is expected while Draft and the repository trust policy is unconfigured. Rollback by PR revert. Next: human review and separately authorized Ready/merge/Issue-close/cleanup gates; preserve branch/worktree. Implementation, review, and merge authority remain separate.
+
 ## 2026-10-06 — GH-858 Draft PR #875 handoff
 
 - Source: [Issue #858](https://github.com/skyg547/account/issues/858), `status:needs-review`; implementation branch `agent/858-require-fx-rate` in `/tmp/account-858-require-fx-rate`, based on `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; [Draft PR #875](https://github.com/skyg547/account/pull/875) uses `Refs #858`.

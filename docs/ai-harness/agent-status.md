@@ -1,3 +1,10 @@
+## 2026-10-09 — GH-854 cashflow images / Draft PR #878
+
+- State: `status:needs-review`; branch `agent/854-cashflow-images`; worktree `/tmp/account-854-cashflow-images`; base `origin/main@6b4998ed`; [Draft PR #878](https://github.com/skyg547/account/pull/878), `Refs #854`.
+- Scope: cashflow API/Batch Dockerfiles and README, plus the Issue-named `deploy/image-targets.json`. Both image targets are registered as disabled because Compose changes are outside scope. The independent read-only Reviewer found no in-scope blocker and marked Q1–Q4 PASS.
+- Verification: config-server 119 tests PASS with 11 existing skips; cashflow core/API/Batch 23 tests PASS; both bootJars PASS; manifest/Dockerfile/JAR static assertions, whitespace, and marker checks PASS. Requested `:infra:test` cannot run because `:infra` is absent; `:cashflow:test` is `NO-SOURCE`.
+- Residual: the Issue-named `ContainerImagePolicyTest` remains class-level disabled with stale fixed counts; actual container builds remain pending. Current-head cashflow CI passed; implementer PR discipline check fails while Draft and the repository trust policy is unconfigured. Next owner is the human PR reviewer. Ready, merge, Issue close, and resource deletion are not part of this Draft publication.
+
 ## 2026-10-06 — GH-858 account-mart FX rate requirement / Draft PR #875
 
 - State: `status:needs-review`; branch `agent/858-require-fx-rate`; worktree `/tmp/account-858-require-fx-rate`; base `origin/main@973d76dd`; [Draft PR #875](https://github.com/skyg547/account/pull/875), `Refs #858`.
