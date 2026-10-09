@@ -1,3 +1,15 @@
+# GH-882 agent status
+
+- Issue [#882](https://github.com/skyg547/account/issues/882) is at Draft [PR #897](https://github.com/skyg547/account/pull/897) review handoff (`Refs #882`). Base `origin/main@9348966a`, branch `agent/882-typed-ledger-keys`, worktree `/tmp/account-882-typed-ledger-keys`; audited detached proof `/tmp/account-882-audited-proof@a97d10ab`.
+- Scope: only `journal-ledger/**`, including these module-local records. Read and write aggregation now use typed exact-value GL/SL keys; null, empty, literal `NULL`, and delimiter-bearing dimensions remain separate. No shared harness/history or other module edit.
+- Evidence: byte-identical audited regression RED 1/1 (one SL 30 instead of distinct 10/20); focused service 34/34 and real JPA/JDBC integration 54/54 GREEN; required module command 439/439 PASS (core328, API74, batch37), failures/errors/skips 0. Diff and changed-file marker gates pass.
+- Independent read-only review: no P0–P3 finding, Q1–Q4 PASS with evidence in [worklog.md](worklog.md). Parent Integrator owns records and Git/GitHub; implementers owned disjoint service/test files.
+- Rollback/risk: scoped code revert restores the defect; previously merged historical rows need separate `POSTED`-source reconciliation/rebuild. No live PostgreSQL, production data/load, distributed fault, or deployment verification. Human review and current-head CI own Ready/merge/Issue close; branch/worktrees remain retained.
+
+---
+
+The following is retained historical status and is not a current GH-882 report.
+
 # GH-879 agent status
 
 - Issue: [#879](https://github.com/skyg547/account/issues/879), review handoff `status:needs-review`; [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
