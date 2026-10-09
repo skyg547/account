@@ -6,8 +6,8 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -442,7 +442,7 @@ class PostedJournalImmutabilityPersistenceTest {
     @Configuration(proxyBeanMethods = false)
     @ImportAutoConfiguration({DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class,
             TransactionAutoConfiguration.class})
-    @EntityScan(basePackageClasses = JournalEntry.class)
+    @EntityScan(basePackageClasses = com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle.class)
     @EnableJpaRepositories(basePackageClasses = JournalEntryRepository.class)
     static class PersistenceApplication { }
 }

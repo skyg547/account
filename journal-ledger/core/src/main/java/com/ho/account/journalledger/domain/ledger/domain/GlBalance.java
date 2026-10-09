@@ -1,6 +1,5 @@
 package com.ho.account.journalledger.domain.ledger.domain;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -10,47 +9,29 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 
-@Entity
-@Table(name = "gl_balances", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_gl_balance_key", columnNames = {"account_code", "currency_code", "balance_date", "period"})
-}, indexes = {
-    @Index(name = "idx_gl_balance_lookup", columnList = "account_code, currency_code, balance_date"),
-    @Index(name = "idx_gl_balance_period", columnList = "period, account_code")
-})
 @Getter
 @Setter
 @NoArgsConstructor
 public class GlBalance {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "account_code", nullable = false, length = 50)
     private String accountCode;
 
-    @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode;
 
-    @Column(name = "balance_date", nullable = false)
     private LocalDate balanceDate;
 
-    @Column(nullable = false)
     private YearMonth period;
 
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal beginningBalance = BigDecimal.ZERO;
 
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal debitAmount = BigDecimal.ZERO;
 
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal creditAmount = BigDecimal.ZERO;
 
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal endingBalance = BigDecimal.ZERO;
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -77,8 +58,7 @@ public class GlBalance {
         this.updatedAt = LocalDateTime.now();
     }
 
-    @PrePersist
-    protected void onCreate() {
+    public void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.beginningBalance == null) this.beginningBalance = BigDecimal.ZERO;
@@ -87,8 +67,7 @@ public class GlBalance {
         recalculate();
     }
 
-    @PreUpdate
-    protected void onUpdate() {
+    public void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
 

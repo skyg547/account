@@ -4,9 +4,9 @@ import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleConditionRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalRuleConditionRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalRuleDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalRuleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

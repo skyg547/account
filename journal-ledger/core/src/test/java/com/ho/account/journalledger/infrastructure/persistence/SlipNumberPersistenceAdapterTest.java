@@ -62,8 +62,8 @@ class SlipNumberPersistenceAdapterTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @EntityScan("com.ho.account.journalledger.domain")
-    @EnableJpaRepositories("com.ho.account.journalledger.domain")
+    @EntityScan("com.ho.account.journalledger.infrastructure.persistence")
+    @EnableJpaRepositories("com.ho.account.journalledger.infrastructure.persistence.repository")
     @Import(JournalPersistenceAdapter.class)
     static class Application { }
 }

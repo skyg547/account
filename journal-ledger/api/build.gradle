@@ -44,6 +44,10 @@ bootRun {
 bootJar { enabled = true }
 jar { enabled = false }
 
+tasks.named('test').configure {
+    systemProperty 'spring.jpa.mapping-resources', 'META-INF/journal-ledger-orm.xml'
+}
+
 springBoot {
     mainClass = 'com.ho.account.journalledger.JournalLedgerApplication'
 }

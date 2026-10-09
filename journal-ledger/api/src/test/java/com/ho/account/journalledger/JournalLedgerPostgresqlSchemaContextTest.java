@@ -2,8 +2,8 @@ package com.ho.account.journalledger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -132,9 +132,9 @@ class JournalLedgerPostgresqlSchemaContextTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @EntityScan(basePackages = "com.ho.account.journalledger.domain")
+    @EntityScan(basePackages = "com.ho.account.journalledger.infrastructure.persistence")
     @EnableJpaRepositories(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence.repository",
             "com.ho.account.journalledger.adapter.out.persistence"
     })
     static class SchemaValidationApplication {

@@ -15,7 +15,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -353,8 +353,8 @@ class ReversalConcurrencyIntegrationTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @EntityScan("com.ho.account.journalledger.domain")
-    @EnableJpaRepositories("com.ho.account.journalledger.domain")
+    @EntityScan("com.ho.account.journalledger.infrastructure.persistence")
+    @EnableJpaRepositories("com.ho.account.journalledger.infrastructure.persistence.repository")
     @Import({JournalPersistenceAdapter.class, JournalReversalPersistenceAdapter.class})
     static class ReversalApplication {
         @Bean ReversalWriteGate reversalWriteGate(

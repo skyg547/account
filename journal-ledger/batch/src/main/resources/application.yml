@@ -1,6 +1,9 @@
 spring:
   application:
     name: journal-ledger-batch
+  jpa:
+    # Explicit mapping avoids loading journal tables in other services that depend on core.
+    mapping-resources: META-INF/journal-ledger-orm.xml
   profiles:
     default: local
   main:

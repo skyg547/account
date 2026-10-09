@@ -1,6 +1,5 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
@@ -30,21 +29,15 @@ import java.time.LocalDateTime;
  * - 표현식 평가는 JournalRuleEngine이 필수값 누락, 문자열 결합, 금액 수식을 구분하여 수행합니다.
  * ─────────────────────────────────────────────────
  */
-@Entity
-@Table(name = "journal_rule_details")
 public class JournalRuleDetail {
 
     /** 시스템 내부 PK (자동 증가) */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**
      * 소속 분개 규칙.
      * 이 명세 라인이 어느 JournalRule에 속하는지를 나타냅니다.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rule_id", nullable = false)
     private JournalRule journalRule;
 
     /**
@@ -52,8 +45,6 @@ public class JournalRuleDetail {
      * "DEBIT" 또는 "CREDIT" 문자열로 저장됩니다.
      * JournalRuleEngine이 이 값을 JournalSide 열거형으로 변환하여 JournalDetail에 설정합니다.
      */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "drcr_type", nullable = false, length = 10)
     private JournalSide side;
 
     /**
@@ -62,7 +53,6 @@ public class JournalRuleDetail {
      * 동적 코드: "${transaction.accountCode}" (이벤트 데이터의 accountCode 필드 값 사용)
      * JournalRuleEngine에서 이벤트 데이터를 바탕으로 실제 계정 코드로 평가합니다.
      */
-    @Column(nullable = false, length = 100)
     private String accountSubjectCodeExpression;
 
     /**
@@ -72,7 +62,6 @@ public class JournalRuleDetail {
      * 수식:       "${transaction.amount} * 0.1" (예: 부가세 10% 계산)
      * JournalRuleEngine에서 이벤트 데이터를 바탕으로 BigDecimal로 평가합니다.
      */
-    @Column(nullable = false, length = 100)
     private String amountExpression;
 
     /**
@@ -80,7 +69,6 @@ public class JournalRuleDetail {
      * null이면 전표 헤더의 description을 사용합니다.
      * 동적 적요: "${transaction.description}"
      */
-    @Column(length = 255)
     private String descriptionExpression;
 
     /**
@@ -89,7 +77,6 @@ public class JournalRuleDetail {
      * 동적 코드:  "${transaction.businessPartnerCode}"
      * null이면 거래처 미설정.
      */
-    @Column(length = 50)
     private String businessPartnerCodeExpression;
 
     /**
@@ -98,31 +85,26 @@ public class JournalRuleDetail {
      * 동적 코드:  "${transaction.departmentCode}"
      * null이면 부서 미설정.
      */
-    @Column(length = 50)
     private String departmentCodeExpression;
 
     /** 최초 생성 일시 (수정 불가) */
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     /** 최종 수정 일시 */
     private LocalDateTime updatedAt;
 
     /** 처리자 */
-    @Column(length = 50)
     private String auditUser;
 
     // ─── 생명주기 콜백 ──────────────────────────────────────
 
-    @PrePersist
-    protected void onCreate() {
+    public void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.auditUser == null) this.auditUser = "SYSTEM";
     }
 
-    @PreUpdate
-    protected void onUpdate() {
+    public void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
 

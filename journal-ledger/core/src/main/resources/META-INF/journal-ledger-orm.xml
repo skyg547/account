@@ -1,0 +1,625 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm" version="3.1">
+  <!-- Explicit infrastructure mapping of framework-free journal-ledger domain objects. -->
+  <converter class="com.ho.account.journalledger.infrastructure.persistence.YearMonthAttributeConverter" auto-apply="true"/>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalDetail" name="JournalDetail" metadata-complete="true" access="FIELD">
+    <table name="journal_details">
+      <index name="idx_journal_detail_journal_entry_id" column-list="journal_entry_id"/>
+      <index name="idx_journal_detail_account_code" column-list="account_code"/>
+      <index name="idx_journal_detail_dept_code" column-list="dept_code"/>
+      <index name="idx_journal_detail_business_partner_code" column-list="business_partner_code"/>
+      <index name="idx_journal_detail_side" column-list="side"/>
+    </table>
+    <entity-listeners>
+      <entity-listener class="com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle">
+        <pre-persist method-name="beforeInsert"/>
+        <pre-update method-name="beforeUpdate"/>
+        <pre-remove method-name="beforeDelete"/>
+        <post-load method-name="afterLoad"/>
+        <post-persist method-name="afterInsert"/>
+        <post-update method-name="afterUpdate"/>
+      </entity-listener>
+    </entity-listeners>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <many-to-one name="journalEntry" fetch="LAZY">
+        <join-column name="journal_entry_id" nullable="false"/>
+      </many-to-one>
+      <basic name="side">
+        <column nullable="false" length="10"/>
+        <enumerated>STRING</enumerated>
+      </basic>
+      <basic name="accountCode">
+        <column name="account_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="amount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="baseAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="departmentCode">
+        <column name="dept_code" length="50"/>
+      </basic>
+      <basic name="businessPartnerCode">
+        <column name="business_partner_code" length="50"/>
+      </basic>
+      <basic name="detailDescription">
+        <column length="200"/>
+      </basic>
+      <basic name="createdAt">
+        <column updatable="false"/>
+      </basic>
+      <basic name="updatedAt">
+      </basic>
+      <basic name="auditUser">
+        <column length="50"/>
+      </basic>
+      <transient name="persistedJournalEntry"/>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalEntry" name="JournalEntry" metadata-complete="true" access="FIELD">
+    <table name="journal_entries">
+      <index name="idx_journal_entry_slip_no" column-list="slipNo"/>
+      <index name="idx_journal_entry_posting_lookup" column-list="status, accountingDate"/>
+      <index name="idx_journal_entry_lineage" column-list="lineageSourceType, lineageSourceId"/>
+    </table>
+    <entity-listeners>
+      <entity-listener class="com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle">
+        <pre-persist method-name="beforeInsert"/>
+        <pre-update method-name="beforeUpdate"/>
+        <pre-remove method-name="beforeDelete"/>
+        <post-load method-name="afterLoad"/>
+        <post-persist method-name="afterInsert"/>
+        <post-update method-name="afterUpdate"/>
+      </entity-listener>
+    </entity-listeners>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <basic name="slipNo">
+        <column nullable="false" unique="true" length="20"/>
+      </basic>
+      <basic name="slipDate">
+        <column nullable="false"/>
+      </basic>
+      <basic name="accountingDate">
+        <column nullable="false"/>
+      </basic>
+      <basic name="description">
+        <column length="200"/>
+      </basic>
+      <basic name="status">
+        <column length="20"/>
+        <enumerated>STRING</enumerated>
+      </basic>
+      <basic name="entryType">
+        <column length="50"/>
+      </basic>
+      <basic name="currencyCode">
+        <column name="currency_code" length="3"/>
+      </basic>
+      <basic name="exchangeRate">
+        <column precision="19" scale="8"/>
+      </basic>
+      <basic name="rejectionReason">
+        <column length="500"/>
+      </basic>
+      <one-to-many name="details" mapped-by="journalEntry" orphan-removal="true">
+        <cascade>
+          <cascade-all/>
+        </cascade>
+      </one-to-many>
+      <basic name="createdAt">
+        <column updatable="false"/>
+      </basic>
+      <basic name="updatedAt">
+      </basic>
+      <basic name="createdBy">
+        <column length="50"/>
+      </basic>
+      <basic name="approvedBy">
+        <column length="50"/>
+      </basic>
+      <basic name="auditUser">
+        <column length="50"/>
+      </basic>
+      <basic name="lineageSourceType">
+        <column length="50"/>
+      </basic>
+      <basic name="lineageSourceId">
+        <column length="100"/>
+      </basic>
+      <transient name="persistedStatus"/>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalEventQuarantine" name="JournalEventQuarantine" metadata-complete="true" access="FIELD">
+    <table name="journal_event_quarantine">
+      <unique-constraint name="uk_journal_event_quarantine_record">
+        <column-name>source_topic</column-name>
+        <column-name>source_partition</column-name>
+        <column-name>source_offset</column-name>
+      </unique-constraint>
+      <index name="idx_journal_event_quarantine_completeness" column-list="status, first_seen_at"/>
+    </table>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <basic name="sourceTopic">
+        <column name="source_topic" nullable="false" length="249" updatable="false"/>
+      </basic>
+      <basic name="sourcePartition">
+        <column name="source_partition" nullable="false" updatable="false"/>
+      </basic>
+      <basic name="sourceOffset">
+        <column name="source_offset" nullable="false" updatable="false"/>
+      </basic>
+      <basic name="payloadJson">
+        <column name="payload_json" nullable="false" updatable="false" column-definition="TEXT"/>
+      </basic>
+      <basic name="accountingDate">
+        <column name="accounting_date" nullable="false" updatable="false"/>
+      </basic>
+      <basic name="status">
+        <column nullable="false" length="20"/>
+        <enumerated>STRING</enumerated>
+      </basic>
+      <basic name="reasonCode">
+        <column name="reason_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="journalEntryId">
+        <column name="journal_entry_id"/>
+      </basic>
+      <basic name="firstSeenAt">
+        <column name="first_seen_at" nullable="false" updatable="false"/>
+      </basic>
+      <basic name="lastReplayAt">
+        <column name="last_replay_at"/>
+      </basic>
+      <basic name="lastReplayActor">
+        <column name="last_replay_actor" length="100"/>
+      </basic>
+      <basic name="replayAttempts">
+        <column name="replay_attempts" nullable="false"/>
+      </basic>
+      <version name="version">
+        <column nullable="false"/>
+      </version>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation" name="JournalReversalOperation" metadata-complete="true" access="FIELD">
+    <table name="journal_reversal_operations"/>
+    <attributes>
+      <id name="originalJournalEntryId">
+        <column name="original_journal_entry_id" nullable="false" updatable="false"/>
+      </id>
+      <basic name="reversalJournalEntryId">
+        <column name="reversal_journal_entry_id" nullable="false" unique="true"/>
+      </basic>
+      <basic name="status">
+        <column nullable="false" length="20"/>
+        <enumerated>STRING</enumerated>
+      </basic>
+      <basic name="createdAt">
+        <column name="created_at" nullable="false" updatable="false"/>
+      </basic>
+      <basic name="updatedAt">
+        <column name="updated_at" nullable="false"/>
+      </basic>
+      <basic name="postedAt">
+        <column name="posted_at"/>
+      </basic>
+      <basic name="cancelledAt">
+        <column name="cancelled_at"/>
+      </basic>
+      <basic name="cancelledBy">
+        <column name="cancelled_by" length="50"/>
+      </basic>
+      <basic name="cancellationReason">
+        <column name="cancellation_reason" length="500"/>
+      </basic>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalRule" name="JournalRule" metadata-complete="true" access="FIELD">
+    <table name="journal_rules">
+      <index name="idx_journal_rule_code_valid" column-list="rule_code, valid_from, valid_to"/>
+    </table>
+    <entity-listeners>
+      <entity-listener class="com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle">
+        <pre-persist method-name="beforeInsert"/>
+        <pre-update method-name="beforeUpdate"/>
+      </entity-listener>
+    </entity-listeners>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <basic name="ruleCode">
+        <column name="rule_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="ruleName">
+        <column nullable="false" length="100"/>
+      </basic>
+      <basic name="description">
+        <column length="500"/>
+      </basic>
+      <basic name="validFrom">
+        <column nullable="false"/>
+      </basic>
+      <basic name="validTo">
+      </basic>
+      <basic name="version">
+        <column nullable="false"/>
+      </basic>
+      <basic name="isActive">
+        <column nullable="false"/>
+      </basic>
+      <basic name="priority">
+        <column nullable="false"/>
+      </basic>
+      <one-to-many name="conditions" mapped-by="journalRule" orphan-removal="true">
+        <cascade>
+          <cascade-all/>
+        </cascade>
+      </one-to-many>
+      <one-to-many name="ruleDetails" mapped-by="journalRule" orphan-removal="true">
+        <cascade>
+          <cascade-all/>
+        </cascade>
+      </one-to-many>
+      <basic name="createdAt">
+        <column updatable="false"/>
+      </basic>
+      <basic name="updatedAt">
+      </basic>
+      <basic name="auditUser">
+        <column length="50"/>
+      </basic>
+      <basic name="createdBy">
+      </basic>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition" name="JournalRuleCondition" metadata-complete="true" access="FIELD">
+    <table name="journal_rule_conditions"/>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <many-to-one name="journalRule" fetch="LAZY">
+        <join-column name="rule_id" nullable="false"/>
+      </many-to-one>
+      <basic name="field">
+        <column nullable="false" length="50"/>
+      </basic>
+      <basic name="operator">
+        <column nullable="false" length="20"/>
+        <enumerated>STRING</enumerated>
+      </basic>
+      <basic name="value">
+        <column name="condition_value" nullable="false" length="255"/>
+      </basic>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail" name="JournalRuleDetail" metadata-complete="true" access="FIELD">
+    <table name="journal_rule_details"/>
+    <entity-listeners>
+      <entity-listener class="com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle">
+        <pre-persist method-name="beforeInsert"/>
+        <pre-update method-name="beforeUpdate"/>
+      </entity-listener>
+    </entity-listeners>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <many-to-one name="journalRule" fetch="LAZY">
+        <join-column name="rule_id" nullable="false"/>
+      </many-to-one>
+      <basic name="side">
+        <column name="drcr_type" nullable="false" length="10"/>
+        <enumerated>STRING</enumerated>
+      </basic>
+      <basic name="accountSubjectCodeExpression">
+        <column nullable="false" length="100"/>
+      </basic>
+      <basic name="amountExpression">
+        <column nullable="false" length="100"/>
+      </basic>
+      <basic name="descriptionExpression">
+        <column length="255"/>
+      </basic>
+      <basic name="businessPartnerCodeExpression">
+        <column length="50"/>
+      </basic>
+      <basic name="departmentCodeExpression">
+        <column length="50"/>
+      </basic>
+      <basic name="createdAt">
+        <column updatable="false"/>
+      </basic>
+      <basic name="updatedAt">
+      </basic>
+      <basic name="auditUser">
+        <column length="50"/>
+      </basic>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.ledger.domain.GlBalance" name="GlBalance" metadata-complete="true" access="FIELD">
+    <table name="gl_balances">
+      <unique-constraint name="uk_gl_balance_key">
+        <column-name>account_code</column-name>
+        <column-name>currency_code</column-name>
+        <column-name>balance_date</column-name>
+        <column-name>period</column-name>
+      </unique-constraint>
+      <index name="idx_gl_balance_lookup" column-list="account_code, currency_code, balance_date"/>
+      <index name="idx_gl_balance_period" column-list="period, account_code"/>
+    </table>
+    <entity-listeners>
+      <entity-listener class="com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle">
+        <pre-persist method-name="beforeInsert"/>
+        <pre-update method-name="beforeUpdate"/>
+      </entity-listener>
+    </entity-listeners>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <basic name="accountCode">
+        <column name="account_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="currencyCode">
+        <column name="currency_code" nullable="false" length="3"/>
+      </basic>
+      <basic name="balanceDate">
+        <column name="balance_date" nullable="false"/>
+      </basic>
+      <basic name="period">
+        <column nullable="false"/>
+      </basic>
+      <basic name="beginningBalance">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="debitAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="creditAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="endingBalance">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="createdAt">
+        <column updatable="false"/>
+      </basic>
+      <basic name="updatedAt">
+      </basic>
+
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.ledger.domain.GlEntry" name="GlEntry" metadata-complete="true" access="FIELD">
+    <table name="gl_entries">
+      <unique-constraint name="uk_gl_entries_journal_detail">
+        <column-name>journal_detail_id</column-name>
+      </unique-constraint>
+    </table>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <many-to-one name="journalDetail" fetch="LAZY">
+        <join-column name="journal_detail_id" nullable="false"/>
+      </many-to-one>
+      <basic name="accountCode">
+        <column name="account_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="currencyCode">
+        <column name="currency_code" length="3"/>
+      </basic>
+      <basic name="fiscalYear">
+      </basic>
+      <basic name="fiscalPeriod">
+      </basic>
+      <basic name="postingDate">
+      </basic>
+      <basic name="drAmount">
+        <column name="dr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="crAmount">
+        <column name="cr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="baseDrAmount">
+        <column name="base_dr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="baseCrAmount">
+        <column name="base_cr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="summary">
+      </basic>
+      <basic name="lineageSourceType">
+      </basic>
+      <basic name="lineageSourceId">
+      </basic>
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.ledger.domain.SlBalance" name="SlBalance" metadata-complete="true" access="FIELD">
+    <table name="sl_balances">
+      <unique-constraint name="uk_sl_balance_key">
+        <column-name>account_code</column-name>
+        <column-name>bp_code</column-name>
+        <column-name>dept_code</column-name>
+        <column-name>currency_code</column-name>
+        <column-name>balance_date</column-name>
+        <column-name>period</column-name>
+      </unique-constraint>
+      <index name="idx_sl_balance_lookup" column-list="account_code, bp_code, dept_code, balance_date"/>
+      <index name="idx_sl_balance_period" column-list="period, account_code"/>
+    </table>
+    <entity-listeners>
+      <entity-listener class="com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle">
+        <pre-persist method-name="beforeInsert"/>
+        <pre-update method-name="beforeUpdate"/>
+      </entity-listener>
+    </entity-listeners>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <basic name="accountCode">
+        <column name="account_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="businessPartnerCode">
+        <column name="bp_code" length="50"/>
+      </basic>
+      <basic name="departmentCode">
+        <column name="dept_code" length="50"/>
+      </basic>
+      <basic name="currencyCode">
+        <column name="currency_code" nullable="false" length="3"/>
+      </basic>
+      <basic name="balanceDate">
+        <column name="balance_date" nullable="false"/>
+      </basic>
+      <basic name="period">
+        <column nullable="false"/>
+      </basic>
+      <basic name="beginningBalance">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="debitAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="creditAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="endingBalance">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="createdAt">
+        <column updatable="false"/>
+      </basic>
+      <basic name="updatedAt">
+      </basic>
+
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.ledger.domain.SlEntry" name="SlEntry" metadata-complete="true" access="FIELD">
+    <table name="sl_entries">
+      <unique-constraint name="uk_sl_entries_journal_detail">
+        <column-name>journal_detail_id</column-name>
+      </unique-constraint>
+    </table>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <many-to-one name="journalDetail" fetch="LAZY">
+        <join-column name="journal_detail_id" nullable="false"/>
+      </many-to-one>
+      <basic name="accountCode">
+        <column name="account_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="businessPartnerCode">
+        <column name="business_partner_code" length="50"/>
+      </basic>
+      <basic name="departmentCode">
+        <column name="dept_code" length="50"/>
+      </basic>
+      <basic name="currencyCode">
+        <column name="currency_code" length="3"/>
+      </basic>
+      <basic name="fiscalYear">
+      </basic>
+
+      <basic name="fiscalPeriod">
+      </basic>
+
+      <basic name="postingDate">
+      </basic>
+
+      <basic name="drAmount">
+        <column name="dr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="crAmount">
+        <column name="cr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="baseDrAmount">
+        <column name="base_dr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="baseCrAmount">
+        <column name="base_cr_amount" nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="summary">
+      </basic>
+
+      <basic name="lineageSourceType">
+      </basic>
+
+      <basic name="lineageSourceId">
+      </basic>
+
+    </attributes>
+  </entity>
+  <entity class="com.ho.account.journalledger.domain.unsettled.UnsettledItem" name="UnsettledItem" metadata-complete="true" access="FIELD">
+    <table name="unsettled_items"/>
+    <entity-listeners>
+      <entity-listener class="com.ho.account.journalledger.infrastructure.persistence.DomainPersistenceLifecycle">
+        <pre-persist method-name="beforeInsert"/>
+      </entity-listener>
+    </entity-listeners>
+    <attributes>
+      <id name="id">
+        <generated-value strategy="IDENTITY"/>
+      </id>
+      <basic name="managementNo">
+        <column nullable="false" unique="true" length="50"/>
+      </basic>
+      <many-to-one name="journalDetail" fetch="LAZY">
+        <join-column name="journal_detail_id" nullable="false"/>
+      </many-to-one>
+      <basic name="accountCode">
+        <column name="account_code" nullable="false" length="50"/>
+      </basic>
+      <basic name="businessPartnerCode">
+        <column name="bp_code" length="50"/>
+      </basic>
+      <basic name="occurrenceDate">
+        <column nullable="false"/>
+      </basic>
+      <basic name="originalAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="settledAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="remainingAmount">
+        <column nullable="false" precision="19" scale="2"/>
+      </basic>
+      <basic name="status">
+        <column length="20"/>
+      </basic>
+      <basic name="resolved">
+        <column nullable="false"/>
+      </basic>
+      <basic name="lastSettledBy">
+        <column length="50"/>
+      </basic>
+      <basic name="lastSettlementReference">
+        <column length="100"/>
+      </basic>
+      <element-collection name="settlementReferences" fetch="EAGER">
+        <collection-table name="unsettled_item_settlement_references">
+          <join-column name="unsettled_item_id"/>
+        </collection-table>
+        <column name="settlement_reference" nullable="false" length="100"/>
+      </element-collection>
+      <basic name="lastSettledAt">
+      </basic>
+
+    </attributes>
+  </entity>
+</entity-mappings>

@@ -73,6 +73,7 @@ HTTP/Kafka Adapter
 - 자동분개 엔진도 `JournalRuleQueryPort`만 사용하고, 세부 Spring Data 저장소 조회는 `JournalRuleQueryAdapter`가 담당합니다.
 - 전기 서비스는 `LedgerEntryPersistencePort`, 잔액 서비스는 `LedgerBalancePersistencePort`를 사용하므로 애플리케이션 서비스가 JPA Repository를 직접 알지 않습니다.
 - 기본 저장은 JPA 어댑터가 맡고, 운영 대용량 경로는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch/upsert 어댑터를 사용할 수 있습니다.
+- 도메인에는 JPA/Spring import가 없습니다. 저장 테이블·컬럼과 lifecycle 연결은 `core/src/main/resources/META-INF/journal-ledger-orm.xml`, 저장소 인터페이스는 `infrastructure.persistence.repository`에 있습니다. 도메인 규칙을 고칠 때는 도메인 테스트, 매핑을 고칠 때는 JPA 영속성 테스트를 함께 실행합니다.
 - 계층별 책임과 레거시 README 아카이브는 [layer-guide.md](layer-guide.md)를 기준으로 확인합니다.
 
 ## 미결 반제를 읽는 방법

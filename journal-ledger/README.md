@@ -2,6 +2,8 @@
 
 `journal-ledger`는 회사에서 돈이 나가고 들어오는 모든 거래가 "차변/대변이 일치하는 복식부기 전표" 형태로 기록되는 회계 시스템의 가장 핵심적인 장부 기록 센터입니다. API는 전표/원장 조회와 전기 요청을 받고, Batch는 과거 기간 GL/SL 잔액 재집계를 실행합니다.
 
+도메인 Java 소스는 Spring/JPA import 없이 컴파일됩니다. 저장 테이블·관계·정밀도는 core JAR의 `META-INF/journal-ledger-orm.xml`에 명시하고, Spring Data 저장소와 lifecycle listener는 `infrastructure.persistence`에 둡니다. 처음 보는 개발자는 [계층 가이드](docs/layer-guide.md)에서 도메인 → 출력 포트 → 저장 어댑터 흐름을 확인할 수 있습니다.
+
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
@@ -138,6 +140,13 @@ docker-compose up -d journal-ledger
 Linux/macOS에서 Issue #758의 전기 이력 보호를 포함한 모듈 전체 회귀는 저장소 루트에서 다음과 같이 실행합니다.
 
 ```bash
+./gradlew :journal-ledger:test
+```
+
+도메인 경계만 확인하려면 저장소 루트에서 아래 명령을 실행합니다. 도메인 Java 소스에 Spring/JPA 참조가 다시 생기면 테스트가 실패합니다. 전체 명령은 core·API·Batch 테스트도 실행합니다.
+
+```bash
+./gradlew :journal-ledger:core:test --tests '*DomainFrameworkBoundaryTest'
 ./gradlew :journal-ledger:test
 ```
 

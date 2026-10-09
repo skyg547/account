@@ -1,3 +1,22 @@
+# 2026-10-09 — GH-894 domain persistence boundary
+
+- Issue [#894](https://github.com/skyg547/account/issues/894), base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`, branch `agent/894-domain-persistence-boundary`, worktree `/tmp/account-894-domain-persistence-boundary`. Detached RED proof: `/tmp/account-894-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Allowlist `journal-ledger/**`; user explicitly excluded other modules and shared harness/history. `gpt-6-sol` high writer owned module code/tests/docs; independent reviewer was read-only; parent Integrator owns module-local records and Git/GitHub. No shared contract change.
+- Removed Spring/JPA imports and annotations from journal-ledger domain source; moved Spring Data repositories and the YearMonth converter to infrastructure. The named `META-INF/journal-ledger-orm.xml` explicitly maps 12 domain types, and API/Batch runtime plus module test JVMs opt in. An infrastructure listener invokes domain lifecycle guards, including `POSTED` history protection. Naming the XML prevents auto-loading of journal mappings in Loan and other services that depend on core.
+- Audited RED/current GREEN: byte-identical `DomainFrameworkBoundaryTest` SHA-256 `78656bbe617c175965e0dcc8398b52feafd6062afcb5ea18ff69fd3e45b27f60`; `./gradlew :journal-ledger:core:test --tests '*DomainFrameworkBoundaryTest' --offline --console=plain --max-workers=1 --no-daemon` failed 1/1 at audited `a97d10ab` and passes here. The guard checks ordinary/static imports and fully qualified framework references.
+- Final exact `./gradlew :journal-ledger:test` passed core 323, API 74, Batch 37 = 434 tests, failures/errors/skips 0. Focused `POSTED` persistence 19 tests, API local context, Batch PostgreSQL schema context, API/Batch `bootJar`, JAR resource inspection, `git diff --check`, conflict-marker and domain-dependency scans passed. H2/local contexts do not prove live PostgreSQL, load, or distributed failures.
+- Independent review found no remaining journal-ledger mapping or financial invariant defect. Q1 is **FAIL** because Loan API and Batch dev-profile tests each use `Class.forName` on the removed domain repository and fail 1/1 after successful JPA startup. This is an out-of-allowlist deterministic test regression; no Loan file was changed. Q2–Q4 PASS; keep Draft and gate Ready/merge on an authorized Loan test correction and renewed review.
+- Rollback: revert the module-scoped code and documentation commit through a reviewed PR. No database migration or production data changed. Restoring auto-discovered XML would reintroduce cross-service mapping leakage; preserve explicit opt-in on any follow-up.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | FAIL | `DomainFrameworkBoundaryTest`, `journal-ledger-orm.xml`, module 434/434; Loan dev-profile 2/2 fail on old `Class.forName` | 해당 없음: 코드 변경 | Loan 테스트 2곳의 허가된 정정 후 재검증 | `/root/journal_894_review`: P2 cross-module test regression |
+| Q2 | PASS | `DomainPersistenceLifecycle`, `docs/layer-guide.md`, `docs/process-flow.md`; POSTED persistence 19/19 | 해당 없음: 적용 | Live PostgreSQL remains a later gate | Independent reviewer verified flow and callback intent |
+| Q3 | PASS | `README.md`, `docs/beginner-guide.md`, `docs/schema.md`; exact module command PASS | 해당 없음: 적용 | Verify docs after Loan follow-up | Independent reviewer checked functional guidance |
+| Q4 | PASS | Explicit mapping comment in API/Batch config; listener state-capture comment | 해당 없음: 적용 | No further code-comment gate identified | Independent reviewer checked intent comments |
+
+---
+
 # 2026-10-09 — GH-879 durable slip number allocation
 
 ## Intake and scope

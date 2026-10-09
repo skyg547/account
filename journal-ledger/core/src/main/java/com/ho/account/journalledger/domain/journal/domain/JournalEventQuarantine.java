@@ -1,16 +1,5 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import jakarta.persistence.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -20,60 +9,34 @@ import java.time.LocalDate;
  * <p>The broker coordinate is the operation identity. It deliberately does not reuse journal
  * lineage because one source document may legitimately produce multiple journals.</p>
  */
-@Entity
-@Table(
-        name = "journal_event_quarantine",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_journal_event_quarantine_record",
-                columnNames = {"source_topic", "source_partition", "source_offset"}),
-        indexes = @Index(
-                name = "idx_journal_event_quarantine_completeness",
-                columnList = "status, first_seen_at"))
 public class JournalEventQuarantine {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "source_topic", nullable = false, length = 249, updatable = false)
     private String sourceTopic;
 
-    @Column(name = "source_partition", nullable = false, updatable = false)
     private int sourcePartition;
 
-    @Column(name = "source_offset", nullable = false, updatable = false)
     private long sourceOffset;
 
-    @Column(name = "payload_json", nullable = false, columnDefinition = "TEXT", updatable = false)
     private String payloadJson;
 
-    @Column(name = "accounting_date", nullable = false, updatable = false)
     private LocalDate accountingDate;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private JournalEventQuarantineStatus status;
 
-    @Column(name = "reason_code", nullable = false, length = 50)
     private String reasonCode;
 
-    @Column(name = "journal_entry_id")
     private Long journalEntryId;
 
-    @Column(name = "first_seen_at", nullable = false, updatable = false)
     private Instant firstSeenAt;
 
-    @Column(name = "last_replay_at")
     private Instant lastReplayAt;
 
-    @Column(name = "last_replay_actor", length = 100)
     private String lastReplayActor;
 
-    @Column(name = "replay_attempts", nullable = false)
     private int replayAttempts;
 
-    @Version
-    @Column(nullable = false)
     private long version;
 
     protected JournalEventQuarantine() {

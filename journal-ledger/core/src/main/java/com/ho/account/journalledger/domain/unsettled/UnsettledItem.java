@@ -2,7 +2,6 @@ package com.ho.account.journalledger.domain.unsettled;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.ledger.domain.AccountingPrecision;
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -13,62 +12,41 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-@Entity
-@Table(name = "unsettled_items")
 @Getter @Setter
 @NoArgsConstructor
 public class UnsettledItem {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
     private String managementNo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_detail_id", nullable = false)
     private JournalDetail journalDetail;
 
-    @Column(name = "account_code", nullable = false, length = 50)
     private String accountCode;
 
-    @Column(name = "bp_code", length = 50)
     private String businessPartnerCode;
 
-    @Column(nullable = false)
     private LocalDate occurrenceDate;
 
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal originalAmount;
 
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal settledAmount = BigDecimal.ZERO;
 
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal remainingAmount;
 
-    @Column(length = 20)
     private String status;
 
-    @Column(nullable = false)
     private boolean resolved = false;
 
-    @Column(length = 50)
     private String lastSettledBy;
 
-    @Column(length = 100)
     private String lastSettlementReference;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "unsettled_item_settlement_references", joinColumns = @JoinColumn(name = "unsettled_item_id"))
-    @Column(name = "settlement_reference", length = 100, nullable = false)
     private Set<String> settlementReferences = new LinkedHashSet<>();
 
     private LocalDateTime lastSettledAt;
 
-    @PrePersist
-    protected void onCreate() {
+    public void onCreate() {
         if (status == null) status = "OPEN";
         if (remainingAmount == null) remainingAmount = originalAmount;
         if (managementNo == null) {
