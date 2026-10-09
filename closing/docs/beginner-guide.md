@@ -160,7 +160,7 @@ FX Batch는 먼저 전표를 쓰지 않는 전체 검사를 하고, 성공한 �
 - 결산 조정 전표의 회계일자가 대상 회계기간 안에 있는지 확인합니다.
 - ECL 충당 전표 실행 전 동일 기준일·단일 run/model·단일 법인의 `allowance_summary`가 생성되어 있는지 확인합니다. 현재 GL에는 법인 차원이 없어서 여러 법인을 한 실행에 섞으면 실패합니다.
 - FX 평가 전 기준일 환율, 전기된 외화 잔액, 기준일 유효 계정 정보와 계정별 명시적 평가 정책을 확인합니다.
-- `dev`에서 실제 금융 실행을 검증할 때만 승인된 source 설정과 함께 `closing.sources.enabled=true`를 명시합니다. 기본값 `false`/미설정은 외부 DB나 Journal 대신 가짜 성공을 주지 않고 실패합니다.
+- `dev`에서 실제 금융 실행을 검증할 때는 승인된 source 설정과 함께 `closing.sources.enabled=true`를 명시합니다. `dev` 기본값 `false`/미설정은 연차에도 가짜 성공을 주지 않고 실패합니다. `dev`/`local` 이외의 내장 모놀리스는 플래그와 무관하게 쓰기와 같은 primary PostgreSQL의 Journal을 연차 cursor로 읽습니다. `local` H2에서는 PostgreSQL 전용 연차 포트를 제공하지 않아 실패합니다. `dev` 별도 source에는 Journal/ECL/Master 세 연결을 준비합니다.
 - remote Journal의 멱등 slip 처리, API 중복 요청 방지, 여러 전표 ID 조회, production PostgreSQL 부하는 아직 별도 운영·검증 과제입니다.
 - 연차 실행 전 런타임이 한 법인만 전담하는지, 요청 연도와 정확히 일치하는 승인 규칙이 있는지, 연말 Master 계정이 `EQUITY`/`CREDIT`인지 확인합니다.
 - 연차 설정 변경은 동료 검토·버전 승인을 남기고, 연차 호출을 drain한 뒤 모든 instance를 재시작합니다. pending 초안이 있었다면 재시도로 덮지 말고 stale 충돌을 대사합니다.
