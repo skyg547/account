@@ -167,3 +167,10 @@
 
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
+
+## GH-889 — Draft PR #904, human review pending (2026-10-09)
+
+- Issue #889 / CL13: OPEN, `status:needs-review`, `agent:codex`. Branch `agent/889-annual-close-classification`, worktree `/tmp/account-889-annual-close-classification`, base `origin/main@9348966a`, implementation commit `af0c8926`, Draft [#904](https://github.com/skyg547/account/pull/904) with `Refs #889`.
+- Closing-only annual classification control is implemented and frozen. Current-base RED 3; final `:closing:test` core380/API159/batch102 = 641 PASS, zero failure/error/skip; harness quality32 PASS; diff/marker gates PASS. Independent read-only `/root/closing_review_889`: no remaining P0–P3, Q1–Q4 PASS. The audited older commit was not separately run.
+- Residual: Journal-returned lines are checked, not provider-omitted lines; no live PostgreSQL, distributed fault/snapshot, deployed HTTP or production load evidence. Next owner: human Draft reviewer for current head/base and hosted CI; accounting/operations owner for deployment gates. AI writer, reviewer and parent Integrator permissions remain separate. No Ready, merge, Issue close, deployment or cleanup.
+- Hosted check snapshot on `44d39113`: Harness Validation PASS; Agent Merge Guard metadata FAIL (Draft and unconfigured trust/authority requirements); Module Validation pending without job evidence. These are not a final-head CI pass. Human reviewer must inspect the published final head before Ready.

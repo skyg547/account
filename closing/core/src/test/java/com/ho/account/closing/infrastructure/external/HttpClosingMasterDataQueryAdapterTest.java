@@ -117,6 +117,18 @@ class HttpClosingMasterDataQueryAdapterTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"null", "\" \""})
+    void absentRemoteCategoryReportsClassificationCompleteness(String categoryValue) {
+        responseBody = VALID_ACCOUNT.replace(
+                "\"accountCategory\":\"REVENUE\"", "\"accountCategory\":" + categoryValue);
+
+        assertThatThrownBy(() -> adapter.findAccountSubjectAt(ACCOUNT, EFFECTIVE_DATE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("source classification completeness failed");
+        assertThat(requests).hasSize(1);
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {301, 302, 303, 307, 308, 503})
     void redirectOrServerFailureIsSanitizedAndNeverRetriedOrForwarded(int status) {
         responseStatus = status;
