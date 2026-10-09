@@ -6,6 +6,8 @@ import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePor
 import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingTaskPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingGatePersistencePort;
+import com.ho.account.contracts.journal.JournalQueryPort;
+import com.ho.account.closing.domain.ClosingAdjustment;
 import com.ho.account.closing.domain.ClosingAuditLog.ActionType;
 import com.ho.account.closing.domain.ClosingCalendar;
 import com.ho.account.closing.domain.ClosingCalendar.ClosingCalendarStatus;
@@ -16,10 +18,16 @@ import com.ho.account.closing.domain.ClosingTask.ClosingTaskStatus;
 import com.ho.account.closing.domain.ClosingGate;
 import com.ho.account.closing.domain.ClosingGate.ClosingGateStatus;
 import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogRepository;
+import com.ho.account.closing.application.service.FinalCloseEvidenceService;
+import com.ho.account.closing.application.service.FinalCloseEvidenceValidationException;
 import com.ho.account.closing.web.ClosingController;
 import com.ho.account.closing.web.ClosingExceptionHandler;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
+import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalSide;
+import com.ho.account.contracts.journal.JournalSummary;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -48,6 +56,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /** Commands run in separate real Spring transactions; Master uses a separate committed H2 database. */
@@ -74,6 +84,109 @@ class ClosingAggregateConcurrencyIntegrationTest {
     @Autowired EntityManager entityManager;
     @Autowired ClosingController controller;
     @Autowired FinalCloseEvidenceUseCase finalCloseEvidence;
+    @Autowired FinalCloseEvidenceService finalCloseEvidenceService;
+    @Autowired JournalQueryPort journalQuery;
+
+    @Test
+    void approvedReopenKeepsPriorEvidenceButRequiresFreshControlsAndCloseSnapshot() {
+        ClosingCalendar prior = readyCalendar("2053", "01");
+        long calendarId = prior.getId();
+        long periodId = master.findFiscalPeriod("2053", "01").orElseThrow().id();
+        ClosingTask oldTask = tasks.findByClosingCalendar(prior).get(0);
+        ClosingGate oldGate = gates.findByClosingCalendar(prior).get(0);
+        closing.determineClosingStatus(calendarId, "first-closer");
+        ReopenApproval approval = closing.requestPeriodReopen(periodId, "requester", "later adjustment");
+        closing.updateReopenApprovalStatus(approval.getId(), ReopenApprovalStatus.APPROVED, "approver");
+
+        ClosingCalendar reopened = calendars.findById(calendarId).orElseThrow();
+        assertThat(reopened.getCycleNumber()).isEqualTo(2);
+        assertThat(tasks.findById(oldTask.getId()).orElseThrow().getStatus()).isEqualTo(ClosingTaskStatus.COMPLETED);
+        assertThat(gates.findById(oldGate.getId()).orElseThrow().getStatus()).isEqualTo(ClosingGateStatus.PASSED);
+        assertThatThrownBy(() -> closing.updateClosingTaskStatus(oldTask.getId(), ClosingTaskStatus.IN_PROGRESS, "worker"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> closing.checkAndPassClosingGate(oldGate.getId(), "reviewer"))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(tasks.findByClosingCalendar(reopened)).hasSize(2);
+        assertThat(gates.findByClosingCalendar(reopened)).hasSize(2);
+        var currentTasks = closing.findClosingTasksByCalendarId(calendarId);
+        var currentGates = gates.findByClosingCalendar(reopened).stream()
+                .filter(candidate -> candidate.getCycleNumber() == reopened.getCycleNumber()).toList();
+        assertThat(currentTasks).hasSize(1);
+        assertThat(currentGates).hasSize(1);
+        ClosingTask task = currentTasks.get(0);
+        ClosingGate gate = currentGates.get(0);
+        assertThat(task.getId()).isNotEqualTo(oldTask.getId());
+        assertThat(gate.getId()).isNotEqualTo(oldGate.getId());
+        assertThat(task.getCycleNumber()).isEqualTo(2);
+        assertThat(gate.getCycleNumber()).isEqualTo(2);
+        assertThat(task.getStatus()).isEqualTo(ClosingTaskStatus.PENDING);
+        assertThat(gate.getStatus()).isEqualTo(ClosingGateStatus.PENDING);
+
+        closing.updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, "second-closer");
+        assertThatThrownBy(() -> closing.determineClosingStatus(calendarId, "second-closer"))
+                .isInstanceOf(IllegalStateException.class);
+        closing.updateClosingTaskStatus(task.getId(), ClosingTaskStatus.IN_PROGRESS, "worker");
+        closing.updateClosingTaskStatus(task.getId(), ClosingTaskStatus.COMPLETED, "worker");
+        assertThatThrownBy(() -> closing.determineClosingStatus(calendarId, "second-closer"))
+                .isInstanceOf(IllegalStateException.class);
+        closing.checkAndPassClosingGate(gate.getId(), "reviewer");
+        // The previous final-close snapshot predates the second start and cannot authorize this close.
+        assertThatThrownBy(() -> closing.determineClosingStatus(calendarId, "second-closer"))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(calendars.findById(calendarId).orElseThrow().getStatus())
+                .isEqualTo(ClosingCalendarStatus.IN_PROGRESS);
+
+        var periodBeforeAdjustment = master.findFiscalPeriodById(periodId).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, reopened, periodId,
+                periodBeforeAdjustment.endDate());
+        ClosingCalendar activeBeforeAdjustment = calendars.findById(calendarId).orElseThrow();
+        assertThat(finalCloseEvidenceService.requireForFinalClose(activeBeforeAdjustment, periodBeforeAdjustment))
+                .isNotNull();
+
+        JournalSummary summary = new JournalSummary();
+        summary.setAccountingDate(LocalDate.of(2053, 1, 15));
+        JournalDetailSummary debit = new JournalDetailSummary();
+        debit.setSide(JournalSide.DEBIT);
+        debit.setAmount(new BigDecimal("125.000"));
+        JournalDetailSummary credit = new JournalDetailSummary();
+        credit.setSide(JournalSide.CREDIT);
+        credit.setAmount(new BigDecimal("125.000"));
+        when(journalQuery.getJournalSummary(885L)).thenReturn(summary);
+        when(journalQuery.getJournalDetails(885L)).thenReturn(java.util.List.of(debit, credit));
+        closing.createClosingAdjustment(periodId, 885L, ClosingAdjustment.AdjustmentType.ACCRUAL,
+                "Post-control adjustment", "adjustment-approver");
+
+        ClosingCalendar changed = calendars.findById(calendarId).orElseThrow();
+        assertThat(changed.getCycleNumber()).isEqualTo(3);
+        assertThat(changed.getLastSourceChangedAt()).isNotNull();
+        assertThat(tasks.findById(task.getId()).orElseThrow().getStatus()).isEqualTo(ClosingTaskStatus.COMPLETED);
+        assertThat(gates.findById(gate.getId()).orElseThrow().getStatus()).isEqualTo(ClosingGateStatus.PASSED);
+        assertThatThrownBy(() -> closing.determineClosingStatus(calendarId, "second-closer"))
+                .isInstanceOf(IllegalStateException.class);
+        var changedTask = closing.findClosingTasksByCalendarId(calendarId).get(0);
+        var changedGate = gates.findByClosingCalendar(changed).stream()
+                .filter(candidate -> candidate.getCycleNumber() == changed.getCycleNumber()).findFirst().orElseThrow();
+        assertThat(changedTask.getId()).isNotEqualTo(task.getId());
+        assertThat(changedGate.getId()).isNotEqualTo(gate.getId());
+        assertThat(changedTask.getStatus()).isEqualTo(ClosingTaskStatus.PENDING);
+        assertThat(changedGate.getStatus()).isEqualTo(ClosingGateStatus.PENDING);
+        closing.updateClosingTaskStatus(changedTask.getId(), ClosingTaskStatus.IN_PROGRESS, "worker");
+        closing.updateClosingTaskStatus(changedTask.getId(), ClosingTaskStatus.COMPLETED, "worker");
+        closing.checkAndPassClosingGate(changedGate.getId(), "reviewer");
+        // This valid snapshot was submitted after start but before the source mutation.
+        assertThatThrownBy(() -> closing.determineClosingStatus(calendarId, "second-closer"))
+                .isInstanceOf(FinalCloseEvidenceValidationException.class)
+                .hasMessageContaining("source change");
+
+        var period = master.findFiscalPeriodById(periodId).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, changed, periodId, period.endDate(),
+                java.time.Instant.now(), "-after-adjustment", new java.math.BigDecimal("125.000"));
+        assertThat(closing.determineClosingStatus(calendarId, "second-closer").getStatus())
+                .isEqualTo(ClosingCalendarStatus.CLOSED);
+        assertThat(tasks.findById(oldTask.getId()).orElseThrow().getStatus()).isEqualTo(ClosingTaskStatus.COMPLETED);
+        assertThat(gates.findById(oldGate.getId()).orElseThrow().getStatus()).isEqualTo(ClosingGateStatus.PASSED);
+    }
 
     @Test
     void approvingTransactionExcludesConcurrentRejectionAndPersistsOnlyOneDecision() throws Exception {
@@ -428,6 +541,7 @@ class ClosingAggregateConcurrencyIntegrationTest {
     @TestConfiguration(proxyBeanMethods = false)
     static class Configuration {
         @Bean @Primary ControlledMaster controlledMaster() { return new ControlledMaster(); }
+        @Bean @Primary JournalQueryPort controlledJournalQuery() { return mock(JournalQueryPort.class); }
     }
 
     static final class ControlledMaster implements FiscalPeriodControlPort {

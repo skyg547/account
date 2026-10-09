@@ -67,6 +67,15 @@ class FinalCloseEvidenceServiceTest {
     }
 
     @Test
+    void legacyReopenedCalendarWithoutUtcFenceRejectsPreviouslyPassedSnapshot() {
+        calendar.setReopenedAt(LocalDateTime.ofInstant(NOW.minusSeconds(1800), ZoneOffset.UTC));
+        FinalCloseEvidenceSet evidence = evidence("legacy-reopen", "01", NOW.minusSeconds(60), monthlyControls());
+        when(persistence.findLatestByCalendarId(10L)).thenReturn(Optional.of(evidence));
+
+        assertRejected("legacy reopened calendar requires a new UTC evidence fence");
+    }
+
+    @Test
     void yearRequiresAnnualTransferInAdditionToAllMonthlyControls() {
         calendar = calendar("YEAR");
         period = period("YEAR", LocalDate.of(2026, 12, 31));

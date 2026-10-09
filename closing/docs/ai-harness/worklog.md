@@ -434,3 +434,25 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 - The PR body includes the final 597-test XML breakdown, bootJar and Journal/harness checks, Q1–Q4 independent review, rollback, residual gates and explicit implementation/review/Integrator/human authority separation.
 - Initial hosted [Module Validation](https://github.com/skyg547/account/actions/runs/36764864113), [Harness Validation](https://github.com/skyg547/account/actions/runs/36764864173), and [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36764864117) did not start test jobs. Each run annotation reports failed recent account payments or spending-limit restriction. These are external infrastructure failures, not code/test results or hosted PASS; no billing settings were accessed or changed. The final record-only head will be checked again after push.
 - Next owner: repository account owner to restore hosted Actions availability, then human current-head reviewer and authorized accounting/operations owners for the documented trusted Journal and production-data gates. Ready, merge, Issue close, deployment and resource deletion were not performed.
+
+## 2026-10-09 — GH-885 재오픈 마감 회차와 증빙 분리
+
+- Issue [#885](https://github.com/skyg547/account/issues/885), CL09; `agent/885-reclose-cycle` / `/tmp/account-885-reclose-cycle`; fetched base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. 범위는 `closing/**`뿐이며 공용 harness, 타 모듈, 운영 데이터는 변경하지 않았다. 부모 Integrator가 module-local 기록과 Git/PR을 소유하고 service/test 작성자는 분리된 core-main/test allowlist, 독립 Reviewer는 읽기 전용이었다.
+- 변경 전 RED: `ClosingDomainTransitionTest.reopenWithoutNewActivityCannotReusePriorCompletedTaskAndPassedGate` 1건 실패. 기존 `COMPLETED` 태스크와 `PASSED` 게이트로 재오픈 직후 마감 준비가 통과했다.
+- V54는 calendar/task/gate에 `cycle_number`를 추가한다. 정상 재오픈 완료 또는 복구 시 한 트랜잭션에서 현재 회차를 올리고 직전 정의를 새 `PENDING` 행으로 복제한다. 과거 행은 보존하고 현재 회차 조회·수정·게이트 선행조건·마감 준비에서 제외한다. 원천이 변하지 않아도 자동 증빙 이월은 없다. 구버전에서 이미 재오픈한 캘린더는 과거 행의 회차를 알 수 없어 2회차로 차단하고, 새 정의와 UTC 증빙 경계를 요구한다.
+- Closing을 거쳐 등록한 조정 전표는 UTC `last_source_changed_at`을 기록한다. 진행된 현재 통제가 있으면 새 `PENDING` 회차로 넘기며, 최종 마감 증빙은 시작과 조정 양쪽 시각 이후 관측돼야 한다. 재오픈 응답 유실·로컬 완료 롤백·잘못된 원격 응답 ID 복구는 새 행을 정확히 한 번 만들고 늦은 재시도에서 중복하지 않는 회귀로 확인했다.
+- 최종 `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` PASS: Core377/API161/Batch102, 총640 tests/64 suites, failure/error/skip 0; 두 bootJar PASS. 이전 전체 실행은 기존 unit fixture의 null 캘린더 상태 1건 때문에 실패했고, OPEN/빈 활성 목록으로 보정한 뒤 집중 및 전체 재실행이 통과했다. 별도 읽기 전용 Reviewer는 core55/API37, 총92건을 재실행해 모두 PASS; `git diff --check`와 범위 내 충돌 마커 검사도 통과했다.
+- **남은 P1 수용 조건:** Closing을 통과하지 않는 Journal/AP/AR 직접 전기는 `last_source_changed_at`을 갱신하지 않는다. 통제 통과 후 직접 전기와 나중의 공급자 증빙 사이에 통제 재실행을 강제할 권위 있는 교차 모듈 원천 워터마크가 없다. 따라서 이 Draft는 closing 내부 재사용 결함을 완화하지만 Issue 전체 완료·Ready·merge 근거는 아니다. 사람 리뷰와 별도 원천 변경 계약/동결 게이트가 필요하다. 실 PostgreSQL migration/query plan/load 및 배포 분산 장애도 미실행이다.
+- 롤백: 새 마감·조정 실행을 중지하고 미완료 Master 전이를 먼저 대사한다. V54 이후 생긴 이력·승인·전표를 삭제하거나 회차 번호를 되돌리지 않는다. 검토된 forward 코드/스키마 보정으로만 전환한다.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `ClosingService.java:137,399`, `ClosingCalendar.java:354`, V54, 재오픈/조정/복구 집중92건·전체640건 PASS | 해당 없음: production 코드 변경 | 직접 전기 워터마크 P1은 Issue 수용 조건에 남음 | `/root/closing_review`, closing 내부 경로 검토 |
+| Q2 | PASS | `docs/process-flow.md:141`, `docs/schema.md:121`; 재오픈·조정·이력·실패/재시도 설명과 복구 회귀 | 해당 없음: 핵심 흐름 변경 | 배포 분산 장애 재현 필요 | 동일 Reviewer 문서·코드 대조 |
+| Q3 | PASS | `README.md:200`, `docs/local-run.md:125,291`, `docs/beginner-guide.md`; V54/legacy/명령·한계 | 해당 없음: 기능 문서 변경 | PostgreSQL 검증과 원천 동결 절차 필요 | 동일 Reviewer 문서 확인 |
+| Q4 | PASS | `ClosingService.java:397`, `ClosingTransitionTransactions.java:260,274`, `ClosingCalendar.java:368`; 의도 주석과 집중92건 | 해당 없음: 비자명 로직 변경 | 직접 전기 계약은 별도 변경 | 동일 Reviewer 주석·구현 대조 |
+
+### GH-885 Draft PR #900 발행
+
+- 초기 구현 커밋 `6ee8ad3547fdb0b0975bf8900fa4d551044dce74`을 전용 브랜치에 push하고 [Draft PR #900](https://github.com/skyg547/account/pull/900)을 `main` 대상으로 열었다. 본문에는 `Refs #885`, 640건 검증, Q1–Q4, 권한 분리, 미해결 P1과 롤백을 기록했다. PR은 OPEN/DRAFT, 초기 head `6ee8ad35`, base `9348966a`, GitHub 보고상 MERGEABLE이다.
+- Issue #885는 OPEN / `status:needs-review`이며 전체 수용 조건 완료로 간주하지 않는다. 최초 원격 Module/Harness/Merge Guard check는 QUEUED였고 결과를 PASS로 추정하지 않는다. Ready·merge·Issue close·배포·자원 삭제는 수행하지 않았다. PR URL 기록만 추가한 최종 head의 원격 상태를 별도로 확인한다.

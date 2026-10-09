@@ -167,3 +167,15 @@
 
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
+
+## GH-885 — Closing 회차 분리, Draft 인계 준비 (2026-10-09)
+
+- Issue #885 / CL09 OPEN; `agent/885-reclose-cycle` in `/tmp/account-885-reclose-cycle`, base `origin/main@9348966a`. `closing/**`만 변경하고 공용 harness·타 모듈은 건드리지 않았다.
+- V54 회차 번호와 legacy 재오픈 fence, 재오픈 확정 시 새 `PENDING` 정의 복제, 현재 회차 조회·수정 제한, Closing 조정 후 통제/최종 증빙 갱신을 구현했다. 과거 행·감사 로그는 보존한다.
+- 변경 전 RED1. 최종 요청 명령 `:closing:test` 및 API/Batch bootJar PASS: core377/API161/Batch102, 총640건(64 suites), 실패·오류·skip0. 독립 읽기 전용 리뷰어의 집중 core55/API37도 PASS, Q1–Q4 PASS; Closing 내부 구현에 남은 P0–P3 없음.
+- **Issue 수용 조건 P1 잔여:** Journal/AP/AR 직접 전기는 Closing의 UTC 변경 시각을 갱신하지 않으므로 통제 통과 뒤 외부 전기까지 자동 감지하지 못한다. 실 PostgreSQL/배포 분산 장애도 미검증. Draft·Issue OPEN을 유지하고 원천 워터마크 계약 또는 검증된 동결 게이트 전에는 Ready/merge/Issue close를 주장하지 않는다.
+- 다음 소유자: 사람 Draft 리뷰어와 교차 모듈 원천 계약 담당자. 부모 Integrator만 module 기록·commit/push/PR을 수행하며 branch/worktree를 보존한다.
+
+### GH-885 Draft PR #900
+
+- [PR #900](https://github.com/skyg547/account/pull/900) OPEN/DRAFT, `Refs #885`; 초기 head `6ee8ad35`, base `9348966a`. Issue는 OPEN / `status:needs-review`. 원격 check는 최초 조회 시 QUEUED였고 CI 성공 근거가 아니다. 미해결 직접 전기 워터마크 P1 때문에 Ready/merge/Issue close는 보류한다.

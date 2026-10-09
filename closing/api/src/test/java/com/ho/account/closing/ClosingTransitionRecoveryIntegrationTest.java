@@ -9,6 +9,8 @@ import com.ho.account.closing.application.port.in.ClosingTransitionRecoveryUseCa
 import com.ho.account.closing.application.port.in.ClosingUseCase;
 import com.ho.account.closing.application.port.in.FinalCloseEvidenceUseCase;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
+import com.ho.account.closing.application.port.out.ClosingTaskPersistencePort;
+import com.ho.account.closing.application.port.out.ClosingGatePersistencePort;
 import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort;
 import com.ho.account.closing.application.service.ClosingTransitionPendingException;
 import com.ho.account.closing.application.service.ClosingTransitionTransactions;
@@ -82,6 +84,8 @@ class ClosingTransitionRecoveryIntegrationTest {
     @Autowired ClosingTransitionRecoveryUseCase recovery;
     @Autowired ClosingAdmissionQuery admission;
     @Autowired ClosingCalendarPersistencePort calendars;
+    @Autowired ClosingTaskPersistencePort tasks;
+    @Autowired ClosingGatePersistencePort gates;
     @Autowired ReopenApprovalPersistencePort approvals;
     @Autowired ClosingAuditLogRepository audits;
     @Autowired ControlledMaster master;
@@ -363,6 +367,13 @@ class ClosingTransitionRecoveryIntegrationTest {
     @EnumSource(value = Fault.class, names = {"LOST_RESPONSE", "LOCAL_FINALIZE_ROLLBACK", "WRONG_RESPONSE_ID"})
     void committedMasterReopenRetainsDecisionAndRecoversWithoutAnotherWrite(Fault fault) {
         Fixture fixture = closedFixture("2052", String.format(java.util.Locale.ROOT, "%02d", fault.ordinal() + 1));
+        ClosingCalendar originalCalendar = calendars.findById(fixture.calendarId()).orElseThrow();
+        ClosingTask historicalTask = newTask(originalCalendar, true);
+        historicalTask.setStatus(ClosingTaskStatus.COMPLETED);
+        ClosingTask previousTask = tasks.save(historicalTask);
+        ClosingGate historicalGate = newGate(originalCalendar);
+        historicalGate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
+        ClosingGate previousGate = gates.save(historicalGate);
         int attemptsBefore = master.attempts.get();
         int writesBefore = master.writes.get();
         master.failNextUpdate(fixture.periodId(), fault);
@@ -380,6 +391,26 @@ class ClosingTransitionRecoveryIntegrationTest {
         recovery.recoverTransition(fixture.calendarId(), operationId, true, "recovery-operator");
 
         assertRecoveredReopen(fixture, operationId);
+        ClosingCalendar activeCalendar = calendars.findById(fixture.calendarId()).orElseThrow();
+        assertThat(activeCalendar.getCycleNumber()).isEqualTo(2);
+        assertThat(tasks.findByClosingCalendar(activeCalendar)).hasSize(2);
+        assertThat(gates.findByClosingCalendar(activeCalendar)).hasSize(2);
+        assertThat(closing.findClosingTasksByCalendarId(fixture.calendarId())).singleElement()
+                .satisfies(next -> {
+                    assertThat(next.getId()).isNotEqualTo(previousTask.getId());
+                    assertThat(next.getCycleNumber()).isEqualTo(2);
+                    assertThat(next.getStatus()).isEqualTo(ClosingTaskStatus.PENDING);
+                });
+        assertThat(gates.findByClosingCalendar(activeCalendar).stream()
+                .filter(next -> next.getCycleNumber() == 2).toList()).singleElement()
+                .satisfies(next -> {
+                    assertThat(next.getId()).isNotEqualTo(previousGate.getId());
+                    assertThat(next.getStatus()).isEqualTo(ClosingGate.ClosingGateStatus.PENDING);
+                });
+        assertThat(tasks.findById(previousTask.getId()).orElseThrow().getStatus())
+                .isEqualTo(ClosingTaskStatus.COMPLETED);
+        assertThat(gates.findById(previousGate.getId()).orElseThrow().getStatus())
+                .isEqualTo(ClosingGate.ClosingGateStatus.PASSED);
         assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 1);
         assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
         assertThatThrownBy(() -> recovery.recoverTransition(fixture.calendarId(), operationId, true, "late-retry"))
@@ -387,6 +418,8 @@ class ClosingTransitionRecoveryIntegrationTest {
         assertThatThrownBy(() -> approve(fixture)).isInstanceOf(IllegalStateException.class);
         assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 1);
         assertThat(terminalAudits(fixture.calendarId())).hasSize(1);
+        assertThat(tasks.findByClosingCalendar(activeCalendar)).hasSize(2);
+        assertThat(gates.findByClosingCalendar(activeCalendar)).hasSize(2);
     }
 
     @Test
