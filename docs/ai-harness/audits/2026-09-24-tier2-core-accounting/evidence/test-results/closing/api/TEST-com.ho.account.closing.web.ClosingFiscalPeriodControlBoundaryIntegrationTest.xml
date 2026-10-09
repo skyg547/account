@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:33" hostname="ho-To-Be-Filled-By-O-E-M" time="0.18">
+  <properties/>
+  <testcase name="approveReopenReturnsConflictWhenRequesterIsSameAsApprover()" classname="com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest" time="0.077"/>
+  <testcase name="requestPeriodReopenReturnsCreatedWhenValid()" classname="com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest" time="0.028"/>
+  <testcase name="requestPeriodReopenReturnsConflictWhenPendingRequestAlreadyExists()" classname="com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest" time="0.023"/>
+  <testcase name="returnsNotFoundWhenFiscalPeriodOrApprovalDoesNotExist()" classname="com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest" time="0.027"/>
+  <testcase name="approveReopenSucceedsWhenApproverIsDifferentFromRequester()" classname="com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest" time="0.022"/>
+  <system-out><![CDATA[2026-09-24T09:53:33.570+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.570+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.570+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.640+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.640+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.640+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.668+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.668+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.669+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.692+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.692+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.692+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.720+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.720+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.720+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

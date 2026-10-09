@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.adapter.in.web.journal.JournalByIdQueryTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:49" hostname="ho-To-Be-Filled-By-O-E-M" time="0.184">
+  <properties/>
+  <testcase name="missingAndInvalidIdsDoNotReturnFabricatedJournal()" classname="com.ho.account.journalledger.adapter.in.web.journal.JournalByIdQueryTest" time="0.121"/>
+  <testcase name="returnsLineageAndFinancialLinesFromDetailedUseCase()" classname="com.ho.account.journalledger.adapter.in.web.journal.JournalByIdQueryTest" time="0.062"/>
+  <system-out><![CDATA[2026-09-24T09:52:49.140+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:52:49.140+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:52:49.141+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:52:49.174+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:52:49.174+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:52:49.174+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

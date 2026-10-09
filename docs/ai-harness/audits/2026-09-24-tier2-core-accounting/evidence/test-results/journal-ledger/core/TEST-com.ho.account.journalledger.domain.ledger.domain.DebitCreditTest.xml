@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.009">
+  <properties/>
+  <testcase name="환율은 소수 여덟 자리까지 보존하고 초과 정밀도는 거부한다." classname="com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest" time="0.005"/>
+  <testcase name="차변과 대변은 DECIMAL(19,2) 계약으로 정규화된 서로 다른 불변 타입이다." classname="com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest" time="0.0"/>
+  <testcase name="원장 경계는 소수 센트, 음수, 전체 자릿수 초과를 무음 반올림하지 않고 거부한다." classname="com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

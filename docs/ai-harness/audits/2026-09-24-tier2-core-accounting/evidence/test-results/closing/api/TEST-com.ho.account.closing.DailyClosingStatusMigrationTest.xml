@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.DailyClosingStatusMigrationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:31" hostname="ho-To-Be-Filled-By-O-E-M" time="0.073">
+  <properties/>
+  <testcase name="migrationBackfillsLegacyBooleanRowsAndRemovesAmbiguousFlag()" classname="com.ho.account.closing.DailyClosingStatusMigrationTest" time="0.073"/>
+  <system-out><![CDATA[2026-09-24T09:53:31.379+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:mem:eod-migration (H2 2.2)
+2026-09-24T09:53:31.381+09:00  WARN 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+2026-09-24T09:53:31.383+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "PUBLIC"."flyway_schema_history_closing" does not exist yet
+2026-09-24T09:53:31.384+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.core.internal.command.DbValidate     : Successfully validated 3 migrations (execution time 00:00.001s)
+2026-09-24T09:53:31.386+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "PUBLIC"."flyway_schema_history_closing" with baseline ...
+2026-09-24T09:53:31.389+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.core.internal.command.DbBaseline     : Successfully baselined schema with version: 49
+2026-09-24T09:53:31.391+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.core.internal.command.DbMigrate      : Current version of schema "PUBLIC": 49
+2026-09-24T09:53:31.395+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.core.internal.command.DbMigrate      : Migrating schema "PUBLIC" to version "50 - daily eod lifecycle"
+2026-09-24T09:53:31.429+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.f.core.internal.command.DbMigrate      : Successfully applied 1 migration to schema "PUBLIC", now at version v50 (execution time 00:00.032s)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

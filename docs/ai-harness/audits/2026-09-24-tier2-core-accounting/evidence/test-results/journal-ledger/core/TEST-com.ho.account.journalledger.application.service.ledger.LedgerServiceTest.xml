@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.259">
+  <properties/>
+  <testcase name="GL은 계정·통화마다 서로 다른 최초 날짜를 찾고 기존 그룹 순서를 유지한다." classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.045"/>
+  <testcase name="[1] reversed=true" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.04"/>
+  <testcase name="[2] reversed=false" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.005"/>
+  <testcase name="[1] first=0, second=1, third=2" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.01"/>
+  <testcase name="[2] first=0, second=2, third=1" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.003"/>
+  <testcase name="[3] first=1, second=0, third=2" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.003"/>
+  <testcase name="[4] first=1, second=2, third=0" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.004"/>
+  <testcase name="[5] first=2, second=0, third=1" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.003"/>
+  <testcase name="[6] first=2, second=1, third=0" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.003"/>
+  <testcase name="[1] reversed=true" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.012"/>
+  <testcase name="[2] reversed=false" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.008"/>
+  <testcase name="SL은 계정·통화·거래처·부서와 null 차원을 각각 분리한다." classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.005"/>
+  <testcase name="빈 GL/SL 조회는 과거 잔액을 추가 조회하거나 합성하지 않고 빈 목록을 반환한다." classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.005"/>
+  <testcase name="재집계는 일별 계정/통화/거래처/부서 합계를 만든 뒤 bulk 저장 포트로 전달한다." classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.021"/>
+  <testcase name="[1] start=2026-08-30, firstDate=2026-08-31, lastDate=2026-09-02, beginning=-1000.17, firstDebit=100.03, firstCredit=20.01, lastDebit=50.07, lastCredit=10.02, totalDebit=150.10, totalCredit=30.03, ending=-880.10" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.007"/>
+  <testcase name="[2] start=2026-08-30, firstDate=2026-09-01, lastDate=2026-09-04, beginning=1000.00, firstDebit=100.00, firstCredit=20.00, lastDebit=50.00, lastCredit=10.00, totalDebit=150.00, totalCredit=30.00, ending=1120.00" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.004"/>
+  <testcase name="[3] start=2026-09-01, firstDate=2026-09-01, lastDate=2026-09-10, beginning=0.00, firstDebit=0.00, firstCredit=0.00, lastDebit=0.00, lastCredit=0.00, totalDebit=0.00, totalCredit=0.00, ending=0.00" classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.004"/>
+  <testcase name="단일 날짜의 GL/SL은 원본 금액과 같은 별도 응답 객체를 반환한다." classname="com.ho.account.journalledger.application.service.ledger.LedgerServiceTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
