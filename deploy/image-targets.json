@@ -255,13 +255,15 @@
     },
     {
       "name": "cashflow-api",
-      "kind": "spring-boot",
+      "kind": "java-api",
+      "enabled": false,
       "gradleProject": ":cashflow:api",
       "jarDirectory": "cashflow/api"
     },
     {
       "name": "cashflow-batch",
-      "kind": "spring-boot",
+      "kind": "java-batch",
+      "enabled": false,
       "gradleProject": ":cashflow:batch",
       "jarDirectory": "cashflow/batch"
     }
