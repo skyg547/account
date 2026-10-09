@@ -1,0 +1,50 @@
+[
+  {
+    "module": "master-data/core",
+    "suites": 11,
+    "tests": 444,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "module": "master-data/api",
+    "suites": 11,
+    "tests": 68,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "module": "auth/core",
+    "suites": 19,
+    "tests": 94,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "module": "auth/api",
+    "suites": 6,
+    "tests": 21,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "module": "master-data/batch",
+    "suites": 4,
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "module": "gateway",
+    "suites": 9,
+    "tests": 74,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+]

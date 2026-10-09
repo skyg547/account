@@ -1,0 +1,29 @@
+{
+  "cluster": "subledger_core",
+  "issues": [
+    {
+      "id": "SUBLEDGER_CORE_01",
+      "title": "[payable] 다른 공급업체의 선급금으로 매입채무를 상계할 수 있음",
+      "priority": "P1",
+      "module": "payable",
+      "labels": ["module:payable", "area:core", "type:financial", "priority:p1", "agent-loop", "status:draft", "spec-driven"],
+      "file": "SUBLEDGER_CORE_01.md"
+    },
+    {
+      "id": "SUBLEDGER_CORE_02",
+      "title": "[receivable] 다른 고객의 수납으로 매출채권을 수동 반제할 수 있음",
+      "priority": "P1",
+      "module": "receivable",
+      "labels": ["module:receivable", "area:core", "type:financial", "priority:p1", "agent-loop", "status:draft", "spec-driven"],
+      "file": "SUBLEDGER_CORE_02.md"
+    },
+    {
+      "id": "SUBLEDGER_CORE_03",
+      "title": "[payable] 동시 지급 런이 동일 채무의 지급 후보를 중복 생성할 수 있음",
+      "priority": "P1",
+      "module": "payable",
+      "labels": ["module:payable", "area:core", "type:bug", "priority:p1", "agent-loop", "status:draft", "spec-driven"],
+      "file": "SUBLEDGER_CORE_03.md"
+    }
+  ]
+}

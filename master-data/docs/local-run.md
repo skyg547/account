@@ -14,9 +14,13 @@ pipeline에 두어 batch가 업무 규칙을 중복 구현하지 않습니다.
 
 ## IntelliJ에서 H2 단독 실행
 
+쓰기/승인 HTTP 요청을 실행하려면 Auth와 Master Data에 같은 신규 `AUTH_JWT_SECRET`(UTF-8 32바이트 이상) 및 issuer를 주입하고, Master Data에는 별도의 `MASTER_DATA_CLOSING_ASSERTION_SECRET`(UTF-8 32바이트 이상)을 주입합니다. 키 값은 저장소나 로그에 남기지 않습니다. 키가 없으면 서버의 읽기 기능은 기동할 수 있지만 보호된 요청은 401로 차단됩니다. Auth가 발급한 JWT는 `aud`가 두 서비스에 동일하게 주입한 `AUTH_JWT_AUDIENCE`(기본 `account-api`)와 같아야 합니다. Closing은 아직 내부 assertion 발급을 구현하지 않았으므로 로컬 통합 상태 변경은 해당 클라이언트 구현 전까지 차단됩니다.
+
+입구 회귀는 저장소 루트에서 `./gradlew :master-data:core:test :master-data:api:test --offline --no-daemon --console=plain --max-workers=2`로 실행합니다. 테스트는 메모리에서 임시 서명키와 토큰을 만들어 전체 Spring MVC filter/advice/Controller 경로의 401/403 및 감사 actor를 확인합니다.
+
 1. Gradle 창에서 프로젝트를 새로고침합니다.
 2. 상단 Run Configuration에서 `Master Data bootRun`을 선택합니다.
-3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V6, JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
+3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8 (target=8), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
 4. 로그에서 `Started MasterDataApplication`을 확인합니다.
 5. 테스트가 끝나면 IntelliJ의 Stop 버튼으로 프로세스를 종료합니다.
 
@@ -94,26 +98,38 @@ Config Server 설정을 확인하는 통합 모드에서는 다음 순서로 실
 API 마스킹, API/Batch composition root와 실행 JAR을 포함합니다. 두 번째와 세 번째 명령은
 소비 모듈이 JPA Repository 대신
 `BusinessPartnerPersistencePort` 또는 contracts 경계를 계속 사용하는지 확인합니다.
-이번 변경은 H2에서 검증했으며 PostgreSQL 실DB의 인덱스 실행계획과 exclusion constraint는
-별도 통합 환경 완료 조건입니다.
+H2는 V8까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 합성 PostgreSQL 회귀로 검증합니다. 운영 데이터 크기의 인덱스/잠금 성능은 별도 배포 검증 대상입니다.
 
 ```powershell
 .\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon
 ```
 
-현재 세 모듈에서 실행되는 자동화 테스트 18개(core 12, API 2, Batch 4)는 다음을 확인합니다.
+`./gradlew :master-data:test`도 같은 세 하위 모듈 테스트를 실행합니다. 순수 도메인,
+서비스 버전/잠금 순서, H2 JPA 왕복·API/Batch 구성과 일일 집계 회귀가 포함됩니다.
+PostgreSQL 환경변수가 없으면 PostgreSQL 전용 테스트는 skip되며 동시성 검증 통과로
+판단할 수 없습니다. 최신 실행 수와 결과는 모듈 [worklog](ai-harness/worklog.md)에 기록합니다.
 
-- core의 환율 조회 adapter가 요청일 이하 최신 환율을 선택하고 잘못된 요청을 거부하는지
-- API가 Batch 실행 모듈 없이 core service/JPA adapter를 포함한 Spring context를 구성하는지
-- Batch가 API 없이 context를 구성하고 `master-data-batch` 실행 이름, 공통
-  `master-data,master-data-batch` Config 이름, 필수 Config import를 유지하는지
-- Batch가 `asOfDate` 누락과 형식 오류를 Job 실행 전에 거부하는지
-- populated H2에 네 기준정보의 활성/만료 행을 함께 넣었을 때 실제
-  Job → core pipeline → port → JPA adapter 경로가 활성 건수만 각각 1로 기록하는지
+### PostgreSQL SCD2 회귀 검증
 
-typed change applier, `requestedVersion`, 요청 잠금/`lockVersion` 코드는 현재 production에
-존재하지만 이 브랜치의 실제 test source에는 해당 회귀 테스트가 없습니다. 따라서 위 명령의
-검증 범위로 과장하지 않으며, 그 상태 전이 테스트 복원은 별도 품질 gap으로 남깁니다.
+전제: JDK17, 캐시된 Gradle 의존성, **합성 테스트 전용** PostgreSQL16 데이터베이스.
+테스트는 `postgres`/빈 비밀번호로 접근하는 로컬 trust 인증 fixture용이며 운영 접속정보를
+사용하지 않습니다. 매 실행마다 임의의 새 schema를 만들고 기존 schema/행은 삭제하지 않습니다.
+`btree_gist` 생성 권한이 필요합니다.
+
+```bash
+MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:17533/master_data_753 \
+./gradlew :master-data:test --offline --no-daemon --console=plain --max-workers=2 --rerun-tasks
+```
+
+이 명령은 네 유형의 서로 다른 승인 ID 경쟁, 직접 쓰기와 승인 반영 경쟁, 키 부재 CREATE,
+UPDATE/DEACTIVATE, 롤백과 재시도, 다른 키의 독립 진행, 실제 DB 기간 제약/HTTP409를
+검증합니다. PostgreSQL 테스트는 실제 서비스·JPA·Flyway·JDBC를 사용하며 HTTP 응답은
+MockMvc로 검증합니다. 배포나 실제 사용자 데이터 보정은 수행하지 않습니다.
+
+H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8`입니다. V9는
+PostgreSQL 전용 SQL이며 release migration-runner의 기존 SQL 복사 경로에 포함됩니다.
+새 H2 구성도 target8을 명시해야 합니다. PostgreSQL 검증/배포에는 이 target을 적용하지
+마세요. 이후 공통 migration을 추가할 때는 이 H2 경계를 함께 검토해야 합니다.
 
 ## 일일 유효성 Batch 실행
 
@@ -161,5 +177,5 @@ PostgreSQL과 `initialize-schema=never`를 사용하므로 Batch metadata도 rel
 - dev/prod에서는 `ddl-auto=validate`, runtime Flyway/SQL/Batch 초기화 금지 계약을 유지합니다.
 - 일일 유효성 집계는 전체 행을 Java 메모리에 올리지 않고 JPA `COUNT` 쿼리 네 번으로 처리합니다.
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD` 변경 요청은 typed applier와 버전 조회 어댑터가 함께 추가되기 전까지 접수 단계에서 fail-closed 됩니다.
-- 직접 CRUD 쓰기 엔드포인트는 `MasterDataDirectWritePolicy`에 의해 관리자 보정 권한(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN` 등)으로 제한되어 있으며, `X-Auth-Roles` 헤더가 없거나 비관리자인 경우 HTTP 403으로 거부됩니다.
+- 직접 CRUD 쓰기 엔드포인트는 유효한 Bearer JWT가 필요하며 `MasterDataDirectWritePolicy`에 의해 관리자 보정 권한(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN` 등)으로 제한됩니다. 자격증명이 없거나 무효이거나 전달된 `X-Auth-Roles`가 JWT claim과 다르면 HTTP 401, 검증된 JWT에 관리자 역할이 없으면 HTTP 403입니다.
 - `apply-due`는 현재 최대 500건을 한 트랜잭션으로 처리합니다. 운영 대량 실행 전 요청별 재시작 경계와 `SKIP LOCKED` 파티셔닝이 필요합니다.

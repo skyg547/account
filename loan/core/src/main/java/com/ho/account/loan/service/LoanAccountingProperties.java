@@ -13,6 +13,15 @@ public class LoanAccountingProperties {
     private String recognizedIncomeAccountCode;
     private String accruedInterestReceivableAccountCode;
     private String interestIncomeAccountCode;
+    private String journalApproverActor;
+
+    public String getJournalApproverActor() {
+        return required(journalApproverActor, "journal-approver-actor");
+    }
+
+    public void setJournalApproverActor(String journalApproverActor) {
+        this.journalApproverActor = journalApproverActor;
+    }
 
     public String getCashAccountCode() {
         return required(cashAccountCode, "cash-account-code");

@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
@@ -40,13 +41,14 @@ class AccountSubjectClassificationUpdateTest {
         AccountSubject original = original(type);
         List<AccountSubject> saved = new ArrayList<>();
         when(persistence.findByCode("AC-755")).thenReturn(Optional.of(original));
+        when(persistence.findByCodeForUpdate("AC-755")).thenReturn(Optional.of(original));
         when(persistence.save(org.mockito.ArgumentMatchers.any(AccountSubject.class))).thenAnswer(invocation -> {
             AccountSubject account = invocation.getArgument(0);
             saved.add(account);
             return account;
         });
 
-        AccountSubject successor = new AccountSubjectService(persistence).updateAccountSubject("AC-755",
+        AccountSubject successor = new AccountSubjectService(persistence, mock(MasterDataBusinessKeyLockPort.class)).updateAccountSubject("AC-755",
                 new AccountSubjectCommand("AC-755", "Renamed", null, null, null, null,
                         null, null, NEW_FROM, null, null, null, false));
 
@@ -74,6 +76,7 @@ class AccountSubjectClassificationUpdateTest {
         AccountSubject original = original(type);
         List<AccountSubject> saved = new ArrayList<>();
         when(accounts.findByCode("AC-755")).thenReturn(Optional.of(original));
+        when(accounts.findByCodeForUpdate("AC-755")).thenReturn(Optional.of(original));
         when(accounts.save(org.mockito.ArgumentMatchers.any(AccountSubject.class))).thenAnswer(invocation -> {
             AccountSubject account = invocation.getArgument(0);
             saved.add(account);
@@ -85,17 +88,18 @@ class AccountSubjectClassificationUpdateTest {
         String payload = "{\"name\":\"Approved rename\"}";
         MasterDataChangeRequest request = MasterDataChangeRequest.reconstitute(755L,
                 MasterDataType.ACCOUNT_SUBJECT, "AC-755", ChangeType.UPDATE, ChangeStatus.REQUESTED,
-                0L, NEW_FROM, 2, "requester", null, LocalDateTime.of(2026, 7, 1, 9, 0), null,
+                1L, NEW_FROM, 2, "requester", null, LocalDateTime.of(2026, 7, 1, 9, 0), null,
                 "name correction", payload, "source-755-" + type, null);
+        when(requests.findById(755L)).thenReturn(Optional.of(request));
         when(requests.findByIdForUpdate(755L)).thenReturn(Optional.of(request));
         when(requests.save(org.mockito.ArgumentMatchers.any(MasterDataChangeRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        AccountSubjectService accountService = new AccountSubjectService(accounts);
+        AccountSubjectService accountService = new AccountSubjectService(accounts, mock(MasterDataBusinessKeyLockPort.class));
         AccountSubjectMasterDataChangeApplier applier = new AccountSubjectMasterDataChangeApplier(
                 accountService, new JacksonMasterDataChangePayloadDecoder(
-                        new ObjectMapper().registerModule(new JavaTimeModule())));
+                        new ObjectMapper().registerModule(new JavaTimeModule())), accounts);
         MasterDataChangeRequestService requestService = new MasterDataChangeRequestService(
-                requests, versions, List.of(applier));
+                requests, versions, List.of(applier), mock(MasterDataBusinessKeyLockPort.class));
 
         requestService.approve(755L, "approver");
         assertThat(saved).isEmpty();
@@ -125,10 +129,11 @@ class AccountSubjectClassificationUpdateTest {
         AccountSubjectPersistencePort persistence = mock(AccountSubjectPersistencePort.class);
         AccountSubject original = original(currentType);
         when(persistence.findByCode("AC-755")).thenReturn(Optional.of(original));
+        when(persistence.findByCodeForUpdate("AC-755")).thenReturn(Optional.of(original));
         AccountType incompatible = currentType == AccountType.NON_OPERATING_INCOME
                 ? AccountType.NON_OPERATING_EXPENSES : AccountType.NON_OPERATING_INCOME;
 
-        assertThatThrownBy(() -> new AccountSubjectService(persistence).updateAccountSubject("AC-755",
+        assertThatThrownBy(() -> new AccountSubjectService(persistence, mock(MasterDataBusinessKeyLockPort.class)).updateAccountSubject("AC-755",
                 new AccountSubjectCommand("AC-755", "Invalid", null, null, null, null,
                         null, null, NEW_FROM, null, incompatible, null, false)))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -144,8 +149,9 @@ class AccountSubjectClassificationUpdateTest {
         AccountSubjectPersistencePort persistence = mock(AccountSubjectPersistencePort.class);
         AccountSubject original = original(type);
         when(persistence.findByCode("AC-755")).thenReturn(Optional.of(original));
+        when(persistence.findByCodeForUpdate("AC-755")).thenReturn(Optional.of(original));
 
-        assertThatThrownBy(() -> new AccountSubjectService(persistence).updateAccountSubject("AC-755",
+        assertThatThrownBy(() -> new AccountSubjectService(persistence, mock(MasterDataBusinessKeyLockPort.class)).updateAccountSubject("AC-755",
                 new AccountSubjectCommand("AC-755", "Invalid", null, null, null, null,
                         null, null, NEW_FROM, null, null, "REG-NEW", true)))
                 .isInstanceOf(IllegalArgumentException.class);

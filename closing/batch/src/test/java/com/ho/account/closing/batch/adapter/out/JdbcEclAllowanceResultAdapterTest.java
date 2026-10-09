@@ -1,6 +1,7 @@
 package com.ho.account.closing.batch.adapter.out;
 
 import com.ho.account.closing.domain.EclAllowanceSummary;
+import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -10,6 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JdbcEclAllowanceResultAdapterTest {
 
@@ -59,6 +61,22 @@ class JdbcEclAllowanceResultAdapterTest {
             assertThat(summary.sourceExposureAmount()).isEqualByComparingTo("10000.00");
             assertThat(summary.stage1AllowanceAmount()).isEqualByComparingTo("1000.00");
         });
+    }
+
+    @Test
+    void apiGroupCapFailsInsteadOfReturningATruncatedEclSnapshot() {
+        insert(1, "12000", "600.00", "6000.00");
+        jdbcTemplate.update("""
+                INSERT INTO allowance_summary VALUES (
+                    2, DATE '2026-05-31', 'RUN-1', 'MODEL-1', 'ENTITY-1', 'EUR', '12100',
+                    '129200', '550100', '480100', 400.00, 4000.00, 400.00, 0, 0)
+                """);
+        JdbcEclAllowanceResultAdapter bounded =
+                new JdbcEclAllowanceResultAdapter(jdbcTemplate, 1, 60);
+
+        assertThatThrownBy(() -> bounded.loadSummaries(LocalDate.of(2026, 5, 31)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ECL summary groups exceed API hard cap of 1");
     }
 
     private void insert(int id, String exposureAccountCode, String target, String exposure) {

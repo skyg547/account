@@ -40,6 +40,7 @@ import org.springframework.test.context.ContextConfiguration;
 @Import({JpaAccountSubjectPersistenceAdapter.class, AccountSubjectMapper.class, AccountSubjectService.class,
         AccountSubjectMasterDataChangeApplier.class, MasterDataChangeRequestService.class,
         JpaMasterDataChangeRequestPersistenceAdapter.class, JpaMasterDataVersionQueryAdapter.class,
+        JpaMasterDataBusinessKeyLockAdapter.class,
         MasterDataChangeRequestMapper.class, JacksonMasterDataChangePayloadDecoder.class,
         AccountSubjectApprovedClassificationIntegrationTest.JacksonConfig.class})
 class AccountSubjectApprovedClassificationIntegrationTest {

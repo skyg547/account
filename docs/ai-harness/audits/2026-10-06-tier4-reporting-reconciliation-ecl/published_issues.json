@@ -1,0 +1,47 @@
+[
+  {
+    "id": "REPORTING_MART_01",
+    "title": "[reporting] 서로 다른 통화의 GL 잔액을 계정코드만으로 합산하여 FINAL 재무제표에 저장",
+    "url": "https://github.com/skyg547/account/issues/857"
+  },
+  {
+    "id": "REPORTING_MART_02",
+    "title": "[account-mart] 기준일 외화 환율 누락 시 원금을 KRW 평가금액으로 저장",
+    "url": "https://github.com/skyg547/account/issues/858"
+  },
+  {
+    "id": "REPORTING_MART_03",
+    "title": "[account-mart] GL/SL 대사 불일치에도 통합 배치가 스냅샷과 준비 완료 이벤트까지 진행",
+    "url": "https://github.com/skyg547/account/issues/859"
+  },
+  {
+    "id": "RECONCILIATION_ASSETS_01",
+    "title": "[reconciliation] 반대 차대 전표가 은행 원천 거래와 매칭되어 누락 거래를 성공 처리",
+    "url": "https://github.com/skyg547/account/issues/860"
+  },
+  {
+    "id": "RECONCILIATION_ASSETS_02",
+    "title": "[asset-lease] 리스 재측정이 계약 조건만 변경하고 리스부채·사용권자산·상환표를 갱신하지 않음",
+    "url": "https://github.com/skyg547/account/issues/861"
+  },
+  {
+    "id": "RECONCILIATION_ASSETS_03",
+    "title": "[asset-lease] 사용권자산의 월 상각액 반올림 잔액을 마지막 회차에 상각하지 않음",
+    "url": "https://github.com/skyg547/account/issues/862"
+  },
+  {
+    "id": "RISK_ECL_01",
+    "title": "[ecl] 월말 snapshot에서 빠진 계좌가 다음 평가의 ECL에 계속 포함됨",
+    "url": "https://github.com/skyg547/account/issues/863"
+  },
+  {
+    "id": "RISK_ECL_02",
+    "title": "[ecl] 완료 결과가 0건인 재실행이 기존 충당금 summary를 삭제함",
+    "url": "https://github.com/skyg547/account/issues/864"
+  },
+  {
+    "id": "RISK_ECL_03",
+    "title": "[ecl] 거시 시나리오 확률 가중치 합계 오류를 그대로 충당금에 반영함",
+    "url": "https://github.com/skyg547/account/issues/865"
+  }
+]

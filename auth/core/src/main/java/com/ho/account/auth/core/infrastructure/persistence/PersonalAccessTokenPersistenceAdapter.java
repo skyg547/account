@@ -39,6 +39,12 @@ public class PersonalAccessTokenPersistenceAdapter implements PersonalAccessToke
     }
 
     @Override
+    public boolean markRevokedIfActive(String tokenId) {
+        // The conditional update serializes competing revocations at the token row.
+        return repository.markRevokedIfActive(tokenId) == 1;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<PersonalAccessToken> findByUsername(String username) {
         return repository.findByUsernameOrderByCreatedAtDesc(username).stream()

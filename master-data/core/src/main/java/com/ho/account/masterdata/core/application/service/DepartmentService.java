@@ -4,6 +4,9 @@ import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,12 +24,15 @@ import java.util.Optional;
 public class DepartmentService implements DepartmentUseCase {
 
     private final DepartmentPersistencePort departmentPersistencePort;
+    private final MasterDataBusinessKeyLockPort businessKeyLockPort;
 
     @Override
     @Transactional
     public Department createDepartment(DepartmentCommand command) {
-        if (departmentPersistencePort.findActiveByCode(command.code()).isPresent()) {
-            throw new IllegalArgumentException("이미 해당 시점에 활성화된 부서 코드입니다: " + command.code());
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, command.code());
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
+        if (departmentPersistencePort.existsByCode(command.code())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 부서 코드입니다: " + command.code());
         }
 
         Department department = command.toEntity();
@@ -70,7 +76,8 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department updateDepartment(String code, DepartmentCommand command) {
-        Department currentActive = departmentPersistencePort.findActiveByCode(code)
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, code);
+        Department currentActive = departmentPersistencePort.findActiveByCodeForUpdate(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
         if (!MasterDataValidityPolicy.isActiveAt(LocalDate.now(), currentActive.getValidFrom(), currentActive.getValidTo())) {
             throw new IllegalArgumentException("활성 부서 버전만 수정할 수 있습니다: " + code);
@@ -120,11 +127,12 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public void deactivateDepartment(String code, LocalDate effectiveDate) {
-        Department department = departmentPersistencePort.findActiveByCode(code)
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, code);
+        Department department = departmentPersistencePort.findActiveByCodeForUpdate(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
 
         // SCD2: API 직접 호출은 오늘, 승인 요청 반영은 승인된 effectiveDate를 종료일로 사용합니다.
-        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+        LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, department.getValidFrom(), department.getValidTo());
         department.terminate(terminationDate);
         departmentPersistencePort.save(department);

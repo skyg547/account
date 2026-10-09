@@ -3,13 +3,11 @@ package com.ho.account.auth.api.web;
 import com.ho.account.auth.api.dto.AdminUserDto;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.port.in.AdminUserQueryUseCase;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -18,26 +16,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AdminUserController {
 
-    static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
-
     private final AdminUserQueryUseCase adminUserQueryUseCase;
 
     @GetMapping("/users")
-    public ResponseEntity<List<AdminUserDto>> findAllUsers(
-            @RequestHeader(value = AUTH_ROLES_HEADER, required = false) String authenticatedRoles) {
-        requireSystemAdmin(authenticatedRoles);
+    public ResponseEntity<List<AdminUserDto>> findAllUsers(HttpServletRequest request) {
+        requireSystemAdmin(request);
         List<AdminUserDto> response = adminUserQueryUseCase.findAllUsers().stream()
                 .map(AdminUserDto::from)
                 .toList();
         return ResponseEntity.ok(response);
     }
 
-    private void requireSystemAdmin(String authenticatedRoles) {
-        boolean authorized = authenticatedRoles != null && Arrays.stream(authenticatedRoles.split(","))
-                .map(String::trim)
-                .filter(role -> !role.isEmpty())
-                .map(role -> role.toUpperCase(Locale.ROOT))
-                .anyMatch(role -> role.equals("ROLE_SYSTEM_ADMIN") || role.equals("SYSTEM_ADMIN"));
+    private void requireSystemAdmin(HttpServletRequest request) {
+        Object value = request.getAttribute(AdminBearerAuthenticationFilter.AUTHENTICATED_ROLES_ATTRIBUTE);
+        boolean authorized = value instanceof List<?> roles && roles.stream()
+                .anyMatch(role -> "ROLE_SYSTEM_ADMIN".equals(role) || "SYSTEM_ADMIN".equals(role));
         if (!authorized) {
             throw new UserAccessDeniedException("System administrator role is required.");
         }

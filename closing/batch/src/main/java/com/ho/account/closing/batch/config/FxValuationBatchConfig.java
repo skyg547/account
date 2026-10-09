@@ -1,6 +1,7 @@
 package com.ho.account.closing.batch.config;
 
 import com.ho.account.closing.application.pipeline.FxValuationPipeline;
+import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.FxValuationBalance;
 import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
@@ -20,6 +21,7 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,7 +35,20 @@ import java.time.LocalDate;
  * FX valuation Batch adapter.
  *
  * <p>Batch owns stable parameters, fixed-range partitioning, chunk/checkpoint and concurrency.
- * Signed balance calculation and journal construction remain in Closing core.</p>
+ * {@code valuationDate} and {@code valuationBatchId} identify the JobInstance and the latter also
+ * provides deterministic journal lineage. Signed balance calculation and journal construction
+ * remain in Closing core.</p>
+ *
+ * <p>The first tasklet scans all evidence and invokes only core preparation. Any missing account,
+ * rate, balance or lineage evidence fails before the partitioned writer can call Journal. A restart
+ * reruns that completed tasklet via {@code allowStartIfComplete}; it then resumes the existing
+ * partition/cursor/chunk checkpoints. Validation and posting intentionally read the source twice,
+ * so operations must freeze the source ledger, dated policies and rates for the run.</p>
+ *
+ * <p>The validation tasklet and each posting chunk have separate local transaction boundaries.
+ * Remote Journal effects cannot be rolled back with Batch metadata; deterministic slips reconcile
+ * retries. Grid size bounds concurrent cursors, while the validation scan remains streaming and
+ * does not materialize the complete source.</p>
  */
 @Slf4j
 @Configuration
@@ -41,12 +56,14 @@ import java.time.LocalDate;
 public class FxValuationBatchConfig {
 
     public static final String JOB_NAME = "fxValuationJob";
+    private static final String EVIDENCE_VALIDATION_STEP_NAME = "fxValuationEvidenceValidationStep";
     private static final String STEP_NAME = "fxValuationStep";
     private static final String WORKER_STEP_NAME = "fxValuationWorkerStep";
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final JournalFxValuationBalanceSource balanceSource;
+    private final FinancialClosingCalculation financialClosingCalculation;
     private final FxValuationPipeline fxValuationPipeline;
     private final ClosingAccountingProperties accountingProperties;
 
@@ -62,11 +79,38 @@ public class FxValuationBatchConfig {
     }
 
     @Bean
-    public Job fxValuationJob(Step fxValuationStep) {
+    public Job fxValuationJob(
+            Step fxValuationEvidenceValidationStep,
+            Step fxValuationStep) {
         return new JobBuilder(JOB_NAME, jobRepository)
                 .validator(fxValuationJobParametersValidator())
-                .start(fxValuationStep)
+                .start(fxValuationEvidenceValidationStep)
+                .next(fxValuationStep)
                 .build();
+    }
+
+    @Bean
+    @JobScope
+    public Step fxValuationEvidenceValidationStep() {
+        return new StepBuilder(EVIDENCE_VALIDATION_STEP_NAME, jobRepository)
+                .tasklet(fxValuationEvidenceValidationTasklet(null, null), transactionManager)
+                // A failed posting restart must re-check all source evidence before new writes.
+                .allowStartIfComplete(true)
+                .build();
+    }
+
+    @Bean
+    @StepScope
+    public org.springframework.batch.core.step.tasklet.Tasklet fxValuationEvidenceValidationTasklet(
+            @Value("#{jobParameters['valuationDate']}") String valuationDateValue,
+            @Value("#{jobParameters['valuationBatchId']}") Long valuationBatchId) {
+        return (contribution, chunkContext) -> {
+            LocalDate valuationDate = requiredDate(valuationDateValue, "valuationDate");
+            Long batchId = requiredPositiveLong(valuationBatchId, "valuationBatchId");
+            financialClosingCalculation.validateFxValuation(valuationDate, batchId);
+            log.info("Validated complete FX source evidence for {}", valuationDate);
+            return RepeatStatus.FINISHED;
+        };
     }
 
     @Bean

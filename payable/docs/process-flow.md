@@ -98,15 +98,25 @@ flowchart TD
     F[POST /api/payments/offset-payable] --> G[OffsetPayableCommand]
     G --> H[Payable 조회]
     G --> I[AdvancePayment 조회]
-    H --> J[Payable.applyOffset]
-    I --> K[AdvancePayment.applyOffset]
-    J --> L[잔액과 상태 저장]
-    K --> L
-    L --> M[상계 전표 초안 생성]
-    M --> N[PayableResponse 반환]
+    H --> J{두 vendorCode가 비어 있지 않고 같은가?}
+    I --> J
+    J -->|아니오| X[업무 예외: 변경 없이 거부]
+    J -->|예| K[Payable.applyOffset]
+    K --> L[AdvancePayment.applyOffset]
+    L --> M[잔액과 상태 저장]
+    M --> N[상계 전표 초안 생성]
+    N --> O[PayableResponse 반환]
 ```
 
-상계는 채무와 선급금 양쪽 잔액을 동시에 줄이는 업무다. 한쪽만 바뀌면 거래처 잔액이 틀어지므로 `PaymentService`가 두 도메인 객체를 함께 조회하고 같은 트랜잭션에서 처리한다.
+상계는 채무와 선급금 양쪽 잔액을 동시에 줄이는 업무다. 한쪽만 바뀌면 거래처 잔액이 틀어지므로 `PaymentService`가 두 도메인 객체를 함께 조회하고 같은 트랜잭션에서 처리한다. **두 객체의 `vendorCode`는 비어 있지 않고 같아야 한다.** 서비스는 잔액·상태를 처음 변경하기 전에 이 소유권 불변식을 확인한다. 코드가 다르거나 어느 한쪽의 코드가 `null` 또는 공백이면 `IllegalArgumentException`으로 거부하며 두 객체 저장 및 `JournalPostingPort` 호출을 하지 않는다. 상계 전표의 차변·대변 공급업체 코드는 검증된 채무 코드를 사용한다.
+
+예를 들어 채무 ID 100(잔액 500.00)과 같은 공급업체 선급금 ID 200(잔액 200.00)이 있을 때 다음 본문으로 요청한다.
+
+```json
+{"payableId":100,"advancePaymentId":200,"offsetAmount":100.00}
+```
+
+채무 잔액은 400.00(`PARTIAL_PAID`), 선급금 잔액은 100.00(`ACTIVE`)이 되고 차변·대변에 각각 100.00인 전표 초안을 요청한다. 두 잔액이 모두 500.00일 때 500.00을 상계하면 채무는 `PAID`, 선급금은 `OFFSET`이 되며 양쪽 잔액은 0이다. 다른 공급업체 선급금 ID로 같은 요청을 보내면 두 잔액·상태가 그대로 남고 전표 초안도 생성하지 않는다. 요청 금액은 양쪽 잔액을 넘을 수 없다.
 
 ## 전표 유형과 차대변
 

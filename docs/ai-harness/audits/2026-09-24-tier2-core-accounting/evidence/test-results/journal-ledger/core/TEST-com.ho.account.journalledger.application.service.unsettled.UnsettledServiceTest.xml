@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.044">
+  <properties/>
+  <testcase name="이전 참조번호가 지연 재시도되어도 멱등하게 처리되어 금액이 중복 차감되지 않는다" classname="com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest" time="0.035"/>
+  <testcase name="서로 다른 참조번호로 다단계 부분 반제 시 각각 정상 반영된다" classname="com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest" time="0.002"/>
+  <testcase name="반제는 도메인 상태를 변경한 뒤 출력 포트에 저장한다" classname="com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest" time="0.002"/>
+  <testcase name="거래처 코드가 있으면 DB 조건 조회 출력 포트를 사용한다" classname="com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

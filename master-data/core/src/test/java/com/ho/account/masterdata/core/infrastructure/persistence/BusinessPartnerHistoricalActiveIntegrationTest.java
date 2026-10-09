@@ -20,7 +20,7 @@ import org.springframework.test.context.ContextConfiguration;
 /**
  * Issue #261: BusinessPartner SCD2 유효기간과 업무 활성(useYn) 상태의 과거 조회 정합성 검증 테스트입니다.
  */
-@DataJpaTest
+@DataJpaTest(properties = "spring.flyway.target=8")
 @ContextConfiguration(classes = BusinessPartnerHistoricalActiveIntegrationTest.TestApplication.class)
 @Import(JpaBusinessPartnerPersistenceAdapter.class)
 class BusinessPartnerHistoricalActiveIntegrationTest {

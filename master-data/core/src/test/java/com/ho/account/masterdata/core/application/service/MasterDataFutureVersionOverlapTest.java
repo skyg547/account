@@ -12,6 +12,7 @@ import com.ho.account.masterdata.core.application.command.ProductCommand;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.domain.model.Product;
@@ -125,9 +126,9 @@ class MasterDataFutureVersionOverlapTest {
                 AccountSubject::getValidTo, AccountSubject::getUpdatedAt);
         AccountSubjectPersistencePort port = mock(AccountSubjectPersistencePort.class);
         // Like the real query, each lookup resolves today's row from the evolving history.
-        when(port.findByCode(CODE)).thenAnswer(invocation -> history.current(LocalDate.now()));
+        when(port.findByCodeForUpdate(CODE)).thenAnswer(invocation -> history.current(LocalDate.now()));
         when(port.save(any(AccountSubject.class))).thenAnswer(invocation -> history.save(invocation.getArgument(0)));
-        AccountSubjectService service = new AccountSubjectService(port);
+        AccountSubjectService service = new AccountSubjectService(port, mock(MasterDataBusinessKeyLockPort.class));
         return new Fixture<>(today, history, (from, to) -> service.updateAccountSubject(CODE,
                 new AccountSubjectCommand(CODE, "Revised", null, AccountSubject.AccountCategory.ASSETS,
                         AccountSubject.BalanceType.DEBIT, null, false, false, from, to)));
@@ -140,9 +141,9 @@ class MasterDataFutureVersionOverlapTest {
         History<Department> history = new History<>(original, Department::getValidFrom,
                 Department::getValidTo, Department::getUpdatedAt);
         DepartmentPersistencePort port = mock(DepartmentPersistencePort.class);
-        when(port.findActiveByCode(CODE)).thenAnswer(invocation -> history.current(LocalDate.now()));
+        when(port.findActiveByCodeForUpdate(CODE)).thenAnswer(invocation -> history.current(LocalDate.now()));
         when(port.save(any(Department.class))).thenAnswer(invocation -> history.save(invocation.getArgument(0)));
-        DepartmentService service = new DepartmentService(port);
+        DepartmentService service = new DepartmentService(port, mock(MasterDataBusinessKeyLockPort.class));
         return new Fixture<>(today, history, (from, to) -> service.updateDepartment(CODE,
                 new DepartmentCommand(CODE, "Revised", null, Department.DepartmentType.COST_CENTER, from, to)));
     }
@@ -154,13 +155,14 @@ class MasterDataFutureVersionOverlapTest {
         History<Product> history = new History<>(original, Product::getValidFrom,
                 Product::getValidTo, Product::getUpdatedAt);
         ProductPersistencePort port = mock(ProductPersistencePort.class);
+        when(port.findBusinessKeyById(1L)).thenReturn(Optional.of(CODE));
         // Product updates address a row ID; assert that the reused original is still today's row.
-        when(port.findById(1L)).thenAnswer(invocation -> {
+        when(port.findByIdForUpdate(1L)).thenAnswer(invocation -> {
             assertThat(history.current(LocalDate.now())).containsSame(original);
             return Optional.of(original);
         });
         when(port.save(any(Product.class))).thenAnswer(invocation -> history.save(invocation.getArgument(0)));
-        ProductService service = new ProductService(port);
+        ProductService service = new ProductService(port, mock(MasterDataBusinessKeyLockPort.class));
         return new Fixture<>(today, history, (from, to) -> service.updateProduct(1L,
                 new ProductCommand(CODE, "Revised", null, "EA", BigDecimal.ONE,
                         Product.ProductType.PHYSICAL, from, to)));

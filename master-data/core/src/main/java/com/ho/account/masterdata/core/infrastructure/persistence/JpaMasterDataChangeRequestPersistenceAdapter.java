@@ -5,17 +5,25 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.infrastructure.persistence.entity.MasterDataChangeRequestEntity;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.MasterDataChangeRequestMapper;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataChangeRequestPersistencePort {
 
     private final MasterDataChangeRequestJpaRepository repository;
     private final MasterDataChangeRequestMapper mapper;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public JpaMasterDataChangeRequestPersistenceAdapter(
             MasterDataChangeRequestJpaRepository repository,
@@ -30,8 +38,16 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public Optional<MasterDataChangeRequest> findByIdForUpdate(Long id) {
-        return repository.findByIdForUpdate(id).map(mapper::toDomain);
+        return repository.findById(id).map(entity -> {
+            // 이전 query의 자동 flush 의미를 보존해 같은 트랜잭션의 승인/반영 저장을 잃지 않습니다.
+            entityManager.flush();
+            // 기존 @Lock query는 이미 읽은 객체의 오래된 @Version을 refresh 전에 검사할 수 있습니다.
+            // refresh 한 번으로 행 잠금과 최신 상태/lockVersion 재조회를 함께 수행합니다.
+            entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+            return mapper.toDomain(entity);
+        });
     }
 
     @Override
@@ -63,4 +79,3 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
         return mapper.toDomain(saved);
     }
 }
-

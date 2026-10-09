@@ -1,5 +1,9 @@
 package com.ho.account.closing.batch.config;
 
+import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
+import com.ho.account.closing.infrastructure.external.MasterDataFxExchangeRateLookupAdapter;
+import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithExchangeRateQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
@@ -11,15 +15,13 @@ import com.ho.account.masterdata.core.infrastructure.persistence.mapper.AccountS
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.DepartmentMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
-import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
-import com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapter;
-import com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapter;
-import com.ho.account.closing.batch.adapter.out.MasterDataFxExchangeRateLookupAdapter;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Preserves the existing embedded composition outside the isolated dev runtime. */
 @Configuration(proxyBeanMethods = false)
@@ -42,9 +44,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 })
 @Import({
         JournalFxValuationBalanceSource.class,
-        GlAllowanceBalanceLookupAdapter.class,
-        JdbcEclAllowanceResultAdapter.class,
         MasterDataFxExchangeRateLookupAdapter.class,
+        JournalLedgerClosingJournalEntryAdapter.class,
         MonolithExchangeRateQueryAdapter.class,
         MonolithFiscalPeriodControlAdapter.class,
         MonolithMasterDataQueryAdapter.class,
@@ -57,4 +58,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         DepartmentMapper.class
 })
 public class ClosingBatchMonolithConfiguration {
+
+    @Bean
+    JdbcEclAllowanceResultAdapter jdbcEclAllowanceResultAdapter(JdbcTemplate jdbcTemplate) {
+        return new JdbcEclAllowanceResultAdapter(jdbcTemplate);
+    }
 }

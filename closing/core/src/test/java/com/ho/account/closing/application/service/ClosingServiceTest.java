@@ -1,6 +1,8 @@
 package com.ho.account.closing.application.service;
 
 import com.ho.account.closing.application.port.out.*;
+import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
+import com.ho.account.closing.application.port.in.FinancialClosingCalculationResult;
 import com.ho.account.closing.domain.*;
 import com.ho.account.closing.infrastructure.external.ClosingStatusAdapter;
 import com.ho.account.contracts.journal.*;
@@ -20,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -51,7 +52,7 @@ public class ClosingServiceTest {
     @Mock
     private FiscalPeriodControlPort fiscalPeriodControlPort;
     @Mock
-    private JournalPostingPort journalPostingPort;
+    private FinancialClosingCalculation financialClosingCalculation;
     @Mock
     private JournalQueryPort journalQueryPort;
     @Spy
@@ -90,7 +91,7 @@ public class ClosingServiceTest {
                 closingCalendarPersistencePort, closingTaskPersistencePort, closingGatePersistencePort,
                 periodLockPersistencePort, reopenApprovalPersistencePort, batchExecutionRecorder,
                 closingAdjustmentPersistencePort, closingAuditLogPersistencePort,
-                fiscalPeriodControlPort, journalPostingPort, journalQueryPort, closingAccountingProperties,
+                fiscalPeriodControlPort, journalQueryPort, closingAccountingProperties, financialClosingCalculation,
                 closingAdmissionService, aggregates, transitions, transactions);
         openPeriod = new FiscalPeriodRef(
                 1L,
@@ -227,122 +228,154 @@ public class ClosingServiceTest {
     }
 
     @Test
-    @DisplayName("평가 배치는 설정된 계정과 금액으로 자동 분개를 생성한다")
-    void runValuationBatch_UsesConfiguredAccountingRule() {
-        // given
-        closingAccountingProperties.setValuationRules(Map.of(
-                ValuationBatch.ValuationType.FX_RATE,
-                rule("510100", "110100", "1234.56")));
-        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
-        ValuationBatch runningBatch = valuationBatch(77L, ValuationBatch.ValuationBatchStatus.RUNNING);
-        ValuationBatch pendingBatch = valuationBatch(77L, ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
-        pendingBatch.setGeneratedJournalEntryId(900L);
-        when(batchExecutionRecorder.startValuation(openPeriod, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
-                .thenReturn(runningBatch);
-        when(batchExecutionRecorder.markValuationPendingApproval(77L, 900L, "/reports/valuation/77", "ADMIN"))
-                .thenReturn(pendingBatch);
-        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
-                .thenReturn(new JournalPostingResult(900L, "SLIP-900", "DRAFT"));
-
-        // when
-        ValuationBatch result = closingService.runValuationBatch(
-                1L,
-                ValuationBatch.ValuationType.FX_RATE,
-                "ADMIN");
-
-        // then
-        assertThat(result.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
-        assertThat(result.getGeneratedJournalEntryId()).isEqualTo(900L);
-
-        ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
-        verify(journalPostingPort).createDraftEntry(captor.capture());
-        JournalEntryCommand command = captor.getValue();
-        assertThat(command.lineageSourceType()).isEqualTo("VALUATION_BATCH");
-        assertThat(command.lineageSourceId()).isEqualTo("77");
-        assertThat(command.lines()).extracting(JournalLineCommand::accountCode)
-                .containsExactly("510100", "110100");
-        assertThat(command.lines()).allSatisfy(line ->
-                assertThat(line.amount()).isEqualByComparingTo("1234.56"));
-    }
-
-    @Test
-    @DisplayName("충당 배치는 설정된 계정과 금액으로 자동 분개를 생성한다")
-    void runProvisionBatch_UsesConfiguredAccountingRule() {
-        // given
-        closingAccountingProperties.setProvisionRules(Map.of(
-                ProvisionBatch.ProvisionType.BAD_DEBT,
-                rule("550100", "129100", "789.10")));
-        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
-        ProvisionBatch runningBatch = provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.RUNNING);
-        ProvisionBatch pendingBatch = provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
-        pendingBatch.setGeneratedJournalEntryId(901L);
-        when(batchExecutionRecorder.startProvision(openPeriod, ProvisionBatch.ProvisionType.BAD_DEBT, "ADMIN"))
-                .thenReturn(runningBatch);
-        when(batchExecutionRecorder.markProvisionPendingApproval(88L, 901L, "ADMIN"))
-                .thenReturn(pendingBatch);
-        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
-                .thenReturn(new JournalPostingResult(901L, "SLIP-901", "DRAFT"));
-
-        // when
-        ProvisionBatch result = closingService.runProvisionBatch(
-                1L,
-                ProvisionBatch.ProvisionType.BAD_DEBT,
-                "ADMIN");
-
-        // then
-        assertThat(result.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
-        assertThat(result.getGeneratedJournalEntryId()).isEqualTo(901L);
-
-        ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
-        verify(journalPostingPort).createDraftEntry(captor.capture());
-        JournalEntryCommand command = captor.getValue();
-        assertThat(command.lineageSourceType()).isEqualTo("PROVISION_BATCH");
-        assertThat(command.lineageSourceId()).isEqualTo("88");
-        assertThat(command.lines()).extracting(JournalLineCommand::accountCode)
-                .containsExactly("550100", "129100");
-        assertThat(command.lines()).allSatisfy(line ->
-                assertThat(line.amount()).isEqualByComparingTo("789.10"));
-    }
-
-    @Test
-    @DisplayName("평가 전표 생성 실패 시 독립 이력에 FAILED를 기록한다")
-    void runValuationBatch_PostingFails_RecordsFailure() {
-        closingAccountingProperties.setValuationRules(Map.of(
-                ValuationBatch.ValuationType.FX_RATE,
-                rule("510100", "110100", "1234.56")));
+    void runValuationBatch_UsesFiscalEndDateAndPersistedBatchId() {
         when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
         when(batchExecutionRecorder.startValuation(openPeriod, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
                 .thenReturn(valuationBatch(77L, ValuationBatch.ValuationBatchStatus.RUNNING));
-        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
-                .thenThrow(new IllegalStateException("posting unavailable"));
+        when(financialClosingCalculation.runFxValuation(openPeriod.endDate(), 77L))
+                .thenReturn(new FinancialClosingCalculationResult(1, 900L));
+        when(batchExecutionRecorder.markValuationPendingApproval(77L, 900L, "/reports/valuation/77", "ADMIN"))
+                .thenReturn(valuationBatch(77L, ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL));
+
+        ValuationBatch result = closingService.runValuationBatch(
+                1L, ValuationBatch.ValuationType.FX_RATE, "ADMIN");
+
+        assertThat(result.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
+        verify(financialClosingCalculation).runFxValuation(LocalDate.of(2026, 1, 31), 77L);
+        verify(batchExecutionRecorder).markValuationPendingApproval(
+                77L, 900L, "/reports/valuation/77", "ADMIN");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ValuationBatch.ValuationType.class, names = "FX_RATE", mode = EnumSource.Mode.EXCLUDE)
+    void runValuationBatch_RejectsUnsupportedTypesBeforeHistory(ValuationBatch.ValuationType type) {
+        assertThatThrownBy(() -> closingService.runValuationBatch(1L, type, "ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only FX_RATE");
+
+        verifyNoInteractions(fiscalPeriodControlPort, batchExecutionRecorder, financialClosingCalculation);
+    }
+
+    @Test
+    void runValuationBatch_FxRateWithoutAuditedEvidence_RejectsBeforeJournalCreation() {
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(batchExecutionRecorder.startValuation(openPeriod, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
+                .thenReturn(valuationBatch(77L, ValuationBatch.ValuationBatchStatus.RUNNING));
+        when(financialClosingCalculation.runFxValuation(openPeriod.endDate(), 77L))
+                .thenThrow(new IllegalStateException("FX valuation source evidence is empty"));
 
         assertThatThrownBy(() -> closingService.runValuationBatch(
-                1L,
-                ValuationBatch.ValuationType.FX_RATE,
-                "ADMIN"))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Valuation batch failed")
-                .hasCauseInstanceOf(IllegalStateException.class);
+                1L, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FX valuation source evidence");
 
         verify(batchExecutionRecorder).markValuationFailed(77L, "ADMIN");
         verify(batchExecutionRecorder, never()).markValuationPendingApproval(any(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("평가 배치 회계 룰이 없으면 더미 분개를 생성하지 않고 실패한다")
-    void runValuationBatch_MissingAccountingRule_ThrowsExceptionBeforePosting() {
-        // given
+    void runProvisionBatch_UsesFiscalEndDateAndPersistedBatchId() {
         when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(batchExecutionRecorder.startProvision(openPeriod, ProvisionBatch.ProvisionType.ECL, "ADMIN"))
+                .thenReturn(provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.RUNNING));
+        when(financialClosingCalculation.runEclProvision(openPeriod.endDate(), 88L))
+                .thenReturn(new FinancialClosingCalculationResult(1, 901L));
+        when(batchExecutionRecorder.markProvisionPendingApproval(88L, 901L, "ADMIN"))
+                .thenReturn(provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL));
 
-        // when & then
-        assertThatThrownBy(() -> closingService.runValuationBatch(
-                1L,
-                ValuationBatch.ValuationType.FX_RATE,
-                "ADMIN"))
+        ProvisionBatch result = closingService.runProvisionBatch(
+                1L, ProvisionBatch.ProvisionType.ECL, "ADMIN");
+
+        assertThat(result.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
+        verify(financialClosingCalculation).runEclProvision(LocalDate.of(2026, 1, 31), 88L);
+        verify(batchExecutionRecorder).markProvisionPendingApproval(88L, 901L, "ADMIN");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ProvisionBatch.ProvisionType.class, names = "ECL", mode = EnumSource.Mode.EXCLUDE)
+    void runProvisionBatch_RejectsUnsupportedTypesBeforeHistory(ProvisionBatch.ProvisionType type) {
+        assertThatThrownBy(() -> closingService.runProvisionBatch(1L, type, "ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only ECL");
+
+        verifyNoInteractions(fiscalPeriodControlPort, batchExecutionRecorder, financialClosingCalculation);
+    }
+
+    @Test
+    void runProvisionBatch_EclWithoutFinalizedSummary_RejectsBeforeJournalCreation() {
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(batchExecutionRecorder.startProvision(openPeriod, ProvisionBatch.ProvisionType.ECL, "ADMIN"))
+                .thenReturn(provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.RUNNING));
+        when(financialClosingCalculation.runEclProvision(openPeriod.endDate(), 88L))
+                .thenThrow(new IllegalStateException("No finalized ECL allowance summary"));
+
+        assertThatThrownBy(() -> closingService.runProvisionBatch(
+                1L, ProvisionBatch.ProvisionType.ECL, "ADMIN"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("account.closing.accounting.valuation-rules.FX_RATE");
+                .hasMessageContaining("No finalized ECL allowance summary");
 
-        verifyNoInteractions(batchExecutionRecorder, journalPostingPort);
+        verify(batchExecutionRecorder).markProvisionFailed(88L, "ADMIN");
+        verify(batchExecutionRecorder, never()).markProvisionPendingApproval(any(), any(), any());
+    }
+
+    @Test
+    void runValuationBatch_CalculationFailureRecordsFailedAndNoSuccessHistory() {
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(batchExecutionRecorder.startValuation(openPeriod, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
+                .thenReturn(valuationBatch(77L, ValuationBatch.ValuationBatchStatus.RUNNING));
+        when(financialClosingCalculation.runFxValuation(openPeriod.endDate(), 77L))
+                .thenThrow(new IllegalStateException("posting unavailable"));
+
+        assertThatThrownBy(() -> closingService.runValuationBatch(
+                1L, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("posting unavailable");
+
+        verify(batchExecutionRecorder).markValuationFailed(77L, "ADMIN");
+        verify(batchExecutionRecorder, never()).markValuationPendingApproval(any(), any(), any(), any());
+        verify(batchExecutionRecorder, never()).markValuationCompleted(any(), any(), any(), any());
+    }
+
+    @Test
+    void zeroAndManyJournalResultsDoNotInventHistoryJournalId() {
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(batchExecutionRecorder.startValuation(openPeriod, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
+                .thenReturn(valuationBatch(77L, ValuationBatch.ValuationBatchStatus.RUNNING));
+        when(financialClosingCalculation.runFxValuation(openPeriod.endDate(), 77L))
+                .thenReturn(new FinancialClosingCalculationResult(0, null));
+        when(batchExecutionRecorder.markValuationCompleted(77L, null, "/reports/valuation/77", "ADMIN"))
+                .thenReturn(valuationBatch(77L, ValuationBatch.ValuationBatchStatus.COMPLETED));
+        closingService.runValuationBatch(1L, ValuationBatch.ValuationType.FX_RATE, "ADMIN");
+        verify(batchExecutionRecorder).markValuationCompleted(77L, null, "/reports/valuation/77", "ADMIN");
+
+        reset(batchExecutionRecorder, financialClosingCalculation);
+        when(batchExecutionRecorder.startProvision(openPeriod, ProvisionBatch.ProvisionType.ECL, "ADMIN"))
+                .thenReturn(provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.RUNNING));
+        when(financialClosingCalculation.runEclProvision(openPeriod.endDate(), 88L))
+                .thenReturn(new FinancialClosingCalculationResult(2, null));
+        when(batchExecutionRecorder.markProvisionPendingApproval(88L, null, "ADMIN"))
+                .thenReturn(provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL));
+        closingService.runProvisionBatch(1L, ProvisionBatch.ProvisionType.ECL, "ADMIN");
+        verify(batchExecutionRecorder).markProvisionPendingApproval(88L, null, "ADMIN");
+    }
+
+    @Test
+    void autoPostMarksSingleJournalResultCompletedWithItsId() {
+        closingAccountingProperties.setAutoPostAdjustments(true);
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(batchExecutionRecorder.startProvision(openPeriod, ProvisionBatch.ProvisionType.ECL, "ADMIN"))
+                .thenReturn(provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.RUNNING));
+        when(financialClosingCalculation.runEclProvision(openPeriod.endDate(), 88L))
+                .thenReturn(new FinancialClosingCalculationResult(1, 901L));
+        when(batchExecutionRecorder.markProvisionCompleted(88L, 901L, "ADMIN"))
+                .thenReturn(provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.COMPLETED));
+
+        ProvisionBatch result = closingService.runProvisionBatch(
+                1L, ProvisionBatch.ProvisionType.ECL, "ADMIN");
+
+        assertThat(result.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
+        verify(batchExecutionRecorder).markProvisionCompleted(88L, 901L, "ADMIN");
+        verify(batchExecutionRecorder, never()).markProvisionPendingApproval(any(), any(), any());
     }
 
     @Test
@@ -564,7 +597,7 @@ public class ClosingServiceTest {
 
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "CLOSER");
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "OPEN", "APPROVER");
-        verifyNoInteractions(journalPostingPort, journalQueryPort);
+        verifyNoInteractions(financialClosingCalculation, journalQueryPort);
     }
 
     @Test
@@ -596,7 +629,7 @@ public class ClosingServiceTest {
         assertThat(adjustment.getApprovedBy()).isEqualTo("APPROVER");
         assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
         verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
-        verifyNoInteractions(journalPostingPort);
+        verifyNoInteractions(financialClosingCalculation);
     }
 
     @Test
@@ -651,17 +684,6 @@ public class ClosingServiceTest {
             activeLock.set(null);
             return null;
         }).when(periodLockPersistencePort).delete(any());
-    }
-
-    private ClosingAccountingProperties.AutomatedJournalRule rule(
-            String debitAccountCode,
-            String creditAccountCode,
-            String amount) {
-        ClosingAccountingProperties.AutomatedJournalRule rule = new ClosingAccountingProperties.AutomatedJournalRule();
-        rule.setDebitAccountCode(debitAccountCode);
-        rule.setCreditAccountCode(creditAccountCode);
-        rule.setAmount(new BigDecimal(amount));
-        return rule;
     }
 
     private ValuationBatch valuationBatch(

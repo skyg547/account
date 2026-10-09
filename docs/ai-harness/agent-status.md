@@ -1,10 +1,9 @@
-## 2026-10-01 — GH-755 계정과목 SCD2 분류·매핑 보존
+## 2026-10-06 — GH-858 account-mart FX rate requirement / Draft PR #875
 
-- Issue [#755](https://github.com/skyg547/account/issues/755) `status:needs-review`; branch `agent/755-preserve-account-classification`; worktree `/tmp/account-755-preserve-account-classification`; base `b06e7de3`; implementation commit `194773ba`; [Draft PR #822](https://github.com/skyg547/account/pull/822) (`Refs #755`).
-- 변경 범위: `master-data/**` 15파일과 요청된 부모 소유 기록 4파일. 이름만 수정해도 비영업수익/비영업비용 유형과 규제 매핑이 SCD2 후계자에 보존되며, 승인 경로의 명시적 변경/해제와 직접 PUT 차단·감사 증거가 추가됐다.
-- 검증: 실제 하위 모듈 core 480/API 70/batch 5 = 555 테스트 PASS, API bootJar PASS, 최신 JAR H2 HTTP 업무 흐름 PASS. `:master-data:test`는 `NO-SOURCE`; health 503은 전체 기동 건강 판정이 아니다. 독립 read-only 리뷰 P0–P3 없음, Q1–Q4 PASS.
-- CI 상태: 최신 head의 GitHub Actions가 계정 결제/지출 한도 사유로 job 시작 전에 차단됐다. 로컬 대체 확인은 harness validator, Python 22, Node PR 32, merge-guard 89 테스트 PASS. Actions 실행 복구와 필수 체크 재실행이 Ready/merge 전 필요하다.
-- 잔여 위험/다음 담당: H2는 PostgreSQL V6·커밋/락·운영 배포 증거가 아니다. 사람 리뷰어가 최신 head/base CI와 적용 환경 게이트를 확인한다. Ready/merge/Issue close/자원 삭제 미수행.
+- State: `status:needs-review`; branch `agent/858-require-fx-rate`; worktree `/tmp/account-858-require-fx-rate`; base `origin/main@973d76dd`; [Draft PR #875](https://github.com/skyg547/account/pull/875), `Refs #858`.
+- Scope: four Issue-listed `account-mart/**` files. Missing/invalid base-date foreign/KRW rate now fails CDM conversion, Step, and Job; valid rate uses `BigDecimal` scale 4 `HALF_UP`.
+- Verification: targeted 8 core/3 batch PASS; full child suites 22 core/10 batch/3 API PASS; final batch cause-assertion targeted 3 PASS. Requested aggregate `:account-mart:test` was `NO-SOURCE`. Diff/markers PASS. Independent reviewer: no remaining P0–P3; Q1–Q4 PASS (PR evidence table).
+- Next owner: human PR reviewer for current-head checks and merge decision. Ready, merge, Issue close, and resource cleanup are pending. Rollback of the four files restores the unsafe fallback and needs FX completeness protection.
 
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
@@ -898,3 +897,17 @@
 ## 2026-09-28 GH-799 (#751 child) remote department validation fail-closed
 - Workflow account-issue-2 owns OPEN #799; parent #751 OPEN/Draft; #800/#801 OPEN/Draft and depend on #799 merged. Implementation claim: https://github.com/skyg547/account/issues/799#issuecomment-5867969315. Sole writer /root/issue799_implementation (GPT-6 Astra high) finished two allowed reworks; separate read-only /root/issue799_code_review (GPT-6 Astra high) APPROVE/no P0-P3 final frozen code.
 - Branch agent/799-department-fail-closed, external C:/tmp/account-799-department-fail-closed, base f128a5dd; five substantive allowlist files plus parent-owned records. No active writer. Auth182/182 PASS, independent targeted67/67 PASS; mandatory Gateway remains UNEXECUTED/offline dependency cache block, automation Q4 FAIL. Await Draft PR/CI and Gateway verification before Ready. Account reservation owns eventual final review/merge/Issue close.
+
+## 2026-10-01 GH-747 PAT authenticated authority
+
+- Status: implementation and independent read-only review complete; [Draft PR #814](https://github.com/skyg547/account/pull/814) is open with `Refs #747`. Issue #747 remains OPEN; branch `agent/747-pat-authority`, worktree `/tmp/account-747-pat-authority`, base `origin/main@b06e7de3`. Auth-only production/test/docs changes plus parent-owned three requested records; no Gateway route or other module edit.
+- Controller, service, SQL, and test agents used disjoint auth file ownership. Parent handled feature docs, shared records, Git/GitHub. `/root/pat_review` found no remaining P0–P3; Q1–Q4 PASS. PAT uses verified Bearer JWT/current exact AuthUser and current administrator role; audit rows include actor/owner and conditional revoke prevents duplicate transition events.
+- Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
+- Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
+
+## 2026-10-05 — GH-829 Draft PR #844
+
+- Issue [#829](https://github.com/skyg547/account/issues/829): 교차 고객 수납·채권 수동/자동 반제 차단. Branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd`, Draft PR [#844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 결과: 서비스 공통 진입점에서 고객 코드를 변경 전에 검증하고, 3개 업무 파일만 변경. 교차 고객 거부 시 상태·잔액·배분·전표 포트 보존, 같은 고객 부분 매칭·GL 고객 코드 유지. 독립 읽기 전용 리뷰 지적 사항 없음; Q1–Q4 PASS.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; 공백·충돌 마커 검사 PASS. PostgreSQL/원격 GL/HTTP 종단 검증과 기존 데이터 정정은 후속 범위.
+- 다음 소유자: 사람 리뷰어. Draft 유지; 최신 CI와 head/base 검토 및 별도 승인 전 Ready·merge·Issue close·자원 삭제 없음.

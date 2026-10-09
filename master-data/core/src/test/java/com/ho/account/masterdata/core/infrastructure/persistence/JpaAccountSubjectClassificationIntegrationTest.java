@@ -26,7 +26,8 @@ import org.springframework.test.context.ContextConfiguration;
         "spring.flyway.enabled=false"
 })
 @ContextConfiguration(classes = JpaAccountSubjectClassificationIntegrationTest.TestApplication.class)
-@Import({JpaAccountSubjectPersistenceAdapter.class, AccountSubjectMapper.class, AccountSubjectService.class})
+@Import({JpaAccountSubjectPersistenceAdapter.class, AccountSubjectMapper.class, AccountSubjectService.class,
+        JpaMasterDataBusinessKeyLockAdapter.class})
 class JpaAccountSubjectClassificationIntegrationTest {
 
     private static final LocalDate OLD_FROM = LocalDate.of(2025, 1, 1);

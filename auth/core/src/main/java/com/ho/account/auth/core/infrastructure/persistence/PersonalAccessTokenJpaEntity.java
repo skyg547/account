@@ -16,7 +16,7 @@ public class PersonalAccessTokenJpaEntity {
     @Column(name = "id", length = 36)
     private String id;
 
-    @Column(name = "username", nullable = false, length = 50)
+    @Column(name = "username", nullable = false, length = 80)
     private String username;
 
     @Column(name = "token_name", nullable = false, length = 100)

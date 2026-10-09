@@ -13,6 +13,8 @@ spring:
     driver-class-name: org.h2.Driver
   flyway:
     enabled: true
+    # V9 uses PostgreSQL GiST exclusion constraints; this profile is H2-only.
+    target: "8"
   jpa:
     hibernate:
       ddl-auto: validate

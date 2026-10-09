@@ -6,6 +6,8 @@ import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
@@ -193,6 +195,9 @@ public class AllowanceEclBatchIntegrationTest {
     }
 
     private void createAllowanceTables() {
+        // Hibernate's read-only snapshot mapping creates only its mapped columns in H2.
+        // Rebuild this fixture table with the full account-mart projection needed by sync.
+        jdbcTemplate.execute("DROP TABLE IF EXISTS allowance_exposure_snapshots");
         jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS allowance_exposure_snapshots (
                     base_date DATE NOT NULL,
@@ -301,6 +306,152 @@ public class AllowanceEclBatchIntegrationTest {
         assertThat(targetAllowanceAmount).isGreaterThan(BigDecimal.ZERO);
     }
 
+    @ParameterizedTest(name = "scenario total {0} must fail before allowance finalization")
+    @ValueSource(strings = {"0.10", "0.30"})
+    @DisplayName("거시 시나리오 확률 합계가 1이 아니면 ECL과 summary를 확정하지 않는다")
+    void shouldFailBeforePersistingWeightedEclOrSummaryForInvalidScenarioTotal(String recessionWeight)
+            throws Exception {
+        // 기본 fixture의 BOOM 0.20 + BASE 0.60에 RECESSION을 바꾸어 합계 0.90/1.10을 만든다.
+        jdbcTemplate.update("UPDATE cr_macro_scenario SET probability_weight = ? WHERE scenario_type = 'RECESSION' AND apply_year = 2026",
+                new BigDecimal(recessionWeight));
+        String runId = "INVALID-SCENARIO-" + recessionWeight;
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addString("baseDate", "2026-04-15")
+                .addString("runId", runId)
+                .addString("modelVersion", "test-v1")
+                .addLong("time", System.currentTimeMillis())
+                .toJobParameters();
+
+        JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
+
+        assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jobExecution.getAllFailureExceptions()).isNotEmpty();
+        Integer finalizedResultCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM allowance_ecl_results
+                WHERE base_date = DATE '2026-04-15'
+                  AND (weighted_ecl IS NOT NULL OR status = 'COMPLETED')
+                """, Integer.class);
+        assertThat(finalizedResultCount).isZero();
+        Integer summaryCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_summary WHERE base_date = DATE '2026-04-15' AND run_id = ?",
+                Integer.class, runId);
+        assertThat(summaryCount).isZero();
+        List<String> executedSteps = jdbcTemplate.queryForList(
+                "SELECT STEP_NAME FROM BATCH_STEP_EXECUTION WHERE JOB_EXECUTION_ID = ?",
+                String.class, jobExecution.getId());
+        assertThat(executedSteps).doesNotContain("allowanceEclCompletionStep", "allowanceSummaryStep");
+    }
+
+    @Test
+    @DisplayName("기준일 snapshot 범위만 산출하고 DQ 제외 및 같은 날짜 재실행 시 결과를 중복하지 않는다")
+    void testSnapshotDateScopeDqExclusionAndRerun() throws Exception {
+        LocalDate firstDate = LocalDate.parse("2026-04-15");
+        LocalDate secondDate = LocalDate.parse("2026-04-16");
+
+        // A is seeded by setUp. B exists only on the first date; its CDM account remains active later.
+        copySnapshot(firstDate, "EXP-002", "ACC-002", "C-002", new BigDecimal("3000000.00"));
+        assertThat(executeAllowanceJob(firstDate, "SCOPE-FIRST")).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(resultAccounts(firstDate)).containsExactlyInAnyOrder("ACC-001", "ACC-002");
+        assertThat(summaryCount(firstDate)).isEqualTo(1);
+        BigDecimal firstDateAllowance = summaryAmount(firstDate);
+        assertThat(firstDateAllowance).isGreaterThan(BigDecimal.ZERO);
+
+        // C has a negative balance, so DQ must deactivate it before result preparation.
+        copySnapshot(secondDate, "EXP-003", "ACC-001", "C-001", new BigDecimal("2000000.00"));
+        copySnapshot(secondDate, "EXP-004", "ACC-003", "C-003", new BigDecimal("-100.00"));
+        assertThat(executeAllowanceJob(secondDate, "SCOPE-SECOND")).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(resultAccounts(secondDate)).containsExactly("ACC-001");
+        assertThat(summaryCount(secondDate)).isEqualTo(1);
+        BigDecimal secondDateAllowance = summaryAmount(secondDate);
+        assertThat(secondDateAllowance).isEqualByComparingTo(resultAmount(secondDate, "ACC-001"));
+        // A's 2,000,000 outstanding plus 50% CCF of its 200,000 undrawn limit.
+        assertThat(summaryExposure(secondDate)).isEqualByComparingTo("2100000.0000");
+        assertThat(accountActive("ACC-002")).isTrue();
+        assertThat(accountActive("ACC-003")).isFalse();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT error_message FROM cr_accounts WHERE account_no = 'ACC-003'", String.class))
+                .contains("Invalid Amount");
+        assertThat(resultAccounts(firstDate)).containsExactlyInAnyOrder("ACC-001", "ACC-002");
+        assertThat(summaryAmount(firstDate)).isEqualByComparingTo(firstDateAllowance);
+
+        assertThat(executeAllowanceJob(secondDate, "SCOPE-SECOND-RERUN")).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(resultAccounts(secondDate)).containsExactly("ACC-001");
+        assertThat(summaryCount(secondDate)).isEqualTo(1);
+        assertThat(summaryAmount(secondDate)).isEqualByComparingTo(secondDateAllowance);
+        assertThat(summaryExposure(secondDate)).isEqualByComparingTo("2100000.0000");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT run_id FROM allowance_summary WHERE base_date = ?", String.class, secondDate))
+                .isEqualTo("SCOPE-SECOND-RERUN");
+        assertThat(accountActive("ACC-002")).isTrue();
+        assertThat(accountActive("ACC-003")).isFalse();
+    }
+
+    private void copySnapshot(LocalDate baseDate, String exposureId, String accountNo,
+                              String customerCode, BigDecimal outstandingAmount) {
+        jdbcTemplate.update("""
+                INSERT INTO allowance_exposure_snapshots (
+                    base_date, exposure_id, source_account_no, customer_code, customer_type,
+                    is_sme, country_code, industry_code, product_code, product_category,
+                    legal_entity_code, branch_code, currency_code, outstanding_amount,
+                    undrawn_amount, interest_rate, open_date, maturity_date, delinquent_days,
+                    staging, original_rating, current_rating, warning_level, debt_restructured
+                )
+                SELECT ?, ?, ?, ?, customer_type,
+                       is_sme, country_code, industry_code, product_code, product_category,
+                       legal_entity_code, branch_code, currency_code, ?,
+                       undrawn_amount, interest_rate, open_date, maturity_date, delinquent_days,
+                       staging, original_rating, current_rating, warning_level, debt_restructured
+                  FROM allowance_exposure_snapshots
+                 WHERE base_date = DATE '2026-04-15' AND exposure_id = 'EXP-001'
+                """, baseDate, exposureId, accountNo, customerCode, outstandingAmount);
+    }
+
+    private BatchStatus executeAllowanceJob(LocalDate baseDate, String runId) throws Exception {
+        return jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addString("baseDate", baseDate.toString())
+                .addString("runId", runId)
+                .addString("modelVersion", "test-v1")
+                .toJobParameters()).getStatus();
+    }
+
+    private List<String> resultAccounts(LocalDate baseDate) {
+        return jdbcTemplate.queryForList("""
+                SELECT a.account_no FROM allowance_ecl_results r
+                JOIN cr_accounts a ON a.id = r.account_id
+                WHERE r.base_date = ? ORDER BY a.account_no
+                """, String.class, baseDate);
+    }
+
+    private BigDecimal resultAmount(LocalDate baseDate, String accountNo) {
+        return jdbcTemplate.queryForObject("""
+                SELECT r.weighted_ecl FROM allowance_ecl_results r
+                JOIN cr_accounts a ON a.id = r.account_id
+                WHERE r.base_date = ? AND a.account_no = ?
+                """, BigDecimal.class, baseDate, accountNo);
+    }
+
+    private int summaryCount(LocalDate baseDate) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_summary WHERE base_date = ?", Integer.class, baseDate);
+    }
+
+    private BigDecimal summaryAmount(LocalDate baseDate) {
+        return jdbcTemplate.queryForObject(
+                "SELECT target_allowance_amount FROM allowance_summary WHERE base_date = ?",
+                BigDecimal.class, baseDate);
+    }
+
+    private BigDecimal summaryExposure(LocalDate baseDate) {
+        return jdbcTemplate.queryForObject(
+                "SELECT source_exposure_amount FROM allowance_summary WHERE base_date = ?",
+                BigDecimal.class, baseDate);
+    }
+
+    private boolean accountActive(String accountNo) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "SELECT is_active FROM cr_accounts WHERE account_no = ?", Boolean.class, accountNo));
+    }
+
     @Test
     @DisplayName("allowanceEclJob 실행 시 Spring Batch 메타데이터 테이블에 스텝별 실행 상태가 정확히 기록된다")
     void testBatchMetadataTrackingAndStepExecutionProgress() throws Exception {
@@ -342,4 +493,3 @@ public class AllowanceEclBatchIntegrationTest {
         );
     }
 }
-

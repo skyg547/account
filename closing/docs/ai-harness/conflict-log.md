@@ -1,0 +1,8 @@
+# Closing integration conflicts
+
+## 2026-10-01 — Issue #777 versus `origin/main@b06e7de3`
+
+- Worktree/branch: `/tmp/account-777-financial-run-evidence`, `agent/777-financial-run-evidence`; original Issue base `f128a5dd`. The merge brought #771 trusted Closing command actors and #775/#776 annual-close source and destination controls into the #777 branch.
+- Conflicts: `closing/README.md`; the two valuation/provision request DTOs; `ClosingDevRuntimeContextTest`; core `HttpClosingJournalAdapterTest`; module `agent-status.md`, `handoff.md`, `worklog.md`; `beginner-guide.md`, `local-run.md`, and `schema.md`. No unmerged paths remain after resolution.
+- Decision: retain the #777 evidence-backed FX/ECL path and fail-closed remote auto-post behavior, the #771 positive-ID and trusted-header request contract, and #775/#776 annual configuration, Journal detail `accountCategory`, and review evidence. Removed only stale fixed-amount schema keys and permissive direct-approval test assumptions. The three module records preserve both histories. The `ClosingControllerTest` merge also removed one upstream trailing-whitespace line.
+- Verification: merged-head `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` passed, 597 Closing tests (API141/Batch102/Core354), failures/errors/skips0; Journal authorization MVC5 and Node harness32 passed. Scope, whitespace, conflict-marker and unmerged-index checks passed. Independent read-only review and the result are recorded in the module worklog. No root shared harness file is edited under the user's `closing/**` allowlist.

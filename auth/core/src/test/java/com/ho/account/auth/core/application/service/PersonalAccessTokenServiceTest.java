@@ -1,118 +1,154 @@
 package com.ho.account.auth.core.application.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
+import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
+import com.ho.account.auth.core.application.exception.PatAuthenticationException;
+import com.ho.account.auth.core.application.model.PatActor;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenCreateResponse;
-import com.ho.account.auth.core.application.model.PersonalAccessTokenDto;
+import com.ho.account.auth.core.application.port.out.PatCredentialVerifierPort;
+import com.ho.account.auth.core.application.port.out.PatLifecycleEventPort;
 import com.ho.account.auth.core.application.port.out.PersonalAccessTokenPort;
 import com.ho.account.auth.core.domain.model.PersonalAccessToken;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
-/**
- * PersonalAccessTokenService 단위 테스트.
- *
- * <p>🐣 [초보자를 위한 단위 테스트 설명]
- * PersonalAccessTokenService가 PersonalAccessTokenPort 인터페이스에 의존하도록 DIP를 적용했기 때문에,
- * 실제 데이터베이스(JPA) 없이도 Mockito를 이용해 Port를 가짜 객체(Mock)로 대체하여
- * 초단위의 빠른 단위 테스트(Unit Test)를 작성할 수 있습니다.
- * </p>
- */
 class PersonalAccessTokenServiceTest {
+    private static final String ALICE_BEARER = "Bearer alice-verified";
+    private static final String CASE_BEARER = "Bearer Alice-verified";
+    private static final String BOB_BEARER = "Bearer bob-verified";
+    private static final String ADMIN_BEARER = "Bearer admin-verified";
 
     private PersonalAccessTokenPort patPort;
-    private PersonalAccessTokenService patService;
+    private PatCredentialVerifierPort verifier;
+    private PatLifecycleEventPort events;
+    private PersonalAccessTokenService service;
 
     @BeforeEach
     void setUp() {
         patPort = mock(PersonalAccessTokenPort.class);
-        patService = new PersonalAccessTokenService(patPort);
+        verifier = mock(PatCredentialVerifierPort.class);
+        events = mock(PatLifecycleEventPort.class);
+        service = new PersonalAccessTokenService(patPort, verifier, events);
+        when(verifier.verify(ALICE_BEARER)).thenReturn(new PatActor("alice", false));
+        when(verifier.verify(CASE_BEARER)).thenReturn(new PatActor("Alice", false));
+        when(verifier.verify(BOB_BEARER)).thenReturn(new PatActor("bob", false));
+        when(verifier.verify(ADMIN_BEARER)).thenReturn(new PatActor("administrator", true));
     }
 
     @Test
-    @DisplayName("PAT 생성 시 보안 rawToken이 생성되고, Port를 통해 Pure POJO 도메인 모델이 저장된다.")
-    void createToken_success() {
-        // given
-        when(patPort.save(any(PersonalAccessToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    void creationUsesVerifiedCanonicalOwnerAndRecordsActorWithoutRawToken() {
+        when(patPort.save(any(PersonalAccessToken.class))).thenAnswer(call -> call.getArgument(0));
 
-        // when
-        PersonalAccessTokenCreateResponse response = patService.createToken("user1", "Agent Key", 30);
+        PersonalAccessTokenCreateResponse created = service.createToken(ALICE_BEARER, "Agent Key", 30);
 
-        // then
-        assertThat(response).isNotNull();
-        assertThat(response.username()).isEqualTo("user1");
-        assertThat(response.tokenName()).isEqualTo("Agent Key");
-        assertThat(response.rawToken()).startsWith("pat_live_");
-        assertThat(response.status()).isEqualTo("ACTIVE");
-
-        ArgumentCaptor<PersonalAccessToken> captor = ArgumentCaptor.forClass(PersonalAccessToken.class);
-        verify(patPort, times(1)).save(captor.capture());
-        PersonalAccessToken savedToken = captor.getValue();
-        assertThat(savedToken.getUsername()).isEqualTo("user1");
-        assertThat(savedToken.getTokenName()).isEqualTo("Agent Key");
-        assertThat(savedToken.getStatus()).isEqualTo("ACTIVE");
+        ArgumentCaptor<PersonalAccessToken> saved = ArgumentCaptor.forClass(PersonalAccessToken.class);
+        verify(patPort).save(saved.capture());
+        assertThat(created.username()).isEqualTo("alice");
+        assertThat(created.rawToken()).startsWith("pat_live_");
+        assertThat(created.status()).isEqualTo("ACTIVE");
+        assertThat(saved.getValue().getUsername()).isEqualTo("alice");
+        assertThat(saved.getValue().getTokenHash()).doesNotContain(created.rawToken());
+        assertThat(saved.getValue().getTokenPrefix()).doesNotContain(created.rawToken());
+        verify(events).recordCreated(eq("alice"), eq(created.id()), eq("alice"), any(LocalDateTime.class));
+        verify(verifier).verify(ALICE_BEARER);
     }
 
     @Test
-    @DisplayName("사용자의 PAT 목록을 조회하면 DTO 목록으로 올바르게 변환된다.")
-    void getUserTokens_success() {
-        // given
+    void userListingUsesOnlyVerifiedPrincipalAndExactOwnerKey() {
+        PersonalAccessToken aliceToken = activeToken("alice");
+        when(patPort.findByUsername("alice")).thenReturn(List.of(aliceToken));
+
+        var listed = service.getUserTokens(ALICE_BEARER);
+
+        assertThat(listed).hasSize(1);
+        assertThat(listed.get(0).id()).isEqualTo(aliceToken.getId());
+        assertThat(listed.get(0).username()).isEqualTo("alice");
+        verify(patPort).findByUsername("alice");
+        verify(patPort, never()).findByUsername("bob");
+        verify(verifier).verify(ALICE_BEARER);
+    }
+
+    @Test
+    void ordinaryUserCannotListAllOrForceRevokeEvenWithKnownTokenId() {
+        assertThatThrownBy(() -> service.getAllTokensForAdmin(ALICE_BEARER))
+                .isInstanceOf(PatAccessDeniedException.class);
+        assertThatThrownBy(() -> service.revokeTokenForAdmin(ALICE_BEARER, "id-1"))
+                .isInstanceOf(PatAccessDeniedException.class);
+
+        verify(patPort, never()).findAll();
+        verify(patPort, never()).findById(any());
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void verifiedAdministratorCanListAndForceRevokeWithActorAttribution() {
+        PersonalAccessToken bobToken = activeToken("bob");
+        when(patPort.findAll()).thenReturn(List.of(bobToken));
+        when(patPort.findById("id-1")).thenReturn(Optional.of(bobToken));
+        when(patPort.markRevokedIfActive("id-1")).thenReturn(true);
+
+        assertThat(service.getAllTokensForAdmin(ADMIN_BEARER)).hasSize(1);
+        assertThat(service.revokeTokenForAdmin(ADMIN_BEARER, "id-1")).isTrue();
+
+        verify(patPort).markRevokedIfActive("id-1");
+        verify(events).recordRevoked(eq("administrator"), eq("id-1"), eq("bob"), any(LocalDateTime.class));
+    }
+
+    @Test
+    void nonOwnerIncludingCaseVariantCannotRevokeAndCannotEmitEvent() {
+        PersonalAccessToken aliceToken = activeToken("alice");
+        when(patPort.findById("id-1")).thenReturn(Optional.of(aliceToken));
+
+        assertThat(service.revokeOwnToken(BOB_BEARER, "id-1")).isFalse();
+        assertThat(service.revokeOwnToken(CASE_BEARER, "id-1")).isFalse();
+
+        assertThat(aliceToken.getStatus()).isEqualTo("ACTIVE");
+        verify(patPort, never()).markRevokedIfActive(any());
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void ownerCanRevokeAndRepeatedRevokeDoesNotDuplicateEvent() {
+        PersonalAccessToken aliceToken = activeToken("alice");
+        when(patPort.findById("id-1")).thenReturn(Optional.of(aliceToken));
+        when(patPort.markRevokedIfActive("id-1")).thenReturn(true, false);
+
+        assertThat(service.revokeOwnToken(ALICE_BEARER, "id-1")).isTrue();
+        assertThat(service.revokeOwnToken(ALICE_BEARER, "id-1")).isTrue();
+
+        verify(patPort, times(2)).markRevokedIfActive("id-1");
+        verify(events).recordRevoked(eq("alice"), eq("id-1"), eq("alice"), any(LocalDateTime.class));
+    }
+
+    @Test
+    void missingOrInvalidCredentialIsRejectedBeforePatStorageAccess() {
+        when(verifier.verify(null)).thenThrow(new PatAuthenticationException());
+
+        assertThatThrownBy(() -> service.createToken(null, "Key", 30))
+                .isInstanceOf(PatAuthenticationException.class);
+        assertThatThrownBy(() -> service.getUserTokens(null))
+                .isInstanceOf(PatAuthenticationException.class);
+        assertThatThrownBy(() -> service.getAllTokensForAdmin(null))
+                .isInstanceOf(PatAuthenticationException.class);
+        assertThatThrownBy(() -> service.revokeOwnToken(null, "id-1"))
+                .isInstanceOf(PatAuthenticationException.class);
+        assertThatThrownBy(() -> service.revokeTokenForAdmin(null, "id-1"))
+                .isInstanceOf(PatAuthenticationException.class);
+        verifyNoInteractions(patPort, events);
+    }
+
+    private PersonalAccessToken activeToken(String username) {
         LocalDateTime now = LocalDateTime.now();
-        PersonalAccessToken token1 = PersonalAccessToken.create(
-                "id-1", "user1", "Key 1", "pat_live_123...", "hash1", now.plusDays(10), now);
-        when(patPort.findByUsername("user1")).thenReturn(List.of(token1));
-
-        // when
-        List<PersonalAccessTokenDto> dtos = patService.getUserTokens("user1");
-
-        // then
-        assertThat(dtos).hasSize(1);
-        assertThat(dtos.get(0).id()).isEqualTo("id-1");
-        assertThat(dtos.get(0).username()).isEqualTo("user1");
-        assertThat(dtos.get(0).status()).isEqualTo("ACTIVE");
-    }
-
-    @Test
-    @DisplayName("토큰 소유자가 맞으면 revokeToken이 성공하고 status가 REVOKED로 저장된다.")
-    void revokeToken_byOwner_success() {
-        // given
-        LocalDateTime now = LocalDateTime.now();
-        PersonalAccessToken token = PersonalAccessToken.create(
-                "id-1", "user1", "Key 1", "pat_live_123...", "hash1", now.plusDays(10), now);
-        when(patPort.findById("id-1")).thenReturn(Optional.of(token));
-
-        // when
-        boolean result = patService.revokeToken("user1", "id-1", false);
-
-        // then
-        assertThat(result).isTrue();
-        assertThat(token.getStatus()).isEqualTo("REVOKED");
-        verify(patPort, times(1)).save(token);
-    }
-
-    @Test
-    @DisplayName("다른 사용자의 토큰을 비관리자가 폐기하려 하면 실패한다.")
-    void revokeToken_byOtherUser_fail() {
-        // given
-        LocalDateTime now = LocalDateTime.now();
-        PersonalAccessToken token = PersonalAccessToken.create(
-                "id-1", "user1", "Key 1", "pat_live_123...", "hash1", now.plusDays(10), now);
-        when(patPort.findById("id-1")).thenReturn(Optional.of(token));
-
-        // when
-        boolean result = patService.revokeToken("otherUser", "id-1", false);
-
-        // then
-        assertThat(result).isFalse();
-        assertThat(token.getStatus()).isEqualTo("ACTIVE");
-        verify(patPort, never()).save(any());
+        return PersonalAccessToken.create(
+                "id-1", username, "Key", "pat_live_123...", "hash1", now.plusDays(10), now);
     }
 }
