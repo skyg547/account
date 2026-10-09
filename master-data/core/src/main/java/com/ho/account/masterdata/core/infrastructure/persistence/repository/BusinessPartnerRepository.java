@@ -47,8 +47,7 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             @Param("codes") Collection<String> codes,
             @Param("date") LocalDate date);
 
-    // @todo 운영 PostgreSQL에서는 business_partner_code와 날짜 범위에 exclusion constraint를 추가해야 합니다.
-    // 완료 조건: 겹치는 SCD2 행 저장 자체를 거부하는 forward migration과 PostgreSQL 통합 테스트를 함께 둡니다.
+    // V9의 PostgreSQL exclusion은 useYn과 무관하게 과거 기준일 조회의 유일성도 보호합니다.
     @EntityGraph(attributePaths = "accounts")
     @Query("""
             SELECT bp FROM BusinessPartnerJpaEntity bp
@@ -69,6 +68,10 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
     @EntityGraph(attributePaths = "accounts")
     Optional<BusinessPartnerJpaEntity> findById(Long id);
 
+    // 업무 키 잠금 전에는 scalar만 조회해 잠금 대기 중 변경된 엔티티가 cache에 남지 않게 합니다.
+    @Query("SELECT bp.businessPartnerCode FROM BusinessPartnerJpaEntity bp WHERE bp.id = :id")
+    Optional<String> findBusinessKeyById(@Param("id") Long id);
+
     @Override
     @EntityGraph(attributePaths = "accounts")
     List<BusinessPartnerJpaEntity> findAll();
@@ -86,6 +89,21 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
     default List<BusinessPartnerJpaEntity> findByUseYnTrue() {
         return findActiveBusinessPartners(LocalDate.now());
     }
+
+    /**
+     * 존재 여부만 필요한 경로에서는 aggregate와 계좌를 읽지 않고 DB COUNT 결과만 확인합니다.
+     */
+    @Query("""
+            SELECT CASE WHEN COUNT(bp) > 0 THEN true ELSE false END
+            FROM BusinessPartnerJpaEntity bp
+            WHERE bp.businessPartnerCode = :businessPartnerCode
+              AND bp.useYn = true
+              AND bp.validFrom <= :date
+              AND bp.validTo >= :date
+            """)
+    boolean existsActiveByBusinessPartnerCode(
+            @Param("businessPartnerCode") String businessPartnerCode,
+            @Param("date") LocalDate date);
 
     /** Checks the business key across all SCD2 rows without loading accounts or filtering by date/useYn. */
     boolean existsByBusinessPartnerCode(String businessPartnerCode);

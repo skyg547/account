@@ -22,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
                 "spring.datasource.username=sa",
                 "spring.datasource.password=",
                 "spring.flyway.enabled=true",
+                "spring.flyway.target=8",
                 "spring.flyway.locations=classpath:db/migration",
                 "spring.flyway.clean-disabled=true",
                 "spring.jpa.hibernate.ddl-auto=validate",

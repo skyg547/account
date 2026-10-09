@@ -3,8 +3,10 @@ package com.ho.account.masterdata.core.application.service;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
 import com.ho.account.masterdata.core.application.port.in.ProductUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangePayloadDecoder;
+import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import java.time.LocalDate;
@@ -20,6 +22,7 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
 
     private final ProductUseCase productUseCase;
     private final MasterDataChangePayloadDecoder payloadDecoder;
+    private final ProductPersistencePort productPersistencePort;
 
     @Override
     public MasterDataType targetType() {
@@ -28,11 +31,14 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
 
     @Override
     public void validate(MasterDataChangeRequest request) {
-        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.DEACTIVATE) {
-            return;
+        if (request.getChangeType() != MasterDataChangeRequest.ChangeType.DEACTIVATE) {
+            validatedCommand(request);
         }
+    }
+
+    private ProductCommand validatedCommand(MasterDataChangeRequest request) {
         ProductCommand command = command(request);
-        // currentId 조회는 apply에만 둡니다. 부분 UPDATE와 CREATE의 price 기본값을 검증으로 덮지 않습니다.
+        // 현재 버전 조회는 apply에만 둡니다. 부분 UPDATE와 CREATE의 price 기본값을 검증으로 덮지 않습니다.
         if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
             if (command.name() == null) {
                 throw new IllegalArgumentException("Product name is required.");
@@ -43,14 +49,24 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
         }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        return command;
     }
 
     @Override
     public void apply(MasterDataChangeRequest request) {
         switch (request.getChangeType()) {
-            case CREATE -> productUseCase.createProduct(command(request));
-            case UPDATE -> productUseCase.updateProduct(currentId(request), command(request));
-            case DEACTIVATE -> productUseCase.deactivateProduct(currentId(request), request.getEffectiveDate());
+            case CREATE -> productUseCase.createProduct(validatedCommand(request));
+            case UPDATE -> {
+                ProductCommand command = validatedCommand(request);
+                Product current = current(request);
+                MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
+                        current.getValidTo(), command.validFrom(), command.validTo());
+                productUseCase.updateProduct(
+                        MasterDataChangeApplierSupport.requirePersistentId(current.getId(), request), command);
+            }
+            case DEACTIVATE -> productUseCase.deactivateProduct(
+                    MasterDataChangeApplierSupport.requirePersistentId(current(request).getId(), request),
+                    request.getEffectiveDate());
         }
     }
 
@@ -72,10 +88,9 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
                 payload.validTo());
     }
 
-    private Long currentId(MasterDataChangeRequest request) {
-        Product current = productUseCase.getProductByProductCode(request.getTargetKey())
-                .orElseThrow(() -> new IllegalArgumentException(
+    private Product current(MasterDataChangeRequest request) {
+        return productPersistencePort.findActiveByProductCodeForUpdate(request.getTargetKey())
+                .orElseThrow(() -> new MasterDataVersionConflictException(
                         "Active product not found. Code: " + request.getTargetKey()));
-        return MasterDataChangeApplierSupport.requirePersistentId(current.getId(), request);
     }
 }

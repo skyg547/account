@@ -1,5 +1,6 @@
 package com.ho.account.masterdata.core.domain.policy;
 
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import java.time.LocalDate;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -52,6 +53,22 @@ public final class MasterDataValidityPolicy {
             throw new IllegalArgumentException("Termination effective date cannot extend the current validity window.");
         }
         return requestedEndDate;
+    }
+
+    /**
+     * 업무 키 잠금 뒤 실제 종료일 변경이 있는지 확인합니다.
+     * 이력 수가 증가하지 않는 DEACTIVATE가 같은 종료일을 다시 반영 완료로 기록하지 않게 합니다.
+     * 더 이른 종료일로의 유효한 축소는 기존 계약대로 허용합니다.
+     */
+    public static LocalDate requireNewTerminationDate(
+            LocalDate requestedEndDate,
+            LocalDate validFrom,
+            LocalDate currentValidTo) {
+        LocalDate terminationDate = requireTerminationDate(requestedEndDate, validFrom, currentValidTo);
+        if (terminationDate.equals(currentValidTo)) {
+            throw new MasterDataVersionConflictException("The SCD2 version already ends on the requested date.");
+        }
+        return terminationDate;
     }
 
     /**

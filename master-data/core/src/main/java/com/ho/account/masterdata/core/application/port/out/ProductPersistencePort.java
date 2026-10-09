@@ -15,9 +15,18 @@ public interface ProductPersistencePort {
 
     Optional<Product> findById(Long id);
 
+    /** 업무 키 잠금 후 ID가 지정한 행의 최신 유효기간을 잠가 읽습니다. */
+    Optional<Product> findByIdForUpdate(Long id);
+
+    /** 변경 가능한 aggregate를 미리 읽지 않고 잠글 업무 키만 조회합니다. */
+    Optional<String> findBusinessKeyById(Long id);
+
     Optional<Product> findByProductCode(String productCode);
 
     Optional<Product> findActiveByProductCode(String productCode);
+
+    /** 업무 키 잠금 후, 기존 영속성 캐시 대신 최신 현재 버전을 잠가 읽습니다. */
+    Optional<Product> findActiveByProductCodeForUpdate(String productCode);
 
     List<Product> findAll();
 

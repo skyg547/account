@@ -1,0 +1,4 @@
+// This parent project has no sources; keep the module verification command honest.
+tasks.named('test') {
+    dependsOn ':master-data:core:test', ':master-data:api:test', ':master-data:batch:test'
+}
