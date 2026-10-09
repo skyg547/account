@@ -190,3 +190,8 @@
 
 - The required `./gradlew :closing:test --console=plain --max-workers=2 --no-daemon` passed on `667356c5` with all 29 tasks up to date; the prior forced run on that head passed 645 tests. No Java behavior changed in this follow-up.
 - Independent read-only review found an additional P2 full-Issue gap: shared `JournalSummary` omits `exchangeRate`, so an ECL journal with the same rounded lines but a different rate can be reused. The process and beginner guides now state this limit. Full-Issue Q1 remains FAIL; the status guard itself is unchanged. Keep PR #905 Draft and Issue #890 open.
+
+### GH-890 current-head audit, 2026-10-09
+
+- Existing branch/worktree and Draft PR #905 retained. Fresh required `:closing:test` PASS (up-to-date); forced `:closing:test --rerun-tasks` PASS645/645 (API159/Batch111/Core375, zero failures/errors/skips, 29 executed tasks). Independent read-only `/root/review_890` confirmed the bounded status guard but full-Issue Q1 FAIL: no APPROVED/POSTED HTTP recovery, missing authoritative rate comparison, and a reused POSTED journal may leave Closing history `PENDING_APPROVAL`. Approve/post response-loss and FX/ECL service-to-HTTP tests remain absent. Details and Q1-Q4 evidence are in [worklog](worklog.md).
+- Next owner needs a separately scoped trusted Journal/Gateway identity and route contract, then Closing phase recovery, rate/status accounting and fault tests. Current authority is `closing/**`; common harness and other modules remain unchanged. Keep Issue open and PR Draft; do not claim completion.
