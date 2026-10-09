@@ -7,6 +7,7 @@
 - Final exact `./gradlew :journal-ledger:test` passed core 323, API 74, Batch 37 = 434 tests, failures/errors/skips 0. Focused `POSTED` persistence 19 tests, API local context, Batch PostgreSQL schema context, API/Batch `bootJar`, JAR resource inspection, `git diff --check`, conflict-marker and domain-dependency scans passed. H2/local contexts do not prove live PostgreSQL, load, or distributed failures.
 - Independent review found no remaining journal-ledger mapping or financial invariant defect. Q1 is **FAIL** because Loan API and Batch dev-profile tests each use `Class.forName` on the removed domain repository and fail 1/1 after successful JPA startup. This is an out-of-allowlist deterministic test regression; no Loan file was changed. Q2–Q4 PASS; keep Draft and gate Ready/merge on an authorized Loan test correction and renewed review.
 - Rollback: revert the module-scoped code and documentation commit through a reviewed PR. No database migration or production data changed. Restoring auto-discovered XML would reintroduce cross-service mapping leakage; preserve explicit opt-in on any follow-up.
+- Publication: implementation and record commit `db9ad613` was pushed to `origin/agent/894-domain-persistence-boundary`; [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`, verification, Q1 FAIL/P2 Loan gate and authority separation. No Ready, merge, Issue close, deployment, or resource cleanup was performed.
 
 | 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
 | --- | --- | --- | --- | --- | --- |
