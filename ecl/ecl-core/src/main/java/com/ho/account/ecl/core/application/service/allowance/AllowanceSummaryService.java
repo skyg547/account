@@ -30,9 +30,9 @@ public class AllowanceSummaryService {
 
         int sourceResultCount = allowanceSummaryBuildPort.countEligibleResults(baseDate);
         if (sourceResultCount == 0) {
-            allowanceSummaryBuildPort.deleteByBaseDate(baseDate);
-            log.info("[Allowance Summary] no completed ECL results. baseDate={}, runId={}", baseDate, runId);
-            return new AllowanceSummaryBuildResult(baseDate, runId, modelVersion, 0, 0);
+            // Zero results may mean an incomplete rerun; only validated input may replace a closing snapshot.
+            throw new IllegalStateException("No completed ECL results for allowance summary. baseDate="
+                    + baseDate + ", runId=" + runId);
         }
 
         int missingMappingCount = allowanceSummaryBuildPort.countMissingAccountMappings(baseDate);

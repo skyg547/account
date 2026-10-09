@@ -27,6 +27,8 @@ import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,6 +52,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 @org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 public class AllowanceEclBatchIntegrationTest {
 
+    private static final LocalDate BASE_DATE = LocalDate.of(2026, 4, 15);
+
+    // This projection contains the same dated identity, account codes, and amounts consumed by closing.
+    private static final String CLOSING_SUMMARY_SQL = """
+            SELECT id, base_date, run_id, model_version, legal_entity_code, currency_code,
+                   exposure_account_code, allowance_account_code, bad_debt_expense_account_code,
+                   reversal_income_account_code, target_allowance_amount, source_exposure_amount,
+                   stage1_allowance_amount, stage2_allowance_amount, stage3_allowance_amount
+              FROM allowance_summary
+             WHERE base_date = ?
+             ORDER BY id
+            """;
+
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
 
@@ -65,6 +80,10 @@ public class AllowanceEclBatchIntegrationTest {
     @Autowired
     @Qualifier("allowanceEclJob")
     private Job allowanceEclJob;
+
+    @Autowired
+    @Qualifier("standaloneAllowanceSummaryJob")
+    private Job standaloneAllowanceSummaryJob;
 
     @BeforeEach
     void setUp() {
@@ -491,5 +510,104 @@ public class AllowanceEclBatchIntegrationTest {
                 "allowanceEclCompletionStep",
                 "allowanceSummaryStep"
         );
+    }
+
+    @Test
+    @DisplayName("완료 결과가 없으면 summary Step이 실패하고 closing이 읽는 기존 기준일 자료를 보존한다")
+    void failedEmptySummaryRerunPreservesClosingSnapshot() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO allowance_summary (
+                    base_date, run_id, model_version, legal_entity_code, currency_code,
+                    exposure_account_code, allowance_account_code, bad_debt_expense_account_code,
+                    reversal_income_account_code, target_allowance_amount, source_exposure_amount,
+                    stage1_allowance_amount, stage2_allowance_amount, stage3_allowance_amount
+                ) VALUES (?, 'CONFIRMED-RUN', 'v1', 'HO', 'KRW',
+                          '110101', '110199', '550101', '450101',
+                          1200.0000, 1000000.0000, 1200.0000, 0.0000, 0.0000)
+                """, BASE_DATE);
+        List<Map<String, Object>> confirmedSnapshot = closingSummaryRows();
+        assertThat(confirmedSnapshot).hasSize(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_ecl_results WHERE base_date = ? AND status = 'COMPLETED'",
+                Integer.class, BASE_DATE)).isZero();
+
+        runSummaryJob("EMPTY-RERUN", failedRerun -> {
+            assertSummaryStepFailed(failedRerun);
+            assertThat(failedRerun.getAllFailureExceptions())
+                    .anySatisfy(error -> assertThat(error).hasMessageContaining("No completed ECL results"));
+        });
+        assertThat(closingSummaryRows()).containsExactlyElementsOf(confirmedSnapshot);
+    }
+
+    @Test
+    @DisplayName("유효한 완료 결과로 같은 기준일 summary를 교체해도 중복 행이 생기지 않는다")
+    void validSummaryRerunReplacesSameDateWithoutDuplicates() throws Exception {
+        JobExecution initialExecution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addString("baseDate", BASE_DATE.toString())
+                .addString("runId", "INITIAL-RUN")
+                .addString("modelVersion", "test-v1")
+                .toJobParameters());
+        assertThat(initialExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        List<Map<String, Object>> initialSnapshot = closingSummaryRows();
+        assertThat(initialSnapshot).hasSize(1);
+        BigDecimal initialTarget = (BigDecimal) initialSnapshot.get(0).get("TARGET_ALLOWANCE_AMOUNT");
+
+        runSummaryJob("VALID-RERUN-1", execution ->
+                assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED));
+        assertThat(closingSummaryRows()).hasSize(1);
+
+        runSummaryJob("VALID-RERUN-2", execution ->
+                assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED));
+        List<Map<String, Object>> replacedSnapshot = closingSummaryRows();
+        assertThat(replacedSnapshot).hasSize(1);
+        assertThat(replacedSnapshot.get(0).get("RUN_ID")).isEqualTo("VALID-RERUN-2");
+        assertThat((BigDecimal) replacedSnapshot.get(0).get("TARGET_ALLOWANCE_AMOUNT"))
+                .isEqualByComparingTo(initialTarget);
+    }
+
+    @Test
+    @DisplayName("summary 삽입이 실패하면 같은 트랜잭션의 기존 기준일 삭제도 롤백된다")
+    void failedInsertRollsBackSummaryReplacement() throws Exception {
+        JobExecution initialExecution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addString("baseDate", BASE_DATE.toString())
+                .addString("runId", "ROLLBACK-BASELINE")
+                .addString("modelVersion", "test-v1")
+                .toJobParameters());
+        assertThat(initialExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        List<Map<String, Object>> confirmedSnapshot = closingSummaryRows();
+        assertThat(confirmedSnapshot).hasSize(1);
+
+        // A failing insert occurs after delete; the service transaction must restore the old row.
+        jdbcTemplate.execute("ALTER TABLE allowance_summary ADD CONSTRAINT reject_test_run "
+                + "CHECK (run_id <> 'REJECTED-RUN')");
+        try {
+            runSummaryJob("REJECTED-RUN", AllowanceEclBatchIntegrationTest::assertSummaryStepFailed);
+            assertThat(closingSummaryRows()).containsExactlyElementsOf(confirmedSnapshot);
+        } finally {
+            jdbcTemplate.execute("ALTER TABLE allowance_summary DROP CONSTRAINT reject_test_run");
+        }
+    }
+
+    private void runSummaryJob(String runId, Consumer<JobExecution> verification) throws Exception {
+        jobLauncherTestUtils.setJob(standaloneAllowanceSummaryJob);
+        JobExecution execution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addString("baseDate", BASE_DATE.toString())
+                .addString("runId", runId)
+                .addString("modelVersion", "test-v1")
+                .toJobParameters());
+        verification.accept(execution);
+    }
+
+    private List<Map<String, Object>> closingSummaryRows() {
+        return jdbcTemplate.queryForList(CLOSING_SUMMARY_SQL, BASE_DATE);
+    }
+
+    private static void assertSummaryStepFailed(JobExecution execution) {
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(execution.getStepExecutions()).hasSize(1);
+        assertThat(execution.getStepExecutions().iterator().next().getStepName())
+                .isEqualTo("allowanceSummaryStep");
+        assertThat(execution.getStepExecutions().iterator().next().getStatus())
+                .isEqualTo(BatchStatus.FAILED);
     }
 }

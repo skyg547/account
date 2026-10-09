@@ -39,6 +39,7 @@ flowchart LR
 - `AllowanceEclCompletionService`: weighted ECL 산출 결과를 `COMPLETED`로 확정한다.
 - `AllowanceSummaryService`: 완료된 ECL 결과와 `allowance_account_mappings`를 조인해 `allowance_summary`를 기준일 단위로 재생성한다.
 - summary 재생성은 계정 매핑 검증이 통과한 뒤 기존 기준일 데이터를 교체해 재실행 멱등성을 유지한다.
+- 해당 기준일에 summary 집계 가능한 `COMPLETED` 결과가 0건이면 `allowanceSummaryStep`이 실패한다. `standaloneAllowanceSummaryJob`과 표준 `allowanceEclJob` 모두 기존 같은 기준일 summary를 보존한다.
 - `allowance_input_positions`는 ECL 소유 엔티티가 아니다. ECL은 자체 읽기 JPA 모델을 `AllowanceInputPositionSnapshot`으로 변환해 애플리케이션 계층에 전달한다.
 - 중복 계정 매핑 우선순위는 `AllowanceAccountMappingPriorityPolicy`에 이름을 부여하고, JDBC summary SQL이 동일한 순서를 따르도록 문서화한다.
 
@@ -85,6 +86,7 @@ IntelliJ에서 컨텍스트만 먼저 띄워볼 때는 공유 실행 설정 `ECL
 대손충당금 모듈만 단독으로 서비스할 때는 ECL 스키마, `allowance_exposure_snapshots` 입력 테이블, 모델 마스터, 회계 계정 매핑을 먼저 준비해야 한다. 상세 절차는 [ALLOWANCE_SERVICE_RUNBOOK.md](docs/ALLOWANCE_SERVICE_RUNBOOK.md)를 따른다.
 
 `allowance_account_mappings`에 상품/사업부/통화별 회계 계정 매핑이 없으면 summary 재생성은 기존 데이터를 삭제하지 않고 실패한다.
+완료 결과가 0건인 실패도 같은 기준일의 기존 summary를 보존한다. 입력과 산출 상태를 확인해 완료 결과를 복구한 뒤 재실행한다. 실제 빈 포트폴리오를 성공으로 확정하는 완료 marker 계약은 아직 없으므로 0건을 자동으로 삭제·0원 처리하지 않는다. 점검 순서는 [단독 서비스 런북](docs/ALLOWANCE_SERVICE_RUNBOOK.md#자주-막히는-지점)을 따른다.
 
 ## IntelliJ 로컬 실행
 
