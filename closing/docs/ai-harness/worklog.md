@@ -449,3 +449,7 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 | Q2 | PASS | `AnnualClosingService.java:222`; `docs/process-flow.md:540,567`; 날짜별 조회→분류→대사→대체·재시도 설명 | 해당 없음: 금융 흐름 변경 | 분산 snapshot 검증 별도 | 동일 리뷰어 코드·설명 대조 |
 | Q3 | PASS | `README.md:196`, `docs/local-run.md:199,206`, `docs/beginner-guide.md:91`; 설정·기대 결과·한계 | 해당 없음: 기능 안내 변경 | 배포 HTTP 경로 별도 | 동일 리뷰어 운영 문서 오류 수정 후 확인 |
 | Q4 | PASS | `AnnualClosingService.java:222,583`; 원천 반환 범위와 dated Master 의도 주석 | 해당 없음: 비자명 로직 변경 | upstream 상세 누락은 공급자 통제 필요 | 동일 리뷰어 실제 코드 대조 |
+
+### GH-889 Draft #904 initial hosted checks
+
+- On published head `44d39113`, [Harness Validation](https://github.com/skyg547/account/actions/runs/37920067913) succeeded. [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/37920072413) executed its trusted-base tests but failed its PR metadata step with `IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, and `TRUST_POLICY_UNCONFIGURED`. The Draft/merge gate failure is not a Closing test result or Ready approval. [Module Validation](https://github.com/skyg547/account/actions/runs/37920067791) had no job result when checked. Final-head CI must be inspected by the next owner; local 641-test evidence is separate.
