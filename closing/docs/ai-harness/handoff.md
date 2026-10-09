@@ -234,3 +234,8 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - **미해결 P1:** 직접 Journal/AP/AR 전기는 Closing의 `last_source_changed_at`을 바꾸지 않는다. 공급자 스냅샷 이후 새 원천 활동을 권위 있게 감지하는 계약이 없으므로 Issue의 전체 수용 조건을 충족했다고 볼 수 없다. Draft PR과 Issue는 열린 상태로 두고, 사람 리뷰 및 원천 워터마크/동결 게이트를 후속 소유자가 설계·검증해야 한다. 실 PostgreSQL migration/query plan/load, deployed Master/Journal, 분산 장애 주입은 수행하지 않았다.
 - 롤백: 새 마감·조정 실행을 중지하고 미완료 Master 전이를 대사한다. V54의 증빙·감사·이력 행은 삭제하지 않으며 회차 번호를 되돌리지 않는다. 검토된 forward 코드/스키마 보정으로만 복구한다.
 - 권한 분리: service/test 작성자는 각자의 Closing 파일만 수정했고 Reviewer는 읽기 전용이었다. 부모 Integrator만 module harness와 Git/GitHub를 변경한다. AI 검토는 사람 승인이 아니며 Ready·merge·Issue close·배포·branch/worktree 삭제는 이번 Draft에서 수행하지 않는다.
+
+### GH-885 Draft PR #900 publication
+
+- [Draft PR #900](https://github.com/skyg547/account/pull/900) OPEN/DRAFT, `Refs #885`, 초기 게시 head `6ee8ad35` / base `9348966a`; Issue #885 OPEN / `status:needs-review`. PR 본문에 전체640/독립92/Node32 검증, Q1–Q4, 권한 분리, 미해결 P1, PostgreSQL/분산 한계와 롤백을 남겼다. 최초 hosted check는 QUEUED로 확인되어 PASS라고 기록하지 않는다.
+- 다음 소유자는 사람 Draft 리뷰어와 교차 모듈 source watermark/동결 게이트 담당자다. 기존 Closing 증빙 이력을 보존하면서 직접 원천 전기 뒤 통제 재실행을 강제하는 계약을 검증하기 전에는 Ready·merge·Issue close를 진행하지 않는다.

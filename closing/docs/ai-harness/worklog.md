@@ -451,3 +451,8 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 | Q2 | PASS | `docs/process-flow.md:141`, `docs/schema.md:121`; 재오픈·조정·이력·실패/재시도 설명과 복구 회귀 | 해당 없음: 핵심 흐름 변경 | 배포 분산 장애 재현 필요 | 동일 Reviewer 문서·코드 대조 |
 | Q3 | PASS | `README.md:200`, `docs/local-run.md:125,291`, `docs/beginner-guide.md`; V54/legacy/명령·한계 | 해당 없음: 기능 문서 변경 | PostgreSQL 검증과 원천 동결 절차 필요 | 동일 Reviewer 문서 확인 |
 | Q4 | PASS | `ClosingService.java:397`, `ClosingTransitionTransactions.java:260,274`, `ClosingCalendar.java:368`; 의도 주석과 집중92건 | 해당 없음: 비자명 로직 변경 | 직접 전기 계약은 별도 변경 | 동일 Reviewer 주석·구현 대조 |
+
+### GH-885 Draft PR #900 발행
+
+- 초기 구현 커밋 `6ee8ad3547fdb0b0975bf8900fa4d551044dce74`을 전용 브랜치에 push하고 [Draft PR #900](https://github.com/skyg547/account/pull/900)을 `main` 대상으로 열었다. 본문에는 `Refs #885`, 640건 검증, Q1–Q4, 권한 분리, 미해결 P1과 롤백을 기록했다. PR은 OPEN/DRAFT, 초기 head `6ee8ad35`, base `9348966a`, GitHub 보고상 MERGEABLE이다.
+- Issue #885는 OPEN / `status:needs-review`이며 전체 수용 조건 완료로 간주하지 않는다. 최초 원격 Module/Harness/Merge Guard check는 QUEUED였고 결과를 PASS로 추정하지 않는다. Ready·merge·Issue close·배포·자원 삭제는 수행하지 않았다. PR URL 기록만 추가한 최종 head의 원격 상태를 별도로 확인한다.
