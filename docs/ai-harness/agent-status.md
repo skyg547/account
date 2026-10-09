@@ -1,3 +1,10 @@
+## 2026-10-06 — GH-858 account-mart FX rate requirement / Draft PR #875
+
+- State: `status:needs-review`; branch `agent/858-require-fx-rate`; worktree `/tmp/account-858-require-fx-rate`; base `origin/main@973d76dd`; [Draft PR #875](https://github.com/skyg547/account/pull/875), `Refs #858`.
+- Scope: four Issue-listed `account-mart/**` files. Missing/invalid base-date foreign/KRW rate now fails CDM conversion, Step, and Job; valid rate uses `BigDecimal` scale 4 `HALF_UP`.
+- Verification: targeted 8 core/3 batch PASS; full child suites 22 core/10 batch/3 API PASS; final batch cause-assertion targeted 3 PASS. Requested aggregate `:account-mart:test` was `NO-SOURCE`. Diff/markers PASS. Independent reviewer: no remaining P0–P3; Q1–Q4 PASS (PR evidence table).
+- Next owner: human PR reviewer for current-head checks and merge decision. Ready, merge, Issue close, and resource cleanup are pending. Rollback of the four files restores the unsafe fallback and needs FX completeness protection.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
@@ -898,10 +905,9 @@
 - Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
 - Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
 
-## 2026-10-06 — GH-860 reconciliation 대상 차대
+## 2026-10-05 — GH-829 Draft PR #844
 
-- Status: core 수정·검증과 독립 read-only 리뷰 완료; [Draft PR #876](https://github.com/skyg547/account/pull/876) OPEN/DRAFT, `Refs #860`. Issue #860 OPEN. Branch `agent/860-reconciliation-target-side`, worktree `/tmp/account-860-reconciliation-target-side`, base `origin/main@973d76dd`.
-- Service writer는 실행 서비스, Test writer는 서비스 테스트를 각자 소유했고 부모는 `reconciliation/docs/process-flow.md`와 명시 요청된 세 AI harness 기록, Git/GitHub를 소유했다. 단일 모듈이므로 다른 모듈이나 공유 계약은 변경하지 않았다.
-- Core 137/137, 요청된 `:reconciliation:test`, API·Batch 컴파일, diff/marker 검사 PASS. 독립 `/root/independent_review`: P0–P3 없음, Q1–Q4 PASS. 실제 DB·원격 Journal 검증과 현재 head CI는 남아 있다.
-- 다음 소유자: 사람 PR 리뷰어. Ready·merge·Issue close·브랜치/워크트리 삭제는 별도 게이트이며 수행하지 않았다.
-- 최종 확인: #860은 `status:needs-review` / `agent:codex`, #876은 OPEN/DRAFT. 부모 강제 core 137/137 및 API·Batch 컴파일, 요청된 `:reconciliation:test` PASS; 별도 `/root/review_860` Q1–Q4 PASS·추가 P1/P2 없음. 결함이 있던 중복 PR #869는 #876을 지정하고 닫았으며 워크트리는 보존했다. #876 구현 head의 Module/Harness CI PASS, Merge Guard discipline은 Draft·미설정 trust policy로 FAIL; 기록 갱신 head CI와 사람 리뷰가 다음 게이트다.
+- Issue [#829](https://github.com/skyg547/account/issues/829): 교차 고객 수납·채권 수동/자동 반제 차단. Branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd`, Draft PR [#844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 결과: 서비스 공통 진입점에서 고객 코드를 변경 전에 검증하고, 3개 업무 파일만 변경. 교차 고객 거부 시 상태·잔액·배분·전표 포트 보존, 같은 고객 부분 매칭·GL 고객 코드 유지. 독립 읽기 전용 리뷰 지적 사항 없음; Q1–Q4 PASS.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; 공백·충돌 마커 검사 PASS. PostgreSQL/원격 GL/HTTP 종단 검증과 기존 데이터 정정은 후속 범위.
+- 다음 소유자: 사람 리뷰어. Draft 유지; 최신 CI와 head/base 검토 및 별도 승인 전 Ready·merge·Issue close·자원 삭제 없음.

@@ -1,3 +1,10 @@
+## 2026-10-06 — GH-858 Draft PR #875 handoff
+
+- Source: [Issue #858](https://github.com/skyg547/account/issues/858), `status:needs-review`; implementation branch `agent/858-require-fx-rate` in `/tmp/account-858-require-fx-rate`, based on `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; [Draft PR #875](https://github.com/skyg547/account/pull/875) uses `Refs #858`.
+- Changed files: `account-mart/mart-core/.../IntegratedPositionProcessor.java`, its unit test, `account-mart/mart-batch/.../IntegratedPositionEtlJobTest.java`, and `account-mart/docs/ETL_INTERFACE_SPEC.md`. A missing or nonpositive foreign FX rate now fails the CDM Step/Job instead of storing principal as KRW market value. No batch wiring/schema/other module changed.
+- Commands/results: targeted core 8 and batch 3 PASS; `./gradlew :account-mart:test --offline --console=plain --max-workers=1 --no-daemon` success but `NO-SOURCE`; child suites core 22, batch 10, API 3 PASS; final targeted batch 3 PASS after test-only review fix. `git diff --check` and conflict marker scan PASS. Separate read-only review has no remaining P0–P3 and Q1–Q4 PASS; see PR body for file/test evidence.
+- Rollback: reviewed four-file revert only after foreign-rate completeness is assured or affected jobs are paused, because the old 1:1 fallback returns. Residual limits: H2 tests do not prove production-scale parallel CDM or corrected-rate/prior-snapshot rerun. Next: human review, current-head CI, then separately authorized Ready/merge/Issue close; preserve branch/worktree until merge verification.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
@@ -4027,10 +4034,10 @@
 - Rollback: reviewed Issue-scoped code revert; use a reviewed forward migration for schema correction and preserve audit rows. Next owner is human PR reviewer and PostgreSQL/CI integration gate before Ready or merge. Issue closure and worktree/branch removal remain separate gates.
 - Remote CI on Draft PR #814 initial head `d225857b` failed before steps (no runner assigned and no logs). Next owner should restore/rerun checks and verify the final head before Ready; this is not a failed auth test result.
 
-## 2026-10-06 — GH-860 reconciliation 대상 차대 handoff
+## 2026-10-05 — GH-829 교차 고객 수납 반제 방지 / Draft PR #844
 
-- Issue #860 / `agent/860-reconciliation-target-side` / `/tmp/account-860-reconciliation-target-side` / `origin/main@973d76dd`; [Draft PR #876](https://github.com/skyg547/account/pull/876) contains `Refs #860`. 변경 범위는 reconciliation 실행 서비스·테스트·기능 문서와 사용자가 갱신을 지정한 세 AI harness 기록이다.
-- `targetSide=DEBIT/CREDIT`와 다른 차대 라인은 매칭에서 제외된다. 원천·대상 집계와 건별 건수·금액 불일치는 성공 처리 전에 예외로 중단하고, 요약값은 실제 매칭 결과에서 저장한다. 동일 날짜의 양방향, 건수·금액 불일치, 실패 후 정정 재시도, 정상 완료 재실행을 테스트했다.
-- 수정 전/후 core 테스트 PASS, 최종 137/137. 요청된 `:reconciliation:test` PASS(의존 core 테스트 실행), API·Batch 컴파일 PASS, diff/marker 검사 PASS. 독립 리뷰: P0–P3 없음, Q1–Q4 PASS.
-- 잔여 위험: 원격 Journal·실제 은행 데이터 및 DB 트랜잭션은 미검증이다. 예외 재전파가 FAILED 실행 이력을 롤백할 수 있어 durable FAILED를 주장하지 않는다. 현재 head CI와 사람 리뷰, 필요시 실제 DB 트랜잭션 검증이 다음 게이트다. 롤백은 Issue 범위의 커밋을 검토 후 revert; 스키마·운영 데이터 복구는 필요 없다. Ready·merge·Issue close·자원 삭제는 별도 권한이다.
-- 최신 인계: 부모가 #876에서 core 137/137 강제 재실행, API·Batch 컴파일, 요청된 모듈 테스트를 재확인했다. 별도 `/root/review_860`은 Q1–Q4 PASS 및 추가 P1/P2 없음으로 확인했다. 중복 #869는 `long`→`int` 집계 건수 범위 검사 누락 결함으로 닫고 #876을 단일 리뷰 경로로 정했다. #860은 `status:needs-review`; #876 구현 head의 module/harness CI는 PASS, Agent Merge Guard discipline은 Draft와 저장소 trust policy 미설정으로 FAIL이다. 다음 소유자는 기록 갱신 head CI를 확인할 사람 PR 리뷰어와 저장소 정책 결정자다.
+- Issue [#829](https://github.com/skyg547/account/issues/829), branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`, [Draft PR #844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 변경: `CollectionService.java` 공통 매칭의 고객 일치 사전 검증; `CollectionServiceTest.java`의 교차 고객 무변경·포트 미호출 및 같은 고객 수동·자동 부분 매칭 테스트; `receivable/docs/process-flow.md`의 기능·초보자 검증 설명. 다른 모듈·공용 계약·DB는 변경하지 않았다.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; `git diff --check`·충돌 마커 PASS. 독립 읽기 전용 리뷰 지적 사항 없음, Q1–Q4 PASS. 자세한 명령·근거는 `worklog.md`와 PR 본문 참조.
+- 남은 위험: 실제 PostgreSQL·원격 GL 및 HTTP 종단 실행을 검증하지 않았고 기존 오배분 데이터는 정정하지 않았다. 변경 롤백은 PR 코드·테스트·문서 커밋 revert이며 운영 데이터·마이그레이션은 변경 없음.
+- 다음 소유자: 사람 리뷰어가 최신 head/base·CI와 운영 연동 위험을 검토한다. 작성자와 독립 리뷰어의 권한은 분리했고 Git/PR·기록은 부모 Integrator가 소유한다. PR은 Draft이며 별도 승인 전 Ready·merge·Issue close·branch/worktree 삭제 없음.

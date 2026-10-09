@@ -1,0 +1,29 @@
+{
+  "cluster": "infra_gov",
+  "issues": [
+    {
+      "id": "INFRA_GOV_01",
+      "title": "[gateway] `/api/audit/**` 거버넌스 요청을 전달할 라우트와 실행 호스트가 없다",
+      "priority": "P1",
+      "module": "gateway",
+      "labels": ["module:gateway", "area:infrastructure", "type:bug", "priority:p1", "agent-loop", "status:draft", "spec-driven"],
+      "file": "INFRA_GOV_01.md"
+    },
+    {
+      "id": "INFRA_GOV_02",
+      "title": "[internal-audit] 직접 호출에서 위조한 인증 헤더만으로 감사 명령을 실행한다",
+      "priority": "P1",
+      "module": "internal-audit",
+      "labels": ["module:internal-audit", "area:api", "type:security", "priority:p1", "agent-loop", "status:draft", "spec-driven"],
+      "file": "INFRA_GOV_02.md"
+    },
+    {
+      "id": "INFRA_GOV_03",
+      "title": "[frontend-bff] 멱등성 헤더를 제거해 내부감사 명령 재시도 보호를 우회한다",
+      "priority": "P2",
+      "module": "frontend-bff",
+      "labels": ["module:frontend-bff", "area:infrastructure", "type:bug", "priority:p2", "agent-loop", "status:draft", "spec-driven"],
+      "file": "INFRA_GOV_03.md"
+    }
+  ]
+}

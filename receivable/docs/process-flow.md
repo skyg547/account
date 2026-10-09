@@ -81,6 +81,14 @@ flowchart TD
 
 자동 매칭은 안전을 우선한다. 후보가 여러 개면 임의로 하나를 고르지 않고 미매칭 상태로 남긴다. 잘못된 채권을 닫는 것보다 사람이 확인하도록 남기는 편이 고객 잔액과 감사 추적에 안전하다.
 
+## 수납·채권 고객 일치 검증
+
+수동 매칭은 `POST /api/collections/manual-match`에 `collectionId`, `receivableId`, `matchingAmount`를 전달한다. 예를 들어 같은 고객의 미배분 수납 100과 미수채권 500에 `{"collectionId":20,"receivableId":30,"matchingAmount":100.00}`을 보내면 수납은 `MATCHED`(잔액 0), 채권은 `PARTIAL_PAID`(잔액 400)가 된다. 자동 매칭도 고객별 열린 채권을 조회한 뒤 같은 `processMatch`를 사용하며, 배분 금액이 일부이면 각 객체의 남은 잔액에 맞춰 상태가 바뀐다.
+
+`processMatch`는 두 고객 코드가 같은지 먼저 확인한다. 다른 고객의 수납과 채권이 들어오면 `IllegalArgumentException`으로 거부하고 양쪽 잔액·상태, 배분 이력, 인보이스 상태, 반제 전표를 변경하지 않는다. 이 확인을 공통 진입점에서 수행하므로 자동 매칭 후보 포트가 다른 고객의 채권을 반환해도 같은 규칙이 적용된다. 정상 매칭의 `AR_CLEARING` 전표 두 라인에는 수납 고객 코드가 유지된다. 이미 기록된 잘못된 배분을 복구하거나 DB에서 고객 일치를 강제하는 변경은 이 흐름에 포함되지 않는다.
+
+전제: JDK 17과 저장소 루트의 Gradle wrapper. 회귀 검증은 `./gradlew :receivable:core:test --tests com.ho.account.receivable.application.service.CollectionServiceTest --offline --no-daemon --console=plain --max-workers=2`로 실행한다. 기대 결과는 교차 고객 거부와 저장·전표 포트 미호출, 같은 고객의 수동·자동 부분 매칭 성공이다. 실제 PostgreSQL 및 원격 GL 연동은 별도 검증이 필요하다.
+
 ## 자동 매칭 정책
 
 `ReferenceFirstCollectionMatchingPolicy`는 아래 순서로 후보를 좁힌다.

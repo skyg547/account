@@ -231,8 +231,9 @@ account:
 증명하지도 않으므로 법인별 런타임 분리를 유지합니다.
 
 추가로 독립 Journal의 쓰기 API는 신뢰된 service principal의 `X-Auth-User`와 `X-Auth-Roles`를
-요구하지만 현재 `HttpClosingJournalAdapter`는 이 헤더를 전달하지 않습니다. loopback 어댑터 테스트는
-이 인증을 요구하지 않으므로 실제 원격 `DRAFT` 쓰기를 증명하지 않습니다. 비운영/운영 원격 실행 전에
+요구합니다. 현재 `HttpClosingJournalAdapter`는 maker 헤더를 전달하지만, 이것만으로 신뢰된
+주체의 인증을 증명하지 못합니다. loopback 어댑터 테스트도 실제 원격 `DRAFT` 쓰기를 증명하지
+않습니다. 비운영/운영 원격 실행 전에
 별도 승인된 인증·권한 전파를 구현하고 Journal과의 통합 테스트를 통과해야 합니다.
 
 ## 월말 전이 조회와 복구 (GH-774)
@@ -299,18 +300,24 @@ Batch 조합 루트에만 명시적으로 연결됩니다. 이 포트는 로컬 
 실제 Journal 연동을 가리지 않습니다. Batch 조합 루트도 FX 평가에 필요한 환율 조회와 Closing이
 사용하는 Master Data 포트 및 최소 persistence adapter/mapper만 명시 import합니다.
 
-따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용할 수 없습니다. 다만 현재
-Journal 쓰기 API가 요구하는 `X-Auth-User`/`X-Auth-Roles` service-principal 계약을
-`HttpClosingJournalAdapter`가 전달하지 않으므로, 별도 승인된 인증 통합 전에는 개발 환경의 원격 쓰기도
-검증 가능한 경로가 아닙니다.
+따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용할 수 없습니다.
+`HttpClosingJournalAdapter`는 maker 헤더를 보내지만, 이 헤더만으로 신뢰된 서비스 주체가
+성립하지 않으므로 별도 승인된 인증 통합 전에는 개발 환경의 원격 쓰기도 배포 검증된 경로가 아닙니다.
 
-`dev`의 `HttpClosingJournalAdapter`는 생성·승인·전기·조회에서 HTTP 3xx를 정상 처리하지 않고
+`dev` 원격 Journal 연결의 전제는 `account.closing.accounting.auto-post-adjustments=false`입니다.
+`true`이면 어댑터가 첫 원격 전표 쓰기 전에 명시적으로 실패합니다. Journal의 DRAFT는
+maker 승인 요청, 별도 checker 승인, poster 전기를 거쳐야 하지만 Closing에는 이 세 역할을
+신뢰해 위임하고 응답 불확실성을 복구할 계약이 없습니다. 설정만 바꿔 이 단계를 우회하지 않습니다.
+
+`dev`의 `HttpClosingJournalAdapter`는 생성·조회에서 HTTP 3xx를 정상 처리하지 않고
 `IllegalStateException`으로 실패시킵니다. `Location`에 대한 추가 요청도 하지 않습니다.
-초안 생성 실패 시 호출 흐름은 승인·전기로 진행하지 않고, 승인 실패 시 전기를 호출하지 않습니다.
 조회에서 404만 전표 없음으로 처리하며 302를 전표 없음이나 성공으로 바꾸지 않습니다.
-명령 본문의 actor·lineage는 유지되지만 본문 actor는 Journal의 신뢰 헤더를 대신하지 않습니다.
-원격 쓰기는 각각 별도 트랜잭션이므로 실패 후 자동 재시도하지 않고, 이미 생성·승인된 전표가 있는지
-대사해야 합니다.
+초안 생성은 수신 Journal 계약에 맞춰 `X-Auth-User`와 `ROLE_JOURNAL_MAKER`를 전달하고,
+기존 actor·lineage도 유지합니다. HTTP timeout이나 응답 유실, 부분 전표 생성 뒤 Closing
+이력이 `FAILED`이면 전표번호·lineage로 원격 상태와 상세를 확인하고 담당자가 대사한 뒤
+재실행 또는 승인·정정 절차를 결정합니다. 이미 생긴 DRAFT를 자동 삭제하거나 맹목적으로
+재전송하지 않습니다.
+본문 actor는 인증된 서비스 주체를 대신하지 않습니다.
 
 ```bash
 bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --console=plain --max-workers=1 --no-daemon
@@ -416,28 +423,52 @@ account:
 
 ## API 평가/충당 배치 설정 예시
 
-`ClosingService.runValuationBatch`와 `runProvisionBatch`는 `account.closing.accounting.*` 설정 룰을 요구합니다. 설정이 없으면 전표 생성 전에 실패합니다.
+`POST /api/closing/valuation-batches/run`은 `valuationType=FX_RATE`,
+`POST /api/closing/provision-batches/run`은 `provisionType=ECL`만 지원합니다. 요청에는 금액이
+없으며, 두 경로 모두 Batch와 같은 core 정책 및 posted-journal SQL에서 금융 근거를 읽습니다.
+FX 환율이나 확정 ECL summary, 필수 계정 매핑이 없으면 Journal 호출 전에 실패합니다.
+요청 본문에는 실행자를 넣지 않습니다. Gateway가 검증한 `X-Auth-User`와 허용된
+`X-Auth-Roles`가 실행자와 권한의 근거입니다.
+
+```json
+{"fiscalPeriodId": 1, "valuationType": "FX_RATE"}
+```
+
+```json
+{"fiscalPeriodId": 1, "provisionType": "ECL"}
+```
 
 ```yaml
 account:
   closing:
     accounting:
       auto-post-adjustments: false
+      api-financial-run-max-evidence-rows: 10000
+      api-financial-run-max-journal-commands: 1000
       fx-valuation-reporting-currency-code: KRW
       fx-translation-gain-account-code: "72000"
       fx-translation-loss-account-code: "92000"
-      valuation-rules:
-        FX_RATE:
-          debit-account-code: "11000"
-          credit-account-code: "72000"
-          amount: 1000.00
       provision-rules:
         ECL:
           debit-account-code: "93000"
           credit-account-code: "12900"
-          amount: 1000.00
 ```
 
-API의 `runValuationBatch`/`runProvisionBatch`는 설정 기반 자동분개 흐름을 확인하는 경량 경로입니다. 실제 FX/ECL 결산 전표는 Batch가 외부 잔액/환율/allowance_summary를 읽고 core `FxValuationService`/`EclProvisionService`가 금액과 차대변을 판단하는 경로를 우선 확인합니다.
+API FX는 posted-journal evidence를 한 번 스트리밍하면서 기본 10,000행과 전표 command
+1,000개의 hard cap을 검사합니다. 전체 command를 불변 목록으로 확정한 다음 정확히 그 목록만
+Journal에 게시합니다. ECL source query는 최대 1,001개 그룹과 60초 timeout으로 제한되며,
+1,000개를 넘으면 그룹별 원장/환율 조회 전에 실패합니다. 통과한 전체 command만 게시합니다.
+전표 0건 또는 지원되는 어댑터에서 실제 자동 전기되면 history는 `COMPLETED`, DRAFT가 하나 이상이면
+`PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표의 단일 history ID는 `null`입니다.
+
+`dev` profile은 `closing.sources.enabled`가 없거나 `false`이면 외부 source와 Journal 접근을
+fail-closed합니다. 실제 연결 검증 때만 승인된 별도 source 설정과 함께 `true`를 명시합니다.
+자격증명이나 완성된 URL은 문서/명령행에 기록하지 않습니다.
 
 두 Job의 날짜와 batch ID는 생략할 수 없습니다. 누락·잘못된 ISO 날짜·0 이하 ID는 Job 시작 전에 실패하며, 시스템 날짜나 날짜 기반 임시 ID로 대체하지 않습니다. ECL summary가 비어 있는 경우도 성공으로 처리하지 않습니다.
+
+FX Batch는 쓰기 없는 전체 validation step을 통과한 뒤 기존 partition/cursor/chunk posting을
+수행하며 재시작 때 validation을 다시 실행합니다. validation과 posting은 동일한 원장을 두 번
+읽을 뿐 불변 분산 snapshot이 아닙니다. 실행 동안 원장·환율·정책을 운영 절차로 동결해야 합니다.
+remote Journal 장애 재시도는 결정적 slip과 Journal 멱등성에 의존합니다. API 요청 멱등 key,
+다중 전표 조회, production PostgreSQL 실행계획/부하는 아직 검증되지 않았습니다.

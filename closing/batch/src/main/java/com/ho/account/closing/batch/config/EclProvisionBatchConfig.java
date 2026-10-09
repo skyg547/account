@@ -25,7 +25,11 @@ import java.time.LocalDate;
  * ECL provision Batch adapter.
  *
  * <p>The date and lineage ID are mandatory identifying parameters. Missing parameters never fall
- * back to the system clock, so a restarted JobInstance cannot silently process a different period.</p>
+ * back to the system clock, so a restarted JobInstance cannot silently process a different period.
+ * Core aggregates and validates all ECL groups before the first Journal call. The tasklet is one
+ * local transaction, but remote Journal effects cannot roll back with Batch metadata; a failed
+ * restart therefore relies on deterministic slips and core content comparison. Memory scales with
+ * distinct posting groups rather than raw portfolio rows.</p>
  */
 @Slf4j
 @Configuration

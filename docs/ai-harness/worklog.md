@@ -1,3 +1,11 @@
+## 2026-10-06 — GH-858 account-mart foreign FX fail-closed CDM conversion
+
+- Issue #858, `agent/858-require-fx-rate`, `/tmp/account-858-require-fx-rate`, base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`, Draft PR [#875](https://github.com/skyg547/account/pull/875) (`Refs #858`). Only the four Issue-listed `account-mart/**` code, test, and ETL spec files changed in implementation commit `950a7e47`; no other module or shared contract was changed.
+- `IntegratedPositionProcessor` requires a dated positive foreign/KRW `base_rate`; missing, null, zero, or negative rate raises `IllegalStateException` outside the CDM Step's `IllegalArgumentException` skip rule. Valid FX retains `BigDecimal` scale 4 `HALF_UP`. Core tests cover conversion and invalid boundaries; H2 batch tests prove CDM Step/Job failure, exact rate cause, no USD CDM row, and no snapshot.
+- Verification: targeted core 8/batch 3 PASS; aggregate `./gradlew :account-mart:test --offline --console=plain --max-workers=1 --no-daemon` succeeded but was `NO-SOURCE`; actual child suites core 22/batch 10/API 3 PASS, zero failures/errors/skips. The final assertion-only batch test update passed its targeted 3 tests. `git diff --check` and changed-file conflict marker scan PASS. No package/dependency download or production DB access.
+- Independent read-only reviewer found no remaining P0–P3 after the batch failure-cause assertion was added. Q1 PASS: core conversion rule and core/batch tests; Q2 PASS: ETL spec input-to-failure/retry flow; Q3 PASS: rate prerequisite, rounding, status, and operator guidance; Q4 PASS: nearby comment explaining why 1:1 fallback corrupts CDM values. Evidence is in PR #875's table.
+- Rollback: review a revert of the four implementation files, knowing it restores the unsafe fallback; keep foreign jobs paused or assure FX completeness first. Residual verification: production-scale parallel CDM and corrected-rate/prior-snapshot rerun were not exercised. Issue is `status:needs-review`; human reviewer owns current-head/CI and merge decision. Draft PR remains Draft; no merge, Issue close, or cleanup was performed.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
@@ -3154,18 +3162,12 @@ git diff --name-only --diff-filter=U
 | Q3 | PASS | `auth/README.md:54`, `auth/docs/beginner-guide.md:44`, `auth/docs/local-run.md:61`, `auth/docs/schema.md:73`; V74/요청 예시/결과·한계 | 해당 없음: 기능 문서 변경 | Gateway 미노출은 문서에 명시 | `/root/pat_review` 확인 |
 | Q4 | PASS | `JwtPatCredentialVerifier.java:75`, `PersonalAccessTokenService.java:99`, `PersonalAccessTokenPersistenceAdapter.java:41`, `auth/build.gradle:1`; 조건부 폐기 H2 1/1, quality32/32 | 해당 없음: 비자명 로직 변경 | PostgreSQL 동시성 실증 필요 | `/root/pat_review` 확인 |
 
-## 2026-10-06 — GH-860 reconciliation 대상 차대 불변식
+## 2026-10-05 — GH-829 교차 고객 수납·채권 반제 차단 / Draft PR #844
 
-- Issue #860 / branch `agent/860-reconciliation-target-side` / worktree `/tmp/account-860-reconciliation-target-side` / base `origin/main@973d76dd` / [Draft PR #876](https://github.com/skyg547/account/pull/876) (`Refs #860`). 변경은 `reconciliation`의 실행 서비스·테스트·흐름 문서 3파일과 부모 소유의 이 세 기록 파일뿐이다.
-- 대상 집계와 건별 매칭에 동일한 `targetSide`를 적용하고, 원천·대상 집계의 건수와 BigDecimal 합계가 실제 건별 목록과 다르면 매칭·차이 저장·조정 전표 생성 전에 중단한다. 실행 통계는 매칭 결과만 사용한다. 요약용 가상 항목은 제거했다.
-- 수정 전 core 테스트 PASS. 수정 후 core 137/137, 서비스 15/15, Journal 금융 조회 39/39 PASS. 요청된 `:reconciliation:test` PASS(루트 태스크 자체 `NO-SOURCE`, 의존 core 테스트 실행), API·Batch `compileJava` PASS. `git diff --check`와 승인 파일 conflict marker 검사 PASS. 독립 read-only 리뷰는 P0–P3 없음, Q1–Q4 PASS를 확인했다.
-- 미검증: 실제 은행·원격 Journal·DB 트랜잭션. Mockito의 FAILED 상태 확인은 `@Transactional` 예외 재전파 뒤 FAILED 이력의 DB 지속을 입증하지 않는다. 다음 게이트는 현재 PR head CI, 실제 트랜잭션 경계 검증 및 사람 리뷰다. 롤백은 Issue 코드·테스트·문서 커밋을 검토 후 revert하며 DB 스키마·운영 데이터 변경은 없다.
-
-| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
-| --- | --- | --- | --- | --- | --- |
-| Q1 | PASS | `ReconciliationExecutionService.java:193`, `ReconciliationServiceTest.java:345`; core 137/137 | 해당 없음: 코드 변경 | 원격 통합 별도 | `/root/independent_review` PASS |
-| Q2 | PASS | `process-flow.md:78-80`; 불일치·재시도 테스트 | 해당 없음: 실행 흐름 변경 | DB 실패 이력 지속 검증 | `/root/independent_review` PASS |
-| Q3 | PASS | `process-flow.md:78-80`의 양방향 예제·실패 경계 | 해당 없음: 기능 문서 변경 | 실제 원격 데이터 별도 | `/root/independent_review` PASS |
-| Q4 | PASS | 실행 서비스 `:199`, 테스트 `:376`, `:449` 의도 주석 | 해당 없음: 비자명 코드 변경 | 해당 없음: 현재 근거 확인 | `/root/independent_review` PASS |
-
-- 최종 리뷰 게이트: 부모의 새 오프라인 강제 실행에서 core 137/137(21 suites), API·Batch 컴파일, 요청된 `:reconciliation:test` 모두 PASS. 별도 `/root/review_860`은 이 PR의 Q1–Q4 PASS 및 추가 P1/P2 없음으로 확인했다. 중복 PR #869는 원천 집계 `long`→`int` 범위 검사 누락에 따른 false SUCCESS 가능성이 발견되어 #876으로 통합하고 닫았다. #860은 `status:needs-review` / `agent:codex`로 이관했다. #876의 구현 head에서 module/harness CI는 PASS였고 Agent Merge Guard discipline은 Draft 및 저장소 신뢰 정책 미설정 게이트로 FAIL이었다. 기록 갱신 head의 CI와 사람 리뷰·신뢰 정책 결정 전 Ready·merge·Issue close는 보류한다.
+- Issue: [#829](https://github.com/skyg547/account/issues/829), `SUBLEDGER_CORE_02`, receivable 단일 모듈 P1. Branch: `agent/829-receivable-customer-match`; isolated worktree: `/tmp/account-829-receivable-customer-match`; base: `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; Draft PR: [#844](https://github.com/skyg547/account/pull/844), `Refs #829`.
+- 범위: `CollectionService.processMatch`의 고객 코드 일치 사전 검증, `CollectionServiceTest`의 수동·자동 교차 고객 거부 및 정상 부분 매칭 회귀, `receivable/docs/process-flow.md`의 흐름·명령 설명. 변경한 업무 파일은 Issue 제안의 3개뿐이다. 공용 계약, DB, 타 모듈은 변경하지 않았다.
+- 수납 고객 코드가 비어 있거나 채권 고객 코드와 다르면 도메인 상태 변경·저장·배분 이력·인보이스 변경·전표 작성 전에 `IllegalArgumentException`으로 거부한다. 정상 부분 매칭의 BigDecimal 잔액·상태와 GL 거래처 코드는 보존한다.
+- 검증: 집중 `./gradlew :receivable:core:test --tests com.ho.account.receivable.application.service.CollectionServiceTest --offline --no-daemon --console=plain --max-workers=2` 10/10 PASS; 요청 명령 `./gradlew :receivable:test --offline --no-daemon --console=plain --max-workers=2` PASS (core 47/47, 상위 task는 `NO-SOURCE`); `./gradlew :receivable:api:test :receivable:batch:test --offline --no-daemon --console=plain --max-workers=2` API 14/14·Batch 1/1 PASS. 모두 실패·건너뜀 0. `git diff --check`와 변경 파일 충돌 마커 검사 PASS.
+- 독립 읽기 전용 Reviewer: 지적 사항 없음. Q1 PASS—공통 guard와 음성·정상 테스트(`CollectionService.java:138`, `CollectionServiceTest.java:218`); Q2 PASS—입력·검증 순서·결과(`CollectionService.java:139`, `process-flow.md:84`); Q3 PASS—사용 예·명령·한계(`process-flow.md:84`); Q4 PASS—상태 변경 전 검증 의도 주석(`CollectionService.java:139`). 네 항목 모두 N/A 사유 해당 없음(PASS)이며 실제 DB·원격 연동은 후속 검증 게이트다.
+- 한계: 실제 PostgreSQL·원격 GL과 HTTP 종단 요청, 기존 잘못된 배분의 데이터 정정은 수행하지 않았다. 롤백은 이 PR의 코드·테스트·기능 문서 변경 커밋을 되돌리는 것이며 운영 데이터와 마이그레이션은 변경하지 않았다.
+- 권한: Service/Test 작성자는 지정 파일만, Reviewer는 읽기 전용으로 작업했다. 부모 Integrator만 Git/PR·공유 기록을 갱신했다. 사람 리뷰와 최신 head/base·CI 확인 후 별도 승인 단계에서 Ready/merge/Issue close를 판단한다. 다음 소유자는 사람 리뷰어다.

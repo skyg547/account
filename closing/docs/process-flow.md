@@ -240,8 +240,9 @@ sequenceDiagram
     participant MD as ExchangeRateQueryPort
     participant JL as ClosingJournalEntryPort
 
-    Job->>GL: POSTED 원장의 외화/기준통화 금액 조회
-    GL->>GL: 기준일 계정·평가 정책 검증 및 역사적 원가 계정 제외
+    Job->>GL: 전체 POSTED 원장 evidence validation
+    GL->>GL: 기준일 계정·환율·정책·lineage 검증(쓰기 없음)
+    GL-->>Job: validation 완료
     Job->>Job: 최대 gridSize개 계정 범위 Partition 생성
     Job->>GL: Partition별 Cursor Reader로 잔액 스트리밍
     Job->>FX: Chunk 단위 평가 pipeline 호출
@@ -261,6 +262,17 @@ sequenceDiagram
 | `valuationBatchId` | `20260430` | 전표 lineage와 전표번호 결정성에 사용 |
 
 FX 원천 잔액은 차변을 양수, 대변을 음수로 집계합니다. `FxValuationService`는 재평가 차이를 이 부호에 맞춰 계정 라인과 환산손익 반대 라인으로 구성합니다. Batch는 기술적인 범위 분할·Cursor·chunk/checkpoint만 맡고, 한 chunk 안의 어느 항목이라도 실패하면 실패 ID를 모아 예외를 던져 그 chunk 전체를 롤백합니다.
+
+Job의 첫 step은 전체 source를 스트리밍하며 core preparation을 호출하지만 Journal에는 쓰지
+않습니다. 그 다음에만 기존 고정 범위 partition, cursor, chunk posting을 수행합니다.
+`allowStartIfComplete(true)`이므로 posting 실패 후 재시작해도 validation을 다시 실행하고 기존
+checkpoint에서 posting을 재개합니다. 두 step은 원장을 따로 읽으며 분산 snapshot을 만들지
+않습니다. 따라서 실행 동안 원장, 기준일 환율, 유효 정책을 운영 절차로 동결해야 합니다.
+
+API FX 경로는 같은 posted-journal SQL과 core 정책으로 evidence를 정확히 한 번 스트리밍합니다.
+기본 evidence 10,000행/command 1,000개 hard cap 안에서 모든 command를 선검증해 불변 목록으로
+만든 뒤 그 목록만 게시합니다. ECL source query도 60초 timeout과 1,001개 그룹 제한을 두고,
+1,000개 초과를 그룹별 원장/환율 조회 전에 거부한 다음 전체 command를 Journal 쓰기 전에 검증합니다.
 
 ### 평가 대상 계정의 유효일자 정책 (GH-780)
 
@@ -329,7 +341,7 @@ Reader는 제외한 행까지 원래 Cursor의 읽기 횟수에 포함해 checkp
 `FX_VALUATION`으로 식별된 유효일자 내 전기 건의 잘못된 식별자·헤더나 평가 계정 라인 누락은
 조회 검증에서 실패합니다. 원전표가 사라진 보고통화 역분개는 FX인지 판별할 근거가 없으므로
 자동 귀속하지 않습니다. 그런 레거시 고아 연결은 실행 전에 원장·원천 대사로 복구해야 합니다.
-기본 DRAFT 생성·선택적 자동 전기·결정적 전표번호·재시도 시 전표 내용 일치 검사는 유지됩니다.
+기본 DRAFT 생성·지원되는 어댑터의 선택적 자동 전기·결정적 전표번호·재시도 시 전표 내용 일치 검사는 유지됩니다.
 평가기준일의 입력 원장이 확정된 상태에서 실행해야 하며, 동시 전기까지 묶는 전역 스냅샷이나
 분산 트랜잭션을 제공하는 변경은 아닙니다.
 
@@ -496,15 +508,20 @@ Content-Type: application/json
 여러 법인 원천이 한 실행에 섞이지 않음을 구조적으로 증명할 수 없으므로 런타임을 법인별로 분리합니다.
 
 독립 Journal의 쓰기 API는 신뢰된 service principal을 `X-Auth-User`와 `X-Auth-Roles`로 요구합니다.
-현재 Closing의 `HttpClosingJournalAdapter`는 이 헤더를 전달하지 않으므로 실제 원격 초안 생성은
-검증하지 않았고, 통제된 포트와 헤더를 요구하지 않는 loopback 테스트도 이 통합을 증명하지 않습니다.
+현재 Closing의 `HttpClosingJournalAdapter`는 maker 헤더를 전달하지만, 이 값만으로 신뢰된
+서비스 주체를 증명하지 못합니다. 실제 원격 초안 생성은 검증하지 않았고, 통제된 포트와
+loopback 테스트도 이 인증 통합을 증명하지 않습니다.
 실서비스 쓰기 전 별도 승인된 인증·권한 전파 구현과 통합 검증이 필요합니다.
 
 ## 재실행과 정합성 체크
 
 - 기준일과 양수 batch ID는 필수이며, 동일 입력은 결정적 전표번호와 lineage를 생성합니다.
 - ECL summary가 없으면 정상 무처리로 간주하지 않고 실패합니다. 0건 포트폴리오를 성공 처리하려면 향후 명시적인 zero-portfolio 완료 마커가 필요합니다.
-- API 평가/충당 실행 이력은 전표 트랜잭션과 분리해 `RUNNING -> PENDING_APPROVAL` 또는 `FAILED`를 보존합니다. DRAFT 전표 생성만으로 `COMPLETED`가 되지 않습니다.
+- API 평가/충당 실행 이력은 전표 트랜잭션과 분리해 `RUNNING -> COMPLETED`, `PENDING_APPROVAL`, 또는 `FAILED`를 보존합니다. DRAFT 전표 생성만으로 `COMPLETED`가 되지 않습니다.
+- API 결과가 0건이거나 지원되는 어댑터에서 실제 자동 전기이면 `COMPLETED`, DRAFT 전표가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표는 scalar history ID로 표현할 수 없어 ID를 `null`로 둡니다.
+- remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 여러 전표 중 일부만 작성된 뒤 `FAILED`가 기록되면, 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태 및 Closing 이력을 대사합니다. 원격 DRAFT를 자동 삭제하거나 요청을 맹목적으로 재전송하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
+- API 요청 멱등 key와 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경도 별도 검증/운영 통제가 필요합니다.
+- 이 흐름은 새 테이블·컬럼·migration 없이 기존 이력과 원천 스키마를 사용합니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.
 - 결산 조정 등록은 전표 상세의 차변/대변 합계가 같은지 검증합니다.
-- 운영 자동 전기는 `account.closing.accounting.auto-post-adjustments=true`일 때만 허용합니다.
+- `dev`의 원격 Journal HTTP 어댑터는 `account.closing.accounting.auto-post-adjustments=true`를 첫 전표 쓰기 전에 거부합니다. maker 승인 요청→별도 checker 승인→poster 전기와 불확실한 응답 후 상태 확인을 위한 신뢰된 서비스 주체 계약이 없기 때문입니다. 기본 `false`의 DRAFT는 Journal 담당자가 별도 승인·전기합니다.

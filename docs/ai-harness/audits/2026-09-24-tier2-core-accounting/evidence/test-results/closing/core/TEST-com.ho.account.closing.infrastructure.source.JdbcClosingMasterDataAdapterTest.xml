@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:15" hostname="ho-To-Be-Filled-By-O-E-M" time="0.14">
+  <properties/>
+  <testcase name="historicalRatePreservesPrecisionAndBindsRequestedCurrencyAndDate()" classname="com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest" time="0.134"/>
+  <testcase name="overlappingEffectiveAccountsFailRatherThanChoosingArbitraryClassification()" classname="com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest" time="0.002"/>
+  <testcase name="absentReferenceIsEmptyAndInvalidInputNeverQueriesDatabase()" classname="com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

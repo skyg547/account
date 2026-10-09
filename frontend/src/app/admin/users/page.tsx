@@ -49,7 +49,7 @@ const roleOptions = Object.keys(roleStyles) as UserRole[];
  * 이 화면은 시스템의 '출입증 관리 사무소'입니다.
  * 신규 직원이 오면 계정을 만들어주고, "당신은 회계관리자니까 전표 승인을 할 수 있어요" 처럼
  * 각 사용자에게 알맞은 역할(Role) 이름표를 달아주는 곳입니다.
- * 여기서 역할을 변경하면, 즉시 사용자의 사이드바 메뉴가 바뀌는 것을 볼 수 있습니다.
+ * 역할 변경은 승인 요청을 접수하며, 실제 권한과 메뉴 변경은 별도 승인·적용 후에 이뤄집니다.
  */
 export default function UserManagementPage() {
   const { success: showSuccessToast, error: showErrorToast } = useToast();
@@ -84,13 +84,22 @@ export default function UserManagementPage() {
   const handleRoleChange = async (targetUser: UserInfo, role: UserRole) => {
     try {
       const result = await adminService.requestRoleChange(targetUser, role);
-      setUsers(current => current.map(user => user.id === targetUser.id
-        ? { ...user, status: 'PENDING', pendingRequestId: result.requestId }
-        : user));
-      setMessage(`승인 요청 ${result.requestId} 생성됨 · ${result.effectiveDate}`);
-      showSuccessToast(`권한 변경 승인 요청(${result.requestId})이 생성되었습니다.`);
-    } catch (err: unknown) {
-      showErrorToast(err instanceof Error ? err.message : '권한 변경 요청에 실패했습니다.');
+      // User status is local display state; only a confirmed pending approval can mark it pending.
+      if (result.status === 'PENDING') {
+        setUsers(current => current.map(user => user.id === targetUser.id
+          ? { ...user, status: 'PENDING', pendingRequestId: result.requestId }
+          : user));
+      }
+      const statusLabel = {
+        PENDING: '접수되었습니다',
+        APPROVED: '승인되었습니다',
+        REJECTED: '반려되었습니다',
+      }[result.status];
+      const dateLabel = result.effectiveDate ? ` · ${result.effectiveDate}` : '';
+      setMessage(`권한 변경 요청 ${result.requestId} ${statusLabel}${dateLabel}`);
+      showSuccessToast(`권한 변경 요청(${result.requestId})이 ${statusLabel}.`);
+    } catch {
+      showErrorToast('권한 변경 요청 결과를 확인하지 못했습니다. 관리자에게 요청 상태를 확인해 주세요.');
     }
   };
 

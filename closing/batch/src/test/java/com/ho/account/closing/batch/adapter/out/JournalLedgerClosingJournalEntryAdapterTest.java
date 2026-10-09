@@ -3,6 +3,7 @@ package com.ho.account.closing.batch.adapter.out;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -65,6 +66,44 @@ class JournalLedgerClosingJournalEntryAdapterTest {
         assertThat(result.journalEntryId()).isEqualTo(77L);
         assertThat(result.slipNo()).isEqualTo(command.slipNo());
         verifyNoInteractions(postingPort);
+    }
+
+    @Test
+    void lineageDedupeReturningAnotherSlipFailsInsteadOfRecordingWrongJournal() {
+        JournalPostingPort postingPort = mock(JournalPostingPort.class);
+        JournalQueryPort queryPort = mock(JournalQueryPort.class);
+        JournalLedgerClosingJournalEntryAdapter adapter =
+                new JournalLedgerClosingJournalEntryAdapter(postingPort, queryPort);
+        ClosingJournalEntryCommand command = command();
+        when(queryPort.findBySlipNo(command.slipNo())).thenReturn(Optional.empty());
+        when(postingPort.createDraftEntry(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new JournalPostingResult(77L, "OTHER-SLIP", "DRAFT"));
+
+        assertThatThrownBy(() -> adapter.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Journal returned a different or invalid Closing draft");
+        verify(queryPort).findBySlipNo(command.slipNo());
+        verify(postingPort).createDraftEntry(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void postingResponseMustContainPositiveIdAndDraftStatus() {
+        JournalPostingPort postingPort = mock(JournalPostingPort.class);
+        JournalQueryPort queryPort = mock(JournalQueryPort.class);
+        JournalLedgerClosingJournalEntryAdapter adapter =
+                new JournalLedgerClosingJournalEntryAdapter(postingPort, queryPort);
+        ClosingJournalEntryCommand command = command();
+        when(queryPort.findBySlipNo(command.slipNo())).thenReturn(Optional.empty());
+        when(postingPort.createDraftEntry(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new JournalPostingResult(0L, command.slipNo(), "DRAFT"))
+                .thenReturn(new JournalPostingResult(77L, command.slipNo(), "POSTED"));
+
+        assertThatThrownBy(() -> adapter.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Journal returned a different or invalid Closing draft");
+        assertThatThrownBy(() -> adapter.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Journal returned a different or invalid Closing draft");
     }
 
     @Test

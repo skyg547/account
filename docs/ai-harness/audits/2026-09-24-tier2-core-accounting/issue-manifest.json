@@ -1,0 +1,1514 @@
+{
+  "schema_version": 1,
+  "audit_date": "2026-09-24",
+  "source_commit": "a97d10ab6efc2570a88f83d630242cd748f8be57",
+  "branch": "agent/tier2-gl-closing-audit-20260924",
+  "publication": "local-drafts-only",
+  "priority_definitions": {
+    "P1": "Financial correctness, cutoff, immutable history, authorization, or exactly-once control failure requiring remediation before reliance on the affected path.",
+    "P2": "Important bounded correctness, auditability, availability, scale or architecture defect; includes conditional/dormant paths."
+  },
+  "totals": {
+    "issues": 42,
+    "P1": 26,
+    "P2": 16
+  },
+  "issues": [
+    {
+      "id": "GL01",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Approval lacks permission and maker-checker enforcement",
+      "summary": "Any supplied approver can approve a DRAFT directly. The domain does not compare approver with createdBy, require a submitted/requested state, or validate the approver identity. The HTTP approval/posting commands do not consume the trusted role context.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL01.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P02"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 246
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalEntryService.java",
+          "line": 218
+        },
+        {
+          "file": "journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalController.java",
+          "line": 98
+        }
+      ]
+    },
+    {
+      "id": "GL02",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "api",
+      "category": "bug",
+      "title": "[journal-ledger] Request bodies can forge journal audit actors",
+      "summary": "Event enrichment uses putIfAbsent for createdBy/auditUser, preserving caller-supplied names. The posting-contract route also copies body creator/audit fields without binding them to an authenticated caller.",
+      "labels": [
+        "module:journal-ledger",
+        "area:api",
+        "type:bug",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL02.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalApiDto.java",
+          "line": 72
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalRuleEngine.java",
+          "line": 184
+        },
+        {
+          "file": "journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalPostingRestController.java",
+          "line": 50
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/infrastructure/adapter/JournalPostingAdapter.java",
+          "line": 75
+        }
+      ]
+    },
+    {
+      "id": "GL03",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Posted journal headers and lines remain mutable",
+      "summary": "Public setters and add/remove/clear/setDetails do not check status. List.copyOf protects collection structure only; elements remain mutable. JPA callbacks update timestamps but do not enforce historical immutability.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL03.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P03"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 451
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 491
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 225
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalDetail.java",
+          "line": 161
+        }
+      ]
+    },
+    {
+      "id": "GL04",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Reversal requests can repeatedly reverse the same posted journal",
+      "summary": "createReversal copies inverted lines and source lineage but does not claim the original or establish an enforced original-to-reversal relationship. The service assigns a fresh slip on each invocation, and the original remains POSTED.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL04.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P04"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 312
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalEntryService.java",
+          "line": 262
+        }
+      ]
+    },
+    {
+      "id": "GL05",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Concurrent requests can post one approved journal twice",
+      "summary": "Posting reads APPROVED without an exclusive lock, version or compare-and-set claim. Ledger entry detail references are nonunique, so two transactions can both validate and insert the same accounting movements.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL05.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/PostingService.java",
+          "line": 43
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/repository/JournalEntryRepository.java",
+          "line": 37
+        },
+        {
+          "file": "journal-ledger/core/src/main/resources/db/migration/V11__journal_ledger_postgresql_baseline.sql",
+          "line": 85
+        }
+      ]
+    },
+    {
+      "id": "GL06",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Concurrent postings overwrite account balance movements",
+      "summary": "GL/SL update reads absolute totals, adds amounts in Java and saves absolute totals. Neither balances nor reads have version/exclusive locking. PostgreSQL upsert overwrites with EXCLUDED totals rather than adding an atomic delta.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL06.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 223
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 246
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/infrastructure/persistence/JdbcLedgerBalanceBulkPersistenceAdapter.java",
+          "line": 264
+        }
+      ]
+    },
+    {
+      "id": "GL07",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Period status check and posting commit are not atomic",
+      "summary": "Posting rechecks the period before mutation, but the check does not reserve admission or hold a lock shared with final close. A close can complete between this read and the journal transaction's commit.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL07.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/PostingService.java",
+          "line": 52
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/common/adapter/FiscalPeriodAccountingPeriodStatusAdapter.java",
+          "line": 21
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 469
+        }
+      ]
+    },
+    {
+      "id": "GL08",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Foreign journal creation does not enforce transaction-to-base conversion",
+      "summary": "Balance equality is enforced independently in each unit, but no invariant verifies baseAmount against transaction currency, exchange rate and rounding policy. The automatic rule engine assigns baseAmount=amount for every currency and does not apply an event FX rate; the contract adapter also defaults missing base to amount.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL08.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P05"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 394
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalRuleEngine.java",
+          "line": 190
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalRuleEngine.java",
+          "line": 212
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/infrastructure/adapter/JournalPostingAdapter.java",
+          "line": 93
+        }
+      ]
+    },
+    {
+      "id": "GL09",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "api",
+      "category": "financial",
+      "title": "[journal-ledger] Untyped event JSON loses cents before BigDecimal validation",
+      "summary": "Untyped decimal JSON becomes a Double under the default Jackson mapper. Rule interpolation stringifies the rounded floating-point value before its BigDecimal parser and ledger precision checks execute.",
+      "labels": [
+        "module:journal-ledger",
+        "area:api",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL09.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P06"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalApiDto.java",
+          "line": 72
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalRuleEngine.java",
+          "line": 253
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalRuleEngine.java",
+          "line": 318
+        }
+      ]
+    },
+    {
+      "id": "GL10",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Journal creation lacks an atomic idempotency contract",
+      "summary": "Manual/event creation always saves a new journal. The contract adapter only performs a check-then-create lookup on lineage, with no unique request key; it returns the first existing journal without comparing financial content. Kafka bypasses even that check.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL10.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalEntryService.java",
+          "line": 94
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/infrastructure/adapter/JournalPostingAdapter.java",
+          "line": 53
+        },
+        {
+          "file": "journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/kafka/KafkaTransactionListener.java",
+          "line": 36
+        },
+        {
+          "file": "journal-ledger/core/src/main/resources/db/migration/V11__journal_ledger_postgresql_baseline.sql",
+          "line": 202
+        }
+      ]
+    },
+    {
+      "id": "GL11",
+      "priority": "P2",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "bug",
+      "title": "[journal-ledger] Slip numbers have only 65536 random values per day",
+      "summary": "The automatic number uses only four hexadecimal UUID characters. Unique slip storage detects a collision, but creation has no retry/sequence allocator. The daily key space is only 65536.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:bug",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL11.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P11"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalEntryService.java",
+          "line": 101
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 88
+        }
+      ]
+    },
+    {
+      "id": "GL12",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Backdated posting leaves later GL and SL balances stale",
+      "summary": "Beginning balances are copied only when a daily row is first created. Posting on an earlier date changes that row but does not propagate or invalidate later projections.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL12.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P09"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 226
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 233
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/PostingService.java",
+          "line": 59
+        }
+      ]
+    },
+    {
+      "id": "GL13",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "batch",
+      "category": "financial",
+      "title": "[journal-ledger] Reaggregation publishes deleted or partial balances and races with posting",
+      "summary": "Cleanup commits deletion of live GL/SL balances before independent chunk commits rebuild them from a live POSTED source. There is no source watermark, publication generation or posting/read exclusion protocol.",
+      "labels": [
+        "module:journal-ledger",
+        "area:batch",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL13.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/batch/src/main/java/com/ho/account/journalledger/batch/config/BalanceReaggregationBatchConfig.java",
+          "line": 75
+        },
+        {
+          "file": "journal-ledger/batch/src/main/java/com/ho/account/journalledger/batch/config/BalanceReaggregationBatchConfig.java",
+          "line": 104
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 133
+        }
+      ]
+    },
+    {
+      "id": "GL14",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "batch",
+      "category": "financial",
+      "title": "[journal-ledger] Reaggregation restart dates drift with the wall clock",
+      "summary": "Absent explicit dates, the helper defaults to yesterday at execution time. Cleanup and the step-scoped reader resolve independently, and a restarted JobInstance retains its completed cleanup and reader offset.",
+      "labels": [
+        "module:journal-ledger",
+        "area:batch",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL14.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/batch/src/main/java/com/ho/account/journalledger/batch/support/BatchDateRangeParameterUtils.java",
+          "line": 34
+        },
+        {
+          "file": "journal-ledger/batch/src/main/java/com/ho/account/journalledger/batch/tasklet/BalanceCleanUpTasklet.java",
+          "line": 35
+        },
+        {
+          "file": "journal-ledger/batch/src/main/java/com/ho/account/journalledger/batch/config/BalanceReaggregationBatchConfig.java",
+          "line": 121
+        }
+      ]
+    },
+    {
+      "id": "GL15",
+      "priority": "P2",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Core reaggregation trusts an unspecified source order",
+      "summary": "The direct core reaggregation query has no ORDER BY and the service preserves encounter order using LinkedHashMap. Carry-forward requires earlier days to have been saved first.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL15.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P08"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 138
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 151
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/repository/JournalDetailRepository.java",
+          "line": 77
+        }
+      ]
+    },
+    {
+      "id": "GL16",
+      "priority": "P2",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] String aggregation keys merge distinct subledger dimensions",
+      "summary": "Bulk keys substitute literal NULL for absent dimensions and join strings with '|'; query aggregation separately maps null to empty. These encodings are not injective.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL16.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P10"
+      ],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 177
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 187
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/ledger/LedgerService.java",
+          "line": 312
+        }
+      ]
+    },
+    {
+      "id": "GL17",
+      "priority": "P2",
+      "module": "journal-ledger",
+      "area": "batch",
+      "category": "bug",
+      "title": "[journal-ledger] JPA rebuild cleanup materializes the complete balance range",
+      "summary": "The default JPA adapter loads all GL and SL balances for the requested range and passes those entities into deleteAllInBatch. The paged chunk100 reader does not bound this preparatory phase.",
+      "labels": [
+        "module:journal-ledger",
+        "area:batch",
+        "type:bug",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL17.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/infrastructure/persistence/LedgerBalancePersistenceAdapter.java",
+          "line": 84
+        },
+        {
+          "file": "journal-ledger/batch/src/main/java/com/ho/account/journalledger/batch/config/BalanceReaggregationBatchConfig.java",
+          "line": 87
+        }
+      ]
+    },
+    {
+      "id": "GL18",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "api",
+      "category": "financial",
+      "title": "[journal-ledger] Unmatched Kafka events complete without a journal or durable exception record",
+      "summary": "If rule selection returns Optional.empty, the listener logs a warning and returns normally. Its exception-based failure mechanism is not invoked and no unresolved-work record is persisted.",
+      "labels": [
+        "module:journal-ledger",
+        "area:api",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL18.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/kafka/KafkaTransactionListener.java",
+          "line": 36
+        }
+      ]
+    },
+    {
+      "id": "GL19",
+      "priority": "P2",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "architecture",
+      "title": "[journal-ledger] Domain packages depend on JPA and Spring Data",
+      "summary": "Financial domain packages contain JPA mappings, lifecycle callbacks, a JPA converter and Spring Data repositories. Outbound application ports have improved service isolation, but the requested framework-free domain boundary is not met.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:architecture",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL19.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 6
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/repository/JournalEntryRepository.java",
+          "line": 17
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/ledger/domain/YearMonthAttributeConverter.java",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "GL20",
+      "priority": "P1",
+      "module": "journal-ledger",
+      "area": "core",
+      "category": "financial",
+      "title": "[journal-ledger] Concurrent unsettled settlements can lose monetary updates",
+      "summary": "Settlement loads and modifies cumulative amounts without a version or exclusive lock. Durable reference replay protection handles sequential retries but does not serialize different references against the same open item.",
+      "labels": [
+        "module:journal-ledger",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL20.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/unsettled/UnsettledService.java",
+          "line": 104
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/unsettled/UnsettledItem.java",
+          "line": 20
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/infrastructure/persistence/UnsettledItemPersistenceAdapter.java",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "id": "GL21",
+      "priority": "P2",
+      "module": "journal-ledger",
+      "area": "api",
+      "category": "financial",
+      "title": "[journal-ledger] Kafka silently substitutes processing date for missing accounting date",
+      "summary": "An event without accountingDate is assigned LocalDate.now rather than rejected or resolved from immutable event evidence.",
+      "labels": [
+        "module:journal-ledger",
+        "area:api",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/GL21.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/kafka/KafkaTransactionListener.java",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "id": "CL01",
+      "priority": "P1",
+      "module": "closing",
+      "area": "api",
+      "category": "financial",
+      "title": "[closing] Caller-controlled actors bypass closing authorization and reopen separation of duties",
+      "summary": "General closing commands accept user/requestedBy/approvedBy from query/body fields without binding them to trusted caller identity or enforcing closing permissions. Reopen separation of duties compares only those supplied strings.",
+      "labels": [
+        "module:closing",
+        "area:api",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL01.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java",
+          "line": 185
+        },
+        {
+          "file": "closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java",
+          "line": 198
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/ReopenApproval.java",
+          "line": 212
+        }
+      ]
+    },
+    {
+      "id": "CL02",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Active period locks and closing-in-progress do not block journal admission",
+      "summary": "lockPeriod stores a local PeriodLock, while isClosed reads only master CLOSED/PERMANENTLY_CLOSED. Starting a calendar changes its local status to IN_PROGRESS but leaves the master period OPEN. The Journal status adapter likewise does not consult local locks/calendar state.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL02.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P07"
+      ],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 77
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 130
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 206
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/common/adapter/FiscalPeriodAccountingPeriodStatusAdapter.java",
+          "line": 33
+        }
+      ]
+    },
+    {
+      "id": "CL03",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Remote fiscal transitions can commit before local closing approval",
+      "summary": "The HTTP master OPEN/CLOSED update commits independently before local calendar, audit and approval records commit. A lost response or later local failure rolls back only local work.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL03.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 299
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 303
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 469
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpFiscalPeriodControlAdapter.java",
+          "line": 135
+        }
+      ]
+    },
+    {
+      "id": "CL04",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Concurrent reopen decisions can contradict the final period state",
+      "summary": "Reopen approval and its calendar are read without a lock/version. Approval and rejection branches can both act on a stale PENDING snapshot and overwrite the final decision.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL04.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 286
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 297
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 307
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/infrastructure/persistence/ReopenApprovalRepository.java",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "id": "CL05",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Annual close reuses stale drafts after source activity changes",
+      "summary": "An existing deterministic annual slip with a matching date/description/type causes immediate return. Financial lines and source snapshot are not compared. A reopened year with an existing posted closing slip has the same short-circuit.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL05.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P17"
+      ],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 54
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 58
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 149
+        }
+      ]
+    },
+    {
+      "id": "CL06",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Annual close accepts non-equity retained-earnings accounts",
+      "summary": "The supplied retained-earnings account is checked only for nonblank text. Journal account validation verifies historical existence, not whether it is an approved equity destination.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL06.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P17"
+      ],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 42
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 119
+        },
+        {
+          "file": "closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java",
+          "line": 264
+        }
+      ]
+    },
+    {
+      "id": "CL07",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Valuation and provision run APIs use configured constants instead of FX or ECL results",
+      "summary": "The API run paths read AutomatedJournalRule.amount and generate a fixed KRW draft. They do not invoke the real FX/ECL calculation services or inspect exposures, rates, finalized summaries and existing allowances.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL07.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 326
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 359
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 491
+        },
+        {
+          "file": "closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java",
+          "line": 220
+        }
+      ]
+    },
+    {
+      "id": "CL08",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Final close does not require subledger and adjustment completeness evidence",
+      "summary": "A condition-free mandatory task and gate can be manually completed/passed, satisfying final close. No required AP/AR/lease/loan readiness, outstanding journal/adjustment, annual transfer or ECL reconciliation evidence is queried.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL08.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P16"
+      ],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 151
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 184
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 449
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/ClosingCalendar.java",
+          "line": 227
+        }
+      ]
+    },
+    {
+      "id": "CL09",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Reclose reuses tasks and gates from the previous close cycle",
+      "summary": "Reopening changes calendar status but does not invalidate or version the prior completed tasks/passed gates. No close-cycle ID or source watermark ties evidence to the current financial state.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL09.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P16"
+      ],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 298
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/ClosingCalendar.java",
+          "line": 279
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/ClosingCalendar.java",
+          "line": 227
+        }
+      ]
+    },
+    {
+      "id": "CL10",
+      "priority": "P2",
+      "module": "closing",
+      "area": "api",
+      "category": "financial",
+      "title": "[closing] Repeated run API calls create duplicate adjustment drafts",
+      "summary": "Each valuation/provision API request commits a fresh run ID. That ID becomes new lineage, so retrying the same business request creates a distinct draft. Journal success followed by execution-record failure can also leave an orphan draft behind a FAILED run.",
+      "labels": [
+        "module:closing",
+        "area:api",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL10.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 332
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 365
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingBatchExecutionRecorder.java",
+          "line": 29
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingBatchExecutionRecorder.java",
+          "line": 68
+        }
+      ]
+    },
+    {
+      "id": "CL11",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "bug",
+      "title": "[closing] Concurrent lock and reopen-request creation bypasses uniqueness checks",
+      "summary": "Lock and pending-reopen checks are check-then-insert without unique active/pending constraints. Period lock indexes are nonunique, yet lookup expects one Optional result.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:bug",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL11.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 209
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java",
+          "line": 266
+        },
+        {
+          "file": "closing/core/src/main/resources/db/closing-migration/V49__closing_clean_baseline.sql",
+          "line": 82
+        },
+        {
+          "file": "closing/core/src/main/resources/db/closing-migration/V49__closing_clean_baseline.sql",
+          "line": 96
+        }
+      ]
+    },
+    {
+      "id": "CL12",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "bug",
+      "title": "[closing] Annual close loads full-year detail history with N+1 lookups",
+      "summary": "The annual service collects all summaries and every posted detail into memory. Each journal triggers detail lookup, and detail mapping performs historical master lookup. Remote deployment multiplies service calls.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:bug",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL12.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 53
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 65
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/common/adapter/MonolithJournalQueryAdapter.java",
+          "line": 37
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/common/adapter/MonolithJournalQueryAdapter.java",
+          "line": 134
+        }
+      ]
+    },
+    {
+      "id": "CL13",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] Annual close silently omits unclassified posted accounts",
+      "summary": "The detail adapter leaves category null when dated account lookup is absent. Annual close then filters for REVENUE/EXPENSES and silently discards unclassified lines rather than failing completeness validation.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL13.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/common/adapter/MonolithJournalQueryAdapter.java",
+          "line": 134
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java",
+          "line": 72
+        }
+      ]
+    },
+    {
+      "id": "CL14",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "architecture",
+      "title": "[closing] Closing domain models contain persistence framework dependencies",
+      "summary": "Financial domain classes are JPA entities with persistence callbacks and relationships. Port isolation at application boundaries does not satisfy the requested pure domain contract.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:architecture",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL14.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/ClosingCalendar.java",
+          "line": 3
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/ReopenApproval.java",
+          "line": 3
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/DailyClosingStatus.java",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "id": "CL15",
+      "priority": "P1",
+      "module": "closing",
+      "area": "batch",
+      "category": "financial",
+      "title": "[closing] FX valuation excludes earlier posted revaluation adjustments",
+      "summary": "The source includes only non-reporting-currency journals, while FX adjustment commands use reporting currency. Prior posted valuation adjustments never enter the carrying value used for the next valuation.",
+      "labels": [
+        "module:closing",
+        "area:batch",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL15.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P12"
+      ],
+      "references": [
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalFxValuationBalanceSource.java",
+          "line": 58
+        },
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalFxValuationBalanceSource.java",
+          "line": 69
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/FxValuationService.java",
+          "line": 79
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/FxValuationService.java",
+          "line": 125
+        }
+      ]
+    },
+    {
+      "id": "CL16",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] FX valuation includes ineligible revenue and nonmonetary accounts",
+      "summary": "The source selects every account on foreign-currency journal lines. The service loads account metadata but does not apply monetary-item eligibility or historical-cost valuation policy; only the code is used.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL16.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P13"
+      ],
+      "references": [
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalFxValuationBalanceSource.java",
+          "line": 58
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/FxValuationService.java",
+          "line": 85
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/FxValuationService.java",
+          "line": 106
+        }
+      ]
+    },
+    {
+      "id": "CL17",
+      "priority": "P1",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] ECL provision mixes foreign targets with functional-currency balances",
+      "summary": "GL balances store baseAmount under a transaction-currency key. The allowance lookup returns that functional balance, but ECL subtracts it directly from the currency-specific target, duplicates the result into amount/baseAmount, and the journal adapter supplies exchange rate one.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL17.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P14"
+      ],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java",
+          "line": 80
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java",
+          "line": 88
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java",
+          "line": 148
+        },
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/GlAllowanceBalanceLookupAdapter.java",
+          "line": 17
+        },
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalLedgerClosingJournalEntryAdapter.java",
+          "line": 73
+        }
+      ]
+    },
+    {
+      "id": "CL18",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "bug",
+      "title": "[closing] HTTP auto-post cannot resume an already approved adjustment",
+      "summary": "HTTP approveAndPost always issues approve then post. On restart, the adjustment adapter can reuse an APPROVED/POSTED journal, but repeated approval is illegal. The local JournalPostingAdapter has status-aware behavior that the HTTP implementation lacks.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:bug",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL18.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/infrastructure/external/HttpClosingJournalAdapter.java",
+          "line": 104
+        },
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalLedgerClosingJournalEntryAdapter.java",
+          "line": 59
+        },
+        {
+          "file": "journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java",
+          "line": 247
+        }
+      ]
+    },
+    {
+      "id": "CL19",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] ECL stage totals are not reconciled with the posting target",
+      "summary": "Summary stage amounts are loaded and individually checked for nonnegativity, but their sum is never compared with the target. The provision service consumes only the target amount.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL19.md",
+      "evidence_type": "source-analysis-and-executed-synthetic-probe",
+      "probes": [
+        "P15"
+      ],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/domain/EclAllowanceSummary.java",
+          "line": 39
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java",
+          "line": 87
+        },
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JdbcEclAllowanceResultAdapter.java",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "id": "CL20",
+      "priority": "P2",
+      "module": "closing",
+      "area": "core",
+      "category": "financial",
+      "title": "[closing] ECL adjustment lineage drops confirmed run and model identity",
+      "summary": "The service checks single run/model input but discards those identifiers when grouping and creating journal lineage. The resulting reference contains caller batch ID, allowance account and currency. Upstream same-date summaries can be deleted and rebuilt.",
+      "labels": [
+        "module:closing",
+        "area:core",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL20.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java",
+          "line": 211
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java",
+          "line": 267
+        },
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java",
+          "line": 306
+        },
+        {
+          "file": "ecl/ecl-core/src/main/java/com/ho/account/ecl/core/application/service/allowance/AllowanceSummaryService.java",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "id": "CL21",
+      "priority": "P2",
+      "module": "closing",
+      "area": "batch",
+      "category": "bug",
+      "title": "[closing] FX parallel cursors exceed the fixed single-connection source pool",
+      "summary": "The remote-source journal pool is fixed at one connection with a five-second acquisition timeout, while FX supports multiple concurrent cursor partitions. Each open cursor holds a connection.",
+      "labels": [
+        "module:closing",
+        "area:batch",
+        "type:bug",
+        "priority:p2",
+        "agent-loop",
+        "status:ready"
+      ],
+      "file": "issues/CL21.md",
+      "evidence_type": "source-analysis",
+      "probes": [],
+      "references": [
+        {
+          "file": "closing/core/src/main/java/com/ho/account/closing/infrastructure/source/ClosingReadOnlySources.java",
+          "line": 40
+        },
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/config/FxValuationBatchConfig.java",
+          "line": 73
+        },
+        {
+          "file": "closing/batch/src/main/java/com/ho/account/closing/batch/config/FxValuationBatchConfig.java",
+          "line": 138
+        }
+      ]
+    }
+  ]
+}

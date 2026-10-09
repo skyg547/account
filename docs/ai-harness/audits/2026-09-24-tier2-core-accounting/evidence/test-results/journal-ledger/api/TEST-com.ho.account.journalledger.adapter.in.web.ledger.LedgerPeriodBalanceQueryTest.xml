@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:49" hostname="ho-To-Be-Filled-By-O-E-M" time="0.357">
+  <properties/>
+  <testcase name="[1] path=/api/v1/ledger/sl/balances" classname="com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest" time="0.233"/>
+  <testcase name="[2] path=/api/v1/ledger/balances/sl" classname="com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest" time="0.043"/>
+  <testcase name="[1] path=/api/v1/ledger/gl/balances" classname="com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest" time="0.043"/>
+  <testcase name="[2] path=/api/v1/ledger/balances/gl" classname="com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest" time="0.024"/>
+  <system-out><![CDATA[2026-09-24T09:52:49.409+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:52:49.409+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:52:49.410+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:52:49.521+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:52:49.522+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:52:49.522+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:52:49.587+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:52:49.587+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:52:49.587+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:52:49.619+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:52:49.619+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:52:49.620+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 1 ms
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

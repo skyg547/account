@@ -112,63 +112,12 @@ class HttpClosingJournalAdapterTest {
     }
 
     @Test
-    void approveThenPostCarryActorInOrder() {
-        server.expect(requestTo(BASE + "/api/journals/42/approve"))
-                .andExpect(method(HttpMethod.POST)).andExpect(header("X-User-ID", "operator"))
-                .andRespond(withSuccess());
-        server.expect(requestTo(BASE + "/api/journals/42/post"))
-                .andExpect(method(HttpMethod.POST)).andExpect(header("X-User-ID", "operator"))
-                .andRespond(withSuccess());
-        adapter.approveAndPost(42L, " operator ");
-    }
-
-    @Test
-    void rejectedApprovalDoesNotPostOrRetryAndDoesNotLeakResponseBody() {
-        server.expect(requestTo(BASE + "/api/journals/42/approve"))
-                .andRespond(withStatus(HttpStatus.FORBIDDEN).body("sensitive-fixture-detail"));
-        assertThatThrownBy(() -> adapter.approveAndPost(42L, "operator"))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("approval")
-                .hasMessageNotContaining("sensitive-fixture-detail").hasNoCause();
-    }
-
-    @Test
-    void postingFailureAfterApprovalReportsPartialProgressWithoutRetry() {
-        server.expect(requestTo(BASE + "/api/journals/42/approve")).andRespond(withSuccess());
-        server.expect(requestTo(BASE + "/api/journals/42/post")).andRespond(withServerError());
-        assertThatThrownBy(() -> adapter.approveAndPost(42L, "operator"))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("after approval");
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {301, 302, 303, 307, 308})
-    void redirectedApprovalNeverCallsPostingOrRetries(int status) {
-        server.expect(requestTo(BASE + "/api/journals/42/approve"))
-                .andExpect(method(HttpMethod.POST))
-                .andRespond(withStatus(HttpStatus.valueOf(status))
-                        .header("Location", "https://sensitive-fixture.invalid/approval")
-                        .body("sensitive-fixture-detail"));
-
+    void remoteApprovalAndPostingRejectBeforeAnyHttpRequest() {
+        // Journal requires maker request, a distinct checker, and a poster. Closing has no
+        // trusted service-principal workflow for these transitions.
         assertThatThrownBy(() -> adapter.approveAndPost(42L, "operator"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("approval").hasMessageContaining("HTTP " + status)
-                .hasMessageNotContaining("sensitive-fixture").hasNoCause();
-        // Any additional POST or retry is an unexpected request rejected by the mock server.
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {301, 302, 303, 307, 308})
-    void redirectedPostingReportsPartialProgressWithoutRetry(int status) {
-        server.expect(requestTo(BASE + "/api/journals/42/approve")).andRespond(withSuccess());
-        server.expect(requestTo(BASE + "/api/journals/42/post"))
-                .andExpect(method(HttpMethod.POST))
-                .andRespond(withStatus(HttpStatus.valueOf(status))
-                        .header("Location", "https://sensitive-fixture.invalid/posting")
-                        .body("sensitive-fixture-detail"));
-
-        assertThatThrownBy(() -> adapter.approveAndPost(42L, "operator"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("after approval").hasMessageContaining("HTTP " + status)
-                .hasMessageNotContaining("sensitive-fixture").hasNoCause();
+                .hasMessageContaining("auto-post");
     }
 
     @Test

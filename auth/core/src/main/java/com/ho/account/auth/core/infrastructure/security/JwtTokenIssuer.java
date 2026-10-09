@@ -52,6 +52,7 @@ public class JwtTokenIssuer implements TokenIssuerPort {
                                 "dataScope", assignment.dataScope()))
                         .toList())
                 .setIssuer(properties.getJwt().getIssuer())
+                .setAudience(properties.getJwt().getAudience())
                 .setIssuedAt(Date.from(issuedAt))
                 .setExpiration(Date.from(expiresAt));
 
