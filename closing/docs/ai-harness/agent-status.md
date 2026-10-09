@@ -179,3 +179,9 @@
 
 - [PR #905](https://github.com/skyg547/account/pull/905) is OPEN/DRAFT with `Refs #890`, initial head `4a779bee`. Issue #890 remains OPEN; the worktree is retained. PR publication does not satisfy the outstanding #890 P1/P2 acceptance gaps.
 - 2026-10-09 re-audit: `:closing:test` PASS (up-to-date); forced API159/Batch111/Core373 = 643/643 PASS with 29 tasks executed. Independent read-only review reconfirmed Q1–Q4 PASS for the bounded diff and P1/P2 unmet Issue criteria. Gateway routes omit `/api/v1/journals/posting` and rebuild actor/role headers only from validated JWTs; Closing-only changes cannot establish the required trusted maker/checker/poster flow.
+
+### GH-890 Draft #905 follow-up, 2026-10-09
+
+- Existing branch/worktree `agent/890-closing-http-autopost-recovery` / `/tmp/account-890-closing-http-autopost-recovery`; Issue OPEN, PR #905 OPEN/DRAFT. Only `closing/**` changed; this follow-up added FX/ECL-shaped HTTP **create** response-loss/restart tests, while the prior status allowlist and remote auto-post block remain.
+- Focused HTTP48 PASS; isolated forced `./gradlew :closing:test --rerun-tasks --console=plain --max-workers=2 --no-daemon` PASS645 (API159/Batch111/Core375), failures/errors/skips0. A prior concurrent Gradle XML collision was superseded by this single-process run. Independent read-only review found Q1–Q4 PASS for the bounded change and retained P1/P2 full-Issue acceptance gaps. Details and evidence table are in [worklog](worklog.md).
+- Next owner: authorized Journal/Gateway identity and route contract owner, then Closing implementation/test owner for APPROVED/POSTED and create/approve/post response-loss coverage. Human review owns Ready/merge; parent Integrator owns module records and Draft publication. No production remote, PostgreSQL, or distributed fault proof is claimed.
