@@ -1,3 +1,20 @@
+## 2026-10-09 — GH-854 cashflow image targets / Draft PR #878
+
+- Issue [#854](https://github.com/skyg547/account/issues/854); branch `agent/854-cashflow-images`; worktree `/tmp/account-854-cashflow-images`; base `origin/main@6b4998ed89b4518a0f8bb568046c89a34f7ca7dd`; [Draft PR #878](https://github.com/skyg547/account/pull/878), `Refs #854`.
+- Scope: `deploy/image-targets.json` cashflow API/Batch entries use `java-api`/`java-batch` and `enabled: false`; canonical Java 17 Dockerfiles added at `cashflow/api/Dockerfile` and `cashflow/batch/Dockerfile`; `cashflow/README.md` explains manual builds. False preserves the Issue's no-Compose-change boundary because `DevelopmentComposePolicyTest` requires every enabled image in development Compose. No shared contract, business logic, pipeline, Compose, or Kubernetes file changed.
+- Verification: `./gradlew :config-server:test --console=plain --no-daemon` PASS (119 tests, 0 failures, 11 skipped); `./gradlew :cashflow:api:bootJar :cashflow:batch:bootJar --console=plain --no-daemon` PASS; `./gradlew :cashflow:core:test :cashflow:api:test :cashflow:batch:test --console=plain --no-daemon` PASS (23 tests, 0 failures/skips). Manifest/canonical Dockerfile/one non-plain JAR static assertions PASS; staged whitespace and changed-file marker checks PASS.
+- Requested `./gradlew :infra:test :cashflow:test` failed before tests because project `:infra` does not exist. `./gradlew :cashflow:test` alone is `NO-SOURCE`; its child suites are the effective tests. Initial `enabled: true` attempt failed three development Compose policy tests; changing only the two cashflow entries to false made the full config-server suite pass.
+- Independent read-only `/root/review_854`: no in-scope blocker; Q1–Q4 PASS. `ContainerImagePolicyTest` is already class-level disabled, and its hardcoded 36/35 counts plus enabled-project equality would fail if restored. This remains a separate policy/test gate. Docker/Podman image builds were not run; image-level validation is a later gate.
+- PR #878 current-head cashflow CI PASS; harness contract and module validation checks PASS. `Check implementer PR discipline` reports FAIL because the PR is Draft and the repository trust policy is unconfigured. The PR now has the `agent:codex` owner label, a fenced verification block, and a `Merge authority:` line; the remaining Draft/trust gate is not waived. The three Issue-requested shared status records are the only common documentation edits; `docs/history/CODEX_WORKLOG.md` stays untouched under the user's explicit scope restriction.
+- Rollback: reviewed PR revert. Next owner: human reviewer for Draft PR and current-head checks; Ready, merge, Issue close, and resource deletion remain separate authorization gates.
+
+| Quality item | Result | File and verification evidence | N/A reason | Risk / next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `deploy/image-targets.json`, both cashflow Dockerfiles; canonical comparison and both `bootJar` tasks PASS | Not applicable: item is assessed | Disabled policy test; human review | `/root/review_854`: PASS |
+| Q2 | PASS | `cashflow/api/Dockerfile`, `cashflow/batch/Dockerfile`, `cashflow/README.md`; single non-plain JAR guard | Not applicable: item is assessed | Image build pending | `/root/review_854`: PASS |
+| Q3 | PASS | `cashflow/README.md`; root-context commands and disabled-target rationale | Not applicable: item is assessed | Image build pending | `/root/review_854`: PASS |
+| Q4 | PASS | Dockerfile line 9 in both modules; artifact-count intent comment | Not applicable: item is assessed | No remaining in-scope risk | `/root/review_854`: PASS |
+
 ## 2026-10-06 — GH-858 account-mart foreign FX fail-closed CDM conversion
 
 - Issue #858, `agent/858-require-fx-rate`, `/tmp/account-858-require-fx-rate`, base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`, Draft PR [#875](https://github.com/skyg547/account/pull/875) (`Refs #858`). Only the four Issue-listed `account-mart/**` code, test, and ETL spec files changed in implementation commit `950a7e47`; no other module or shared contract was changed.
