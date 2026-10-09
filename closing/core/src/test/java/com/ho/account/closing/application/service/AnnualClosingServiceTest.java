@@ -384,6 +384,72 @@ class AnnualClosingServiceTest {
     }
 
     @Test
+    void suppliedCategoryCannotHideMissingDatedMasterHistory() {
+        StatefulJournal journal = journalWithPostedRevenue("1000.00");
+        journal.removeMasterAccount(REVENUE_ACCOUNT, LocalDate.of(YEAR, 6, 30));
+
+        assertThatThrownBy(() -> service(journal).performIncomeStatementClosing(YEAR))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("classification is missing");
+        assertThat(journal.createdCommands()).isEmpty();
+    }
+
+    @Test
+    void suppliedNonIncomeCategoryCannotHideDatedRevenueClassification() {
+        StatefulJournal journal = new StatefulJournal();
+        journal.addSource("POSTED", List.of(
+                detail(REVENUE_ACCOUNT, "ASSETS", JournalSide.CREDIT, "1000.00", "1000.00")));
+        journal.addMasterAccount(REVENUE_ACCOUNT, LocalDate.of(YEAR, 6, 30),
+                account(REVENUE_ACCOUNT, "REVENUE"));
+
+        assertThatThrownBy(() -> service(journal).performIncomeStatementClosing(YEAR))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("classification does not match");
+        assertThat(journal.createdCommands()).isEmpty();
+    }
+
+    @Test
+    void suppliedCategoryCannotHideNullDatedMasterCategory() {
+        StatefulJournal journal = journalWithPostedRevenue("1000.00");
+        journal.addMasterAccount(REVENUE_ACCOUNT, LocalDate.of(YEAR, 6, 30),
+                account(REVENUE_ACCOUNT, null));
+
+        assertThatThrownBy(() -> service(journal).performIncomeStatementClosing(YEAR))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("source classification completeness failed")
+                .hasMessageContaining("Master returned no category");
+        assertThat(journal.createdCommands()).isEmpty();
+    }
+
+    @Test
+    void supportedNonIncomeAccountIsClassifiedAndExplicitlyExcluded() {
+        StatefulJournal journal = new StatefulJournal();
+        journal.addSource("POSTED", List.of(
+                detail(REVENUE_ACCOUNT, "REVENUE", JournalSide.CREDIT, "1000.00", "1000.00"),
+                detail("11000", "ASSETS", JournalSide.DEBIT, "1000.00", "1000.00")));
+
+        service(journal).performIncomeStatementClosing(YEAR);
+
+        assertThat(journal.createdCommands()).singleElement().satisfies(command ->
+                assertThat(command.lines()).extracting(line -> line.accountCode())
+                        .containsExactly(REVENUE_ACCOUNT, RETAINED_EARNINGS_ACCOUNT));
+        assertThat(journal.masterLookupCount("11000", LocalDate.of(YEAR, 6, 30))).isOne();
+    }
+
+    @Test
+    void onlyNonIncomeSourceStillRequiresDatedMasterClassification() {
+        StatefulJournal journal = new StatefulJournal();
+        journal.addSource("POSTED", List.of(
+                detail("11000", "ASSETS", JournalSide.DEBIT, "1000.00", "1000.00")));
+        journal.removeMasterAccount("11000", LocalDate.of(YEAR, 6, 30));
+
+        assertThatThrownBy(() -> service(journal).performIncomeStatementClosing(YEAR))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("source classification completeness failed");
+        assertThat(journal.createdCommands()).isEmpty();
+    }
+
+    @Test
     void mismatchedMasterAccountIdentityFailsClosed() {
         StatefulJournal journal = journalWithMissingSourceCategory();
         JournalDetailSummary source = journal.sourceDetails(1L).get(0);
@@ -524,6 +590,10 @@ class AnnualClosingServiceTest {
                 detail.setSlipNo(summary.getSlipNo());
                 detail.setHeaderDescription(summary.getDescription());
                 accountCategories.putIfAbsent(detail.getAccountCode(), detail.getAccountCategory());
+                if (detail.getAccountCategory() != null) {
+                    addMasterAccount(detail.getAccountCode(), detail.getAccountingDate(),
+                            account(detail.getAccountCode(), detail.getAccountCategory()));
+                }
             });
             details.put(id, stored);
             return id;
@@ -556,6 +626,8 @@ class AnnualClosingServiceTest {
                 detail.setAccountingDate(YEAR_END);
                 detail.setSlipNo(slipNo);
                 detail.setHeaderDescription(summary.getDescription());
+                addMasterAccount(detail.getAccountCode(), YEAR_END,
+                        account(detail.getAccountCode(), detail.getAccountCategory()));
             });
             details.put(id, stored);
             return slipNo;
@@ -599,6 +671,13 @@ class AnnualClosingServiceTest {
 
         void addMasterAccount(String accountCode, LocalDate effectiveDate, AccountSubjectRef account) {
             masterAccounts.put(new AccountLookup(accountCode, effectiveDate), account);
+            if (account.accountCategory() != null) {
+                accountCategories.putIfAbsent(accountCode, account.accountCategory());
+            }
+        }
+
+        void removeMasterAccount(String accountCode, LocalDate effectiveDate) {
+            masterAccounts.remove(new AccountLookup(accountCode, effectiveDate));
         }
 
         int masterLookupCount(String accountCode, LocalDate effectiveDate) {
@@ -665,6 +744,8 @@ class AnnualClosingServiceTest {
                         detail.setAccountingDate(command.accountingDate());
                         detail.setSlipNo(command.slipNo());
                         detail.setHeaderDescription(command.description());
+                        addMasterAccount(detail.getAccountCode(), command.accountingDate(),
+                                account(detail.getAccountCode(), detail.getAccountCategory()));
                         return detail;
                     })
                     .toList();

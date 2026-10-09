@@ -193,7 +193,7 @@ ECL 충당 Job 예시:
 - `dev` profile은 `closing.sources.enabled=false` 또는 미설정일 때 외부 source/Journaling을 fail-closed합니다.
 - 연차 API 본문에는 `year`만 넣습니다. 이익잉여금 계정과 법인을 요청으로 선택할 수 없으며, `account.closing.annual`에 연도별 승인 규칙이 없거나 `postable`/`approvedBy`/`changeReference` 증빙이 부족하면 실패합니다. 설정은 버전 관리·동료 검토된 배포 입력으로 관리하고, 변경 시 연차 호출을 drain한 뒤 모든 instance를 재시작합니다.
 - 이익잉여금 계정은 매호출 12월 31일 Master Data에서 정확한 코드·`EQUITY`·`CREDIT`를 검증합니다. 자산·부채·수익·비용·알 수 없는 분류, 차변 정상잔액은 Journal 조회·생성 전에 거부합니다. 순이익·순손실·순액 0 모두 이 검증을 우회하지 않습니다.
-- 원천 라인 분류는 Journal 상세의 지원 `accountCategory`를 우선 사용하고, 값이 없으면 계정 코드와 상세 회계일자로 Master Data를 조회합니다. 조회 누락·계정 불일치·빈 값·미지원 분류는 실패하며, 수익·비용만 금액 대체 대상이지만 다른 지원 분류도 source snapshot 식별에 포함됩니다.
+- 모든 `POSTED` 원천 라인은 Journal 분류 유무와 관계없이 계정 코드와 상세 회계일자로 Master Data를 조회합니다. Journal 분류가 있으면 기준일 Master 분류와 일치해야 합니다. 조회 누락·계정 불일치·빈 값·미지원 분류는 분류 완전성 오류로 실패합니다. 손익과 명시적 비손익 분류의 라인 수·기준통화 금액 절대값 합계를 Journal이 반환한 전체 원천과 대사한 뒤, 수익·비용만 대체하고 다른 지원 분류는 명시적으로 제외하되 source snapshot 식별에 포함합니다. 공급자가 반환하지 않은 라인은 이 대사만으로 감지할 수 없습니다.
 - 현재 연차 구현은 원천 전표별 상세 조회(N+1)이며 원격 조회와 초안 생성은 분산 원자적 snapshot이 아닙니다. `HttpClosingJournalAdapter`의 maker 헤더 전달만으로 신뢰된 서비스 주체가 성립하지 않으므로, 별도 승인된 인증 통합 전에는 독립 Journal 원격 초안 생성을 배포 검증된 경로로 간주하면 안 됩니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.

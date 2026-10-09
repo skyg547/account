@@ -174,6 +174,12 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         List<String> canonicalEntries = new ArrayList<>();
         Map<String, BigDecimal> sourceSignedBalances = new HashMap<>();
         Map<String, String> incomeCategories = new HashMap<>();
+        long sourceDetailCount = 0;
+        long incomeDetailCount = 0;
+        long excludedDetailCount = 0;
+        BigDecimal sourceGrossBaseAmount = BigDecimal.ZERO;
+        BigDecimal incomeGrossBaseAmount = BigDecimal.ZERO;
+        BigDecimal excludedGrossBaseAmount = BigDecimal.ZERO;
 
         for (JournalSummary summary : summaries) {
             validatePostedSourceSummary(summary, startDate, endDate);
@@ -187,6 +193,8 @@ public class AnnualClosingService implements AnnualClosingUseCase {
                 validateSourceDetail(summary, detail, detailIds);
                 String category = resolveAccountCategory(detail, accountCategoryCache);
                 if (REVENUE.equals(category) || EXPENSES.equals(category)) {
+                    incomeDetailCount++;
+                    incomeGrossBaseAmount = incomeGrossBaseAmount.add(detail.getBaseAmount());
                     String accountCode = detail.getAccountCode().trim();
                     incomeCategories.merge(accountCode, category, (left, right) -> {
                         if (!left.equals(right)) {
@@ -197,11 +205,26 @@ public class AnnualClosingService implements AnnualClosingUseCase {
                     });
                     sourceSignedBalances.merge(
                             accountCode, signed(detail.getSide(), detail.getBaseAmount()), BigDecimal::add);
+                } else {
+                    excludedDetailCount++;
+                    excludedGrossBaseAmount = excludedGrossBaseAmount.add(detail.getBaseAmount());
                 }
                 canonicalDetails.add(canonicalSourceDetail(detail, category));
             }
+            sourceDetailCount += details.size();
+            sourceGrossBaseAmount = sourceGrossBaseAmount.add(details.stream()
+                    .map(JournalDetailSummary::getBaseAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add));
             canonicalDetails.sort(Comparator.naturalOrder());
             canonicalEntries.add(canonicalSourceEntry(summary, canonicalDetails));
+        }
+
+        // Account for each returned POSTED line as P&L or explicitly excluded, even if net amounts
+        // cancel. This cannot detect lines omitted by the upstream Journal provider.
+        if (sourceDetailCount != incomeDetailCount + excludedDetailCount
+                || sourceGrossBaseAmount.compareTo(
+                        incomeGrossBaseAmount.add(excludedGrossBaseAmount)) != 0) {
+            throw invalid("source classification completeness failed: line count or gross base amount differs");
         }
 
         if (incomeCategories.containsKey(retainedAccount)) {
@@ -555,18 +578,21 @@ public class AnnualClosingService implements AnnualClosingUseCase {
     private String resolveAccountCategory(
             JournalDetailSummary detail,
             Map<AccountLookupKey, String> accountCategoryCache) {
-        String suppliedCategory = detail.getAccountCategory();
-        String category;
-        if (suppliedCategory != null && !suppliedCategory.isBlank()) {
-            category = suppliedCategory.trim();
-        } else {
-            String accountCode = detail.getAccountCode().trim();
-            AccountLookupKey key = new AccountLookupKey(accountCode, detail.getAccountingDate());
-            category = accountCategoryCache.computeIfAbsent(
-                    key, ignored -> lookupAccountCategory(accountCode, detail.getAccountingDate()));
-        }
+        String accountCode = detail.getAccountCode().trim();
+        AccountLookupKey key = new AccountLookupKey(accountCode, detail.getAccountingDate());
+        // Journal's category is evidence to cross-check, never authority to skip dated Master.
+        String category = accountCategoryCache.computeIfAbsent(
+                key, ignored -> lookupAccountCategory(accountCode, detail.getAccountingDate()));
         if (!ACCOUNT_CATEGORIES.contains(category)) {
-            throw invalid("journal detail accountCategory is unsupported: " + category);
+            throw invalid("source classification completeness failed: unsupported Master category for "
+                    + accountCode);
+        }
+        String suppliedCategory = detail.getAccountCategory();
+        if (suppliedCategory != null && !suppliedCategory.isBlank()) {
+            if (!category.equals(suppliedCategory.trim())) {
+                throw invalid("source classification completeness failed: Journal classification does not match "
+                        + "dated Master for " + accountCode);
+            }
         }
         return category;
     }
@@ -601,13 +627,15 @@ public class AnnualClosingService implements AnnualClosingUseCase {
     private String lookupAccountCategory(String accountCode, LocalDate accountingDate) {
         AccountSubjectRef account = masterDataQueryPort.findAccountSubjectAt(accountCode, accountingDate)
                 .orElseThrow(() -> invalid(
-                        "account classification is missing for " + accountCode + " at " + accountingDate));
+                        "source classification completeness failed: classification is missing for "
+                                + accountCode + " at " + accountingDate));
         if (account.code() == null || !accountCode.equals(account.code().trim())) {
-            throw invalid("master-data returned a different or invalid account code");
+            throw invalid("source classification completeness failed: Master returned a different account code");
         }
         String category = account.accountCategory();
         if (category == null || category.isBlank()) {
-            throw invalid("master-data returned an account without classification: " + accountCode);
+            throw invalid("source classification completeness failed: Master returned no category for "
+                    + accountCode);
         }
         return category.trim();
     }

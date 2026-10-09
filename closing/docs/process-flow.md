@@ -540,8 +540,9 @@ flowchart TD
     B --> C[12월 31일 Master의 정확한 EQUITY/CREDIT 검증]
     C --> D[연도 내 Journal summary 조회]
     D --> E[POSTED 비연차 원천의 헤더와 상세 검증]
-    E --> F[원천 및 설정 통제 identity의 source snapshot]
-    F --> G[기존 연차 DRAFT와 POSTED의 헤더·상세 검증]
+    E --> F[모든 라인의 기준일 Master 분류와 원천 완전성 대사]
+    F --> F1[원천 및 설정 통제 identity의 source snapshot]
+    F1 --> G[기존 연차 DRAFT와 POSTED의 헤더·상세 검증]
     G --> H[필요 대체액 - 누적 POSTED 결산액]
     H -->|잔여 0| I[새 전표 없이 성공]
     H -->|같은 snapshot의 정확한 DRAFT| J[기존 초안 재사용]
@@ -563,8 +564,8 @@ flowchart TD
 - 대상은 1월 1일부터 12월 31일까지의 `POSTED`이면서 연차 결산이 아닌 전표입니다. `DRAFT` 원천은 금액과 identity에서 제외합니다.
 - 전표 헤더의 ID, 전표번호, 전표일·회계일, 설명, 상태, 유형, 통화, lineage 쌍과 각 상세의 ID, 계정, 유효 분류, 차대변, 금액·기준통화금액, 회계일, 헤더 연결 값, 상세 설명과 부서·거래처·계좌 차원을 정규화합니다.
 - 상세와 전표 순서를 정렬하고 연도·이익잉여금 계정·정규화한 설정 통제 identity와 함께 SHA-256으로 식별합니다. 설정 identity는 `legalEntityCode`, 연도, 계정 코드, `postable`, `approvedBy`, `changeReference`를 포함합니다. 공급자의 반환 순서만 바뀌면 identity는 같지만, 원천 금액·계정·분류·헤더/lineage나 이 설정 증빙이 바뀌면 다른 snapshot입니다.
-- 상세가 비어 있지 않은 지원 `accountCategory`를 제공하면 그 값을 사용합니다. 값이 없으면 상세의 계정 코드와 회계일자로 `MasterDataQueryPort.findAccountSubjectAt`을 호출하며, 같은 실행의 동일 계정·일자는 캐시합니다. dev에서 remote Master Data 설정을 활성화한 경우의 구현은 `HttpClosingMasterDataQueryAdapter`입니다.
-- 지원 분류는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`, `NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 기준일 계정 조회 누락, 다른 계정 코드 반환, 빈 분류, 미지원 분류와 연차 라인의 현재 원천 분류 불일치는 실패합니다. `REVENUE`와 `EXPENSES`만 대체 금액에 포함되며, 한 계정이 두 손익 분류로 나타나거나 이익잉여금 계정이 손익 계정이면 실패합니다.
+- 모든 `POSTED` 상세는 Journal의 `accountCategory`가 있어도 상세 계정 코드와 회계일자로 `MasterDataQueryPort.findAccountSubjectAt`을 호출합니다. Journal 분류가 있으면 기준일 Master 분류와 정확히 일치해야 하며, 값이 없으면 Master 분류를 사용합니다. 같은 실행의 동일 계정·일자는 캐시합니다. dev에서 remote Master Data 설정을 활성화한 경우의 구현은 `HttpClosingMasterDataQueryAdapter`입니다.
+- 지원 분류는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`, `NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 기준일 계정 조회 누락, 다른 계정 코드 반환, 빈 분류, 미지원 분류와 Journal 분류 불일치는 분류 완전성 오류로 실패합니다. 손익과 명시적 비손익 분류 각각의 라인 수·기준통화 금액 절대값 합계가 Journal이 반환한 전체 원천과 같아야만 다음 단계로 갑니다. Journal 공급자가 반환하지 않은 라인은 이 검사로 감지하지 못합니다. `REVENUE`와 `EXPENSES`만 대체 금액에 포함하며 다른 지원 분류는 검증·snapshot에 포함한 뒤 대체에서 명시적으로 제외합니다. 한 계정이 두 손익 분류로 나타나거나 이익잉여금 계정이 손익 계정이면 실패합니다.
 
 새 연차 전표는 `ANNUAL_CLOSING` lineage에 `연도|이익잉여금 계정 식별자|source snapshot identity`를
 보존하고, snapshot을 포함한 결정적 `ACL` 전표번호를 사용합니다. 생성자와 감사 사용자는 기존 계약대로
