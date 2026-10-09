@@ -7,6 +7,8 @@ import com.ho.account.expenditure.infrastructure.persistence.entity.PayableJpaEn
 import com.ho.account.expenditure.infrastructure.persistence.mapper.PayableMapper;
 import com.ho.account.expenditure.repository.PayableRepository;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,6 +21,13 @@ import java.util.Optional;
  */
 @Component
 public class PayablePersistenceAdapter implements PayablePersistencePort {
+
+    private static final List<PayableStatus> PAYMENT_ELIGIBLE_STATUSES = List.of(
+            PayableStatus.OPEN,
+            PayableStatus.APPROVED,
+            PayableStatus.UNPAID,
+            PayableStatus.PARTIAL_PAID,
+            PayableStatus.OVERDUE);
 
     private final PayableRepository payableRepository;
     private final PayableMapper payableMapper;
@@ -40,6 +49,21 @@ public class PayablePersistenceAdapter implements PayablePersistencePort {
     public Optional<Payable> findById(Long id) {
         return payableRepository.findById(id)
                 .map(payableMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Payable> findByIdForUpdate(Long id) {
+        return payableRepository.findByIdForUpdate(id)
+                .map(payableMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public int claimForPayment(Long payableId) {
+        // The claim and Payment insert must commit or roll back together.
+        return payableRepository.claimForPayment(
+                payableId, PayableStatus.IN_PAYMENT, PAYMENT_ELIGIBLE_STATUSES, BigDecimal.ZERO);
     }
 
     @Override

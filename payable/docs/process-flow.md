@@ -65,8 +65,11 @@ flowchart TD
     B --> C[PaymentRunCommand]
     C --> D[PaymentService.initiatePaymentRun]
     D --> E[기준일 도래 Payable 조회]
-    E --> F[Payment 생성]
-    F --> G[Payment.payableId에 정확한 채무 ID 저장]
+    E --> F{DB 조건부 claim 1행 성공?}
+    F -->|0행, 다른 런이 선점| H
+    F -->|1행| G0[채무 최신 잔액 다시 조회]
+    G0 --> G1[Payment 생성]
+    G1 --> G[Payment.payableId에 정확한 채무 ID 저장]
     G --> H[PaymentRun PROCESSING]
     H --> I[PaymentRunResponse 반환]
 
@@ -86,6 +89,8 @@ flowchart TD
 
 지급 실행은 `PAYMENT:{paymentId}` 멱등 키를 사용한다. 장애 후 같은 지급을 재시도해도 로컬 어댑터는 같은 참조번호를 반환한다. 운영에서는 이 포트 자리에 은행 API 어댑터를 연결하되, 같은 멱등 키 규칙을 유지해야 한다.
 
+지급 후보를 만들기 전 `PayablePersistencePort.claimForPayment`가 채무 ID, 지급 가능 상태(`OPEN`, `APPROVED`, `UNPAID`, `PARTIAL_PAID`, `OVERDUE`), 양수 잔액을 한 DB UPDATE에서 검사하고 상태를 `IN_PAYMENT`로 바꾼다. 갱신 행 수가 1일 때만 최신 채무를 다시 읽어 그 잔액으로 `Payment`를 만든다. 0이면 다른 런이 먼저 선점했거나 상태가 바뀐 것이므로 후보를 만들지 않는다. claim과 후보 삽입은 같은 서비스 트랜잭션에서 커밋 또는 롤백된다. 따라서 실패한 트랜잭션은 claim을 남기지 않고 다시 시도할 수 있다. 초보자 관점에서는 같은 빚에 붙이는 '지급 중' 표식을 DB가 한 사람에게만 허용하는 셈이다.
+
 ## 선급금과 상계 흐름
 
 ```mermaid
@@ -96,8 +101,10 @@ flowchart TD
     D --> E[AdvancePaymentResponse 반환]
 
     F[POST /api/payments/offset-payable] --> G[OffsetPayableCommand]
-    G --> H[Payable 조회]
-    G --> I[AdvancePayment 조회]
+    G --> H[Payable 행 잠금 후 조회]
+    H --> H1{IN_PAYMENT인가?}
+    H1 -->|예| H2[상계 거부, 잔액 유지]
+    H1 -->|아니오| I[AdvancePayment 조회]
     H --> J{두 vendorCode가 비어 있지 않고 같은가?}
     I --> J
     J -->|아니오| X[업무 예외: 변경 없이 거부]
@@ -108,7 +115,9 @@ flowchart TD
     N --> O[PayableResponse 반환]
 ```
 
-상계는 채무와 선급금 양쪽 잔액을 동시에 줄이는 업무다. 한쪽만 바뀌면 거래처 잔액이 틀어지므로 `PaymentService`가 두 도메인 객체를 함께 조회하고 같은 트랜잭션에서 처리한다. **두 객체의 `vendorCode`는 비어 있지 않고 같아야 한다.** 서비스는 잔액·상태를 처음 변경하기 전에 이 소유권 불변식을 확인한다. 코드가 다르거나 어느 한쪽의 코드가 `null` 또는 공백이면 `IllegalArgumentException`으로 거부하며 두 객체 저장 및 `JournalPostingPort` 호출을 하지 않는다. 상계 전표의 차변·대변 공급업체 코드는 검증된 채무 코드를 사용한다.
+상계는 채무와 선급금 양쪽 잔액을 동시에 줄이는 업무다. 한쪽만 바뀌면 거래처 잔액이 틀어지므로 `PaymentService`가 두 도메인 객체를 함께 조회하고 같은 트랜잭션에서 처리한다. 채무 행 잠금은 지급 런의 조건부 claim과 상계를 직렬화한다. 이미 `IN_PAYMENT`인 채무의 상계는 잔액이나 전표를 변경하기 전에 거부한다. 상계가 먼저 완료되면 뒤따른 지급 런은 변경된 잔액으로 claim하고, 지급 런이 먼저 완료되면 상계가 거부된다.
+
+또한 **두 객체의 `vendorCode`는 비어 있지 않고 같아야 한다.** 서비스는 잔액·상태를 처음 변경하기 전에 이 소유권 불변식을 확인한다. 코드가 다르거나 어느 한쪽의 코드가 `null` 또는 공백이면 `IllegalArgumentException`으로 거부하며 두 객체 저장 및 `JournalPostingPort` 호출을 하지 않는다. 상계 전표의 차변·대변 공급업체 코드는 검증된 채무 코드를 사용한다.
 
 예를 들어 채무 ID 100(잔액 500.00)과 같은 공급업체 선급금 ID 200(잔액 200.00)이 있을 때 다음 본문으로 요청한다.
 
