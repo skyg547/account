@@ -1,6 +1,6 @@
 # GH-894 handoff
 
-Issue [#894](https://github.com/skyg547/account/issues/894) has a module-scoped implementation on `agent/894-domain-persistence-boundary` in `/tmp/account-894-domain-persistence-boundary`, based on `origin/main@9348966a`. [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`. Other modules and shared harness/history were not edited.
+Issue [#894](https://github.com/skyg547/account/issues/894) is `status:blocked` on the Loan integration regression. Its module-scoped implementation is on `agent/894-domain-persistence-boundary` in `/tmp/account-894-domain-persistence-boundary`, based on `origin/main@9348966a`. [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`. Other modules and shared harness/history were not edited.
 
 - The domain has no Spring/JPA source references. Infrastructure owns repositories, converter, named XML entity mapping and persistence lifecycle listener. Journal API/Batch opt in; Loan `dev` contexts initialize without Journal schema leakage, while Loan `local` contexts fail to start as noted below.
 - Exact `./gradlew :journal-ledger:test`: 434/434 PASS (core 323, API 74, Batch 37), no failures/errors/skips. Existing POSTED persistence 19/19 PASS. Byte-identical boundary guard `78656bbe...` fails 1/1 on audited `a97d10ab` and passes here. API/Batch bootJar and static gates PASS.
