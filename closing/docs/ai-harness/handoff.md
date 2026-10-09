@@ -225,3 +225,11 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 
 - [Draft PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE, `Refs #777`, initial head `5e4c428e`; old #808 remains CLOSED. Issue #777 remains OPEN / `status:needs-review`, and the isolated worktree is retained.
 - GitHub-hosted module/harness/merge-guard jobs did not start because their annotations report recent-payment or spending-limit restrictions. They are an external CI gate, not executed test failures or successes. No billing setting was accessed or changed. The PR body records local verification, Q1–Q4, rollback, residual risks and human authority separation. Next owner is the human current-head reviewer and account owner for CI availability; Ready/merge/Issue close/deployment/cleanup remain unperformed.
+
+## GH-895 — 2026-10-09 Draft handoff
+
+- Issue #895 / CL14, branch `agent/895-closing-pure-domain`, worktree `/tmp/account-895-closing-pure-domain`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. Scope and all records are `closing/**`; common harness and other modules are untouched.
+- Ten Closing domain models are persistence-framework independent. Infrastructure entities and explicit port mapping retain schema/callbacks; daily status retains `@Version`, pessimistic row locks, stale-write rejection and historical date rows. The new architecture guard rejects audited JPA import forms.
+- Final forced `:closing:test` PASS636/636 (Core375/API159/Batch102, no failure/error/skip), both boot JARs PASS; static scope/diff/marker/index checks PASS. Independent read-only review found no P0–P3 and Q1–Q4 PASS after returned Q4 comments were fixed. Detailed evidence is in [worklog](worklog.md#2026-10-09--gh-895-closing-domain-persistence-extraction).
+- Rollback: reviewed Closing-only revert, preserving persisted calendar, audit, daily and financial history; no migration or data reset. Remaining gates: live PostgreSQL lock/DDL and concurrency behavior, distributed failure and production-load verification, plus human review of current-head CI. H2 results do not establish those conditions.
+- 권한 분리: 작성자와 독립 읽기 전용 리뷰어는 분리되었고, 부모 Integrator만 기록·commit·push·Draft PR을 소유합니다. AI 리뷰는 사람 리뷰를 대체하지 않습니다. Ready 전환, merge, Issue close, 배포, branch/worktree 삭제는 수행하지 않습니다.

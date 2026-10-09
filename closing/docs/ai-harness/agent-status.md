@@ -167,3 +167,11 @@
 
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
+
+## GH-895 — 2026-10-09 Closing pure domain extraction
+
+- Issue [#895](https://github.com/skyg547/account/issues/895), CL14/P2; claim [6081032752](https://github.com/skyg547/account/issues/895#issuecomment-6081032752), `agent:codex`; branch `agent/895-closing-pure-domain`, worktree `/tmp/account-895-closing-pure-domain`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`.
+- Scope `closing/**` only. Module-local records honor the common-harness prohibition. GPT-6 Sol/high writer owns Closing code, tests and functional docs; independent GPT-6 Sol/high reviewer is read-only; parent Integrator owns records, Git and GitHub.
+- Ten JPA-backed domain classes now use plain domain state and rules. Infrastructure entities, explicit mapper and port adapters own table/column/callback mappings. Daily status retains `@Version`, locked lookups and stale-version rejection.
+- Final forced `./gradlew :closing:test --console=plain --max-workers=1 --no-daemon --rerun-tasks` PASS: Core375/API159/Batch102 = 636 tests, failures/errors/skips0. API and Batch `bootJar` PASS. Audited source has 46 forbidden domain import lines; current source has 0; architecture guard negative fixtures PASS. Scope, whitespace, conflict-marker and unmerged-index gates PASS.
+- Independent `/root/closing_review`: no P0–P3, Q1–Q4 PASS after Q4 comments were restored and focused tests rerun. Actual PostgreSQL locking/DDL, distributed faults, production data and load remain unverified. Next owner after Draft is the human current-head/CI reviewer. Ready, merge, Issue close, deployment and branch/worktree cleanup remain separate gates.

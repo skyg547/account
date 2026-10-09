@@ -1,66 +1,48 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
  * 결산 태스크(Closing Task) 엔티티 — 마감 전 수행해야 할 개별 작업 단위를 정의하고 상태를 관리합니다.
- * 
+ *
  * 🐣 [초보자를 위한 설명]
- * 결산 태스크는 '마감 전 체크리스트의 한 줄'과 같습니다. 
- * "은행 잔고 대조 완료", "부가세 신고 준비" 등 마감을 위해 반드시 끝내야 하는 숙제들입니다. 
+ * 결산 태스크는 '마감 전 체크리스트의 한 줄'과 같습니다.
+ * "은행 잔고 대조 완료", "부가세 신고 준비" 등 마감을 위해 반드시 끝내야 하는 숙제들입니다.
  * 이 숙제가 모두 '완료' 상태가 되어야만 비로소 그달의 장부에 자물쇠를 채울 수 있습니다.
  */
-@Entity
-@Table(name = "closing_tasks")
+
 public class ClosingTask {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "calendar_id", nullable = false)
     private ClosingCalendar closingCalendar;
 
-    @Column(nullable = false, length = 200)
     private String name; // 태스크명 (예: "은행잔고 대조 완료", "외화 평가 실행")
 
-    @Column(length = 1000)
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 50)
     private ClosingTaskCategory category; // PRE_CLOSING, CLOSING_ENTRY, POST_CLOSING
 
     private LocalDateTime dueDate; // 태스크 완료 기한
 
-    @Column(length = 50)
     private String assignedTo; // 담당자
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ClosingTaskStatus status; // PENDING, IN_PROGRESS, COMPLETED, FAILED
 
     // 태스크 완료 조건(JSON). 예: 특정 대사 실행이 SUCCESS 상태인지 확인하는 조건.
-    @Column(columnDefinition = "TEXT")
+
     private String completionConditionJson;
 
-    @Column(nullable = false)
     private boolean isMandatory; // 필수 태스크 여부
 
-    @Column(nullable = false)
     private Integer taskOrder; // 태스크 실행 순서
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
-    @Transient
     private String taskCode;
 
     public enum ClosingTaskCategory {
@@ -69,21 +51,6 @@ public class ClosingTask {
 
     public enum ClosingTaskStatus {
         PENDING, IN_PROGRESS, COMPLETED, FAILED, SKIPPED
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
-            this.status = ClosingTaskStatus.PENDING;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 
     // Getter and Setter

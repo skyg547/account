@@ -1,74 +1,44 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
  * Approval request for reopening a fiscal period.
  * Stores only the fiscal period ID to avoid cross-module entity coupling.
  */
-@Entity
-@Table(name = "reopen_approvals")
+
 public class ReopenApproval {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fiscal_period_id", nullable = false)
     private Long fiscalPeriodId;
 
-    @Transient
     private String fiscalYear;
 
-    @Transient
     private String fiscalPeriod;
 
-    @Column(length = 50)
     private String requestedBy;
 
     private LocalDateTime requestedAt;
 
-    @Column(length = 1000)
     private String reason;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ReopenApprovalStatus status; // PENDING, APPROVED, REJECTED
 
-    @Column(length = 50)
     private String approvedBy;
 
     private LocalDateTime approvedAt;
 
-    @Column(columnDefinition = "TEXT")
     private String impactAnalysisReport;
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
     public enum ReopenApprovalStatus {
         PENDING, APPROVED, REJECTED
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
-            this.status = ReopenApprovalStatus.PENDING;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 
     public Long getId() {
