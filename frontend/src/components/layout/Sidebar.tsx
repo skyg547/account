@@ -18,15 +18,17 @@ function getIcon(name: string): React.ElementType {
 }
 
 export default function Sidebar() {
-  const { activeCategory, isCollapsed, toggleSidebar, userRole, userAuthorizations } = useNav();
+  const { activeCategory, isCollapsed, toggleSidebar, userRole, userAuthorizations, authorizationStatus } = useNav();
   const pathname = usePathname();
 
-  // 개별 메뉴 아이템 접근 권한 체크 (Governance API 연동 및 데모 모드 지원)
+  // The home link is basic navigation; every business menu requires an explicit grant.
   const hasItemAccess = (href: string) => {
+    if (href === '/') return true;
     if (userRole === 'SYSTEM_ADMIN') return true;
-    if (!userAuthorizations || userAuthorizations.length === 0) return true;
-    if (userAuthorizations.some(auth => auth.functionCode === 'MENU:*')) return true;
-    return userAuthorizations.some(auth => auth.functionCode === `MENU:${href}`);
+    if (authorizationStatus !== 'success') return false;
+    return userAuthorizations?.some(auth =>
+      auth.functionCode === 'MENU:*' || auth.functionCode === `MENU:${href}`
+    ) ?? false;
   };
 
   // 현재 카테고리 필터링 및 권한 체크
@@ -64,6 +66,22 @@ export default function Sidebar() {
 
       {/* ── Menu Groups ── */}
       <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'px-2' : 'px-4'} py-6 custom-scrollbar space-y-6`}>
+        {userRole !== 'SYSTEM_ADMIN' && authorizationStatus !== 'success' && (
+          <div
+            role={authorizationStatus === 'loading' ? 'status' : 'alert'}
+            aria-label={authorizationStatus === 'loading' ? '메뉴 권한을 확인하는 중입니다.' : '메뉴 권한을 불러오지 못했습니다.'}
+            title={authorizationStatus === 'loading' ? '메뉴 권한을 확인하는 중입니다.' : '메뉴 권한을 불러오지 못했습니다.'}
+            className="mb-4 rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-xs text-[#545b69] dark:text-slate-300"
+          >
+            {isCollapsed ? (
+              authorizationStatus === 'loading' ? <LucideIcons.LoaderCircle size={17} /> : <LucideIcons.AlertCircle size={17} />
+            ) : (
+              authorizationStatus === 'loading'
+                ? '메뉴 권한을 확인하는 중입니다.'
+                : '메뉴 권한을 불러오지 못했습니다. 권한 대상 메뉴를 표시할 수 없습니다.'
+            )}
+          </div>
+        )}
         {filteredMenuItems.map((group, idx) => (
           <div key={`${group.module}-${idx}`} className="animate-in slide-in-from-left duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
             {!isCollapsed && (

@@ -51,6 +51,11 @@ public class AuthModuleProperties {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.jwt.secret' must be at least 32 UTF-8 bytes for secure HS256 signing.");
         }
+        if (jwt.getIssuer() == null || jwt.getIssuer().isBlank()
+                || jwt.getAudience() == null || jwt.getAudience().isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: JWT issuer and audience must be configured.");
+        }
         if (internalApi.getToken() == null || internalApi.getToken().isBlank()) {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
@@ -214,6 +219,7 @@ public class AuthModuleProperties {
     public static class Jwt {
         private String secret;
         private String issuer = "auth-service";
+        private String audience = "account-api";
         private long expirationSeconds = 3600L;
 
         public String getSecret() {
@@ -230,6 +236,14 @@ public class AuthModuleProperties {
 
         public void setIssuer(String issuer) {
             this.issuer = issuer;
+        }
+
+        public String getAudience() {
+            return audience;
+        }
+
+        public void setAudience(String audience) {
+            this.audience = audience;
         }
 
         public long getExpirationSeconds() {

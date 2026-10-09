@@ -5,6 +5,7 @@ const DEVELOPMENT_SESSION_COOKIE = 'account_session';
 const PRODUCTION_SESSION_COOKIE = '__Host-account_session';
 const MAX_LOGIN_BODY_BYTES = 16 * 1024;
 const MAX_PROXY_BODY_BYTES = 1024 * 1024;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
 const MAX_SESSION_AGE_SECONDS = 8 * 60 * 60;
 const MAX_SESSION_TOKEN_LENGTH = 3800;
 const GATEWAY_TIMEOUT_MILLISECONDS = 10_000;
@@ -338,6 +339,17 @@ function requestHeaders(request: NextRequest, sessionToken: string): Headers {
     const value = request.headers.get(name);
     if (value) {
       headers.set(name, value);
+    }
+  }
+  if (!['GET', 'HEAD'].includes(request.method)) {
+    const key = request.headers.get('x-idempotency-key');
+    if (key !== null) {
+      // A merged duplicate contains a comma. Reject it and all non-token characters
+      // so one browser key reaches receipt matching without trimming or reinterpretation.
+      if (!key || key.length > MAX_IDEMPOTENCY_KEY_LENGTH || !/^[A-Za-z0-9._~-]+$/.test(key)) {
+        throw new BffRequestError(400, 'X-Idempotency-Key 형식이 올바르지 않습니다.');
+      }
+      headers.set('x-idempotency-key', key);
     }
   }
   headers.set('authorization', `Bearer ${sessionToken}`);

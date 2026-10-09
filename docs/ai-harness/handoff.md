@@ -1,3 +1,10 @@
+## 2026-10-06 — GH-858 Draft PR #875 handoff
+
+- Source: [Issue #858](https://github.com/skyg547/account/issues/858), `status:needs-review`; implementation branch `agent/858-require-fx-rate` in `/tmp/account-858-require-fx-rate`, based on `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; [Draft PR #875](https://github.com/skyg547/account/pull/875) uses `Refs #858`.
+- Changed files: `account-mart/mart-core/.../IntegratedPositionProcessor.java`, its unit test, `account-mart/mart-batch/.../IntegratedPositionEtlJobTest.java`, and `account-mart/docs/ETL_INTERFACE_SPEC.md`. A missing or nonpositive foreign FX rate now fails the CDM Step/Job instead of storing principal as KRW market value. No batch wiring/schema/other module changed.
+- Commands/results: targeted core 8 and batch 3 PASS; `./gradlew :account-mart:test --offline --console=plain --max-workers=1 --no-daemon` success but `NO-SOURCE`; child suites core 22, batch 10, API 3 PASS; final targeted batch 3 PASS after test-only review fix. `git diff --check` and conflict marker scan PASS. Separate read-only review has no remaining P0–P3 and Q1–Q4 PASS; see PR body for file/test evidence.
+- Rollback: reviewed four-file revert only after foreign-rate completeness is assured or affected jobs are paused, because the old 1:1 fallback returns. Residual limits: H2 tests do not prove production-scale parallel CDM or corrected-rate/prior-snapshot rerun. Next: human review, current-head CI, then separately authorized Ready/merge/Issue close; preserve branch/worktree until merge verification.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
@@ -4027,10 +4034,10 @@
 - Rollback: reviewed Issue-scoped code revert; use a reviewed forward migration for schema correction and preserve audit rows. Next owner is human PR reviewer and PostgreSQL/CI integration gate before Ready or merge. Issue closure and worktree/branch removal remain separate gates.
 - Remote CI on Draft PR #814 initial head `d225857b` failed before steps (no runner assigned and no logs). Next owner should restore/rerun checks and verify the final head before Ready; this is not a failed auth test result.
 
-## 2026-10-06 — GH-857 reporting KRW guard handoff
+## 2026-10-05 — GH-829 교차 고객 수납 반제 방지 / Draft PR #844
 
-- [Draft PR #866](https://github.com/skyg547/account/pull/866) (`Refs #857`) is on `agent/857-reporting-krw-ledger` in `/tmp/account-857-reporting-krw-ledger`, based on `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`. Issue #857 remains OPEN and `status:needs-review`.
-- Four reporting files changed: `reporting/build.gradle`, `LedgerClientAdapter.java`, `LedgerClientAdapterTest.java`, and `reporting/docs/process-flow.md`. The adapter checks every GL row for KRW before collapsing currency into account-only balances. Invalid currency prevents FINAL save; valid KRW still uses `BigDecimal` sum and existing fallback. The module-level test command now executes core/API/batch suites.
-- Tests: pre-fix focused RED4/6; post-fix focused6/6, full reporting120/120 (core104/API10/batch6; zero failures/errors/skips). Parent ran requested `./gradlew :reporting:test --console=plain --max-workers=1 --no-daemon`: exit0 with child suites UP-TO-DATE from full run; XML totals confirmed. Independent read-only reviewer reran focused6/6 with `--rerun-tasks` and found no P0–P3; Q1–Q4 PASS in worklog and PR body. Diff whitespace, four-file marker, and unmerged-index checks PASS.
-- No live GL HTTP/DB integration, production batch, or remote CI evidence. Before Ready, review remote checks and the live integration gate if required by the human reviewer. Rollback via reviewed Issue-scoped revert; no migration or data recovery. The reporting writer has no Git/GitHub authority; the read-only reviewer made no edits; parent Integrator owns records and Draft publication. Human reviewer retains Ready, merge, Issue close, and resource cleanup authority.
-- Remote PR discipline guard remains intentionally failing while Draft and while the repository's trusted review policy is unconfigured (`policy: undefined`). The parent completed the PR metadata fields and left policy/Ready/merge decisions to the human owner; this guard result is separate from reporting test results.
+- Issue [#829](https://github.com/skyg547/account/issues/829), branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`, [Draft PR #844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 변경: `CollectionService.java` 공통 매칭의 고객 일치 사전 검증; `CollectionServiceTest.java`의 교차 고객 무변경·포트 미호출 및 같은 고객 수동·자동 부분 매칭 테스트; `receivable/docs/process-flow.md`의 기능·초보자 검증 설명. 다른 모듈·공용 계약·DB는 변경하지 않았다.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; `git diff --check`·충돌 마커 PASS. 독립 읽기 전용 리뷰 지적 사항 없음, Q1–Q4 PASS. 자세한 명령·근거는 `worklog.md`와 PR 본문 참조.
+- 남은 위험: 실제 PostgreSQL·원격 GL 및 HTTP 종단 실행을 검증하지 않았고 기존 오배분 데이터는 정정하지 않았다. 변경 롤백은 PR 코드·테스트·문서 커밋 revert이며 운영 데이터·마이그레이션은 변경 없음.
+- 다음 소유자: 사람 리뷰어가 최신 head/base·CI와 운영 연동 위험을 검토한다. 작성자와 독립 리뷰어의 권한은 분리했고 Git/PR·기록은 부모 Integrator가 소유한다. PR은 Draft이며 별도 승인 전 Ready·merge·Issue close·branch/worktree 삭제 없음.

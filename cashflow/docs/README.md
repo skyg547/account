@@ -49,6 +49,12 @@ Content-Type: application/json
 로컬 `LedgerCashBalancePort`의 미등록 잔액은 `0.00`이므로 위 응답의 기말현금은
 `100000.00`입니다. 생성 결과는 `GET /api/v1/cashflow/statements/CF-2026-09`로 조회합니다.
 
+`lineItems` 목록과 목록의 각 원소는 `null`일 수 없습니다. `lineItems: null`,
+`lineItems: [null]`, 정상 항목 뒤에 `null`이 있는 요청은 HTTP 400으로 거절되며 해당
+`statementId`는 저장되지 않습니다. 빈 목록 `[]`은 유효하며 활동별 합계와 순현금흐름이
+`0.00`인 statement를 HTTP 201로 생성합니다. 정상 항목은 계속 허용되며 금액의 소수점
+정밀도와 항목 통화·statement 통화 일치 검증이 적용됩니다.
+
 유동성 예측 생성:
 
 ```http

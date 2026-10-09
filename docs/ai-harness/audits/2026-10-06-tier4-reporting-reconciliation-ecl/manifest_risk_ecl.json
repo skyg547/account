@@ -1,0 +1,29 @@
+{
+  "cluster": "risk_ecl",
+  "issues": [
+    {
+      "id": "RISK_ECL_01",
+      "title": "[ecl] 월말 snapshot에서 빠진 계좌가 다음 평가의 ECL에 계속 포함됨",
+      "priority": "P1",
+      "module": "ecl",
+      "labels": ["module:ecl", "area:batch", "type:financial", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "RISK_ECL_01.md"
+    },
+    {
+      "id": "RISK_ECL_02",
+      "title": "[ecl] 완료 결과가 0건인 재실행이 기존 충당금 summary를 삭제함",
+      "priority": "P1",
+      "module": "ecl",
+      "labels": ["module:ecl", "area:core", "type:bug", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "RISK_ECL_02.md"
+    },
+    {
+      "id": "RISK_ECL_03",
+      "title": "[ecl] 거시 시나리오 확률 가중치 합계 오류를 그대로 충당금에 반영함",
+      "priority": "P1",
+      "module": "ecl",
+      "labels": ["module:ecl", "area:core", "type:financial", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "RISK_ECL_03.md"
+    }
+  ]
+}

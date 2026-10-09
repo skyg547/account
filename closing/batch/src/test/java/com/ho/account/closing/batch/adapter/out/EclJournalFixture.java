@@ -4,6 +4,9 @@ import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
 import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
 import com.ho.account.closing.domain.ProvisionBatch;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
+import com.ho.account.closing.infrastructure.external.MasterDataFxExchangeRateLookupAdapter;
+import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -38,7 +41,7 @@ final class EclJournalFixture {
     final ExchangeRateQueryPort rates = mock(ExchangeRateQueryPort.class);
     final ClosingAccountingProperties properties = new ClosingAccountingProperties();
     final FxValuationEligibilityResolver eligibility = mock(FxValuationEligibilityResolver.class);
-    final GlAllowanceBalanceLookupAdapter balances;
+    final JournalFxValuationBalanceSource balances;
     final List<JournalEntryCommand> commands = new ArrayList<>();
     final EclProvisionService service;
     private long nextId = 1;
@@ -74,13 +77,11 @@ final class EclJournalFixture {
                     stage1_allowance_amount NUMERIC(19,4), stage2_allowance_amount NUMERIC(19,4),
                     stage3_allowance_amount NUMERIC(19,4))
                 """);
-        var rule = new ClosingAccountingProperties.AutomatedJournalRule();
+        var rule = new ClosingAccountingProperties.EclAccountMapping();
         rule.setDebitAccountCode("550100");
         rule.setCreditAccountCode("129100");
-        rule.setAmount(BigDecimal.ONE);
         properties.getProvisionRules().put(ProvisionBatch.ProvisionType.ECL, rule);
-        balances = new GlAllowanceBalanceLookupAdapter(
-                new JournalFxValuationBalanceSource(dataSource, jdbc, eligibility));
+        balances = new JournalFxValuationBalanceSource(dataSource, jdbc, eligibility);
         service = new EclProvisionService(balances,
                 new JournalLedgerClosingJournalEntryAdapter(posting, query), properties,
                 new JdbcEclAllowanceResultAdapter(jdbc), new MasterDataFxExchangeRateLookupAdapter(rates));

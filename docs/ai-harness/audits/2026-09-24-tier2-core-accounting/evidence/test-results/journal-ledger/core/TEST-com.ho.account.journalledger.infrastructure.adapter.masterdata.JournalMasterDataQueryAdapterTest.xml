@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.939">
+  <properties/>
+  <testcase name="httpAdapterRejectsSubMillisecondTimeoutInsteadOfConvertingItToUnlimited()" classname="com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest" time="0.012"/>
+  <testcase name="httpAdapterFailsClosedWithinConfiguredReadTimeout()" classname="com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest" time="0.819"/>
+  <testcase name="httpAdapterMapsMasterDataResponsesAndTreatsNotFoundAsEmpty()" classname="com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest" time="0.099"/>
+  <testcase name="localAdapterSupportsNonBlankStandaloneReferencesOnly()" classname="com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest" time="0.003"/>
+  <testcase name="httpAdapterFailsClosedOnServerErrors()" classname="com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

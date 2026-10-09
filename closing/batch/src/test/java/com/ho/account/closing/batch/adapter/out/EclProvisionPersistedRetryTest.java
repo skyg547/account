@@ -8,6 +8,7 @@ import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
 import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -42,10 +43,9 @@ class EclProvisionPersistedRetryTest {
         var source = mock(EclAllowanceResultPort.class);
         var adapter = new JournalLedgerClosingJournalEntryAdapter(posting, query);
         var properties = new ClosingAccountingProperties();
-        var rule = new ClosingAccountingProperties.AutomatedJournalRule();
+        var rule = new ClosingAccountingProperties.EclAccountMapping();
         rule.setDebitAccountCode("510100");
         rule.setCreditAccountCode("131900");
-        rule.setAmount(BigDecimal.ONE);
         properties.getProvisionRules().put(ProvisionBatch.ProvisionType.ECL, rule);
         var service = new EclProvisionService(balances, adapter, properties, source, mock(FxExchangeRateLookupPort.class));
         when(balances.findCreditBalance("131900", "KRW", "KRW", date))

@@ -1,3 +1,10 @@
+## 2026-10-06 — GH-858 account-mart FX rate requirement / Draft PR #875
+
+- State: `status:needs-review`; branch `agent/858-require-fx-rate`; worktree `/tmp/account-858-require-fx-rate`; base `origin/main@973d76dd`; [Draft PR #875](https://github.com/skyg547/account/pull/875), `Refs #858`.
+- Scope: four Issue-listed `account-mart/**` files. Missing/invalid base-date foreign/KRW rate now fails CDM conversion, Step, and Job; valid rate uses `BigDecimal` scale 4 `HALF_UP`.
+- Verification: targeted 8 core/3 batch PASS; full child suites 22 core/10 batch/3 API PASS; final batch cause-assertion targeted 3 PASS. Requested aggregate `:account-mart:test` was `NO-SOURCE`. Diff/markers PASS. Independent reviewer: no remaining P0–P3; Q1–Q4 PASS (PR evidence table).
+- Next owner: human PR reviewer for current-head checks and merge decision. Ready, merge, Issue close, and resource cleanup are pending. Rollback of the four files restores the unsafe fallback and needs FX completeness protection.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
@@ -898,10 +905,9 @@
 - Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
 - Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
 
-## 2026-10-06 — GH-857 reporting currency validation
+## 2026-10-05 — GH-829 Draft PR #844
 
-- Status: implementation and separate read-only review complete; [Draft PR #866](https://github.com/skyg547/account/pull/866) is OPEN with `Refs #857`; Issue #857 remains OPEN at `status:needs-review` with `agent:codex`. Branch `agent/857-reporting-krw-ledger`, external worktree `/tmp/account-857-reporting-krw-ledger`, base `origin/main@973d76dd`.
-- Scope: four `reporting/**` files enforce KRW before GL account aggregation, test mixed/foreign/missing currency and FINAL-save prevention, document the flow, and connect the module-level test task to core/API/batch. Module writer `/root/reporting_writer` finished; reviewer `/root/reporting_review` found no P0–P3 and Q1–Q4 PASS; parent owns shared records and Git/GitHub.
-- Verification: pre-fix RED 4/6; post-fix focused6/6 and full reporting core104/API10/batch6=120/120 with no failures/errors/skips. Parent exact `:reporting:test` exit0 (three child suites UP-TO-DATE with XML evidence); independent focused `--rerun-tasks`6/6 PASS; diff/marker/index gates PASS.
-- Limits and next owner: no live GL database/HTTP or production batch run; remote CI and human PR review remain before Ready/merge. Rollback is reviewed four-file revert; no migration/data recovery. Human controls Ready, merge, Issue close, and branch/worktree cleanup. User restricted out-of-module edits to the three requested harness files, so Codex history was not updated.
-- Remote gate: the PR discipline guard is designed to fail for Draft and also has no configured trusted review policy (`policy: undefined`); its metadata fields have been supplied. This separate Ready/merge blocker does not change local 120/120 test evidence.
+- Issue [#829](https://github.com/skyg547/account/issues/829): 교차 고객 수납·채권 수동/자동 반제 차단. Branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd`, Draft PR [#844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 결과: 서비스 공통 진입점에서 고객 코드를 변경 전에 검증하고, 3개 업무 파일만 변경. 교차 고객 거부 시 상태·잔액·배분·전표 포트 보존, 같은 고객 부분 매칭·GL 고객 코드 유지. 독립 읽기 전용 리뷰 지적 사항 없음; Q1–Q4 PASS.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; 공백·충돌 마커 검사 PASS. PostgreSQL/원격 GL/HTTP 종단 검증과 기존 데이터 정정은 후속 범위.
+- 다음 소유자: 사람 리뷰어. Draft 유지; 최신 CI와 head/base 검토 및 별도 승인 전 Ready·merge·Issue close·자원 삭제 없음.

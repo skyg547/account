@@ -7,10 +7,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
@@ -29,6 +31,8 @@ import com.ho.account.receivable.domain.CollectionAllocation;
 import com.ho.account.receivable.domain.CollectionStatus;
 import com.ho.account.receivable.domain.Receivable;
 import com.ho.account.receivable.domain.ReceivableStatus;
+import com.ho.account.receivable.domain.SalesInvoice;
+import com.ho.account.receivable.domain.SalesInvoiceStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -172,6 +176,8 @@ class CollectionServiceTest {
     void manualMatchCollectionUsesMappedAccounts() {
         Collection collection = collection();
         Receivable receivable = receivable();
+        SalesInvoice invoice = invoice();
+        receivable.setSalesInvoice(invoice);
 
         when(collectionPersistencePort.findById(20L)).thenReturn(Optional.of(collection));
         when(accountingPeriodStatusPort.isClosed(collection.getCollectionDate())).thenReturn(false);
@@ -193,11 +199,155 @@ class CollectionServiceTest {
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("CLR-002", "AR-002");
+        assertThat(commandCaptor.getValue().lines()).extracting(JournalLineCommand::businessPartnerCode)
+                .containsExactly("C001", "C001");
+        assertThat(collection.getMatchedAmount()).isEqualByComparingTo("100.00");
+        assertThat(collection.getUnallocatedAmount()).isEqualByComparingTo("0.00");
+        assertThat(collection.getStatus()).isEqualTo(CollectionStatus.MATCHED);
+        assertThat(receivable.getOutstandingAmount()).isEqualByComparingTo("400.00");
+        assertThat(receivable.getStatus()).isEqualTo(ReceivableStatus.PARTIAL_PAID);
+        assertThat(invoice.getStatus()).isEqualTo(SalesInvoiceStatus.PARTIAL_PAID);
+        verify(salesInvoicePersistencePort).save(invoice);
         ArgumentCaptor<CollectionAllocation> allocationCaptor = ArgumentCaptor.forClass(CollectionAllocation.class);
         verify(collectionAllocationPersistencePort).save(allocationCaptor.capture());
         assertThat(allocationCaptor.getValue().getMatchedAmount()).isEqualByComparingTo("100.00");
         assertThat(allocationCaptor.getValue().getResidualCollectionAmount()).isEqualByComparingTo("0.00");
         assertThat(allocationCaptor.getValue().getResidualReceivableAmount()).isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    @DisplayName("다른 고객의 채권은 수동 매칭 전에 거부하고 잔액, 인보이스, 저장, 전표를 건드리지 않는다")
+    void manualMatchRejectsDifferentCustomerBeforeMutation() {
+        Collection collection = collection();
+        Receivable receivable = receivable();
+        receivable.setCustomerCode("C002");
+        SalesInvoice invoice = invoice();
+        invoice.setCustomerCode("C002");
+        receivable.setSalesInvoice(invoice);
+
+        when(collectionPersistencePort.findById(20L)).thenReturn(Optional.of(collection));
+        when(receivablePersistencePort.findById(30L)).thenReturn(Optional.of(receivable));
+
+        assertThatThrownBy(() -> service.manualMatchCollection(
+                new ManualMatchingCommand(20L, 30L, new BigDecimal("40.00"))))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(collection.getMatchedAmount()).isEqualByComparingTo("0.00");
+        assertThat(collection.getUnallocatedAmount()).isEqualByComparingTo("100.00");
+        assertThat(collection.getStatus()).isEqualTo(CollectionStatus.RECEIVED);
+        assertThat(receivable.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        assertThat(receivable.getStatus()).isEqualTo(ReceivableStatus.OPEN);
+        assertThat(invoice.getStatus()).isEqualTo(SalesInvoiceStatus.ISSUED);
+        // 조회 성공 뒤에도 어떤 쓰기 포트나 전표 준비 포트에도 도달하지 않아야 한다.
+        verify(collectionPersistencePort, never()).save(any());
+        verify(receivablePersistencePort, never()).save(any());
+        verifyNoInteractions(salesInvoicePersistencePort, collectionAllocationPersistencePort,
+                receivableAccountMappingPort, journalPostingPort, masterDataQueryPort);
+    }
+
+    @Test
+    @DisplayName("자동 매칭 정책이 다른 고객의 채권을 반환해도 공통 검증이 상태 변경 전에 거부한다")
+    void autoMatchRejectsDifferentCustomerCandidateBeforeMutation() {
+        Collection collection = collection();
+        Receivable receivable = receivable();
+        receivable.setCustomerCode("C002");
+        SalesInvoice invoice = invoice();
+        invoice.setCustomerCode("C002");
+        receivable.setSalesInvoice(invoice);
+
+        when(collectionPersistencePort.findById(20L)).thenReturn(Optional.of(collection));
+        when(receivablePersistencePort.findOpenItemsByCustomerCode("C001"))
+                .thenReturn(java.util.List.of(receivable));
+        when(collectionMatchingPolicyPort.selectMatch(collection, java.util.List.of(receivable)))
+                .thenReturn(Optional.of(receivable));
+
+        assertThatThrownBy(() -> service.attemptAutoMatching(20L))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(collection.getMatchedAmount()).isEqualByComparingTo("0.00");
+        assertThat(collection.getStatus()).isEqualTo(CollectionStatus.RECEIVED);
+        assertThat(receivable.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        assertThat(receivable.getStatus()).isEqualTo(ReceivableStatus.OPEN);
+        assertThat(invoice.getStatus()).isEqualTo(SalesInvoiceStatus.ISSUED);
+        verify(collectionPersistencePort, never()).save(any());
+        verify(receivablePersistencePort, never()).save(any());
+        verifyNoInteractions(salesInvoicePersistencePort, collectionAllocationPersistencePort,
+                receivableAccountMappingPort, journalPostingPort, masterDataQueryPort);
+    }
+
+    @Test
+    @DisplayName("같은 고객의 수동 부분 매칭은 양쪽 잔액과 인보이스를 부분 상태로 바꾼다")
+    void manualPartialMatchPreservesBalancesAndInvoiceStatus() {
+        Collection collection = collection();
+        Receivable receivable = receivable();
+        SalesInvoice invoice = invoice();
+        receivable.setSalesInvoice(invoice);
+        stubMatchPosting(collection, receivable);
+        when(collectionPersistencePort.findById(20L)).thenReturn(Optional.of(collection));
+        when(receivablePersistencePort.findById(30L)).thenReturn(Optional.of(receivable));
+
+        service.manualMatchCollection(new ManualMatchingCommand(20L, 30L, new BigDecimal("40.00")));
+
+        assertThat(collection.getMatchedAmount()).isEqualByComparingTo("40.00");
+        assertThat(collection.getUnallocatedAmount()).isEqualByComparingTo("60.00");
+        assertThat(collection.getStatus()).isEqualTo(CollectionStatus.PARTIAL_MATCHED);
+        assertThat(receivable.getOutstandingAmount()).isEqualByComparingTo("460.00");
+        assertThat(receivable.getStatus()).isEqualTo(ReceivableStatus.PARTIAL_PAID);
+        assertThat(invoice.getStatus()).isEqualTo(SalesInvoiceStatus.PARTIAL_PAID);
+        verify(salesInvoicePersistencePort).save(invoice);
+        assertPartialMatchAllocationAndJournal("40.00", "60.00", "460.00");
+    }
+
+    @Test
+    @DisplayName("같은 고객의 자동 부분 매칭은 남은 수납액만 배분하고 채권과 인보이스를 부분 상태로 바꾼다")
+    void autoPartialMatchPreservesBalancesAndInvoiceStatus() {
+        Collection collection = collection();
+        collection.setMatchedAmount(new BigDecimal("40.00"));
+        collection.setStatus(CollectionStatus.PARTIAL_MATCHED);
+        Receivable receivable = receivable();
+        SalesInvoice invoice = invoice();
+        receivable.setSalesInvoice(invoice);
+        stubMatchPosting(collection, receivable);
+        when(collectionPersistencePort.findById(20L)).thenReturn(Optional.of(collection));
+        when(receivablePersistencePort.findOpenItemsByCustomerCode("C001"))
+                .thenReturn(java.util.List.of(receivable));
+        when(collectionMatchingPolicyPort.selectMatch(collection, java.util.List.of(receivable)))
+                .thenReturn(Optional.of(receivable));
+
+        service.attemptAutoMatching(20L);
+
+        assertThat(collection.getMatchedAmount()).isEqualByComparingTo("100.00");
+        assertThat(collection.getUnallocatedAmount()).isEqualByComparingTo("0.00");
+        assertThat(collection.getStatus()).isEqualTo(CollectionStatus.MATCHED);
+        assertThat(receivable.getOutstandingAmount()).isEqualByComparingTo("440.00");
+        assertThat(receivable.getStatus()).isEqualTo(ReceivableStatus.PARTIAL_PAID);
+        assertThat(invoice.getStatus()).isEqualTo(SalesInvoiceStatus.PARTIAL_PAID);
+        verify(salesInvoicePersistencePort).save(invoice);
+        assertPartialMatchAllocationAndJournal("60.00", "0.00", "440.00");
+    }
+
+    private void stubMatchPosting(Collection collection, Receivable receivable) {
+        when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer()));
+        when(receivableAccountMappingPort.resolveCollectionMatchAccounts(collection, receivable))
+                .thenReturn(new ReceivableAccountMappingPort.CollectionMatchAccounts("CLR-002", "AR-002"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+    }
+
+    private void assertPartialMatchAllocationAndJournal(String amount, String collectionBalance,
+                                                         String receivableBalance) {
+        ArgumentCaptor<CollectionAllocation> allocationCaptor = ArgumentCaptor.forClass(CollectionAllocation.class);
+        verify(collectionAllocationPersistencePort).save(allocationCaptor.capture());
+        assertThat(allocationCaptor.getValue().getMatchedAmount()).isEqualByComparingTo(amount);
+        assertThat(allocationCaptor.getValue().getResidualCollectionAmount()).isEqualByComparingTo(collectionBalance);
+        assertThat(allocationCaptor.getValue().getResidualReceivableAmount()).isEqualByComparingTo(receivableBalance);
+
+        ArgumentCaptor<JournalEntryCommand> journalCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort).createDraftEntry(journalCaptor.capture());
+        assertThat(journalCaptor.getValue().lines()).extracting(JournalLineCommand::amount)
+                .containsExactly(new BigDecimal(amount), new BigDecimal(amount));
+        assertThat(journalCaptor.getValue().lines()).extracting(JournalLineCommand::businessPartnerCode)
+                .containsExactly("C001", "C001");
     }
 
     @Test
@@ -264,5 +414,12 @@ class CollectionServiceTest {
 
     private BusinessPartnerRef customer() {
         return new BusinessPartnerRef("C001", "Customer One", "CUSTOMER", true);
+    }
+
+    private SalesInvoice invoice() {
+        SalesInvoice invoice = new SalesInvoice();
+        invoice.setCustomerCode("C001");
+        invoice.setStatus(SalesInvoiceStatus.ISSUED);
+        return invoice;
     }
 }

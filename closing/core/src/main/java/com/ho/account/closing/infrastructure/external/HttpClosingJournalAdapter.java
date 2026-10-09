@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -32,25 +33,43 @@ import org.springframework.web.client.RestClientResponseException;
 /**
  * Dev runtime adapter for the Journal Ledger HTTP contract.
  * ID/detail queries preserve the financial content checked on deterministic closing reruns.
- * Financial writes are never retried: approval and posting are separate remote transactions.
+ * Financial writes are never retried. The remote approval and posting sequence requires
+ * distinct trusted actors, so this adapter only creates drafts for human review.
  */
 @Component
 @Profile("dev")
+@ConditionalOnProperty(name = "closing.sources.enabled", havingValue = "true")
 public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQueryPort {
 
     private static final String UNSUPPORTED_QUERY =
             "Journal Ledger HTTP API does not support this Closing query";
+    private static final String AUTH_USER_HEADER = "X-Auth-User";
+    private static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
+    private static final String JOURNAL_MAKER_ROLE = "ROLE_JOURNAL_MAKER";
+    private static final String AUTO_POST_UNAVAILABLE =
+            "Closing HTTP Journal auto-post is unavailable: trusted maker, checker, and poster "
+                    + "identities are required; disable account.closing.accounting.auto-post-adjustments";
 
     private final RestClient restClient;
+    private final boolean autoPostAdjustments;
 
     @Autowired
     public HttpClosingJournalAdapter(
             RestClient.Builder builder,
             @Value("${closing.journal-ledger.base-url}") String baseUrl,
             @Value("${closing.journal-ledger.connect-timeout:2s}") String connectTimeout,
-            @Value("${closing.journal-ledger.read-timeout:5s}") String readTimeout) {
+            @Value("${closing.journal-ledger.read-timeout:5s}") String readTimeout,
+            @Value("${account.closing.accounting.auto-post-adjustments:false}") boolean autoPostAdjustments) {
         this(builder, baseUrl, parseDuration(connectTimeout, "connect-timeout"),
-                parseDuration(readTimeout, "read-timeout"));
+                parseDuration(readTimeout, "read-timeout"), autoPostAdjustments);
+    }
+
+    public HttpClosingJournalAdapter(
+            RestClient.Builder builder,
+            String baseUrl,
+            String connectTimeout,
+            String readTimeout) {
+        this(builder, baseUrl, connectTimeout, readTimeout, false);
     }
 
     public HttpClosingJournalAdapter(
@@ -58,9 +77,19 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
             String baseUrl,
             Duration connectTimeout,
             Duration readTimeout) {
+        this(builder, baseUrl, connectTimeout, readTimeout, false);
+    }
+
+    public HttpClosingJournalAdapter(
+            RestClient.Builder builder,
+            String baseUrl,
+            Duration connectTimeout,
+            Duration readTimeout,
+            boolean autoPostAdjustments) {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("closing.journal-ledger.base-url must not be blank");
         }
+        this.autoPostAdjustments = autoPostAdjustments;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory() {
             @Override
             protected void prepareConnection(HttpURLConnection connection, String method) throws IOException {
@@ -82,16 +111,23 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
     @Override
     public JournalPostingResult createDraftEntry(JournalEntryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
+        // Reject before the first remote write. A failed auto-post after draft creation
+        // would leave an unapproved financial draft while the Closing run reports failure.
+        rejectUnsupportedAutoPost();
         try {
             PostingResponse response = successful(restClient.post()
                     .uri("/api/v1/journals/posting")
+                    // Journal replaces the untrusted body actor with these gateway-style headers.
+                    .header(AUTH_USER_HEADER, command.createdBy())
+                    .header(AUTH_ROLES_HEADER, JOURNAL_MAKER_ROLE)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(command)
                     .retrieve())
                     .body(PostingResponse.class);
             if (response == null || response.journalEntryId() == null
                     || response.journalEntryId() < 1 || isBlank(response.slipNo())
-                    || isBlank(response.status())) {
+                    || (command.slipNo() != null && !command.slipNo().equals(response.slipNo()))
+                    || !"DRAFT".equals(response.status())) {
                 throw new IllegalStateException("Journal Ledger posting returned an invalid response");
             }
             return new JournalPostingResult(response.journalEntryId(), response.slipNo(), response.status());
@@ -108,18 +144,10 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
         if (isBlank(actor)) {
             throw new IllegalArgumentException("X-User-ID is required");
         }
-        try {
-            successful(restClient.post().uri("/api/journals/{id}/approve", journalEntryId)
-                    .header("X-User-ID", actor.trim()).retrieve()).toBodilessEntity();
-        } catch (RestClientException e) {
-            throw remoteFailure("approval; verify remote state before retrying", e);
-        }
-        try {
-            successful(restClient.post().uri("/api/journals/{id}/post", journalEntryId)
-                    .header("X-User-ID", actor.trim()).retrieve()).toBodilessEntity();
-        } catch (RestClientException e) {
-            throw remoteFailure("posting after approval; verify remote state before retrying", e);
-        }
+        // Journal requires maker request-approval, a different checker, and a poster.
+        // The caller's single actor cannot satisfy this workflow safely. This also
+        // prevents a rerun from advancing an existing draft by an ambiguous state.
+        throw new IllegalStateException(AUTO_POST_UNAVAILABLE);
     }
 
     @Override
@@ -266,6 +294,12 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private void rejectUnsupportedAutoPost() {
+        if (autoPostAdjustments) {
+            throw new IllegalStateException(AUTO_POST_UNAVAILABLE);
+        }
     }
 
     private static IllegalStateException remoteFailure(String operation, RestClientException error) {

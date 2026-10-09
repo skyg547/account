@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.batch.adapter.out.EclProvisionPersistedRetryTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:54" hostname="ho-To-Be-Filled-By-O-E-M" time="0.098">
+  <properties/>
+  <testcase name="reusesPersistedTwoDecimalDraftAfterRemoteSuccessAndLocalRetry()" classname="com.ho.account.closing.batch.adapter.out.EclProvisionPersistedRetryTest" time="0.098"/>
+  <system-out><![CDATA[2026-09-24T09:53:55.069+09:00  INFO 583573 --- [closing-batch] [    Test worker] [                                                 ] c.h.a.c.a.service.EclProvisionService    : Starting ECL Provision calculation for closing date: 2026-09-11
+2026-09-24T09:53:55.082+09:00  INFO 583573 --- [closing-batch] [    Test worker] [                                                 ] c.h.a.c.a.service.EclProvisionService    : Starting ECL Provision calculation for closing date: 2026-09-11
+2026-09-24T09:53:55.096+09:00  INFO 583573 --- [closing-batch] [    Test worker] [                                                 ] c.h.a.c.a.service.EclProvisionService    : Successfully created ECL provision journal entry. SlipNo: ECL20260911D0E928212, Amount: 4808.57
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

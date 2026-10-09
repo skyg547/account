@@ -240,6 +240,12 @@ public class PaymentService implements PaymentUseCase {
         AdvancePayment advancePayment = advancePaymentPersistencePort.findById(advancePaymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Advance payment not found: " + advancePaymentId));
 
+        // 전표는 채무의 공급업체 코드로 기록되므로 잔액 변경 전에 선급금 소유자를 확인한다.
+        String vendorCode = payable.getVendorCode();
+        if (vendorCode == null || vendorCode.isBlank() || !vendorCode.equals(advancePayment.getVendorCode())) {
+            throw new IllegalArgumentException("채무와 선급금의 공급업체 코드가 일치하지 않습니다.");
+        }
+
         // DDD: 비즈니스 로직을 엔티티로 이관
         payable.applyOffset(offsetAmount);
         advancePayment.applyOffset(offsetAmount);
