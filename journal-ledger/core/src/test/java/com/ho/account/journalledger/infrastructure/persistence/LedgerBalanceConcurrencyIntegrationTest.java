@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -204,6 +206,53 @@ class LedgerBalanceConcurrencyIntegrationTest {
                 "100.00", "20.00", "0.00", "120.00");
         assertSuccessor("sl_balances", "10100", successor, literal,
                 "110.00", "20.00", "0.00", "130.00");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void postingAndBalanceQueryKeepNullableEmptyAndDelimiterDimensionsDistinct(Mode mode) {
+        List<Dimensions> dimensions = List.of(
+                new Dimensions(null, null),
+                new Dimensions("NULL", null),
+                new Dimensions("", null),
+                new Dimensions("A|B", "C"),
+                new Dimensions("A", "B|C"));
+        List<String> amounts = List.of("10.00", "20.00", "30.00", "40.00", "50.00");
+
+        for (int index = 0; index < dimensions.size(); index++) {
+            Long journalId = seedJournal("DISTINCT-KEY-" + mode + "-" + index,
+                    DATE, amounts.get(index), false, dimensions.get(index), ACCOUNTS);
+            posting(mode).postJournalEntry(journalId, "dimension-poster");
+        }
+
+        assertFinancialTotals(5, 10, "150.00");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gl_balances WHERE balance_date = ?",
+                Integer.class, DATE)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sl_balances WHERE balance_date = ?",
+                Integer.class, DATE)).isEqualTo(10);
+        assertSuccessor("gl_balances", "10100", DATE, null, "0.00", "150.00", "0.00", "150.00");
+        assertSuccessor("gl_balances", "40100", DATE, null, "0.00", "0.00", "150.00", "-150.00");
+        for (int index = 0; index < dimensions.size(); index++) {
+            assertSuccessor("sl_balances", "10100", DATE, dimensions.get(index),
+                    "0.00", amounts.get(index), "0.00", amounts.get(index));
+            assertSuccessor("sl_balances", "40100", DATE, dimensions.get(index),
+                    "0.00", "0.00", amounts.get(index), "-" + amounts.get(index));
+        }
+
+        // The query groups persisted rows using the same full, nullable SL key as posting.
+        LedgerService ledger = (LedgerService) ReflectionTestUtils.getField(posting(mode), "ledgerService");
+        Map<Dimensions, SlBalance> queried = ledger.getSlBalances(DATE, DATE, "10100", null, null, "KRW")
+                .stream().collect(Collectors.toMap(
+                        row -> new Dimensions(row.getBusinessPartnerCode(), row.getDepartmentCode()),
+                        row -> row));
+        assertThat(queried).hasSize(dimensions.size());
+        for (int index = 0; index < dimensions.size(); index++) {
+            assertThat(queried.get(dimensions.get(index)).getDebitAmount())
+                    .isEqualByComparingTo(amounts.get(index));
+        }
+        assertThat(ledger.getGlBalances(DATE, DATE, "10100", "KRW"))
+                .singleElement().satisfies(balance ->
+                        assertThat(balance.getDebitAmount()).isEqualByComparingTo("150.00"));
     }
 
     @ParameterizedTest

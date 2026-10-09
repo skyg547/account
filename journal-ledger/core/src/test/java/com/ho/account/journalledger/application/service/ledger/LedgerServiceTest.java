@@ -219,6 +219,35 @@ class LedgerServiceTest {
     }
 
     @Test
+    void bulkPostingKeepsEmptyAndDelimiterBearingSlDimensionsSeparate() {
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        JournalDetail absent = detail(date, JournalSide.DEBIT, "10100", "1.00");
+        absent.setBusinessPartnerCode(null);
+        absent.setDepartmentCode(null);
+        JournalDetail empty = detail(date, JournalSide.DEBIT, "10100", "2.00");
+        empty.setBusinessPartnerCode("");
+        empty.setDepartmentCode(null);
+        JournalDetail firstDelimiter = detail(date, JournalSide.DEBIT, "10100", "3.00");
+        firstDelimiter.setBusinessPartnerCode("BP|A");
+        firstDelimiter.setDepartmentCode("D");
+        JournalDetail secondDelimiter = detail(date, JournalSide.DEBIT, "10100", "4.00");
+        secondDelimiter.setBusinessPartnerCode("BP");
+        secondDelimiter.setDepartmentCode("A|D");
+
+        ledgerService.updateLedgerBalancesBulk(List.of(absent, empty, firstDelimiter, secondDelimiter));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<SlBalance>> balances = ArgumentCaptor.forClass(List.class);
+        verify(ledgerBalancePersistencePort).saveSlBalances(balances.capture());
+        assertThat(balances.getValue()).extracting(SlBalance::getBusinessPartnerCode,
+                        SlBalance::getDepartmentCode, SlBalance::getDebitAmount)
+                .containsExactly(tuple(null, null, new BigDecimal("1.00")),
+                        tuple("", null, new BigDecimal("2.00")),
+                        tuple("BP|A", "D", new BigDecimal("3.00")),
+                        tuple("BP", "A|D", new BigDecimal("4.00")));
+    }
+
+    @Test
     void reversedBulkDatesPersistTheEarlierDayBeforeReadingTheLaterOpeningBalance() {
         LocalDate earlier = LocalDate.of(2026, 9, 24);
         LocalDate later = earlier.plusDays(1);
@@ -375,6 +404,24 @@ class LedgerServiceTest {
     }
 
     @Test
+    void glPeriodBalancesKeepDelimiterBearingAccountAndCurrencyComponentsSeparate() {
+        LocalDate start = LocalDate.of(2026, 9, 1);
+        LocalDate end = start.plusDays(1);
+        when(ledgerBalancePersistencePort.findGlBalances(start, end, null, null)).thenReturn(List.of(
+                glBalance("A|B", "C", end, "11.00", "2.00", "1.00"),
+                glBalance("A", "B|C", end, "105.00", "3.00", "2.00"),
+                glBalance("A|B", "C", start, "10.00", "1.00", "0.00"),
+                glBalance("A", "B|C", start, "100.00", "5.00", "0.00")));
+
+        List<GlBalance> result = ledgerService.getGlBalances(start, end, null, null);
+
+        assertThat(result).extracting(GlBalance::getAccountCode, GlBalance::getCurrencyCode)
+                .containsExactly(tuple("A|B", "C"), tuple("A", "B|C"));
+        assertGlAmounts(result.get(0), "10.00", "3.00", "1.00", "12.00");
+        assertGlAmounts(result.get(1), "100.00", "8.00", "2.00", "106.00");
+    }
+
+    @Test
     @DisplayName("SL은 계정·통화·거래처·부서와 null 차원을 각각 분리한다.")
     void slPeriodBalancesKeepAllDimensionsSeparate() {
         LocalDate start = LocalDate.of(2026, 9, 1);
@@ -413,6 +460,43 @@ class LedgerServiceTest {
         });
         verify(ledgerBalancePersistencePort).findSlBalances(start, end, null, null, null, null);
         verifyNoMoreInteractions(ledgerBalancePersistencePort);
+    }
+
+    @Test
+    void slPeriodBalancesKeepAbsentEmptyAndLiteralNullDimensionsSeparate() {
+        LocalDate start = LocalDate.of(2026, 9, 1);
+        LocalDate end = start.plusDays(1);
+        when(ledgerBalancePersistencePort.findSlBalances(start, end, null, null, null, null)).thenReturn(List.of(
+                slBalance("10100", null, null, "KRW", end, "11.00", "2.00", "1.00"),
+                slBalance("10100", "", null, "KRW", start, "100.00", "3.00", "1.00"),
+                slBalance("10100", "NULL", null, "KRW", start, "1000.00", "4.00", "2.00"),
+                slBalance("10100", null, null, "KRW", start, "10.00", "1.00", "0.00")));
+
+        List<SlBalance> result = ledgerService.getSlBalances(start, end, null, null, null, null);
+
+        assertThat(result).extracting(SlBalance::getBusinessPartnerCode, SlBalance::getDepartmentCode)
+                .containsExactly(tuple(null, null), tuple("", null), tuple("NULL", null));
+        assertSlAmounts(result.get(0), "10.00", "3.00", "1.00", "12.00");
+        assertSlAmounts(result.get(1), "100.00", "3.00", "1.00", "102.00");
+        assertSlAmounts(result.get(2), "1000.00", "4.00", "2.00", "1002.00");
+    }
+
+    @Test
+    void slPeriodBalancesKeepDelimiterBearingPartnerAndDepartmentComponentsSeparate() {
+        LocalDate start = LocalDate.of(2026, 9, 1);
+        LocalDate end = start.plusDays(1);
+        when(ledgerBalancePersistencePort.findSlBalances(start, end, null, null, null, null)).thenReturn(List.of(
+                slBalance("10100", "BP|A", "D", "KRW", end, "11.00", "2.00", "1.00"),
+                slBalance("10100", "BP", "A|D", "KRW", end, "105.00", "3.00", "2.00"),
+                slBalance("10100", "BP|A", "D", "KRW", start, "10.00", "1.00", "0.00"),
+                slBalance("10100", "BP", "A|D", "KRW", start, "100.00", "5.00", "0.00")));
+
+        List<SlBalance> result = ledgerService.getSlBalances(start, end, null, null, null, null);
+
+        assertThat(result).extracting(SlBalance::getBusinessPartnerCode, SlBalance::getDepartmentCode)
+                .containsExactly(tuple("BP|A", "D"), tuple("BP", "A|D"));
+        assertSlAmounts(result.get(0), "10.00", "3.00", "1.00", "12.00");
+        assertSlAmounts(result.get(1), "100.00", "8.00", "2.00", "106.00");
     }
 
     @ParameterizedTest

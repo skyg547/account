@@ -293,10 +293,11 @@ public class LedgerService {
     }
 
     private List<GlBalance> aggregateGlBalances(List<GlBalance> balances, LocalDate balanceDate) {
-        Map<String, GlBalance> aggregated = new LinkedHashMap<>();
-        Map<String, LocalDate> earliestDates = new LinkedHashMap<>();
+        Map<GlBalanceKey, GlBalance> aggregated = new LinkedHashMap<>();
+        Map<GlBalanceKey, LocalDate> earliestDates = new LinkedHashMap<>();
         for (GlBalance balance : balances) {
-            String key = balance.getAccountCode() + "|" + (balance.getCurrencyCode() != null ? balance.getCurrencyCode() : "");
+            // Match write-path dimensions exactly so nullable and delimiter-bearing codes stay distinct.
+            GlBalanceKey key = new GlBalanceKey(balance.getAccountCode(), balance.getCurrencyCode());
             GlBalance target = aggregated.computeIfAbsent(key, ignored -> createGlAggregate(balance, balanceDate));
             LocalDate earliestDate = earliestDates.get(key);
             // 일별 기초에는 이전 기말이 이미 이월되어 있다. 응답 날짜와 별도로 최소 날짜의 기초만 선택한다.
@@ -312,13 +313,12 @@ public class LedgerService {
     }
 
     private List<SlBalance> aggregateSlBalances(List<SlBalance> balances, LocalDate balanceDate) {
-        Map<String, SlBalance> aggregated = new LinkedHashMap<>();
-        Map<String, LocalDate> earliestDates = new LinkedHashMap<>();
+        Map<SlBalanceKey, SlBalance> aggregated = new LinkedHashMap<>();
+        Map<SlBalanceKey, LocalDate> earliestDates = new LinkedHashMap<>();
         for (SlBalance balance : balances) {
-            String key = balance.getAccountCode() + "|"
-                    + (balance.getBusinessPartnerCode() != null ? balance.getBusinessPartnerCode() : "") + "|"
-                    + (balance.getDepartmentCode() != null ? balance.getDepartmentCode() : "") + "|"
-                    + (balance.getCurrencyCode() != null ? balance.getCurrencyCode() : "");
+            // Preserve each nullable SL dimension as a value, as the write path does.
+            SlBalanceKey key = new SlBalanceKey(balance.getAccountCode(), balance.getBusinessPartnerCode(),
+                    balance.getDepartmentCode(), balance.getCurrencyCode());
             SlBalance target = aggregated.computeIfAbsent(key, ignored -> createSlAggregate(balance, balanceDate));
             LocalDate earliestDate = earliestDates.get(key);
             // 거래처·부서별로도 날짜가 가장 이른 조회 행의 기초만 취하고, 원본 행과 목록은 변경하지 않는다.
