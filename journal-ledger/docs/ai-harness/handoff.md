@@ -1,6 +1,6 @@
 # GH-879 handoff
 
-Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. Draft PR publication is the next parent Integrator action.
+Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
 
 - Branch/worktrees: `agent/879-slip-number-allocation`, `/tmp/account-879-slip-number-allocation`, base `origin/main@fa12d2b5`; audited proof `/tmp/account-879-audited-proof@a97d10ab`.
 - Scope: 21 implementation/test/feature-doc files plus these three module-local records under `journal-ledger/**`; other modules and repository-wide harness/history files remain untouched.
@@ -10,7 +10,8 @@ Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audi
 - Rollout: stop all old Journal writers, run V19, then start only the new version. Historical 20-character JE-shaped slips block migration; immutable POSTED rows need separate approved reconciliation, not in-place edits. The one-time guard scan and runtime sequence privileges must be checked on the approved PostgreSQL target. No live PostgreSQL, production data, distributed load, or deployment test was performed.
 - Rollback: retain the sequence and issued numbers. Quiesce writes and prepare a reviewed forward migration/code rollback; reverting code alone would restore the 16-bit collision risk.
 - Authority: user authorized Draft publication. Module writer wrote code/docs, reviewer made no edits, parent Integrator owns records and Git/GitHub; human review controls Ready, merge, Issue close, deployment, and resource cleanup.
-- Next owner: parent Integrator publishes the Draft PR with `Refs #879`, then a human reviewer handles the remaining gates.
+- Publication: reviewed implementation/record commit `5e500c1b9d2c67715ed89d4939e7b165b344876a` is pushed; this final record-only update does not alter reviewed production or tests.
+- Next owner: a human reviewer handles PostgreSQL/deployment verification and the remaining Ready, merge, Issue-close, and cleanup gates.
 
 ---
 
