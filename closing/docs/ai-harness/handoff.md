@@ -225,3 +225,12 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 
 - [Draft PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE, `Refs #777`, initial head `5e4c428e`; old #808 remains CLOSED. Issue #777 remains OPEN / `status:needs-review`, and the isolated worktree is retained.
 - GitHub-hosted module/harness/merge-guard jobs did not start because their annotations report recent-payment or spending-limit restrictions. They are an external CI gate, not executed test failures or successes. No billing setting was accessed or changed. The PR body records local verification, Q1–Q4, rollback, residual risks and human authority separation. Next owner is the human current-head reviewer and account owner for CI availability; Ready/merge/Issue close/deployment/cleanup remain unperformed.
+
+## GH-885 — 재오픈 마감 회차 Draft handoff (2026-10-09)
+
+- Issue [#885](https://github.com/skyg547/account/issues/885) OPEN; branch `agent/885-reclose-cycle`, worktree `/tmp/account-885-reclose-cycle`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. `Refs #885` Draft PR의 URL/게시 head는 실제 발행 후 아래에 기록한다. 사용자 지정 allowlist는 `closing/**`이며, 이 module-local 세 기록 외 공용 harness/타 모듈은 수정하지 않았다.
+- 현 동작: 재오픈 완료/복구 시 새 `PENDING` 회차를 원자적으로 만들고 과거 완료/통과 행을 보존한다. Closing 조정이 진행된 통제 뒤에 오면 다시 새 회차로 넘기고 새 관측 최종 증빙을 요구한다. 기존 legacy 재오픈 행은 과거 회차와 UTC 시각을 추정하지 않고 새 정의/증빙을 요구한다. 정상·복구·조정 회귀는 module 테스트에서 확인했다.
+- RED1에서 시작해 최종 `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` PASS: core377/API161/Batch102=640건, 실패·오류·skip0; bootJar 2개 PASS. 독립 Reviewer `/root/closing_review`는 집중92건 PASS, 충돌 마커/공백 검사 PASS, Q1–Q4 PASS를 확인했다. 이전 전체 실행의 unit fixture 실패는 수정 후 재실행 통과했다.
+- **미해결 P1:** 직접 Journal/AP/AR 전기는 Closing의 `last_source_changed_at`을 바꾸지 않는다. 공급자 스냅샷 이후 새 원천 활동을 권위 있게 감지하는 계약이 없으므로 Issue의 전체 수용 조건을 충족했다고 볼 수 없다. Draft PR과 Issue는 열린 상태로 두고, 사람 리뷰 및 원천 워터마크/동결 게이트를 후속 소유자가 설계·검증해야 한다. 실 PostgreSQL migration/query plan/load, deployed Master/Journal, 분산 장애 주입은 수행하지 않았다.
+- 롤백: 새 마감·조정 실행을 중지하고 미완료 Master 전이를 대사한다. V54의 증빙·감사·이력 행은 삭제하지 않으며 회차 번호를 되돌리지 않는다. 검토된 forward 코드/스키마 보정으로만 복구한다.
+- 권한 분리: service/test 작성자는 각자의 Closing 파일만 수정했고 Reviewer는 읽기 전용이었다. 부모 Integrator만 module harness와 Git/GitHub를 변경한다. AI 검토는 사람 승인이 아니며 Ready·merge·Issue close·배포·branch/worktree 삭제는 이번 Draft에서 수행하지 않는다.

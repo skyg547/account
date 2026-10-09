@@ -77,6 +77,71 @@ class ClosingDomainTransitionTest {
         assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
     }
 
+    @Test
+    void reopenWithoutNewActivityCannotReusePriorCompletedTaskAndPassedGate() {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        ClosingTask priorTask = mandatoryTask();
+        priorTask.setStatus(ClosingTask.ClosingTaskStatus.COMPLETED);
+        ClosingGate priorGate = new ClosingGate();
+        priorGate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
+
+        calendar.start("CLOSER");
+        calendar.validateReadyToClose(List.of(priorTask), List.of(priorGate));
+        calendar.close("CHECKER");
+        calendar.reopen("REOPEN_APPROVER");
+        calendar.start("CLOSER");
+
+        // The old rows stay traceable, but reopening always requires a fresh control run.
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+        assertThat(calendar.getLastSourceChangedAt()).isNotNull();
+        assertThat(priorTask.getCycleNumber()).isEqualTo(1);
+        assertThat(priorGate.getCycleNumber()).isEqualTo(1);
+        assertThat(priorTask.getStatus()).isEqualTo(ClosingTask.ClosingTaskStatus.COMPLETED);
+        assertThat(priorGate.getStatus()).isEqualTo(ClosingGate.ClosingGateStatus.PASSED);
+        assertThat(calendar.isReadyToClose(List.of(priorTask), List.of(priorGate))).isFalse();
+        assertThatThrownBy(() -> calendar.validateReadyToClose(List.of(priorTask), List.of(priorGate)))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void changedReopenRequiresBothCurrentCycleControlsToRunAgain() {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        ClosingTask priorTask = mandatoryTask();
+        priorTask.assignCycle(calendar);
+        priorTask.setStatus(ClosingTask.ClosingTaskStatus.COMPLETED);
+        ClosingGate priorGate = new ClosingGate();
+        priorGate.assignCycle(calendar);
+        priorGate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
+        calendar.start("CLOSER");
+        calendar.validateReadyToClose(List.of(priorTask), List.of(priorGate));
+        calendar.close("CHECKER");
+        calendar.reopen("REOPEN_APPROVER");
+        calendar.start("CLOSER");
+
+        ClosingTask renewedTask = mandatoryTask();
+        renewedTask.assignCycle(calendar);
+        renewedTask.setStatus(ClosingTask.ClosingTaskStatus.PENDING);
+        ClosingGate renewedGate = new ClosingGate();
+        renewedGate.assignCycle(calendar);
+        renewedGate.setStatus(ClosingGate.ClosingGateStatus.PENDING);
+
+        // A post-reopen adjustment cannot borrow either control from the old cycle.
+        assertThat(calendar.isReadyToClose(List.of(priorTask, renewedTask), List.of(priorGate, renewedGate)))
+                .isFalse();
+        renewedTask.start("RECONCILER");
+        renewedTask.complete("RECONCILER");
+        assertThat(calendar.isReadyToClose(List.of(priorTask, renewedTask), List.of(priorGate, renewedGate)))
+                .isFalse();
+        renewedGate.pass("APPROVER", List.of(renewedTask));
+        assertThat(calendar.isReadyToClose(List.of(priorTask, renewedTask), List.of(priorGate, renewedGate)))
+                .isTrue();
+        calendar.validateReadyToClose(List.of(priorTask, renewedTask), List.of(priorGate, renewedGate));
+        assertThat(priorTask.getStatus()).isEqualTo(ClosingTask.ClosingTaskStatus.COMPLETED);
+        assertThat(priorGate.getStatus()).isEqualTo(ClosingGate.ClosingGateStatus.PASSED);
+    }
+
     private ClosingTask mandatoryTask() {
         ClosingTask task = new ClosingTask();
         task.setMandatory(true);

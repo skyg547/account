@@ -10,4 +10,5 @@ public interface ClosingTaskPersistencePort {
     Optional<ClosingTask> findById(Long id);
     List<ClosingTask> findByClosingCalendar(ClosingCalendar closingCalendar);
     List<ClosingTask> findByClosingCalendarId(Long calendarId);
+    List<ClosingTask> findActiveByClosingCalendarId(Long calendarId);
 }
