@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
-/** Aggregates finalized ECL rows to ledger posting groups before they cross the core port. */
+/** Checks each finalized ECL row, then aggregates to ledger posting groups before the core port. */
 public final class JdbcEclAllowanceResultAdapter implements EclAllowanceResultPort {
 
     public static final int DEFAULT_QUERY_TIMEOUT_SECONDS = 60;
@@ -28,7 +28,21 @@ public final class JdbcEclAllowanceResultAdapter implements EclAllowanceResultPo
                    SUM(source_exposure_amount) AS source_exposure_amount,
                    SUM(stage1_allowance_amount) AS stage1_allowance_amount,
                    SUM(stage2_allowance_amount) AS stage2_allowance_amount,
-                   SUM(stage3_allowance_amount) AS stage3_allowance_amount
+                   SUM(stage3_allowance_amount) AS stage3_allowance_amount,
+                   SUM(CASE WHEN target_allowance_amount IS NULL
+                              OR source_exposure_amount IS NULL
+                              OR stage1_allowance_amount IS NULL
+                              OR stage2_allowance_amount IS NULL
+                              OR stage3_allowance_amount IS NULL
+                              OR target_allowance_amount < 0
+                              OR source_exposure_amount < 0
+                              OR stage1_allowance_amount < 0
+                              OR stage2_allowance_amount < 0
+                              OR stage3_allowance_amount < 0
+                              OR stage1_allowance_amount + stage2_allowance_amount
+                                 + stage3_allowance_amount <> target_allowance_amount
+                              OR (source_exposure_amount = 0 AND target_allowance_amount <> 0)
+                            THEN 1 ELSE 0 END) AS invalid_source_rows
               FROM allowance_summary
              WHERE base_date = ?
              GROUP BY base_date,
@@ -86,7 +100,13 @@ public final class JdbcEclAllowanceResultAdapter implements EclAllowanceResultPo
                     }
                     return statement;
                 },
-                (resultSet, rowNumber) -> new EclAllowanceSummary(
+                (resultSet, rowNumber) -> {
+                    // A grouped sum can hide equal and opposite source-row errors. Keep this
+                    // check inside the bounded grouped query, before constructing any summary.
+                    if (resultSet.getLong("invalid_source_rows") != 0) {
+                        throw new IllegalStateException("ECL source row reconciliation failed");
+                    }
+                    return new EclAllowanceSummary(
                         resultSet.getDate("base_date").toLocalDate(),
                         resultSet.getString("run_id"),
                         resultSet.getString("model_version"),
@@ -100,7 +120,8 @@ public final class JdbcEclAllowanceResultAdapter implements EclAllowanceResultPo
                         resultSet.getBigDecimal("source_exposure_amount"),
                         resultSet.getBigDecimal("stage1_allowance_amount"),
                         resultSet.getBigDecimal("stage2_allowance_amount"),
-                        resultSet.getBigDecimal("stage3_allowance_amount")));
+                        resultSet.getBigDecimal("stage3_allowance_amount"));
+                });
         if (summaries.size() > maxSummaryGroups) {
             throw new IllegalStateException(
                     "ECL summary groups exceed API hard cap of " + maxSummaryGroups);

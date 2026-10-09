@@ -152,8 +152,9 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `bad_debt_expense_account_code` | 보충 적립 시 비용 계정 |
 | `reversal_income_account_code` | 환입 시 수익 계정 |
 | `target_allowance_amount` | `currency_code` 거래통화 단위의 목표 충당금 |
+| `source_exposure_amount`, `stage1_allowance_amount`, `stage2_allowance_amount`, `stage3_allowance_amount` | 원천 exposure 및 Stage별 충당금 증빙; Stage 합계와 목표는 원천 정밀도로 정확히 일치해야 함 |
 
-현재 배치는 JDBC에서 동일 run/model·법인·계정/통화별 목표를 먼저 합산하고, 실제 전기 원장에서 기존 거래통화·기능통화 잔액을 대변 양수로 함께 조회합니다. 기능통화만 저장하는 `gl_balances`는 ECL의 거래통화 잔액으로 사용하지 않습니다. 외화의 기존 기능통화 잔액이 기준일 환율과 맞지 않으면 FX 평가 전기를 요구하며, 동일 통화의 금액 불일치는 원장 대사가 필요합니다. [통화별 계산·반올림·재시도](process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요. 원장에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
+현재 배치는 JDBC에서 원천 행의 Stage 합계·목표·0 exposure 정책을 먼저 검사하고 동일 run/model·법인·계정/통화별 목표와 Stage 증빙 합계를 합산합니다. 그 뒤 실제 전기 원장에서 기존 거래통화·기능통화 잔액을 대변 양수로 함께 조회합니다. `ecl`은 날짜별 원천 행을 재생성할 수 있으므로 전표가 필요한 그룹의 통화쌍·환율은 Journal 헤더 설명에, 전체 run ID·정확한 목표·exposure·Stage 1 합계는 첫 상세 설명에, 전체 model version·정확한 Stage 2/3 합계는 둘째 상세 설명에 저장합니다. 역분개 설명 확장을 고려해 헤더 120자·각 상세 194자 한도를 전표 쓰기 전에 검사하며, 재시도 시 기존 저장값과 비교합니다. 무전표 그룹에는 Journal 증빙이 없습니다. 기능통화만 저장하는 `gl_balances`는 ECL의 거래통화 잔액으로 사용하지 않습니다. 외화의 기존 기능통화 잔액이 기준일 환율과 맞지 않으면 FX 평가 전기를 요구하며, 동일 통화의 금액 불일치는 원장 원천을 대사해야 합니다. [통화별 계산·반올림·재시도](process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요. 원장에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
 
 ## 설정 키
 

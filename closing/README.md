@@ -185,7 +185,8 @@ ECL 충당 Job 예시:
 - FX 평가는 실제 전기 원장인 `journal_entries`/`journal_details`의 `POSTED` 전표를 고정 개수 계정 범위로 스트리밍합니다. 별도 이중통화 잔액 read model이 구축되기 전까지는 이 집계를 원장 기준으로 대사해야 합니다.
 - FX 평가 전 `account.closing.accounting.fx-valuation-policies`에 계정별 유효기간과 화폐성/역사적 원가 정책을 명시해야 합니다. 수익·비용·역사적 원가 비화폐성 자산은 제외하고, 정책 누락·중복·계정 분류 불일치는 실패시킵니다. [평가 적격성](docs/process-flow.md#평가-대상-계정의-유효일자-정책-gh-780)과 [설정 예시](docs/local-run.md#fx-평가-적격성-설정-gh-780)를 참고하세요.
 - FX 장부금액은 이전에 전기한 평가 조정과 역분개를 원천통화별로 포함합니다. 평가액은 외화 원금을 바꾸지 않으며, 전월 평가가 전기되고 환율이 같으면 다음 평가 차액은 0입니다. [귀속과 대사 기준](docs/process-flow.md#이전-평가를-포함한-장부금액-gh-779)을 참고하세요.
-- ECL은 하나의 확정 run/model, 하나의 법인, 동일 기준일의 summary만 허용하며 계정·통화별 목표와 실제 전기된 거래통화·기능통화 잔액을 각각 대사합니다. 외화는 기준일 환율이 필요하며, 기존 장부액이 그 환율과 다르면 FX 평가 전기를 먼저 요구합니다. summary가 비어 있으면 성공으로 처리하지 않습니다. [통화별 계산과 재시도](docs/process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요.
+- ECL은 하나의 확정 run/model, 하나의 법인, 동일 기준일의 summary만 허용합니다. 각 원천 행에서 Stage 1+2+3 합계와 목표액을 반올림 없이 대사하고, 그 뒤 계정·통화별 목표와 전기된 거래통화·기능통화 잔액을 각각 대사합니다. 외화는 기준일 환율이 필요하며, 기존 장부액이 그 환율과 다르면 FX 평가 전기를 먼저 요구합니다. summary가 비어 있으면 성공으로 처리하지 않습니다. [통화별 계산과 재시도](docs/process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요.
+- 전표가 필요한 ECL 그룹은 검증된 원천 목표·exposure·Stage별 합계와 run/model 식별자를 Journal 상세 설명에, 통화쌍·환율을 짧은 헤더 설명에 남깁니다. 원천 summary 재생성 후 반올림된 전표액이 같아도 설명이 달라지면 기존 초안을 재사용하지 않습니다.
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. `dev`의 원격 Journal HTTP 어댑터는 maker 승인 요청·별도 checker 승인·poster 전기를 안전하게 수행할 서비스 주체 계약이 없어 `account.closing.accounting.auto-post-adjustments=true`이면 첫 Journal 쓰기 전에 실패합니다. 원격 자동 전기는 이 계약을 구현·검증하기 전까지 사용할 수 없습니다.
 - API는 FX evidence를 한 번 스트리밍해 기본 10,000행, 생성 전표 command 1,000개의 hard cap 안에서 전체 command를 먼저 불변 목록으로 확정한 뒤 그 목록만 게시합니다. ECL source 조회도 최대 1,001개 전표 그룹과 60초 query timeout으로 경계를 두고, 1,000개를 넘으면 그룹별 원장/환율 조회와 Journal 게시 전에 실패합니다.
 - API 실행 이력은 전표가 0건이거나 자동 전기이면 `COMPLETED`, DRAFT가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 전표가 여러 건이면 단일 `generated_journal_entry_id`에는 `null`을 기록합니다.
