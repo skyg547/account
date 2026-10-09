@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.009">
+  <properties/>
+  <testcase name="승인 전 전표는 원장 Aggregate로 승격할 수 없다." classname="com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest" time="0.001"/>
+  <testcase name="저장되지 않은 상세 라인은 FK lineage가 없으므로 전기 Aggregate 생성을 거부한다." classname="com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest" time="0.001"/>
+  <testcase name="개별 저장 가능한 대형 라인의 합계는 단일 컬럼 정밀도를 넘어도 차대가 맞으면 전기한다." classname="com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest" time="0.001"/>
+  <testcase name="승인된 전표를 lineage와 SL 차원을 보존한 불변 원장 스냅샷으로 만든다." classname="com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest" time="0.003"/>
+  <testcase name="저장되지 않은 전표 헤더는 GL/SL lineage의 기준 ID가 없으므로 전기를 거부한다." classname="com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

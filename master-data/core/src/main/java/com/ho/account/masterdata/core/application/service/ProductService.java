@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.application.command.ProductCommand;
 import com.ho.account.masterdata.core.application.port.in.ProductUseCase;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,10 +28,10 @@ public class ProductService implements ProductUseCase {
      * 새로운 상품을 생성합니다.
      */
     public Product createProduct(ProductCommand command) {
-        productPersistencePort.findActiveByProductCode(command.productCode())
-                .ifPresent(existing -> {
-                    throw new IllegalArgumentException("이미 활성화된 상품 코드입니다: " + command.productCode());
-                });
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
+        if (productPersistencePort.existsByProductCode(command.productCode())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 상품 코드입니다: " + command.productCode());
+        }
         Product product = command.toEntity();
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());

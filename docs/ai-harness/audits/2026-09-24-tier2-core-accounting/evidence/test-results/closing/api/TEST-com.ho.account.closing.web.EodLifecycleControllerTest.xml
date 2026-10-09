@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.web.EodLifecycleControllerTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:33" hostname="ho-To-Be-Filled-By-O-E-M" time="0.175">
+  <properties/>
+  <testcase name="missingStatusUsesStableNotFoundContract()" classname="com.ho.account.closing.web.EodLifecycleControllerTest" time="0.056"/>
+  <testcase name="readWithoutGatewayActorIsUnauthorized()" classname="com.ho.account.closing.web.EodLifecycleControllerTest" time="0.014"/>
+  <testcase name="commandWithoutClosingRoleIsForbiddenBeforeUseCase()" classname="com.ho.account.closing.web.EodLifecycleControllerTest" time="0.013"/>
+  <testcase name="bodStartMapsBothExplicitBusinessDates()" classname="com.ho.account.closing.web.EodLifecycleControllerTest" time="0.077"/>
+  <testcase name="authorizedAccountingAdminPreparesEodWithTrustedActor()" classname="com.ho.account.closing.web.EodLifecycleControllerTest" time="0.015"/>
+  <system-out><![CDATA[2026-09-24T09:53:33.780+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.780+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.780+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.796+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.796+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.797+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.809+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.810+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.810+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.822+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.822+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.822+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 0 ms
+2026-09-24T09:53:33.899+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.mock.web.MockServletContext          : Initializing Spring TestDispatcherServlet ''
+2026-09-24T09:53:33.899+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-09-24T09:53:33.900+09:00  INFO 583093 --- [closing-service] [    Test worker] [                                                 ] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 1 ms
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

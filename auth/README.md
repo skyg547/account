@@ -8,7 +8,7 @@
 
 MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `master-data`에 접근할 때 로그인하고, `journal-ledger`에 접근할 때 다시 로그인하게 할 수는 없습니다.
 
-그래서 사용자는 **한 번 `auth` 모듈에 로그인**합니다. 성공하면 `auth`는 서명된 **JWT(JSON Web Token)**를 발급합니다. 사용자는 이후 요청마다 이 출입증을 보내고, Gateway와 각 서비스는 서명·issuer·역할 버전을 검사해 접근을 결정합니다.
+그래서 사용자는 **한 번 `auth` 모듈에 로그인**합니다. 성공하면 `auth`는 서명된 **JWT(JSON Web Token)**를 발급합니다. audience는 `AUTH_JWT_AUDIENCE`로 설정하며 기본값은 `account-api`입니다. Gateway는 서명·issuer·시간·역할 버전을 검사하고, Auth 관리자 API와 Master Data 수신 검증기는 audience도 확인합니다. Auth 발급기와 Master Data 검증기의 audience 설정은 같은 값이어야 합니다.
 
 ---
 

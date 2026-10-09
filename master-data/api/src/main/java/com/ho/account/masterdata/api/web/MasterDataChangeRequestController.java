@@ -26,8 +26,8 @@ import org.springframework.web.server.ResponseStatusException;
  * 공존합니다. 운영 전 인바운드 권한 정책으로 직접 쓰기를 관리자 보정 전용으로 제한하거나,
  * 모든 일반 변경을 이 승인 유즈케이스로 통합해야 합니다.</p>
  *
- * <p>Gateway가 JWT에서 다시 만든 {@code X-Auth-User}/{@code X-Auth-Roles}만 actor와 권한으로
- * 사용합니다. 외부에서는 Master Data 서비스를 직접 노출하지 않아야 합니다.</p>
+ * <p>서비스 입구의 인증 필터가 JWT 서명과 claim을 재검증하고 만든
+ * {@code X-Auth-User}/{@code X-Auth-Roles}를 actor와 권한으로 사용합니다.</p>
  *
  * <p>@todo pending 목록도 요청이 누적되면 무제한 List가 됩니다. 완료 조건은 status/requestedAt/id
  * 기반 pagination과 최대 page size를 포트부터 HTTP 계약까지 연결하고, 실제 DB query limit를

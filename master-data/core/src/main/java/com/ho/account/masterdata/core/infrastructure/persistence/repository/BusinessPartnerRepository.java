@@ -87,24 +87,8 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
         return findActiveBusinessPartners(LocalDate.now());
     }
 
-    /**
-     * 존재 여부만 필요한 경로에서는 aggregate와 계좌를 읽지 않고 DB COUNT 결과만 확인합니다.
-     */
-    @Query("""
-            SELECT CASE WHEN COUNT(bp) > 0 THEN true ELSE false END
-            FROM BusinessPartnerJpaEntity bp
-            WHERE bp.businessPartnerCode = :businessPartnerCode
-              AND bp.useYn = true
-              AND bp.validFrom <= :date
-              AND bp.validTo >= :date
-            """)
-    boolean existsActiveByBusinessPartnerCode(
-            @Param("businessPartnerCode") String businessPartnerCode,
-            @Param("date") LocalDate date);
-
-    default boolean existsByBusinessPartnerCode(String businessPartnerCode) {
-        return existsActiveByBusinessPartnerCode(businessPartnerCode, LocalDate.now());
-    }
+    /** Checks the business key across all SCD2 rows without loading accounts or filtering by date/useYn. */
+    boolean existsByBusinessPartnerCode(String businessPartnerCode);
 
     @EntityGraph(attributePaths = "accounts")
     @Query("""

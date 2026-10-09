@@ -4,6 +4,7 @@ import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,8 +26,9 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department createDepartment(DepartmentCommand command) {
-        if (departmentPersistencePort.findActiveByCode(command.code()).isPresent()) {
-            throw new IllegalArgumentException("이미 해당 시점에 활성화된 부서 코드입니다: " + command.code());
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
+        if (departmentPersistencePort.existsByCode(command.code())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 부서 코드입니다: " + command.code());
         }
 
         Department department = command.toEntity();
