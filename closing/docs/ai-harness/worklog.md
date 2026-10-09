@@ -450,3 +450,7 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 | Q2 | PASS | `closing/docs/process-flow.md:624`; 동일 내용·허용 상태→재사용/거부 | 해당 없음: 재실행 흐름 변경 | 인증된 승인·전기 재개는 별도 게이트 | 동일 리뷰어 코드·설명 대조 |
 | Q3 | PASS | `closing/docs/beginner-guide.md:127`; 기본 DRAFT, 수동 대사, 응답 유실 한계 | 해당 없음: 기능 문서 변경 | 단계별 원격 장애 미검증 | 동일 리뷰어 문서 대조 |
 | Q4 | PASS | `closing/core/src/main/java/com/ho/account/closing/infrastructure/external/JournalLedgerClosingJournalEntryAdapter.java:109`; unknown 상태 거부 이유 | 해당 없음: 비자명 상태 검증 변경 | Journal 상태 계약 확장 시 허용 목록 재검토 | 동일 리뷰어 의도 주석 확인 |
+
+### GH-890 Draft publication
+
+- Published [Draft PR #905](https://github.com/skyg547/account/pull/905), OPEN/DRAFT, `Refs #890`, initial head `4a779beea2e3a77a55ae93340783df429ef5ba1b`; Issue #890 remains OPEN. The PR body records 643-test and 32-harness-test results, Q1–Q4, the unmet acceptance criteria, rollback, and AI implementation/read-only review/parent Git/human gate authority split. The worktree is retained; Ready, merge, Issue close, deployment and resource cleanup were not performed. Hosted CI is a separate current-head gate, not claimed as passed.

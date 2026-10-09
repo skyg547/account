@@ -174,3 +174,7 @@
 - Status: unknown/blank/null existing Journal status now fails closed after content comparison. Current HTTP auto-post remains disabled by the #777 maker/checker/poster control. APPROVED→POSTED and response-loss recovery acceptance are unmet; keep Draft and Issue open.
 - Verification: pre-fix RED four Batch assertions; targeted GREEN; required Closing643/643 PASS (API159/Batch111/Core373), failures/errors/skips0. Independent read-only `/root/independent_review`: Q1–Q4 PASS for bounded diff, Issue findings P1/P2. Parent Integrator owns records, commit, push and Draft publication. Test writer owned the single Batch test file; no shared-file writing overlap.
 - Next owner: human Draft reviewer and trusted Journal principal/Gateway integration owner. Ready, merge, Issue close, deployment and resource deletion are separate gates.
+
+### GH-890 Draft published
+
+- [PR #905](https://github.com/skyg547/account/pull/905) is OPEN/DRAFT with `Refs #890`, initial head `4a779bee`. Issue #890 remains OPEN; the worktree is retained. PR publication does not satisfy the outstanding #890 P1/P2 acceptance gaps.
