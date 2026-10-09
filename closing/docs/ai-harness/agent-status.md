@@ -167,3 +167,10 @@
 
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
+
+## GH-890 — bounded Closing remediation; full acceptance on HOLD
+
+- Issue [#890](https://github.com/skyg547/account/issues/890) OPEN; `agent/890-closing-http-autopost-recovery` in `/tmp/account-890-closing-http-autopost-recovery`; base `origin/main@9348966a`. Scope `closing/**`, including these module-local records; common harness and other modules untouched.
+- Status: unknown/blank/null existing Journal status now fails closed after content comparison. Current HTTP auto-post remains disabled by the #777 maker/checker/poster control. APPROVED→POSTED and response-loss recovery acceptance are unmet; keep Draft and Issue open.
+- Verification: pre-fix RED four Batch assertions; targeted GREEN; required Closing643/643 PASS (API159/Batch111/Core373), failures/errors/skips0. Independent read-only `/root/independent_review`: Q1–Q4 PASS for bounded diff, Issue findings P1/P2. Parent Integrator owns records, commit, push and Draft publication. Test writer owned the single Batch test file; no shared-file writing overlap.
+- Next owner: human Draft reviewer and trusted Journal principal/Gateway integration owner. Ready, merge, Issue close, deployment and resource deletion are separate gates.
