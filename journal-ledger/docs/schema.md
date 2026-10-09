@@ -66,7 +66,7 @@ V16은 `journal_entries.approved_by`를 추가합니다. 새 전표는 `created_
 `journal_entries`가 commit된 `POSTED` 이력이면 헤더와 감사 컬럼뿐 아니라 소유한
 `journal_details`의 금액, 차대 구분, 계정, 부서·거래처 차원, 적요, 감사 정보와 멤버십도 함께
 동결됩니다. 공개 도메인 setter와 연관관계 메서드는 변경 전에 `IllegalStateException`을 내고,
-JPA `@PreUpdate`/`@PrePersist`/`@PreRemove` 콜백은 managed dirty update, detached merge,
+infrastructure의 `META-INF/journal-ledger-orm.xml`이 연결한 JPA lifecycle listener는 managed dirty update, detached merge,
 상세 삽입과 orphan removal을 영속성 경계에서 거부합니다. 일반 repository의
 `delete`/`deleteById`/`deleteAll`도 엔티티 콜백을 거칩니다. 콜백 없는 batch 삭제를 막기 위해
 `JournalEntryRepository`와 `JournalDetailRepository`는 `deleteAllInBatch`,
@@ -140,7 +140,7 @@ JDBC/DB 쓰기는 보호를 우회할 수 있습니다. 현재 production 코드
 제거해 서로 다른 잔액 정의가 병렬로 남지 않도록 했습니다.
 
 `gl_balances.period`, `sl_balances.period`는 코드에서는 `YearMonth` 타입이지만 DB에는 `yyyy-MM` 문자열로 저장합니다.
-JPA와 JDBC bulk upsert가 같은 잔액 키를 사용하도록 `YearMonthAttributeConverter`에서 표현을 고정했습니다.
+JPA와 JDBC bulk upsert가 같은 잔액 키를 사용하도록 infrastructure의 `YearMonthAttributeConverter`에서 표현을 고정했습니다.
 
 대용량 운영 저장 모드(`journal-ledger.ledger.persistence-mode=jdbc-bulk`)에서는 다음 어댑터가 사용됩니다.
 

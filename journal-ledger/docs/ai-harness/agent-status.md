@@ -1,3 +1,14 @@
+# GH-894 agent status
+
+- Issue [#894](https://github.com/skyg547/account/issues/894): `status:blocked` on the Loan integration regression after module implementation and requested test; [Draft PR #909](https://github.com/skyg547/account/pull/909) open with `Refs #894`. Base `origin/main@9348966a`; branch `agent/894-domain-persistence-boundary`; worktree `/tmp/account-894-domain-persistence-boundary`; audited proof `/tmp/account-894-audited-proof@a97d10ab`.
+- Scope `journal-ledger/**` only. `gpt-6-sol` high module writer, read-only independent reviewer, parent Integrator for records/Git/GitHub. Root shared harness/history and other modules remain untouched.
+- Domain framework references removed; named infrastructure XML mapping, moved repositories/converter, lifecycle listener, explicit API/Batch registration and architecture guard are implemented. Exact module test 434/434 PASS; audited guard RED 1/1 with identical bytes; module bootJar and static gates PASS.
+- Independent review Q1 FAIL/P1: Loan API and Batch `local` profile context tests now fail at startup because their non-dev composition roots scan the old Journal repository package and do not opt into the named XML mapping. Both dev-profile tests also retain a stale `Class.forName` of the deleted repository. Q2–Q4 PASS. Keep Draft; Ready/merge requires an authorized Loan composition/test correction and renewed review. No deployed Loan run was performed.
+- Draft head `2707249d` remote checks: journal-ledger, module result, harness validation and merge guard candidate PASS; implementer PR discipline FAIL because required ownership/verification/merge metadata and trust policy are unconfigured, and the PR is Draft. Human owner resolves governance before Ready/merge.
+- No live PostgreSQL, distributed fault or load claim. Roll back by reviewed module-scoped revert; no migration/data changed. Human reviewer owns later Ready/merge/Issue close/deployment/cleanup gates.
+
+---
+
 # GH-879 agent status
 
 - Issue: [#879](https://github.com/skyg547/account/issues/879), review handoff `status:needs-review`; [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.

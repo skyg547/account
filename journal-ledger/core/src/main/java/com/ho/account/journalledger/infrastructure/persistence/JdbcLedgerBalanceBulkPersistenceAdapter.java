@@ -4,11 +4,11 @@ import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalDetailRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.SlBalanceRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;

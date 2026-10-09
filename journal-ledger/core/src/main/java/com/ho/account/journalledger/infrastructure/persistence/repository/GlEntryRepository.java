@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.domain.ledger.repository;
+package com.ho.account.journalledger.infrastructure.persistence.repository;
 
 import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
 import org.springframework.data.jpa.repository.JpaRepository;

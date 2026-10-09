@@ -3,7 +3,7 @@ package com.ho.account.journalledger.infrastructure.persistence;
 import com.ho.account.journalledger.application.port.out.JournalEventQuarantinePort;
 import com.ho.account.journalledger.domain.journal.domain.JournalEventQuarantine;
 import com.ho.account.journalledger.domain.journal.domain.JournalEventQuarantineStatus;
-import com.ho.account.journalledger.domain.journal.repository.JournalEventQuarantineRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEventQuarantineRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

@@ -1,11 +1,5 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -15,41 +9,28 @@ import java.util.Objects;
  * <p>원본 전표 ID가 식별자이므로 동일 원본의 순차·동시 요청은 하나의 작업으로 수렴합니다.
  * 취소된 초안만 새 역분개 전표 ID로 재시작할 수 있고, 전기 완료 작업은 최종 상태입니다.</p>
  */
-@Entity
-@Table(name = "journal_reversal_operations")
 public class JournalReversalOperation {
 
     private static final int MAX_CANCELLATION_REASON_LENGTH = 500;
 
     /** 작업 식별자이자 역분개 대상 원본 전표 ID입니다. */
-    @Id
-    @Column(name = "original_journal_entry_id", nullable = false, updatable = false)
     private Long originalJournalEntryId;
 
     /** 이 작업에서 현재 유효한 역분개 전표 ID입니다. */
-    @Column(name = "reversal_journal_entry_id", nullable = false, unique = true)
     private Long reversalJournalEntryId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private ReversalOperationStatus status;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(name = "posted_at")
     private LocalDateTime postedAt;
 
-    @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
 
-    @Column(name = "cancelled_by", length = 50)
     private String cancelledBy;
 
-    @Column(name = "cancellation_reason", length = MAX_CANCELLATION_REASON_LENGTH)
     private String cancellationReason;
 
     protected JournalReversalOperation() {

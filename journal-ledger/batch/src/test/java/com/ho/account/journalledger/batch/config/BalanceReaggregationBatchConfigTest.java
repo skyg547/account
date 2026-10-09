@@ -4,11 +4,11 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.SlBalanceRepository;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.BalanceReaggregationService;
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
@@ -603,11 +603,11 @@ class BalanceReaggregationBatchConfigTest {
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
     @EntityScan(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence",
             "org.springframework.batch.core"
     })
     @EnableJpaRepositories(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence.repository",
             "com.ho.account.journalledger.adapter.out.persistence"
     })
     @ComponentScan(basePackages = {

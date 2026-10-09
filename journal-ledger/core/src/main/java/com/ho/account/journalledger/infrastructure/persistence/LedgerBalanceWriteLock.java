@@ -1,7 +1,7 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.BalanceAccount;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
 import jakarta.persistence.EntityManager;
 import org.hibernate.Session;
 import org.springframework.transaction.support.TransactionSynchronizationManager;

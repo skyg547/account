@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.domain.journal.repository;
+package com.ho.account.journalledger.infrastructure.persistence.repository;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;

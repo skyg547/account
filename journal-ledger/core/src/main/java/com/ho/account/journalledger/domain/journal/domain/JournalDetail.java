@@ -3,7 +3,6 @@ package com.ho.account.journalledger.domain.journal.domain;
 import com.ho.account.journalledger.domain.ledger.domain.AccountingPrecision;
 import com.ho.account.journalledger.domain.ledger.domain.Credit;
 import com.ho.account.journalledger.domain.ledger.domain.Debit;
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -31,8 +30,8 @@ import java.util.Objects;
  *
  * ─────────────────────────────────────────────────
  * [개발 설명]
- * - JPA @Entity로 journal_details 테이블에 매핑됩니다.
- * - JournalEntry와 @ManyToOne 양방향 연관. 전표 삭제 시 자동 삭제(orphanRemoval).
+ * - 저장 매핑은 infrastructure의 META-INF/journal-ledger-orm.xml에서 정의합니다.
+ * - JournalEntry와 양방향 연관입니다. 저장 관계와 삭제 동작은 infrastructure에서 매핑합니다.
  * - amount vs baseAmount:
  *     amount     = 거래통화 금액 (외화면 외화값 그대로)
  *     baseAmount = 기본통화(KRW) 환산 금액 (GL/SL 잔액 계산 기준)
@@ -41,27 +40,15 @@ import java.util.Objects;
  * - LedgerService는 baseAmount를 기준으로 GL/SL 잔액을 업데이트합니다.
  * ─────────────────────────────────────────────────
  */
-@Entity
-@Table(name = "journal_details", indexes = {
-    @Index(name = "idx_journal_detail_journal_entry_id", columnList = "journal_entry_id"),
-    @Index(name = "idx_journal_detail_account_code",    columnList = "account_code"),
-    @Index(name = "idx_journal_detail_dept_code",       columnList = "dept_code"),
-    @Index(name = "idx_journal_detail_business_partner_code", columnList = "business_partner_code"),
-    @Index(name = "idx_journal_detail_side",            columnList = "side")
-})
 public class JournalDetail {
 
     /** 시스템 내부 PK (자동 증가) */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**
      * 소속 전표 (상위 JournalEntry).
-     * @ManyToOne + FetchType.LAZY: 필요할 때만 전표 헤더를 조회합니다(N+1 방지).
+     * infrastructure 매핑은 지연 로드를 사용해 필요할 때만 헤더를 조회합니다.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id", nullable = false)
     private JournalEntry journalEntry;
 
     /**
@@ -69,15 +56,12 @@ public class JournalDetail {
      * DEBIT(차변, Dr) 또는 CREDIT(대변, Cr).
      * JournalEntry.validateBalance()에서 DEBIT 합계 = CREDIT 합계를 검증합니다.
      */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
     private JournalSide side;
 
     /**
      * 계정과목 (Account Subject).
      * 예: 현금(10100), 매출채권(11000), 복리후생비(82100) 등.
      */
-    @Column(name = "account_code", nullable = false, length = 50)
     private String accountCode;
 
     /**
@@ -86,7 +70,6 @@ public class JournalDetail {
      * 원화 거래: baseAmount와 동일.
      * precision=19, scale=2: 최대 9,999조 원까지 소수점 2자리 지원.
      */
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
     /**
@@ -95,7 +78,6 @@ public class JournalDetail {
      * 원화 거래이면 amount와 동일. 외화 거래이면 amount × exchangeRate.
      * LedgerService.updateLedgerBalances()에서 참조합니다.
      */
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal baseAmount = BigDecimal.ZERO;
 
     /**
@@ -103,7 +85,6 @@ public class JournalDetail {
      * 부서별 원가/비용 분석(관리회계)에 사용됩니다.
      * null 허용: 부서 귀속이 불필요한 계정(예: 현금, 차입금)은 null.
      */
-    @Column(name = "dept_code", length = 50)
     private String departmentCode;
 
     /**
@@ -112,7 +93,6 @@ public class JournalDetail {
      * 예: 매입처 A사, 매출처 B사 등.
      * null 허용: 거래처 없는 내부 계정은 null.
      */
-    @Column(name = "business_partner_code", length = 50)
     private String businessPartnerCode;
 
     /**
@@ -120,28 +100,23 @@ public class JournalDetail {
      * 전표 헤더의 description보다 더 구체적인 라인 단위 설명.
      * 예: "2026년 1월 사무용품 구입 - 볼펜 50개"
      */
-    @Column(length = 200)
     private String detailDescription;
 
     /** 최초 생성 일시 (수정 불가) */
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     /** 최종 수정 일시 */
     private LocalDateTime updatedAt;
 
     /** 처리자 (자동분개인 경우 "SYSTEM") */
-    @Column(length = 50)
     private String auditUser;
 
-    @Transient
     private JournalEntry persistedJournalEntry;
 
     // ─── 생명주기 콜백 ──────────────────────────────────────
 
     /** 최초 저장 시 createdAt, updatedAt, auditUser 기본값 설정 */
-    @PrePersist
-    protected void onCreate() {
+    public void onCreate() {
         assertHistoryMutable();
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
@@ -149,22 +124,18 @@ public class JournalDetail {
     }
 
     /** 수정 시 updatedAt 자동 갱신 */
-    @PreUpdate
-    protected void onUpdate() {
+    public void onUpdate() {
         assertHistoryMutable();
         this.updatedAt = LocalDateTime.now();
     }
 
-    @PreRemove
-    protected void onRemove() {
+    public void onRemove() {
         assertHistoryMutable();
     }
 
     /** 부모 참조만 캡처하고 상태를 읽지 않아 @PostLoad에서 lazy-load/N+1을 유발하지 않습니다. */
-    @PostLoad
-    @PostPersist
-    @PostUpdate
-    protected void capturePersistedState() {
+
+    public void capturePersistedState() {
         this.persistedJournalEntry = this.journalEntry;
     }
 

@@ -10,14 +10,14 @@ import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.domain.ledger.repository.GlEntryRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.SlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.SlEntryRepository;
 import jakarta.persistence.EntityManager;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -628,8 +628,8 @@ class LedgerBalanceConcurrencyIntegrationTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @EntityScan("com.ho.account.journalledger.domain")
-    @EnableJpaRepositories("com.ho.account.journalledger.domain")
+    @EntityScan("com.ho.account.journalledger.infrastructure.persistence")
+    @EnableJpaRepositories("com.ho.account.journalledger.infrastructure.persistence.repository")
     @Import({JournalPersistenceAdapter.class, JournalReversalPersistenceAdapter.class})
     static class PostingApplication {
         @Bean BalanceReadGate balanceReadGate() { return new BalanceReadGate(); }

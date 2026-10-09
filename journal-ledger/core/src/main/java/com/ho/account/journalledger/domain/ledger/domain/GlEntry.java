@@ -1,7 +1,6 @@
 package com.ho.account.journalledger.domain.ledger.domain;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -44,16 +43,12 @@ import java.time.LocalDate;
  * - Lombok @Getter/@Setter/@NoArgsConstructor 사용으로 보일러플레이트 최소화.
  * ─────────────────────────────────────────────────
  */
-@Entity
-@Table(name = "gl_entries", uniqueConstraints =
-        @UniqueConstraint(name = "uk_gl_entries_journal_detail", columnNames = "journal_detail_id"))
+
 @Getter @Setter
 @NoArgsConstructor
 public class GlEntry {
 
     /** 시스템 내부 PK (자동 증가) */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**
@@ -61,8 +56,6 @@ public class GlEntry {
      * 이 GL Entry를 생성한 JournalDetail을 참조합니다.
      * drill-down: GL Entry → JournalDetail → JournalEntry → 원천 문서
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_detail_id", nullable = false)
     private JournalDetail journalDetail;
 
     /**
@@ -70,7 +63,6 @@ public class GlEntry {
      * 이 GL Entry가 귀속되는 계정 (예: 현금 10100, 매출채권 11000).
      * GlBalance는 이 accountCode를 키로 잔액을 집계합니다.
      */
-    @Column(name = "account_code", nullable = false, length = 50)
     private String accountCode;
 
     /**
@@ -78,7 +70,6 @@ public class GlEntry {
      * 외화 거래 시 해당 통화 (예: USD, EUR).
      * 원화 거래이면 null 또는 KRW.
      */
-    @Column(name = "currency_code", length = 3)
     private String currencyCode;
 
     /**
@@ -103,25 +94,21 @@ public class GlEntry {
     private LocalDate postingDate;
 
     /** 거래통화 기준 차변 금액 (외화 그대로). 0이면 대변 항목. */
-    @Column(name = "dr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal drAmount = BigDecimal.ZERO;
 
     /** 거래통화 기준 대변 금액 (외화 그대로). 0이면 차변 항목. */
-    @Column(name = "cr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal crAmount = BigDecimal.ZERO;
 
     /**
      * 기본통화(KRW) 기준 차변 금액.
      * GlBalance.addDebit()에서 이 값을 잔액에 반영합니다.
      */
-    @Column(name = "base_dr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal baseDrAmount = BigDecimal.ZERO;
 
     /**
      * 기본통화(KRW) 기준 대변 금액.
      * GlBalance.addCredit()에서 이 값을 잔액에 반영합니다.
      */
-    @Column(name = "base_cr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal baseCrAmount = BigDecimal.ZERO;
 
     /** 적요 (간략한 거래 내용 메모) */

@@ -3,7 +3,7 @@ package com.ho.account.journalledger.infrastructure.persistence;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;

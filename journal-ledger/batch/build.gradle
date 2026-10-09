@@ -35,6 +35,10 @@ bootJar {
 
 jar { enabled = false }
 
+tasks.named('test').configure {
+    systemProperty 'spring.jpa.mapping-resources', 'META-INF/journal-ledger-orm.xml'
+}
+
 bootRun {
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
 }
