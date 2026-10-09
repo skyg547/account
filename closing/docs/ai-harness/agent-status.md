@@ -174,3 +174,7 @@
 - Scope `closing/**` only; shared harness and other modules untouched. Single-module execution applies module-parallel ownership without cross-module dispatch. Parent Integrator owns writes and Git/GitHub/records; independent `/root/closing_893_review` is read-only (GPT-6 Sol/high).
 - Verified: pre-fix real-Hikari two-partition regression failed with a 5000 ms acquisition timeout; final `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` PASS637 (Core374/API159/Batch104), failures/errors/skips0; both boot JARs PASS. Independent Q1–Q4 PASS, no open finding.
 - Status: verified Draft publication authorized next, `Refs #893`; human/current-head CI and real PostgreSQL capacity/streaming review remain. Ready, merge, Issue close, deployment and branch/worktree deletion remain separate gates.
+
+### GH-893 Draft publication
+
+- [Draft PR #908](https://github.com/skyg547/account/pull/908) is OPEN/DRAFT to `main` with `Refs #893`; initial verified head `25798acfd5b1d07af53d26b259138e3612dfb629`. Issue remains OPEN / `status:needs-review`; worktree retained. Initial hosted module and discipline/result jobs are pending; no remote test success is claimed at publication. Human reviewer owns current-head checks and PostgreSQL capacity review.

@@ -451,3 +451,7 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 | Q4 | PASS | `ClosingReadOnlySources.java:47`; `FxValuationBatchConfig.java:85`; `JournalFxValuationBalanceSource.java:210`; 두 파티션 회귀 PASS | 해당 없음: 비자명 로직 변경 | 배포 부하·실제 드라이버 확인 | 동일 리뷰어 의도 주석 확인 |
 
 권한 분리: 부모 Integrator가 구현·모듈 기록·Git/GitHub를 소유했고 독립 Reviewer는 읽기 전용으로 평가했다. AI 리뷰는 사람 승인이 아니며 Ready·merge·Issue close·배포·자원 삭제는 수행하지 않는다.
+
+### GH-893 Draft publication
+
+- Published [Draft PR #908](https://github.com/skyg547/account/pull/908), OPEN/DRAFT, `Refs #893`, initial head `25798acfd5b1d07af53d26b259138e3612dfb629`. Issue #893 is OPEN / `status:needs-review`; branch and worktree remain. The PR body contains full637, failing pre-fix reproduction, independent Q1–Q4, rollback, limits and implementation/reviewer/Integrator/human authority separation. At publication, hosted closing/discipline/result checks are pending; this is not remote PASS. Ready, merge, Issue close, deployment and cleanup were not performed.

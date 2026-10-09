@@ -233,3 +233,7 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Full `./gradlew :closing:test` and final `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` PASS637/0 failures/errors/skips; both boot JARs PASS. Independent read-only reviewer found no remaining issue and marked Q1–Q4 PASS; [worklog](worklog.md#2026-10-09--gh-893-fx-parallel-cursor-source-pool) contains the evidence table.
 - Rollback: stop FX work, review and revert only this Closing delta, preserve posted/draft Journal effects and Batch checkpoints, reconcile deterministic slips/lineage before retry. No migration reversal. Real PostgreSQL memory, server cursor, query plan, source connection capacity and load remain untested; human/operations owners must review before Ready/deployment.
 - 권한 분리: 부모 Integrator만 구현·모듈 기록·commit/push/Draft PR을 갱신했고 독립 리뷰어는 읽기 전용이다. AI 검증은 사람 리뷰와 current-head CI를 대체하지 않는다. Ready·merge·Issue close·배포·branch/worktree 삭제는 별도 권한 단계다.
+
+### GH-893 Draft publication
+
+- [Draft PR #908](https://github.com/skyg547/account/pull/908) is OPEN/DRAFT with `Refs #893`, initial head `25798acfd5b1d07af53d26b259138e3612dfb629`; Issue #893 is OPEN / `status:needs-review`. At publication hosted module/result/discipline checks remain pending; no hosted test PASS is claimed. Next owner: human reviewer for current-head checks, then operations/accounting owner for live PostgreSQL source capacity, server cursor and load evidence before Ready/deployment. Worktree and branch stay available.
