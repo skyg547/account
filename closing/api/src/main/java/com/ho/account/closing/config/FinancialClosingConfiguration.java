@@ -14,6 +14,7 @@ import com.ho.account.closing.infrastructure.source.ClosingReadOnlySources;
 import com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapter;
 import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
 import com.ho.account.closing.infrastructure.source.JdbcPostedJournalFinancialEvidenceAdapter;
+import com.ho.account.closing.infrastructure.persistence.JdbcEclProvisionSnapshotAdapter;
 import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * API composition root for synchronous, evidence-backed financial closing runs.
@@ -57,6 +59,7 @@ public class FinancialClosingConfiguration {
             JournalQueryPort journalQueryPort,
             MasterDataQueryPort masterDataQueryPort,
             ExchangeRateQueryPort exchangeRateQueryPort,
+            PlatformTransactionManager transactionManager,
             ClosingAccountingProperties accountingProperties) {
         FxExchangeRateLookupPort exchangeRateLookupPort =
                 new MasterDataFxExchangeRateLookupAdapter(exchangeRateQueryPort);
@@ -67,6 +70,8 @@ public class FinancialClosingConfiguration {
                 exchangeRateLookupPort,
                 journalPostingPort,
                 journalQueryPort,
+                jdbcTemplate,
+                transactionManager,
                 accountingProperties);
     }
 
@@ -74,6 +79,8 @@ public class FinancialClosingConfiguration {
     @Profile("dev")
     @ConditionalOnProperty(name = "closing.sources.enabled", havingValue = "true")
     FinancialClosingCalculation devFinancialClosingCalculation(
+            JdbcTemplate jdbcTemplate,
+            PlatformTransactionManager transactionManager,
             ClosingReadOnlySources sources,
             JournalPostingPort journalPostingPort,
             JournalQueryPort journalQueryPort,
@@ -87,6 +94,8 @@ public class FinancialClosingConfiguration {
                 masterDataAdapter,
                 journalPostingPort,
                 journalQueryPort,
+                jdbcTemplate,
+                transactionManager,
                 accountingProperties);
     }
 
@@ -137,6 +146,8 @@ public class FinancialClosingConfiguration {
             FxExchangeRateLookupPort exchangeRateLookupPort,
             JournalPostingPort journalPostingPort,
             JournalQueryPort journalQueryPort,
+            JdbcTemplate closingJdbcTemplate,
+            PlatformTransactionManager transactionManager,
             ClosingAccountingProperties accountingProperties) {
         JdbcPostedJournalFinancialEvidenceAdapter financialEvidence =
                 new JdbcPostedJournalFinancialEvidenceAdapter(
@@ -158,7 +169,8 @@ public class FinancialClosingConfiguration {
                         eclJdbcTemplate,
                         accountingProperties.getApiFinancialRunMaxJournalCommands(),
                         JdbcEclAllowanceResultAdapter.DEFAULT_QUERY_TIMEOUT_SECONDS),
-                exchangeRateLookupPort);
+                exchangeRateLookupPort,
+                new JdbcEclProvisionSnapshotAdapter(closingJdbcTemplate, transactionManager));
         return new FinancialClosingCalculationService(
                 financialEvidence,
                 fxValuationService,

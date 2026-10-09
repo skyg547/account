@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static com.ho.account.closing.batch.adapter.out.EclJournalFixture.DATE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,7 +71,7 @@ class EclProvisionCurrencyUnitsTest {
         fixture.service.processEclProvision(DATE, 781L);
         if ("0".equals(delta)) {
             assertThat(fixture.commands).isEmpty();
-            verifyNoInteractions(fixture.posting, fixture.query);
+            verifyNoInteractions(fixture.posting);
         } else {
             assertCommand(0, "USD", "1400", debitAccount, creditAccount, delta, baseDelta);
         }
@@ -221,7 +223,8 @@ class EclProvisionCurrencyUnitsTest {
         var service = new EclProvisionService(observedBalances,
                 new JournalLedgerClosingJournalEntryAdapter(fixture.posting, fixture.query), fixture.properties,
                 new JdbcEclAllowanceResultAdapter(fixture.jdbc),
-                new MasterDataFxExchangeRateLookupAdapter(fixture.rates));
+                new MasterDataFxExchangeRateLookupAdapter(fixture.rates),
+                fixture.snapshots);
 
         assertThatThrownBy(() -> service.processEclProvision(DATE, 781L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining(expectedMessage);
@@ -241,7 +244,7 @@ class EclProvisionCurrencyUnitsTest {
 
         fixture.rate("USD", "KRW", "1.2");
         assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different business content");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different snapshot lineage");
         verify(fixture.posting, times(1)).createDraftEntry(any());
     }
 
@@ -260,6 +263,203 @@ class EclProvisionCurrencyUnitsTest {
 
         assertCommand(0, "USD", "1300.12345678", "550100", "129100", "100.01", "130025.35");
         verify(fixture.posting, times(1)).createDraftEntry(any());
+    }
+
+    @Test
+    void originalDraftLineageResolvesAfterSourceRebuildAndSameOperationRejectsNewRun() {
+        fixture.target("USD", "100");
+        fixture.rate("USD", "KRW", "1300");
+        fixture.service.processEclProvision(DATE, 781L);
+
+        String reference = fixture.jdbc.queryForObject(
+                "SELECT lineage_source_id FROM journal_entries WHERE lineage_source_type = 'ECL_PROVISION'",
+                String.class);
+        assertThat(reference).startsWith("ECLSNAP:").hasSize(72);
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT run_id FROM ecl_provision_snapshots WHERE snapshot_reference = ?",
+                String.class, reference)).isEqualTo("RUN-781");
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT model_version FROM ecl_provision_snapshots WHERE snapshot_reference = ?",
+                String.class, reference)).isEqualTo("MODEL-781");
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT target_allowance_amount FROM ecl_provision_snapshots WHERE snapshot_reference = ?",
+                BigDecimal.class, reference)).isEqualByComparingTo("100");
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT legal_entity_code FROM ecl_provision_snapshots WHERE snapshot_reference = ?",
+                String.class, reference)).isEqualTo("SYNTHETIC");
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT base_date FROM ecl_provision_snapshots WHERE snapshot_reference = ?",
+                java.sql.Date.class, reference).toLocalDate()).isEqualTo(DATE);
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT closing_rate FROM ecl_provision_snapshots WHERE snapshot_reference = ?",
+                BigDecimal.class, reference)).isEqualByComparingTo("1300");
+
+        fixture.jdbc.update("DELETE FROM allowance_summary");
+        fixture.target("USD", "100");
+        fixture.jdbc.update("UPDATE allowance_summary SET run_id = 'RUN-782', model_version = 'MODEL-782'");
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different snapshot lineage");
+        assertThat(fixture.commands).hasSize(1);
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT run_id FROM ecl_provision_snapshots WHERE snapshot_reference = ?",
+                String.class, reference)).isEqualTo("RUN-781");
+    }
+
+    @Test
+    void zeroDeltaOperationAlsoRejectsSourceRebuildBeforeAnyJournalWrite() {
+        fixture.target("KRW", "100");
+        fixture.ordinary("POSTED", DATE, "KRW", "129100", "CREDIT", "100", "100");
+        fixture.service.processEclProvision(DATE, 781L);
+        assertThat(fixture.commands).isEmpty();
+        fixture.jdbc.update("UPDATE allowance_summary SET model_version = 'MODEL-NEW'");
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different confirmed snapshot");
+        verifyNoInteractions(fixture.posting);
+    }
+
+    @Test
+    void zeroDeltaReservationRejectsLaterNonzeroDeltaUnderSameKey() {
+        fixture.target("KRW", "100");
+        fixture.ordinary("POSTED", DATE, "KRW", "129100", "CREDIT", "100", "100");
+        fixture.service.processEclProvision(DATE, 781L);
+        fixture.ordinary("POSTED", DATE, "KRW", "129100", "DEBIT", "10", "10");
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different confirmed snapshot");
+        verifyNoInteractions(fixture.posting);
+    }
+
+    @Test
+    void snapshotBindingSurvivesTaskletRollbackAndIsReusedOnRetry() {
+        fixture.target("KRW", "100");
+        var transaction = new TransactionTemplate(
+                new DataSourceTransactionManager(fixture.jdbc.getDataSource()));
+
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            fixture.service.processEclProvision(DATE, 781L);
+            throw new IllegalStateException("tasklet failed after remote write");
+        })).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("tasklet failed");
+
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ecl_provision_snapshot_bindings", Integer.class)).isEqualTo(1);
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM journal_entries WHERE lineage_source_type = 'ECL_PROVISION'",
+                Integer.class)).isZero();
+        fixture.service.processEclProvision(DATE, 781L);
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ecl_provision_snapshot_bindings", Integer.class)).isEqualTo(1);
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM journal_entries WHERE lineage_source_type = 'ECL_PROVISION'",
+                Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void addingGroupToSameBatchRejectsWholeSnapshotSetBeforeNewJournalWrite() {
+        fixture.target("KRW", "100");
+        fixture.service.processEclProvision(DATE, 781L);
+        fixture.target("USD", "50");
+        fixture.rate("USD", "KRW", "1300");
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different confirmed snapshot set");
+        assertThat(fixture.commands).hasSize(1);
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ecl_provision_snapshot_bindings", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void droppingGroupFromSameBatchRejectsWholeSnapshotSet() {
+        fixture.target("KRW", "100");
+        fixture.target("USD", "50");
+        fixture.rate("USD", "KRW", "1300");
+        fixture.service.processEclProvision(DATE, 781L);
+        fixture.jdbc.update("DELETE FROM allowance_summary WHERE currency_code = 'USD'");
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different confirmed snapshot set");
+        assertThat(fixture.commands).hasSize(2);
+    }
+
+    @Test
+    void legacySlipCollisionFailsBeforeReservingNewSnapshot() {
+        fixture.target("KRW", "100");
+        String slip = fixture.service.prepareEclProvisionSnapshot(DATE, 781L).commands().get(0).slipNo();
+        fixture.jdbc.update("""
+                INSERT INTO journal_entries
+                    (id, status, accounting_date, slip_date, currency_code, entry_type,
+                     lineage_source_type, lineage_source_id, slip_no, description)
+                VALUES (999, 'DRAFT', ?, ?, 'KRW', 'CLOSING_ADJUSTMENT',
+                        'ECL_PROVISION', '781|129100|KRW', ?, 'legacy ECL')
+                """, DATE, DATE, slip);
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("legacy or different snapshot lineage");
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ecl_provision_run_bindings", Integer.class)).isZero();
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ecl_provision_snapshots", Integer.class)).isZero();
+    }
+
+    @Test
+    void postedNoopRejectsJournalLineageThatDoesNotMatchOriginalBinding() {
+        fixture.properties.setAutoPostAdjustments(true);
+        fixture.target("KRW", "100");
+        fixture.service.processEclProvision(DATE, 781L);
+        fixture.jdbc.update("""
+                UPDATE journal_entries SET lineage_source_id = ?
+                 WHERE lineage_source_type = 'ECL_PROVISION'
+                """, "ECLSNAP:" + "0".repeat(64));
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different confirmed snapshot");
+        assertThat(fixture.commands).hasSize(1);
+    }
+
+    @Test
+    void postedNoopCannotCreateMissingLocalBindingFromCurrentZeroBalance() {
+        fixture.properties.setAutoPostAdjustments(true);
+        fixture.target("KRW", "100");
+        fixture.service.processEclProvision(DATE, 781L);
+        fixture.jdbc.update("DELETE FROM ecl_provision_snapshot_bindings");
+        fixture.jdbc.update("DELETE FROM ecl_provision_run_bindings");
+        fixture.jdbc.update("DELETE FROM ecl_provision_snapshots");
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no original snapshot binding");
+        assertThat(fixture.jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ecl_provision_run_bindings", Integer.class)).isZero();
+    }
+
+    @Test
+    void postedLineageStillResolvesOriginalRunAfterSameDateSourceRebuild() {
+        fixture.properties.setAutoPostAdjustments(true);
+        fixture.target("KRW", "100");
+        fixture.service.processEclProvision(DATE, 781L);
+        String reference = fixture.jdbc.queryForObject(
+                "SELECT lineage_source_id FROM journal_entries WHERE lineage_source_type = 'ECL_PROVISION'",
+                String.class);
+        fixture.jdbc.update("DELETE FROM allowance_summary");
+        fixture.target("KRW", "100");
+        fixture.jdbc.update("UPDATE allowance_summary SET run_id = 'RUN-NEW', model_version = 'MODEL-NEW'");
+
+        assertThat(fixture.jdbc.queryForObject("""
+                SELECT run_id FROM ecl_provision_snapshots WHERE snapshot_reference = ?
+                """, String.class, reference)).isEqualTo("RUN-781");
+        assertThat(fixture.jdbc.queryForObject("""
+                SELECT model_version FROM ecl_provision_snapshots WHERE snapshot_reference = ?
+                """, String.class, reference)).isEqualTo("MODEL-781");
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different confirmed snapshot set");
     }
 
     private void assertBalance(String transaction, String base) {

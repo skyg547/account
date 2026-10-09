@@ -5,6 +5,10 @@ package com.ho.account.closing.application.port.out;
  */
 public interface ClosingJournalEntryPort {
 
+    default java.util.Map<String, String> preflightEclLineage(java.util.List<ClosingJournalLineage> expected) {
+        throw new UnsupportedOperationException("ECL lineage preflight is required");
+    }
+
     ClosingJournalEntryResult createDraftAdjustment(ClosingJournalEntryCommand command);
 
     void approveAndPost(Long journalEntryId, String actor);

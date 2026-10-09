@@ -186,6 +186,7 @@ ECL 충당 Job 예시:
 - FX 평가 전 `account.closing.accounting.fx-valuation-policies`에 계정별 유효기간과 화폐성/역사적 원가 정책을 명시해야 합니다. 수익·비용·역사적 원가 비화폐성 자산은 제외하고, 정책 누락·중복·계정 분류 불일치는 실패시킵니다. [평가 적격성](docs/process-flow.md#평가-대상-계정의-유효일자-정책-gh-780)과 [설정 예시](docs/local-run.md#fx-평가-적격성-설정-gh-780)를 참고하세요.
 - FX 장부금액은 이전에 전기한 평가 조정과 역분개를 원천통화별로 포함합니다. 평가액은 외화 원금을 바꾸지 않으며, 전월 평가가 전기되고 환율이 같으면 다음 평가 차액은 0입니다. [귀속과 대사 기준](docs/process-flow.md#이전-평가를-포함한-장부금액-gh-779)을 참고하세요.
 - ECL은 하나의 확정 run/model, 하나의 법인, 동일 기준일의 summary만 허용하며 계정·통화별 목표와 실제 전기된 거래통화·기능통화 잔액을 각각 대사합니다. 외화는 기준일 환율이 필요하며, 기존 장부액이 그 환율과 다르면 FX 평가 전기를 먼저 요구합니다. summary가 비어 있으면 성공으로 처리하지 않습니다. [통화별 계산과 재시도](docs/process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요.
+- ECL 조정은 V54의 Closing 소유 불변 스냅샷에 run/model/기준일/법인과 원천·대사 금액을 보존합니다. 전표 lineage의 `ECLSNAP:` 참조로 원천 summary 재생성 후에도 원래 근거를 조회할 수 있습니다. 동일 기준일·배치 ID에 다른 전체 스냅샷 집합을 재사용하면 실패합니다. [ECL 스냅샷 라인리지](docs/process-flow.md#ecl-스냅샷-라인리지-gh-892)를 참고하세요.
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. `dev`의 원격 Journal HTTP 어댑터는 maker 승인 요청·별도 checker 승인·poster 전기를 안전하게 수행할 서비스 주체 계약이 없어 `account.closing.accounting.auto-post-adjustments=true`이면 첫 Journal 쓰기 전에 실패합니다. 원격 자동 전기는 이 계약을 구현·검증하기 전까지 사용할 수 없습니다.
 - API는 FX evidence를 한 번 스트리밍해 기본 10,000행, 생성 전표 command 1,000개의 hard cap 안에서 전체 command를 먼저 불변 목록으로 확정한 뒤 그 목록만 게시합니다. ECL source 조회도 최대 1,001개 전표 그룹과 60초 query timeout으로 경계를 두고, 1,000개를 넘으면 그룹별 원장/환율 조회와 Journal 게시 전에 실패합니다.
 - API 실행 이력은 전표가 0건이거나 자동 전기이면 `COMPLETED`, DRAFT가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 전표가 여러 건이면 단일 `generated_journal_entry_id`에는 `null`을 기록합니다.
@@ -198,5 +199,5 @@ ECL 충당 Job 예시:
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.
 - Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49의 10개 Closing 소유 테이블 baseline을 적용하고, V50으로 EOD/BOD 상태를 승격한 뒤 V51로 운영 조회 인덱스를 수렴시키고 V52로 월말 전이 기록을 추가합니다. 기존 legacy DB는 runner가 전체 컬럼 타입·길이·nullability·identity·PK/FK/기간 unique를 확인한 경우에만 49 baseline을 기록하고 V50/V51/V52를 forward 적용합니다. V52는 미완료 월말 전이 기록을 추가하며 새 버전 기동 전에 적용해야 합니다.
-- 이 금융 실행 경로 변경에는 새 스키마나 migration이 없습니다.
+- ECL 스냅샷 라인리지에는 Closing Flyway V54가 필요합니다. 새 코드 기동 전에 적용하고 기존 ECL 전표에는 자동 역채움을 하지 않습니다.
 - Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.

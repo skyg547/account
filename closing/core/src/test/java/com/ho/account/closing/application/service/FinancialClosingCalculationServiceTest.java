@@ -132,14 +132,15 @@ class FinancialClosingCalculationServiceTest {
 
     @Test
     void eclPreparationFailureNeverInvokesPostingPhase() {
-        when(ecl.prepareEclProvision(DATE, 88L))
+        when(ecl.prepareEclProvisionSnapshot(DATE, 88L))
                 .thenThrow(new IllegalStateException("No finalized ECL allowance summary"));
 
         assertThatThrownBy(() -> service.runEclProvision(DATE, 88L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No finalized ECL allowance summary");
 
-        verify(ecl, never()).postPreparedEclProvision(any());
+        verify(ecl, never()).postPreparedEclProvision(
+                any(EclProvisionService.PreparedEclProvision.class));
         verifyNoInteractions(fx);
     }
 
