@@ -5,6 +5,7 @@ import java.util.Optional;
 
 public interface PeriodLockPersistencePort {
     PeriodLock save(PeriodLock periodLock);
+    PeriodLock saveAndFlush(PeriodLock periodLock);
+    /** Returns the sole active lock; released rows remain as history. */
     Optional<PeriodLock> findByFiscalPeriodId(Long fiscalPeriodId);
-    void delete(PeriodLock periodLock);
 }

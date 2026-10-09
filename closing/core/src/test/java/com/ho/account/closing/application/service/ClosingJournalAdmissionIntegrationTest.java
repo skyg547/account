@@ -223,7 +223,7 @@ class ClosingJournalAdmissionIntegrationTest {
         verifyNoInteractions(ledgers, balances);
         verify(calendars, never()).save(any());
         verify(locks, never()).save(any());
-        verify(locks, never()).delete(any());
+        verify(locks, never()).saveAndFlush(any());
     }
 
     private void post(boolean systemPoster) {

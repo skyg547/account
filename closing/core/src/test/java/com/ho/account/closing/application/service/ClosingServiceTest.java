@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 public class ClosingServiceTest {
@@ -608,7 +610,7 @@ public class ClosingServiceTest {
         when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
         when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod))
                 .thenReturn(validEvidence("admission-close", calendar, openPeriod));
-        when(reopenApprovalPersistencePort.save(any())).thenAnswer(invocation -> {
+        when(reopenApprovalPersistencePort.saveAndFlush(any())).thenAnswer(invocation -> {
             ReopenApproval approval = invocation.getArgument(0);
             approval.setId(20L);
             reopenRequest.set(approval);
@@ -717,18 +719,80 @@ public class ClosingServiceTest {
         return calendar;
     }
 
+    @Test
+    void activeLockConstraintViolationIsMappedToPeriodConflict() {
+        givenCalendarForCreation(openPeriod, ClosingCalendar.ClosingCalendarStatus.OPEN);
+        DataIntegrityViolationException duplicate = uniqueFailure("uk_period_lock_active_period");
+        when(periodLockPersistencePort.saveAndFlush(any())).thenThrow(duplicate);
+
+        assertThatThrownBy(() -> closingService.lockPeriod(1L, PeriodLock.PeriodLockType.ALL_TRANSACTIONS,
+                "closer", "control"))
+                .isInstanceOf(IllegalStateException.class).hasCause(duplicate);
+        verify(closingAuditLogPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void unrelatedLockUniqueViolationRetainsDatabaseFailure() {
+        givenCalendarForCreation(openPeriod, ClosingCalendar.ClosingCalendarStatus.OPEN);
+        DataIntegrityViolationException primaryKey = uniqueFailure("period_locks_pkey");
+        when(periodLockPersistencePort.saveAndFlush(any())).thenThrow(primaryKey);
+
+        assertThatThrownBy(() -> closingService.lockPeriod(1L, PeriodLock.PeriodLockType.ALL_TRANSACTIONS,
+                "closer", "control"))
+                .isSameAs(primaryKey);
+        verify(closingAuditLogPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void pendingReopenConstraintViolationIsMappedToPeriodConflict() {
+        givenCalendarForCreation(closedPeriod, ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        DataIntegrityViolationException duplicate = uniqueFailure("uk_reopen_approval_pending_period");
+        when(reopenApprovalPersistencePort.saveAndFlush(any())).thenThrow(duplicate);
+
+        assertThatThrownBy(() -> closingService.requestPeriodReopen(2L, "requester", "correction"))
+                .isInstanceOf(IllegalStateException.class).hasCause(duplicate);
+        verify(closingAuditLogPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void unrelatedReopenUniqueViolationRetainsDatabaseFailure() {
+        givenCalendarForCreation(closedPeriod, ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        DataIntegrityViolationException primaryKey = uniqueFailure("reopen_approvals_pkey");
+        when(reopenApprovalPersistencePort.saveAndFlush(any())).thenThrow(primaryKey);
+
+        assertThatThrownBy(() -> closingService.requestPeriodReopen(2L, "requester", "correction"))
+                .isSameAs(primaryKey);
+        verify(closingAuditLogPersistencePort, never()).save(any());
+    }
+
+    private void givenCalendarForCreation(FiscalPeriodRef period, ClosingCalendar.ClosingCalendarStatus status) {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setFiscalYear(period.fiscalYear());
+        calendar.setFiscalPeriod(period.fiscalPeriod());
+        calendar.setStatus(status);
+        when(fiscalPeriodControlPort.findFiscalPeriodById(period.id())).thenReturn(Optional.of(period));
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod(
+                period.fiscalYear(), period.fiscalPeriod())).thenReturn(Optional.of(calendar));
+    }
+
+    private static DataIntegrityViolationException uniqueFailure(String constraint) {
+        return new DataIntegrityViolationException("insert failed",
+                new SQLException("violates unique constraint " + constraint, "23505"));
+    }
+
     private void trackActiveLock(AtomicReference<PeriodLock> activeLock) {
         when(periodLockPersistencePort.findByFiscalPeriodId(1L))
                 .thenAnswer(invocation -> Optional.ofNullable(activeLock.get()));
-        when(periodLockPersistencePort.save(any())).thenAnswer(invocation -> {
+        when(periodLockPersistencePort.saveAndFlush(any())).thenAnswer(invocation -> {
             PeriodLock saved = invocation.getArgument(0);
             activeLock.set(saved);
             return saved;
         });
-        doAnswer(invocation -> {
-            activeLock.set(null);
-            return null;
-        }).when(periodLockPersistencePort).delete(any());
+        lenient().when(periodLockPersistencePort.save(any())).thenAnswer(invocation -> {
+            PeriodLock released = invocation.getArgument(0);
+            if (!released.isActive()) activeLock.set(null);
+            return released;
+        });
     }
 
     private ValuationBatch valuationBatch(
