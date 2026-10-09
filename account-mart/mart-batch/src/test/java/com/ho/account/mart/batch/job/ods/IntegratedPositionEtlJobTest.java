@@ -22,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -178,6 +179,121 @@ public class IntegratedPositionEtlJobTest {
                 "SELECT COUNT(*) FROM allowance_exposure_snapshots WHERE base_date = ?",
                 Integer.class, java.sql.Date.valueOf(BASE_DATE));
         assertThat(snapshotRows).isZero();
+    }
+
+    @Test
+    @DisplayName("GL/SL 금액 불일치는 이력을 보존하고 후속 적재와 스냅샷을 막으며 같은 Job을 재시작할 수 있다")
+    void mismatchFailsBeforeCdmAndCanRestartAfterCorrection() throws Exception {
+        jdbcTemplate.update("""
+                UPDATE ods_general_ledger SET balance = ?
+                WHERE base_dt = ? AND gl_code = 'L001' AND currency = 'KRW'
+                """, new BigDecimal("299999990.0000"), java.sql.Date.valueOf(BASE_DATE));
+        JobParameters parameters = newJobParameters();
+
+        JobExecution failed = jobLauncherTestUtils.launchJob(parameters);
+
+        assertReconciliationStoppedBeforeCdm(failed);
+        assertThat(auditCount("MISMATCH")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT diff_amount FROM ods_reconcile_hist
+                WHERE base_dt = ? AND reconcile_item = 'L001_KRW' AND status = 'MISMATCH'
+                """, BigDecimal.class, java.sql.Date.valueOf(BASE_DATE)))
+                .isEqualByComparingTo(new BigDecimal("-10.0000"));
+
+        jdbcTemplate.update("""
+                UPDATE ods_general_ledger SET balance = ?
+                WHERE base_dt = ? AND gl_code = 'L001' AND currency = 'KRW'
+                """, new BigDecimal("300000000.0000"), java.sql.Date.valueOf(BASE_DATE));
+
+        // 실패한 동일 JobParameters를 재시작하면 대사 Step을 다시 수행하고 이후 단계로 진행한다.
+        JobExecution restarted = jobLauncherTestUtils.launchJob(parameters);
+        assertThat(restarted.getExitStatus()).isEqualTo(ExitStatus.COMPLETED);
+        assertThat(auditCount("MISMATCH")).isEqualTo(1);
+        assertThat(auditCount("정상(MATCH)")).isEqualTo(7);
+        assertThat(snapshotCount()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("GL에만 있는 0 잔액 계정·통화도 불일치로 기록하고 Job을 중단한다")
+    void glOnlyZeroBalanceKeyFailsBeforeCdm() throws Exception {
+        insertGeneralLedger(BASE_DATE, "L999", "KRW", BigDecimal.ZERO, "BR001");
+
+        JobExecution failed = jobLauncherTestUtils.launchJob(newJobParameters());
+
+        assertReconciliationStoppedBeforeCdm(failed);
+        assertThat(auditCount("MISMATCH")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM ods_reconcile_hist
+                WHERE base_dt = ? AND reconcile_item = 'L999_KRW' AND status = 'MISMATCH'
+                  AND source_amount = 0 AND target_amount = 0 AND diff_amount = 0
+                """, Integer.class, java.sql.Date.valueOf(BASE_DATE))).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("SL에만 있는 계정·통화도 불일치로 처리한다")
+    void slOnlyKeyFailsBeforeCdm() throws Exception {
+        jdbcTemplate.update("""
+                DELETE FROM ods_general_ledger
+                WHERE base_dt = ? AND gl_code = 'L005' AND currency = 'USD'
+                """, java.sql.Date.valueOf(BASE_DATE));
+
+        JobExecution failed = jobLauncherTestUtils.launchJob(newJobParameters());
+
+        assertReconciliationStoppedBeforeCdm(failed);
+        assertThat(auditCount("MISMATCH")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT diff_amount FROM ods_reconcile_hist
+                WHERE base_dt = ? AND reconcile_item = 'L005_USD' AND status = 'MISMATCH'
+                """, BigDecimal.class, java.sql.Date.valueOf(BASE_DATE)))
+                .isEqualByComparingTo(new BigDecimal("-10000.0000"));
+    }
+
+    @Test
+    @DisplayName("GL/SL 차이가 정확히 0.01이면 허용하고 후속 단계를 실행한다")
+    void toleranceBoundaryCompletes() throws Exception {
+        jdbcTemplate.update("""
+                UPDATE ods_general_ledger SET balance = ?
+                WHERE base_dt = ? AND gl_code = 'L001' AND currency = 'KRW'
+                """, new BigDecimal("300000000.0100"), java.sql.Date.valueOf(BASE_DATE));
+
+        JobExecution completed = jobLauncherTestUtils.launchJob(newJobParameters());
+
+        assertThat(completed.getExitStatus()).isEqualTo(ExitStatus.COMPLETED);
+        assertThat(auditCount("MISMATCH")).isZero();
+        assertThat(snapshotCount()).isEqualTo(5);
+    }
+
+    private JobParameters newJobParameters() {
+        return new JobParametersBuilder()
+                .addString("baseDate", BASE_DATE.toString())
+                .addString("testRun", UUID.randomUUID().toString())
+                .toJobParameters();
+    }
+
+    private void assertReconciliationStoppedBeforeCdm(JobExecution execution) {
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(execution.getStepExecutions()).extracting(step -> step.getStepName())
+                .contains("odsReconcileStep")
+                .doesNotContain("cdmLoadStep", "allowanceExposureSnapshotStep", "cdmEventPublishStep");
+        assertThat(execution.getStepExecutions().stream()
+                .filter(step -> "odsReconcileStep".equals(step.getStepName()))
+                .findFirst().orElseThrow().getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM allowance_input_positions WHERE base_dt = ?
+                """, Integer.class, java.sql.Date.valueOf(BASE_DATE))).isZero();
+        assertThat(snapshotCount()).isZero();
+    }
+
+    private int auditCount(String status) {
+        return jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM ods_reconcile_hist WHERE base_dt = ? AND status = ?
+                """, Integer.class, java.sql.Date.valueOf(BASE_DATE), status);
+    }
+
+    private int snapshotCount() {
+        return jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM allowance_exposure_snapshots WHERE base_date = ?
+                """, Integer.class, java.sql.Date.valueOf(BASE_DATE));
     }
 
     private void seedDemoSourceData(LocalDate baseDate) {
