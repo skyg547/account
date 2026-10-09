@@ -621,7 +621,7 @@ loopback 테스트도 이 인증 통합을 증명하지 않습니다.
 - API 평가/충당 실행 이력은 전표 트랜잭션과 분리해 `RUNNING -> COMPLETED`, `PENDING_APPROVAL`, 또는 `FAILED`를 보존합니다. DRAFT 전표 생성만으로 `COMPLETED`가 되지 않습니다.
 - API 결과가 0건이거나 지원되는 어댑터에서 실제 자동 전기이면 `COMPLETED`, DRAFT 전표가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표는 scalar history ID로 표현할 수 없어 ID를 `null`로 둡니다.
 - remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 여러 전표 중 일부만 작성된 뒤 `FAILED`가 기록되면, 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태 및 Closing 이력을 대사합니다. 원격 DRAFT를 자동 삭제하거나 요청을 맹목적으로 재전송하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
-- 같은 slip을 재실행할 때는 헤더·lineage·모든 라인이 일치하고 상태가 `DRAFT`, `REQUESTED`, `APPROVED`, `POSTED` 중 하나인 전표만 재사용합니다. `REJECTED`, `REVERSED`, 누락되거나 알 수 없는 상태는 명시적으로 실패하며 원격 쓰기를 보내지 않습니다. 이 재사용 판정은 원격 자동 승인을 허용한다는 뜻이 아닙니다.
+- 같은 slip을 재실행할 때는 현재 공유 조회 계약이 제공하는 헤더 항목·lineage·모든 라인이 일치하고 상태가 `DRAFT`, `REQUESTED`, `APPROVED`, `POSTED` 중 하나인 전표만 재사용합니다. 이 계약은 환율을 전달하지 않아 외화 ECL의 환율 차이를 별도로 비교하지 못합니다. 차이가 반올림된 라인 금액에 드러나지 않을 수 있으므로 원격 전표의 환율도 담당자가 확인해야 합니다. `REJECTED`, `REVERSED`, 누락되거나 알 수 없는 상태는 명시적으로 실패하며 원격 쓰기를 보내지 않습니다. 이 재사용 판정은 원격 자동 승인을 허용한다는 뜻이 아닙니다.
 - API 요청 멱등 key와 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경도 별도 검증/운영 통제가 필요합니다.
 - 이 흐름은 새 테이블·컬럼·migration 없이 기존 이력과 원천 스키마를 사용합니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.

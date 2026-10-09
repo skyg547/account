@@ -185,3 +185,8 @@
 - Existing branch/worktree `agent/890-closing-http-autopost-recovery` / `/tmp/account-890-closing-http-autopost-recovery`; Issue OPEN, PR #905 OPEN/DRAFT. Only `closing/**` changed; this follow-up added FX/ECL-shaped HTTP **create** response-loss/restart tests, while the prior status allowlist and remote auto-post block remain.
 - Focused HTTP48 PASS; isolated forced `./gradlew :closing:test --rerun-tasks --console=plain --max-workers=2 --no-daemon` PASS645 (API159/Batch111/Core375), failures/errors/skips0. A prior concurrent Gradle XML collision was superseded by this single-process run. Independent read-only review found Q1–Q4 PASS for the bounded change and retained P1/P2 full-Issue acceptance gaps. Details and evidence table are in [worklog](worklog.md).
 - Next owner: authorized Journal/Gateway identity and route contract owner, then Closing implementation/test owner for APPROVED/POSTED and create/approve/post response-loss coverage. Human review owns Ready/merge; parent Integrator owns module records and Draft publication. No production remote, PostgreSQL, or distributed fault proof is claimed.
+
+### GH-890 independent re-review, 2026-10-09
+
+- The required `./gradlew :closing:test --console=plain --max-workers=2 --no-daemon` passed on `667356c5` with all 29 tasks up to date; the prior forced run on that head passed 645 tests. No Java behavior changed in this follow-up.
+- Independent read-only review found an additional P2 full-Issue gap: shared `JournalSummary` omits `exchangeRate`, so an ECL journal with the same rounded lines but a different rate can be reused. The process and beginner guides now state this limit. Full-Issue Q1 remains FAIL; the status guard itself is unchanged. Keep PR #905 Draft and Issue #890 open.
