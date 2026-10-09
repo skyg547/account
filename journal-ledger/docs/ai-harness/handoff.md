@@ -5,6 +5,7 @@ Issue [#894](https://github.com/skyg547/account/issues/894) has a module-scoped 
 - The domain has no Spring/JPA source references. Infrastructure owns repositories, converter, named XML entity mapping and persistence lifecycle listener. API/Batch opt in; Loan startup verified no journal schema leakage.
 - Exact `./gradlew :journal-ledger:test`: 434/434 PASS (core 323, API 74, Batch 37), no failures/errors/skips. Existing POSTED persistence 19/19 PASS. Byte-identical boundary guard `78656bbe...` fails 1/1 on audited `a97d10ab` and passes here. API/Batch bootJar and static gates PASS.
 - Independent read-only review: no remaining journal-ledger P0–P3; Q2–Q4 PASS. Q1 FAIL/P2 because Loan API/Batch dev-profile tests each fail at stale `Class.forName` after JPA startup. Loan is outside the allowlist; do not mark Ready or merge until an authorized correction and new review.
+- Remote Draft checks on prior head `a6fc3a12`: three checks PASS; implementer PR discipline FAIL due owner/verification/merge metadata, Draft state and unconfigured trust policy. This is a governance gate, separate from local module verification and Loan test regression.
 - Rollback is a reviewed module-scoped revert; no migration or production data changed. H2/local tests do not establish live PostgreSQL, distributed fault or load behavior. Human reviewer is next owner for scope decision, Loan correction, CI and later PR lifecycle gates.
 
 ---

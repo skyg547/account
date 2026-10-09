@@ -4,6 +4,7 @@
 - Scope `journal-ledger/**` only. `gpt-6-sol` high module writer, read-only independent reviewer, parent Integrator for records/Git/GitHub. Root shared harness/history and other modules remain untouched.
 - Domain framework references removed; named infrastructure XML mapping, moved repositories/converter, lifecycle listener, explicit API/Batch registration and architecture guard are implemented. Exact module test 434/434 PASS; audited guard RED 1/1 with identical bytes; module bootJar and static gates PASS.
 - Independent review Q1 FAIL/P2: Loan API and Batch dev-profile tests deterministically fail on stale `Class.forName` of deleted domain repository, after successful JPA startup. Q2–Q4 PASS. Draft may be published with this blocker; Ready/merge requires separately authorized Loan correction and renewed review. No production Loan failure shown.
+- Prior Draft head `a6fc3a12` remote checks: three harness/guard candidate checks PASS; implementer PR discipline FAIL because required ownership/verification/merge metadata and trust policy are unconfigured, and the PR is Draft. Human owner resolves governance before Ready/merge.
 - No live PostgreSQL, distributed fault or load claim. Roll back by reviewed module-scoped revert; no migration/data changed. Human reviewer owns later Ready/merge/Issue close/deployment/cleanup gates.
 
 ---
