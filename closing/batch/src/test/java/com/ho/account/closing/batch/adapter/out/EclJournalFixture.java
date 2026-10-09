@@ -7,6 +7,8 @@ import com.ho.account.closing.domain.ProvisionBatch;
 import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
 import com.ho.account.closing.infrastructure.external.MasterDataFxExchangeRateLookupAdapter;
 import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
+import com.ho.account.closing.application.port.out.EclProvisionSnapshotPort;
+import com.ho.account.closing.infrastructure.persistence.JdbcEclProvisionSnapshotAdapter;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -36,6 +39,7 @@ import static org.mockito.Mockito.when;
 final class EclJournalFixture {
     static final LocalDate DATE = LocalDate.of(2026, 5, 31);
     final JdbcTemplate jdbc;
+    final EclProvisionSnapshotPort snapshots;
     final JournalPostingPort posting = mock(JournalPostingPort.class);
     final JournalQueryPort query = mock(JournalQueryPort.class);
     final ExchangeRateQueryPort rates = mock(ExchangeRateQueryPort.class);
@@ -50,6 +54,37 @@ final class EclJournalFixture {
         var dataSource = new DriverManagerDataSource(
                 "jdbc:h2:mem:ecl-units-" + System.nanoTime() + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1", "sa", "");
         jdbc = new JdbcTemplate(dataSource);
+        jdbc.execute("""
+                CREATE TABLE ecl_provision_snapshots (
+                    snapshot_reference VARCHAR(72) PRIMARY KEY, source_fingerprint VARCHAR(64) NOT NULL,
+                    base_date DATE NOT NULL,
+                    run_id VARCHAR(80) NOT NULL, model_version VARCHAR(80) NOT NULL,
+                    legal_entity_code VARCHAR(20) NOT NULL, currency_code VARCHAR(3) NOT NULL,
+                    allowance_account_code VARCHAR(50) NOT NULL,
+                    target_allowance_amount NUMERIC(38,8) NOT NULL,
+                    source_exposure_amount NUMERIC(38,8) NOT NULL,
+                    stage1_allowance_amount NUMERIC(38,8) NOT NULL,
+                    stage2_allowance_amount NUMERIC(38,8) NOT NULL,
+                    stage3_allowance_amount NUMERIC(38,8) NOT NULL,
+                    existing_transaction_amount NUMERIC(19,2) NOT NULL,
+                    existing_base_amount NUMERIC(19,2) NOT NULL,
+                    closing_rate NUMERIC(19,8) NOT NULL,
+                    adjustment_transaction_amount NUMERIC(19,2) NOT NULL,
+                    adjustment_base_amount NUMERIC(19,2) NOT NULL)
+                """);
+        jdbc.execute("""
+                CREATE TABLE ecl_provision_snapshot_bindings (
+                    operation_key VARCHAR(64) PRIMARY KEY,
+                    provision_batch_id BIGINT NOT NULL,
+                    snapshot_reference VARCHAR(72) NOT NULL)
+                """);
+        jdbc.execute("""
+                CREATE TABLE ecl_provision_run_bindings (
+                    base_date DATE NOT NULL, provision_batch_id BIGINT NOT NULL,
+                    snapshot_set_digest VARCHAR(64) NOT NULL,
+                    PRIMARY KEY (base_date, provision_batch_id))
+                """);
+        snapshots = new JdbcEclProvisionSnapshotAdapter(jdbc, new DataSourceTransactionManager(dataSource));
         jdbc.execute("""
                 CREATE TABLE journal_entries (
                     id BIGINT PRIMARY KEY, status VARCHAR(20), accounting_date DATE, slip_date DATE,
@@ -84,7 +119,8 @@ final class EclJournalFixture {
         balances = new JournalFxValuationBalanceSource(dataSource, jdbc, eligibility);
         service = new EclProvisionService(balances,
                 new JournalLedgerClosingJournalEntryAdapter(posting, query), properties,
-                new JdbcEclAllowanceResultAdapter(jdbc), new MasterDataFxExchangeRateLookupAdapter(rates));
+                new JdbcEclAllowanceResultAdapter(jdbc), new MasterDataFxExchangeRateLookupAdapter(rates),
+                snapshots);
         when(query.findBySlipNo(anyString())).thenAnswer(invocation -> jdbc.query(
                 "SELECT * FROM journal_entries WHERE slip_no = ?", (rs, row) -> {
                     JournalSummary result = new JournalSummary();

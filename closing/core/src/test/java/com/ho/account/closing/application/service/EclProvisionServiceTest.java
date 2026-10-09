@@ -9,6 +9,7 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
+import com.ho.account.closing.application.port.out.EclProvisionSnapshotPort;
 import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +46,8 @@ class EclProvisionServiceTest {
 
     @Mock
     private FxExchangeRateLookupPort rates;
+    @Mock
+    private EclProvisionSnapshotPort snapshots;
 
     private ClosingAccountingProperties accountingProperties;
     private EclProvisionService service;
@@ -59,7 +62,9 @@ class EclProvisionServiceTest {
                 allowanceBalanceLookupPort,
                 closingJournalEntryPort,
                 accountingProperties,
-                eclAllowanceResultPort, rates);
+                eclAllowanceResultPort, rates, snapshots);
+        org.mockito.Mockito.lenient().when(closingJournalEntryPort.preflightEclLineage(any()))
+                .thenReturn(Map.of());
     }
 
     @Test
@@ -90,7 +95,7 @@ class EclProvisionServiceTest {
         assertThat(command.currencyCode()).isEqualTo("USD");
         assertThat(command.slipDate()).isEqualTo(closingDate);
         assertThat(command.accountingDate()).isEqualTo(closingDate);
-        assertThat(command.lineageSourceId()).isEqualTo("44|129100|USD");
+        assertThat(command.lineageSourceId()).startsWith("ECLSNAP:");
         assertThat(command.slipNo()).startsWith("ECL20260531").hasSize(20);
         assertThat(command.lines()).hasSize(2);
         assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00", "260000.00");
@@ -124,6 +129,22 @@ class EclProvisionServiceTest {
         assertThat(command.lines()).hasSize(2);
         assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "129100", "200.00");
         assertLine(command.lines().get(1), ClosingJournalSide.CREDIT, "480100", "200.00");
+    }
+
+    @Test
+    void nullLineagePreflightFailsBeforeSnapshotReservationOrJournalWrite() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
+                date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", "100.00")));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0.00", "0.00"));
+        when(closingJournalEntryPort.preflightEclLineage(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 781L))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("preflight result must not be null");
+        verifyNoInteractions(snapshots);
+        verify(closingJournalEntryPort, org.mockito.Mockito.never()).createDraftAdjustment(any());
     }
 
     @Test
@@ -247,7 +268,7 @@ class EclProvisionServiceTest {
 
         service.processEclProvision(date, 690L);
 
-        verifyNoInteractions(closingJournalEntryPort);
+        verify(closingJournalEntryPort, org.mockito.Mockito.never()).createDraftAdjustment(any());
     }
 
     @Test
