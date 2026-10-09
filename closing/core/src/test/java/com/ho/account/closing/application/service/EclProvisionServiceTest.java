@@ -11,6 +11,9 @@ import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
 import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -136,6 +139,97 @@ class EclProvisionServiceTest {
                 .hasMessageContaining("zero-portfolio completion marker");
 
         verifyNoInteractions(allowanceBalanceLookupPort, closingJournalEntryPort);
+    }
+
+    @Test
+    void explicitZeroExposureAndZeroStagesRequireNoJournalWhenBalanceIsZero() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "RUN-ZERO", "MODEL-ZERO", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        assertThat(service.processEclProvision(date, 47L)).isEmpty();
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
+    @Test
+    void oversizedSnapshotIdentityFailsBeforeAnyJournalWrite() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "R".repeat(180), "MODEL", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", new BigDecimal("100"), new BigDecimal("1000"),
+                new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.ZERO)));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 47L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("line description exceeds reversible limit");
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
+    @Test
+    void oversizedExactSourceTotalsFailBeforeAnyJournalWrite() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "RUN", "MODEL", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", new BigDecimal("100"), new BigDecimal("9".repeat(210)),
+                new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.ZERO)));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 47L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("line description exceeds reversible limit");
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
+    @Test
+    void largeValidGroupedTotalsStillAllowActualJournalReversal() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        String target = "99999999999999999.9003";
+        String stage = "33333333333333333.3001";
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "RUN", "MODEL", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", new BigDecimal(target), new BigDecimal(target),
+                new BigDecimal(stage), new BigDecimal(stage), new BigDecimal(stage))));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        ClosingJournalEntryCommand command = service.prepareEclProvision(date, 47L).get(0);
+        JournalEntry posted = new JournalEntry();
+        posted.setId(741L);
+        posted.setSlipNo(command.slipNo());
+        posted.setSlipDate(date);
+        posted.setAccountingDate(date);
+        posted.setDescription(command.description());
+        posted.setEntryType(command.entryType());
+        posted.setCurrencyCode(command.currencyCode());
+        posted.setExchangeRate(command.exchangeRate());
+        posted.setCreatedBy("maker");
+        posted.setLineageSourceType(command.lineageSourceType());
+        posted.setLineageSourceId(command.lineageSourceId());
+        for (ClosingJournalLineCommand line : command.lines()) {
+            JournalDetail detail = new JournalDetail();
+            detail.setSide(JournalSide.valueOf(line.side().name()));
+            detail.setAccountCode(line.accountCode());
+            detail.setAmount(line.amount());
+            detail.setBaseAmount(line.baseAmount());
+            detail.setDetailDescription(line.description());
+            posted.addDetail(detail);
+        }
+        posted.initializeDraft();
+        posted.requestApproval("maker");
+        posted.approve("checker");
+        posted.post("poster");
+
+        JournalEntry reversal = posted.createReversal("maker", date, "correction");
+        assertThat(reversal.getDescription()).hasSizeLessThanOrEqualTo(200);
+        assertThat(reversal.getDetails()).hasSize(2).allSatisfy(detail ->
+                assertThat(detail.getDetailDescription()).hasSizeLessThanOrEqualTo(200));
     }
 
     @Test
@@ -307,9 +401,9 @@ class EclProvisionServiceTest {
                 reversalIncomeAccountCode,
                 new BigDecimal(targetAllowanceAmount),
                 new BigDecimal("100000.00"),
-                new BigDecimal("300.00"),
-                new BigDecimal("400.00"),
-                new BigDecimal("300.00"));
+                new BigDecimal(targetAllowanceAmount),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO);
     }
 
     private static ClosingAccountingProperties.EclAccountMapping rule(

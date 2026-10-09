@@ -167,3 +167,15 @@
 
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
+
+## GH-891 — ECL stage-total reconciliation
+
+- Issue [#891](https://github.com/skyg547/account/issues/891), CL19/P2; branch `agent/891-ecl-stage-reconciliation`, isolated worktree `/tmp/account-891-ecl-stage-reconciliation`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. Scope is `closing/**` only; these records are module-local. Shared harness, other modules and migrations are unchanged.
+- Requested tier `gpt-6-sol` / high. `/root/closing_writer` owned Closing code, tests and feature docs; independent `/root/closing_review` was read-only. Parent Integrator owns these records and Git/GitHub publication.
+- Status: implementation verified and independently APPROVED, no P0–P3; Q1–Q4 PASS. Initial review findings on replaceable source evidence and Journal reversal length were returned to the writer and fixed. Final forced `./gradlew :closing:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=2` passed Core380/API159/Batch111 = 650 tests, failures/errors/skips0. Exact requested `./gradlew :closing:test` also exited0; independent focused replay passed56 tests.
+- Direct and JDBC per-row Stage totals reconcile before any Journal write. Journal details preserve exact grouped totals and run/model identity; a short header preserves currency/rate and reversal room. Empty source fails; explicit zero source with zero balance is a no-op. Draft publication with `Refs #891` is the authorized delivery; Ready, merge, Issue close, deployment and resource cleanup remain separate human gates.
+- Residual gates: live PostgreSQL plan/load, distributed source/posting timing and production data were not tested. No-op groups create no Journal evidence; old-format drafts require manual reconciliation; unusually long reversal reasons remain subject to Journal's own 200-character limit. Next owner after Draft is the human current-head/CI reviewer and accounting operations owner for source freeze and live validation.
+
+### GH-891 Draft publication
+
+- Published [Draft PR #906](https://github.com/skyg547/account/pull/906), OPEN/DRAFT and initially MERGEABLE, `Refs #891`, implementation head `2ee7ae3841fd17181ac97bc84175dbe143403da0`. Initial hosted module detection, merge guard and harness checks were PENDING when observed; no hosted pass is claimed. Issue #891 remains OPEN; branch and worktree are retained for human current-head/CI review.
