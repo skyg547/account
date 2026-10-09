@@ -1,3 +1,25 @@
+# 2026-10-09 — GH-882 typed ledger aggregation keys
+
+- Issue [#882](https://github.com/skyg547/account/issues/882), Draft [PR #897](https://github.com/skyg547/account/pull/897) (`Refs #882`); base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`, branch `agent/882-typed-ledger-keys`, isolated worktree `/tmp/account-882-typed-ledger-keys`. Detached proof worktree `/tmp/account-882-audited-proof` uses audited production `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope: `journal-ledger/**` only. `LedgerService` period query maps now use the same typed GL/SL records already used by the write path; SQL NULL, empty, literal `NULL`, and delimiter-bearing dimensions remain separate. No SQL, schema, shared contract, other module, or repository-wide harness/history change.
+- Changed implementation and feature docs: `core/.../LedgerService.java`, `core/.../LedgerServiceTest.java`, `core/.../LedgerBalanceConcurrencyIntegrationTest.java`, `README.md`, `docs/process-flow.md`. The parent Integrator owns these three module-local AI harness records and Git/GitHub operations; separate service/test writers had disjoint files, and the independent reviewer was read-only.
+- Audited RED: the byte-identical `absentSlDimensionsRemainDifferentFromLiteralNullCodes` method has SHA-256 `d50fb265351ec76edf7a71c191c11b99dce6d240b22999f3cee2ae1a73a61093` in the audited and fixed trees. On audited production, `./gradlew :journal-ledger:core:test --tests com.ho.account.journalledger.application.service.ledger.LedgerServiceTest.absentSlDimensionsRemainDifferentFromLiteralNullCodes --offline --no-daemon --console=plain --max-workers=2` fails 1/1: one `(null, null, 30.00)` SL aggregate replaces the required 10.00 and 20.00 rows. The same test passes on this branch.
+- Focused GREEN: `./gradlew :journal-ledger:core:test --tests com.ho.account.journalledger.application.service.ledger.LedgerServiceTest --tests com.ho.account.journalledger.infrastructure.persistence.LedgerBalanceConcurrencyIntegrationTest --offline --no-daemon --console=plain --max-workers=2` passes 34/34 service and 54/54 real-repository integration tests. New persistence cases use JPA and JDBC modes, five distinct dimension pairs, ten SL rows, two GL rows, and exact debit/credit/ending reconciliation.
+- Required `./gradlew :journal-ledger:test` passes in 2m: core 328, API 74, batch 37 = 439 tests; failures/errors/skips 0. `git diff --check` passes and the changed-file conflict-marker scan has no matches. No broader `./gradlew test` was run because there is no shared contract/build change and the allowlist is one module.
+- Independent read-only reviewer: no P0–P3 finding. Q1–Q4 evidence:
+
+| Check | Result | File/test evidence | N/A reason | Risk/next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 names, responsibility, invariants | PASS | `LedgerService.java:295-332` reuses typed records; 34 service and 54 persistence tests verify grouping/totals. | Not applicable: code changed. | Human review and current-head CI. | Reviewer PASS. |
+| Q2 input, flow, output, rationale | PASS | `docs/process-flow.md` GL/SL dimension-key section explains exact values, earliest opening, reconciliation, and historical rows. | Not applicable: flow changed. | Prior misattribution needs data reconciliation. | Reviewer PASS. |
+| Q3 module docs and beginner use | PASS | `README.md` links `docs/process-flow.md`; latter gives example, command, expected result, H2 limit. | Not applicable: behavior changed. | Target PostgreSQL and historical-data review. | Reviewer PASS. |
+| Q4 intent comments | PASS | `LedgerService.java` comments beside both new typed-key constructions. | Not applicable: nontrivial logic changed. | Future key policy change requires tests. | Reviewer PASS. |
+
+- Rollback: a reviewed scoped revert of the application change; no schema rollback. Reversion restores the known query collision. Existing misattributed SL balances require a separately approved reconciliation and owner-controlled rebuild from immutable `POSTED` sources. Synthetic H2 tests do not establish live PostgreSQL, production data, distributed fault/load, or deployment behavior.
+- Draft publication: implementation commit `e87c2cb5`; PR #897 body contains verification, Q1–Q4, rollback, limits, and explicit writer/reviewer/merge-authority separation. Human reviewer owns current-head CI, Ready, merge, Issue close, and later resource cleanup.
+
+---
+
 # 2026-10-09 — GH-879 durable slip number allocation
 
 ## Intake and scope

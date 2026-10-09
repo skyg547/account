@@ -1,3 +1,16 @@
+# GH-882 handoff
+
+Issue [#882](https://github.com/skyg547/account/issues/882) has Draft [PR #897](https://github.com/skyg547/account/pull/897) with `Refs #882`. Branch `agent/882-typed-ledger-keys` in `/tmp/account-882-typed-ledger-keys` is based on `origin/main@9348966a`; the audited RED proof remains in detached `/tmp/account-882-audited-proof@a97d10ab`.
+
+- Scope and result: `journal-ledger/**` only. Query aggregation uses the existing typed write keys; distinct absent, empty, literal `NULL`, and delimiter components retain separate GL/SL dimensions. No schema, SQL, shared contracts, other modules, or repository-wide harness/history changed.
+- Evidence: byte-identical audited regression fails 1/1 with a merged SL 30; fixed branch passes focused 34 service + 54 JPA/JDBC persistence tests. Required `./gradlew :journal-ledger:test` passes 439/439 with failures/errors/skips 0. Diff/marker gates pass. Read-only reviewer found no P0–P3 and Q1–Q4 PASS; details in [worklog.md](worklog.md).
+- Rollback: reviewed scoped application revert, with no schema rollback. It restores the known query collision; historical SL attribution needs a separate reconciliation and owner-controlled rebuild from `POSTED` sources. Live PostgreSQL, production data/load, distributed faults, and deployment were not tested.
+- Authority: disjoint module service/test writers implemented; independent reviewer made no code edits; parent Integrator owns Git/GitHub and these module-local records. Human reviewer owns current-head CI and the later Ready, merge, Issue close, and cleanup gates. Both worktrees remain available for review.
+
+---
+
+The following is retained historical handoff and is not a current GH-882 report.
+
 # GH-879 handoff
 
 Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
