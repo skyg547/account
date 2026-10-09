@@ -1,3 +1,38 @@
+# 2026-10-09 — GH-884 Kafka accounting-date control
+
+## Contract and ownership
+
+- Issue [#884](https://github.com/skyg547/account/issues/884) GL21, `agent/884-kafka-accounting-date`, `/tmp/account-884-kafka-accounting-date`, fetched `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; [Draft PR #899](https://github.com/skyg547/account/pull/899) uses `Refs #884`.
+- Applied `account-issue-loop`, `account-hexagonal-change`, single-module `account-module-parallel`, and `account-review-handoff`. Requested `gpt-6-sol` / high implementation writer owned only eight `journal-ledger/**` production/test/feature-document files. Independent reviewer was read-only. Parent Integrator alone owns Git/GitHub and these three module-local records. No other module or repository-level shared harness/history file was edited.
+- Non-goals: producer event-contract expansion, arbitrary Kafka accounting-date override, existing transaction correction, database migration, deployment, and Issue close. Rollback is a reviewed Issue-scoped revert after pausing affected Kafka consumption; reverting the listener restores the original fallback defect.
+
+## Behavior and evidence
+
+- `KafkaTransactionListener.accountingDate` accepts only a nonblank ISO date string from the payload. Missing, malformed, and nonstring values throw before the durable Kafka use case, rule engine, journal creation, or unmatched-event quarantine. The existing bounded retry/DLT handler handles consumer failures; its failed DLT publication remains fail-closed.
+- Repeated delivery keeps the payload's declared date across month and year boundaries. Unmatched-event quarantine stores that date and replay uses the stored value. The core creation validation rejects a closed accounting period before journal persistence. An authenticated accounting admin can submit an explicit open adjustment date through the existing HTTP maker endpoint; an unauthorized viewer is rejected. Kafka replay has no date override.
+- Added/updated files: `api/.../KafkaTransactionListener.java`; API `KafkaAccountingDateAuditedRegressionTest`, `KafkaTransactionListenerCompletenessTest`, `JournalCommandAuthorizationMvcTest`; core `JournalEntryServiceTest`, `KafkaJournalEventServiceTest`; `README.md`; `docs/process-flow.md`.
+- Detached proof `/tmp/account-884-audited-proof` used exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`. The regression file in both worktrees has SHA-256 `3126aa7d90df830e60bc3a0b9a981d9e06aa78f8475ba5e7d9f02e9ca8c07325`. Audited `./gradlew :journal-ledger:api:test --tests 'com.ho.account.journalledger.adapter.in.kafka.KafkaAccountingDateAuditedRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1` exited 1: one test, one expected assertion failure because the old listener raised no exception for a missing date. Fixed focused API/core tests passed 33/33; strengthened adjustment tests later passed 22/22.
+- Final `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=1 --rerun-tasks` exited 0, 67 suites/442 tests (core326/API79/Batch37), failures/errors/skips0. The parent `:journal-ledger:test` task itself is `NO-SOURCE` and depends on those three projects. `git diff --check`, explicit module allowlist, anchored conflict-marker, and unmerged-index checks passed.
+- Independent reviewer first returned a P3 test-depth concern: the HTTP adjustment test did not create a draft. The original writer added a nonempty HTTP draft result and real core service/period-filter OPEN adjustment test. Final read-only review found no P0-P3. No conflict occurred.
+
+## Q1-Q4 evidence
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/kafka/KafkaTransactionListener.java:98` validates inbound date; `journal-ledger/core/src/test/java/com/ho/account/journalledger/application/service/journal/JournalEntryServiceTest.java:74` and `:96` test closed/open periods; final442/442 | 해당 없음: production 경계 변경 | live Kafka/PostgreSQL integration | read-only reviewer: no P0-P3, PASS |
+| Q2 | PASS | `journal-ledger/docs/process-flow.md:307` explains input→failure/DLT or date-preserving creation/replay, closed-period and authorized adjustment paths; final module command exit0 | 해당 없음: 금융 흐름 변경 | distributed replay/operational DLT observation | reviewer: PASS |
+| Q3 | PASS | `journal-ledger/README.md:113`, `journal-ledger/docs/process-flow.md:307` document producer input, conditional HTTP example, results and limits | 해당 없음: producer contract 변경 | coordinate producers and human review | reviewer: PASS |
+| Q4 | PASS | `journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/kafka/KafkaTransactionListener.java:100` explains retry/calendar stability; `journal-ledger/core/src/test/java/com/ho/account/journalledger/application/service/journal/KafkaJournalEventServiceTest.java:131` explains stored-date authority | 해당 없음: 비자명 날짜 규칙 변경 | re-review if event contract expands | reviewer: PASS |
+
+## Limits and next gate
+
+- No live Kafka broker/DLT, PostgreSQL, distributed fault injection, load test, production data, deployment, or fully composed HTTP→rule→persistence test was run. The event has no independent source-event date or signed authorization evidence; a deliberately false declared accounting date cannot be proven from this consumer alone.
+- Draft PR and current-head CI are for human review. Ready, merge, Issue close, and branch/worktree cleanup require separate gates. The next owner is a human reviewer, with the parent Integrator retaining PR lifecycle authority.
+
+---
+
+The following entries are retained history and are not current GH-884 evidence.
+
 # 2026-10-09 — GH-879 durable slip number allocation
 
 ## Intake and scope
