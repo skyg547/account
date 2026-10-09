@@ -79,12 +79,59 @@ class CashflowApplicationTest {
                                 }
                                 """))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lineItems[0].amount").value(125.50))
+                .andExpect(jsonPath("$.lineItems[0].currency").value("KRW"))
                 .andExpect(jsonPath("$.netCashflow").value(125.50))
                 .andExpect(jsonPath("$.endingCash").value(125.50));
 
         mockMvc.perform(get("/api/v1/cashflow/statements/stmt-http"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statementId").value("stmt-http"));
+    }
+
+    @Test
+    void rejectsNullLineItemBeforeSavingStatement() throws Exception {
+        assertInvalidStatementNotStored("stmt-null-only", "[null]");
+    }
+
+    @Test
+    void rejectsNullLineItemFollowingValidItemBeforeSavingStatement() throws Exception {
+        assertInvalidStatementNotStored("stmt-valid-then-null", "[" + validLineItem() + ",null]");
+    }
+
+    @Test
+    void rejectsNullLineItemListBeforeSavingStatement() throws Exception {
+        assertInvalidStatementNotStored("stmt-null-list", "null");
+    }
+
+    @Test
+    void rejectsLineItemWithoutAmountBeforeSavingStatement() throws Exception {
+        assertInvalidStatementNotStored("stmt-missing-amount", """
+                [{"lineCode":"OP-01","category":"COLLECTION","activity":"OPERATING","currency":"KRW"}]
+                """);
+    }
+
+    @Test
+    void rejectsLineItemWithDifferentCurrencyBeforeSavingStatement() throws Exception {
+        assertInvalidStatementNotStored("stmt-currency-mismatch", """
+                [{"lineCode":"OP-01","category":"COLLECTION","activity":"OPERATING","amount":125.50,"currency":"USD"}]
+                """);
+    }
+
+    @Test
+    void acceptsEmptyLineItemListWithZeroCashflow() throws Exception {
+        mockMvc.perform(post("/api/v1/cashflow/statements")
+                        .contentType("application/json")
+                        .content(statementRequest("stmt-empty-items", "[]")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.statementId").value("stmt-empty-items"))
+                .andExpect(jsonPath("$.lineItems.length()").value(0))
+                .andExpect(jsonPath("$.netCashflow").value(0))
+                .andExpect(jsonPath("$.endingCash").value(0));
+
+        mockMvc.perform(get("/api/v1/cashflow/statements/stmt-empty-items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statementId").value("stmt-empty-items"));
     }
 
     @Test
@@ -135,5 +182,36 @@ class CashflowApplicationTest {
     void returnsNotFoundForUnknownStatement() throws Exception {
         mockMvc.perform(get("/api/v1/cashflow/statements/missing"))
                 .andExpect(status().isNotFound());
+    }
+
+    private void assertInvalidStatementNotStored(String statementId, String lineItems) throws Exception {
+        // Each rejected request must leave no retrievable statement, whether DTO or domain validation rejects it.
+        mockMvc.perform(post("/api/v1/cashflow/statements")
+                        .contentType("application/json")
+                        .content(statementRequest(statementId, lineItems)))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/v1/cashflow/statements/{statementId}", statementId))
+                .andExpect(status().isNotFound());
+    }
+
+    private String statementRequest(String statementId, String lineItems) {
+        return """
+                {
+                  "statementId": "%s",
+                  "fiscalYear": 2026,
+                  "fiscalPeriod": 9,
+                  "method": "DIRECT",
+                  "currency": "KRW",
+                  "generatedAt": "2026-09-23T10:00:00",
+                  "lineItems": %s
+                }
+                """.formatted(statementId, lineItems);
+    }
+
+    private String validLineItem() {
+        return """
+                {"lineCode":"OP-01","category":"COLLECTION","activity":"OPERATING","amount":125.50,"currency":"KRW"}
+                """.trim();
     }
 }

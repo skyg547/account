@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:21" hostname="ho-To-Be-Filled-By-O-E-M" time="0.109">
+  <properties/>
+  <testcase name="openPeriodIsNotLocked()" classname="com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest" time="0.099"/>
+  <testcase name="missingFiscalPeriodFailsClosed()" classname="com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest" time="0.004"/>
+  <testcase name="closedAndPermanentPeriodsAreLocked()" classname="com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

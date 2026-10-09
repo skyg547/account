@@ -1,0 +1,203 @@
+{
+  "summary": [
+    {
+      "num": 814,
+      "status": "ALREADY_CLOSED_OR_MERGED",
+      "state": "MERGED"
+    },
+    {
+      "num": 815,
+      "title": "[#748] Authenticate auth and master-data ingress identity",
+      "status": "MERGED"
+    },
+    {
+      "num": 816,
+      "title": "[#749] Cap auth JWT lifetime at role expiry (Gateway gate pending)",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#816 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 816 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 818,
+      "title": "[auth] Make login-attempt transitions atomic across instances",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#818 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 818 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 820,
+      "title": "[master-data] Serialize SCD2 writes and reject overlapping periods (Refs #753)",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#820 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 820 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 821,
+      "title": "[master-data] Reject duplicate future-dated CREATE intervals (Refs #754)",
+      "status": "MERGED"
+    },
+    {
+      "num": 822,
+      "title": "fix(master-data): preserve SCD2 account classification and regulatory mapping",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#822 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 822 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 823,
+      "title": "[auth] Fail closed on unsupported role data scopes (Refs #750)",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#823 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 823 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 827,
+      "title": "[#800] Return sanitized 503 for department validation outages",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#827 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 827 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 840,
+      "title": "[#801] Bound remote department lookup waits",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#840 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 840 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 819,
+      "title": "[#777] Fail closed on unsupported remote Journal auto-post",
+      "status": "MERGED"
+    },
+    {
+      "num": 826,
+      "title": "[#778] Revalidate closing evidence before dispatch",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#826 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 826 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 824,
+      "title": "[#812] Reject unconfirmed frontend role approval requests",
+      "status": "MERGED"
+    },
+    {
+      "num": 825,
+      "title": "[#813] 빈 메뉴 권한과 조회 실패 시 보호 메뉴 숨김",
+      "status": "MERGED"
+    },
+    {
+      "num": 842,
+      "title": "[#839] Forward validated idempotency keys through frontend BFF",
+      "status": "MERGED"
+    },
+    {
+      "num": 841,
+      "title": "[#798] Reject null cashflow statement line items",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#841 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 841 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 843,
+      "title": "fix(payable): prevent cross-vendor advance offsets (#828)",
+      "status": "MERGED"
+    },
+    {
+      "num": 844,
+      "title": "[#829] Reject cross-customer receivable collection matching",
+      "status": "MERGED"
+    },
+    {
+      "num": 845,
+      "title": "[#830] Prevent duplicate payable payment candidates across runs",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#845 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 845 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 846,
+      "title": "[#831] Persist deposit and withdrawal journal outbox atomically",
+      "status": "MERGED"
+    },
+    {
+      "num": 847,
+      "title": "[#832] Reject unsupported loan payment frequencies",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#847 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 847 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 848,
+      "title": "[#834] Reject expenditure resolutions with missing budgets",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#848 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 848 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 849,
+      "title": "[#835] Prevent approval without valid Journal entry ID",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#849 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 849 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 850,
+      "title": "[#837] Require configured separate approver for local Loan journals",
+      "status": "MERGED"
+    },
+    {
+      "num": 851,
+      "title": "[#833] Reject tax invoice amounts that lose precision",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#851 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 851 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 852,
+      "title": "[#836] Authenticate internal-audit API at its own boundary",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#852 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 852 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 866,
+      "title": "[#857] Reject non-KRW GL balances before FINAL reporting",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#866 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 866 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 868,
+      "title": "[account-mart] Fail integrated ETL on GL/SL reconciliation mismatch",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#868 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 868 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 870,
+      "title": "fix(asset-lease): recalculate IFRS 16 lease remeasurement balances",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#870 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 870 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 871,
+      "title": "[#863] Scope ECL Stage input to dated snapshot",
+      "status": "MERGED"
+    },
+    {
+      "num": 872,
+      "title": "[ecl] Preserve allowance summary when completed rerun has zero results",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#872 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 872 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 873,
+      "title": "[asset-lease] Apply final lease depreciation rounding balance",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#873 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 873 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 875,
+      "title": "[#858] Require base-date FX rate for account-mart CDM value",
+      "status": "MERGED"
+    },
+    {
+      "num": 876,
+      "title": "fix(reconciliation): prevent opposite-side journal matches",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#876 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 876 && git fetch origin main && git merge origin/main"
+    },
+    {
+      "num": 877,
+      "title": "[#865] Reject invalid ECL scenario probability weights",
+      "status": "MERGE_FAILED",
+      "error": "X Pull request skyg547/account#877 is not mergeable: the merge commit cannot be cleanly created.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\nRun the following to resolve the merge conflicts locally:\n  gh pr checkout 877 && git fetch origin main && git merge origin/main"
+    }
+  ],
+  "merged_count": 12,
+  "total_count": 35
+}

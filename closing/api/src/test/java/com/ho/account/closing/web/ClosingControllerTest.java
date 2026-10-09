@@ -216,7 +216,6 @@ class ClosingControllerTest {
                         .header("X-Auth-Roles", "ROLE_AUDITOR, " + role)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"year\":2026}"))
-                        
                 .andExpect(status().isOk());
 
         verify(annualClosingUseCase).performIncomeStatementClosing(2026);

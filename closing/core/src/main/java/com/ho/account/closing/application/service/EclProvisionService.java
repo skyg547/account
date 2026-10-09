@@ -11,10 +11,8 @@ import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.closing.domain.ClosingMonetaryPrecision;
 import com.ho.account.closing.domain.EclAllowanceSummary;
-import com.ho.account.closing.domain.ProvisionBatch;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -54,8 +52,15 @@ public class EclProvisionService {
     private final EclAllowanceResultPort eclAllowanceResultPort;
     private final FxExchangeRateLookupPort fxExchangeRateLookupPort;
 
-    @Transactional
-    public void processEclProvision(LocalDate closingDate, Long provisionBatchId) {
+    public List<ClosingJournalEntryResult> processEclProvision(LocalDate closingDate, Long provisionBatchId) {
+        return postPreparedEclProvision(prepareEclProvision(closingDate, provisionBatchId));
+    }
+
+    /**
+     * Loads and validates the complete finalized ECL snapshot before returning immutable commands.
+     * No Journal write occurs here, so a later group failure cannot leave earlier draft effects.
+     */
+    public List<ClosingJournalEntryCommand> prepareEclProvision(LocalDate closingDate, Long provisionBatchId) {
         Objects.requireNonNull(closingDate, "closingDate must not be null");
         if (provisionBatchId == null || provisionBatchId <= 0) {
             throw new IllegalArgumentException("provisionBatchId must be positive");
@@ -69,8 +74,8 @@ public class EclProvisionService {
                             + "; a zero-portfolio completion marker is required before treating this as no-op");
         }
 
-        ClosingAccountingProperties.AutomatedJournalRule eclRule =
-                accountingProperties.requireProvisionRule(ProvisionBatch.ProvisionType.ECL);
+        ClosingAccountingProperties.EclAccountMapping eclRule =
+                accountingProperties.requireEclAccountMapping();
 
         requireSingleSnapshotIdentity(summaries);
         String legalEntityCode = requireSingleLegalEntity(summaries);
@@ -82,12 +87,21 @@ public class EclProvisionService {
         }
         // Remote Journal writes do not roll back with Closing. Validate every group's units,
         // rates, revaluation and representable command before creating even the first draft.
-        List<ClosingJournalEntryCommand> commands = groups.values().stream()
+        return groups.values().stream()
                 .sorted(Comparator.comparing(group -> group.key().stableValue()))
                 .map(group -> prepareGroup(group, closingDate, provisionBatchId, functionalCurrency))
                 .flatMap(Optional::stream)
                 .toList();
-        commands.forEach(this::postProvisionJournalEntry);
+    }
+
+    /** Posts exactly the already-prepared command list, preserving its deterministic order. */
+    public List<ClosingJournalEntryResult> postPreparedEclProvision(
+            List<ClosingJournalEntryCommand> preparedCommands) {
+        Objects.requireNonNull(preparedCommands, "preparedCommands must not be null");
+        List<ClosingJournalEntryCommand> immutableCommands = List.copyOf(preparedCommands);
+        return immutableCommands.stream()
+                .map(this::postProvisionJournalEntry)
+                .toList();
     }
 
     private Optional<ClosingJournalEntryCommand> prepareGroup(
@@ -201,13 +215,14 @@ public class EclProvisionService {
                 lines);
     }
 
-    private void postProvisionJournalEntry(ClosingJournalEntryCommand command) {
+    private ClosingJournalEntryResult postProvisionJournalEntry(ClosingJournalEntryCommand command) {
         ClosingJournalEntryResult result = closingJournalEntryPort.createDraftAdjustment(command);
         if (accountingProperties.isAutoPostAdjustments()) {
             closingJournalEntryPort.approveAndPost(result.journalEntryId(), SYSTEM_ACTOR);
         }
 
         log.info("Successfully created ECL provision journal entry. SlipNo: {}", result.slipNo());
+        return result;
     }
 
     private List<ClosingJournalLineCommand> additionalProvisionLines(BigDecimal amount,
@@ -297,7 +312,7 @@ public class EclProvisionService {
             List<EclAllowanceSummary> summaries,
             LocalDate closingDate,
             String legalEntityCode,
-            ClosingAccountingProperties.AutomatedJournalRule eclRule) {
+            ClosingAccountingProperties.EclAccountMapping eclRule) {
         Map<ProvisionKey, ProvisionGroup> groups = new LinkedHashMap<>();
         for (EclAllowanceSummary summary : summaries) {
             if (!closingDate.equals(summary.baseDate())) {

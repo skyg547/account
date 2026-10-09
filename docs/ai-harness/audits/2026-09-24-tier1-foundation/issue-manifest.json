@@ -1,0 +1,231 @@
+[
+  {
+    "id": "F01",
+    "title": "[auth] Bind PAT management to authenticated ownership and administrator authority",
+    "labels": [
+      "area:api",
+      "type:bug",
+      "priority:p1"
+    ],
+    "body_file": "issues/F01.md"
+  },
+  {
+    "id": "F02",
+    "title": "[auth][master-data] Authenticate trusted ingress and Closing service identity before accepting authority headers",
+    "labels": [
+      "area:api",
+      "type:bug",
+      "priority:p1"
+    ],
+    "body_file": "issues/F02.md"
+  },
+  {
+    "id": "F03",
+    "title": "[auth] End JWT privileges when individual approved role assignments expire",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p1"
+    ],
+    "body_file": "issues/F03.md"
+  },
+  {
+    "id": "F04",
+    "title": "[auth] Preserve and enforce role data scopes through gateway authorization",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p1"
+    ],
+    "body_file": "issues/F04.md"
+  },
+  {
+    "id": "F05",
+    "title": "[auth] Fail closed on unavailable department validation",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p1"
+    ],
+    "body_file": "issues/F05.md"
+  },
+  {
+    "id": "F06",
+    "title": "[auth] Make login-failure counting and lock reset atomic across instances",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p1"
+    ],
+    "body_file": "issues/F06.md"
+  },
+  {
+    "id": "F07",
+    "title": "[master-data] Serialize SCD2 writes by business key and reject overlapping database periods",
+    "labels": [
+      "area:core",
+      "type:financial",
+      "priority:p1"
+    ],
+    "body_file": "issues/F07.md"
+  },
+  {
+    "id": "F08",
+    "title": "[master-data] Reject sequential duplicate future-dated CREATE intervals",
+    "labels": [
+      "area:core",
+      "type:financial",
+      "priority:p1"
+    ],
+    "body_file": "issues/F08.md"
+  },
+  {
+    "id": "F09",
+    "title": "[master-data] Preserve account classification and regulatory mapping across SCD2 updates",
+    "labels": [
+      "area:core",
+      "type:financial",
+      "priority:p1"
+    ],
+    "body_file": "issues/F09.md"
+  },
+  {
+    "id": "F10",
+    "title": "[master-data] Fail closed on duplicate business-partner results in bulk reference queries",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F10.md"
+  },
+  {
+    "id": "F11",
+    "title": "[master-data] Enforce product value precision and sign rules before approved persistence",
+    "labels": [
+      "area:core",
+      "type:financial",
+      "priority:p2"
+    ],
+    "body_file": "issues/F11.md"
+  },
+  {
+    "id": "F12",
+    "title": "[master-data] Validate master payloads against domain and storage limits before approval",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F12.md"
+  },
+  {
+    "id": "F13",
+    "title": "[master-data] Define and implement screening eligibility separately from operational active status",
+    "labels": [
+      "area:core",
+      "type:feature",
+      "priority:p2"
+    ],
+    "body_file": "issues/F13.md"
+  },
+  {
+    "id": "F14",
+    "title": "[master-data][auth] Preserve authenticated actors and durable security/change audit evidence",
+    "labels": [
+      "area:core",
+      "type:feature",
+      "priority:p2"
+    ],
+    "body_file": "issues/F14.md"
+  },
+  {
+    "id": "F15",
+    "title": "[master-data] Mask sensitive change payloads in summary and mutation responses",
+    "labels": [
+      "area:api",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F15.md"
+  },
+  {
+    "id": "F16",
+    "title": "[master-data] Preserve expected HTTP errors through the assembled exception advice",
+    "labels": [
+      "area:api",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F16.md"
+  },
+  {
+    "id": "F17",
+    "title": "[auth] Sanitize unexpected errors and reject malformed requests as client errors",
+    "labels": [
+      "area:api",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F17.md"
+  },
+  {
+    "id": "F18",
+    "title": "[auth] Restore memory-mode application startup with the PAT feature",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F18.md"
+  },
+  {
+    "id": "F19",
+    "title": "[master-data] Isolate due-change failures and prevent poison requests from starving the queue",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F19.md"
+  },
+  {
+    "id": "F20",
+    "title": "[master-data] Make identical concurrent submissions and apply retries idempotent",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F20.md"
+  },
+  {
+    "id": "F21",
+    "title": "[master-data][auth] Bound list queries and avoid loading unused partner account aggregates",
+    "labels": [
+      "area:core",
+      "type:refactor",
+      "priority:p2"
+    ],
+    "body_file": "issues/F21.md"
+  },
+  {
+    "id": "F22",
+    "title": "[auth] Align PAT identity and input limits with the auth schema",
+    "labels": [
+      "area:core",
+      "type:bug",
+      "priority:p2"
+    ],
+    "body_file": "issues/F22.md"
+  },
+  {
+    "id": "F23",
+    "title": "[master-data][auth] Synchronize foundation documentation with verified runtime behavior",
+    "labels": [
+      "type:docs",
+      "priority:p2"
+    ],
+    "body_file": "issues/F23.md"
+  }
+]
