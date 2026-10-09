@@ -1,3 +1,21 @@
+# GH-879 agent status
+
+- Issue: [#879](https://github.com/skyg547/account/issues/879), `status:in-progress`; Draft PR publication pending.
+- Base/branch/worktrees: `origin/main@fa12d2b5ad18cead68d0d3fe2bbb8fc05770d541`; `agent/879-slip-number-allocation`; `/tmp/account-879-slip-number-allocation`; audited proof `/tmp/account-879-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope/ownership: `journal-ledger/**` only, including these module-local records. Requested `gpt-6-sol` / high writer changed production, tests, and module docs. Independent reviewer remained read-only. Parent Integrator owns records and Git/GitHub state. Repository-wide harness/history and other modules are untouched.
+- Result: V19 adds a global, non-cycling DB sequence. Automatic `JE-YYYYMMDD-XXXXXXXX` numbers retain the date and use eight base36 sequence digits. Manual use of that namespace is rejected; migration fails closed if historical 20-character JE-shaped slips might collide. DB failure or exhaustion returns 503 on the three HTTP create routes. Existing journal financial controls and source-event idempotency rules remain in force.
+- RED/GREEN: byte-identical regression SHA-256 `849cbef7ed1575db20d656ed2d850c1f575cf35f60b699974ae0112361c8b997` fails on audited production: 5,000 same-day creates yielded 4,800 distinct values; passes on this branch.
+- Verification: final executed `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=2` passes API 74, Batch 37, Core 322 = 433 tests, failures/errors/skips 0. Literal `./gradlew :journal-ledger:test` also passes with 37 tasks UP-TO-DATE. Focused core and three HTTP MVC suites passed. Diff whitespace and conflict marker gates passed.
+- Independent review: preliminary manual-namespace and HTTP 400 findings were returned to the writer and corrected; final reviewer reports no outstanding finding and Q1–Q4 PASS.
+- Deployment/rollback: stop all old Journal writers before V19, inspect any historical 20-character JE-shaped slips, and use a separately approved reconciliation plan for immutable POSTED rows. Do not drop the sequence after issuing numbers; rollback requires a reviewed forward migration and code plan.
+- Limits/next gate: H2 PostgreSQL mode tests do not prove live PostgreSQL sequence privileges, guard-scan duration, production load, or distributed behavior. A human reviewer owns PostgreSQL/deployment verification and subsequent Ready, merge, Issue close, and cleanup gates.
+
+See [worklog.md](worklog.md) for commands and Q1–Q4 evidence.
+
+---
+
+The following is retained historical status and is not a current GH-879 report.
+
 # GH-769 agent status
 
 - Issue: [#769](https://github.com/skyg547/account/issues/769); owner `agent:codex`, review handoff target `status:needs-review`.

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -23,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,6 +48,7 @@ class JournalEntryServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(journalPersistencePort.nextSlipNumber()).thenReturn(1L);
         service = new JournalEntryService(journalPersistencePort, journalReversalPersistencePort,
                 journalRuleEngine, postingService, journalValidationEngine);
     }
@@ -60,6 +63,71 @@ class JournalEntryServiceTest {
 
         verify(journalValidationEngine).validate(entry);
         verify(journalPersistencePort).save(entry);
+        assertThat(entry.getSlipNo()).isEqualTo("JE-" + java.time.format.DateTimeFormatter.BASIC_ISO_DATE.format(entry.getSlipDate()) + "-00000001");
+    }
+
+    @Test
+    void allocatorFailureDoesNotValidateOrSave() {
+        JournalEntry entry = balancedDraft("maker");
+        SlipNumberAllocationException unavailable = new SlipNumberAllocationException("database unavailable");
+        when(journalPersistencePort.nextSlipNumber()).thenThrow(unavailable);
+
+        assertThatThrownBy(() -> service.createJournalEntry(entry)).isSameAs(unavailable);
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+        assertThat(entry.getSlipNo()).isNull();
+    }
+
+    @Test
+    void exhaustedAllocatorDoesNotValidateOrSave() {
+        JournalEntry entry = balancedDraft("maker");
+        when(journalPersistencePort.nextSlipNumber()).thenReturn(2_821_109_907_456L);
+
+        assertThatThrownBy(() -> service.createJournalEntry(entry))
+                .isInstanceOf(SlipNumberAllocationException.class).hasMessageContaining("범위를 소진");
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void manualSlipCannotOccupyFutureAutomaticNumber() {
+        JournalEntry entry = balancedDraft("maker");
+        entry.setSlipNo("JE-20260925-00000001");
+
+        assertThatThrownBy(() -> service.createJournalEntry(entry))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("직접 지정할 수 없습니다");
+        verify(journalPersistencePort, never()).nextSlipNumber();
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void dateOutsideEightDigitContractFailsBeforeAllocation() {
+        JournalEntry entry = balancedDraft("maker");
+        entry.setSlipDate(LocalDate.of(10_000, 1, 1));
+
+        assertThatThrownBy(() -> service.createJournalEntry(entry))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("0001~9999");
+        verify(journalPersistencePort, never()).nextSlipNumber();
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void legacyManualSlipAndAutomaticSlipCanCoexist() {
+        JournalEntry manual = balancedDraft("maker");
+        manual.setSlipNo("JE-20260925-0001");
+        service.createJournalEntry(manual);
+
+        JournalEntry automatic = balancedDraft("maker");
+        service.createJournalEntry(automatic);
+
+        assertThat(manual.getSlipNo()).isEqualTo("JE-20260925-0001");
+        assertThat(automatic.getSlipNo()).isEqualTo("JE-20260925-00000001");
+        verify(journalPersistencePort).nextSlipNumber();
+        verify(journalPersistencePort).save(manual);
+        verify(journalPersistencePort).save(automatic);
     }
 
     @Test

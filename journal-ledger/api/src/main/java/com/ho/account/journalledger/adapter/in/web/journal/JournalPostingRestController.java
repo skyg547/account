@@ -3,10 +3,12 @@ package com.ho.account.journalledger.adapter.in.web.journal;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -59,6 +61,9 @@ public class JournalPostingRestController {
         try {
             JournalPostingResult result = journalPostingPort.createDraftEntry(withTrustedMaker(command, maker));
             return ResponseEntity.ok(result);
+        } catch (SlipNumberAllocationException e) {
+            log.warn("Journal slip-number allocation unavailable");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         } catch (IllegalArgumentException e) {
             log.warn("Invalid journal entry command: {}", e.getMessage());
             return ResponseEntity.badRequest().build();

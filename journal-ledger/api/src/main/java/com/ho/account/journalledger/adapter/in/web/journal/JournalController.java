@@ -1,10 +1,12 @@
 package com.ho.account.journalledger.adapter.in.web.journal;
 
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -38,6 +40,8 @@ public class JournalController {
         try {
             return ResponseEntity.ok(JournalApiDto.View.from(
                     journalUseCase.createJournalEntry(request.toDomain(maker))));
+        } catch (SlipNumberAllocationException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -58,6 +62,8 @@ public class JournalController {
                     .map(JournalApiDto.View::from)
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.noContent().build());
+        } catch (SlipNumberAllocationException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }

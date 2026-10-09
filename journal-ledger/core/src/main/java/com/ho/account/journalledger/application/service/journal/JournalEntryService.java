@@ -3,6 +3,7 @@ package com.ho.account.journalledger.application.service.journal;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
@@ -13,9 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * 전표 애플리케이션 서비스 (Journal Entry Service).
@@ -55,6 +58,10 @@ import java.util.Optional;
  */
 @Service
 public class JournalEntryService implements JournalUseCase {
+
+    private static final long MAX_SLIP_NUMBER = 2_821_109_907_455L; // 36^8 - 1
+    private static final Pattern AUTOMATIC_SLIP_NAMESPACE =
+            Pattern.compile("JE-[0-9]{8}-[0-9A-Z]{8}");
 
     private static final JournalReversalPersistencePort UNAVAILABLE_REVERSAL_PERSISTENCE =
             new JournalReversalPersistencePort() {
@@ -160,15 +167,28 @@ public class JournalEntryService implements JournalUseCase {
 
     /** 검증과 채번을 공유하되 역분개 우회 권한을 외부 유스케이스에 노출하지 않습니다. */
     private JournalEntry validateAndSaveJournalEntry(JournalEntry journalEntry) {
-        // 전표 번호 채번 (Simple Implementation)
+        // 날짜를 유지하되 전역 DB sequence의 8자리 base36 값을 사용합니다.
+        // 4자리 legacy suffix와 길이가 달라 과거 전표와 번호 공간이 겹치지 않습니다.
         if (journalEntry.getSlipNo() == null) {
             if (journalEntry.getSlipDate() == null) {
                 // 작성일 누락 시 도메인 불변성 검증으로 빠른 예외 발생
                 journalEntry.validateInvariants();
             }
-            String datePart = journalEntry.getSlipDate().toString().replace("-", "");
-            String uniquePart = java.util.UUID.randomUUID().toString().substring(0, 4).toUpperCase();
-            journalEntry.setSlipNo("JE-" + datePart + "-" + uniquePart);
+            LocalDate slipDate = journalEntry.getSlipDate();
+            if (slipDate.getYear() < 1 || slipDate.getYear() > 9999) {
+                throw new IllegalArgumentException("전표 작성일은 0001~9999년이어야 합니다.");
+            }
+            String datePart = slipDate.format(DateTimeFormatter.BASIC_ISO_DATE);
+            long number = journalPersistencePort.nextSlipNumber();
+            if (number < 1 || number > MAX_SLIP_NUMBER) {
+                throw new SlipNumberAllocationException("전표번호 채번 범위를 소진했습니다.");
+            }
+            String suffix = Long.toString(number, 36).toUpperCase(java.util.Locale.ROOT);
+            journalEntry.setSlipNo("JE-" + datePart + "-" + "0".repeat(8 - suffix.length()) + suffix);
+        } else if (AUTOMATIC_SLIP_NAMESPACE.matcher(journalEntry.getSlipNo()).matches()) {
+            // Reserving this format prevents caller-supplied numbers from occupying a future
+            // sequence value. Existing four-character and custom slip numbers remain valid.
+            throw new IllegalArgumentException("자동 전표번호 형식은 직접 지정할 수 없습니다.");
         }
 
         // ─────────────────────────────────────────────────

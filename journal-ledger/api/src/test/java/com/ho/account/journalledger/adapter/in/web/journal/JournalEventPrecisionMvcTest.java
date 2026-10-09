@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.application.service.journal.JournalRuleEngine;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
@@ -42,6 +43,20 @@ class JournalEventPrecisionMvcTest {
 
     private AtomicReference<Map<String, Object>> receivedEvent;
     private AtomicReference<JournalEntry> generatedEntry;
+
+    @Test
+    void eventAllocatorOutageReturnsServiceUnavailable() throws Exception {
+        org.mockito.Mockito.doThrow(new SlipNumberAllocationException("database unavailable"))
+                .when(journalUseCase).createJournalEntryFromEvent(any(), any());
+
+        mockMvc.perform(post("/api/journals/from-event")
+                        .queryParam("accountingDate", ACCOUNTING_DATE.toString())
+                        .header("X-Auth-User", "journal-maker")
+                        .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"eventData\":{}}"))
+                .andExpect(status().isServiceUnavailable());
+    }
 
     @BeforeEach
     void setUpRuleEngineAnswer() {

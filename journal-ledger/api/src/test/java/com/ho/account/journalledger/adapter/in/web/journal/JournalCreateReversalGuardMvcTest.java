@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.application.service.journal.JournalEntryService;
 import com.ho.account.journalledger.application.service.journal.JournalRuleEngine;
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
@@ -68,6 +69,7 @@ class JournalCreateReversalGuardMvcTest {
     @Test
     @DisplayName("POST /api/journals의 정상 일반 전표 생성은 기존 200 응답을 유지한다")
     void preservesNormalJournalCreation() throws Exception {
+        when(journalPersistence.nextSlipNumber()).thenReturn(1L);
         when(journalPersistence.save(any(JournalEntry.class))).thenAnswer(invocation -> {
             JournalEntry saved = invocation.getArgument(0);
             saved.setId(759L);
@@ -88,6 +90,22 @@ class JournalCreateReversalGuardMvcTest {
 
         verify(validationEngine).validate(any(JournalEntry.class));
         verify(journalPersistence).save(any(JournalEntry.class));
+    }
+
+    @Test
+    void allocatorOutageReturnsServiceUnavailable() throws Exception {
+        when(journalPersistence.nextSlipNumber())
+                .thenThrow(new SlipNumberAllocationException("database unavailable"));
+
+        mockMvc.perform(post("/api/journals")
+                        .header("X-Auth-User", "journal-maker")
+                        .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequest("NORMAL")))
+                .andExpect(status().isServiceUnavailable());
+
+        verify(validationEngine, never()).validate(any());
+        verify(journalPersistence, never()).save(any());
     }
 
     private static String createRequest(String entryType) {

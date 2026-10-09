@@ -1,3 +1,35 @@
+# 2026-10-09 — GH-879 durable slip number allocation
+
+## Intake and scope
+
+- Live [Issue #879](https://github.com/skyg547/account/issues/879) was claimed as `status:in-progress`. Base `origin/main@fa12d2b5ad18cead68d0d3fe2bbb8fc05770d541`; branch `agent/879-slip-number-allocation`; isolated worktree `/tmp/account-879-slip-number-allocation`. Audited proof worktree `/tmp/account-879-audited-proof` is detached at `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Used `account-issue-loop`, `account-hexagonal-change`, single-module `account-module-parallel`, and `account-review-handoff`. Requested `gpt-6-sol` / high module writer owned only `journal-ledger/**`; independent reviewer was read-only; parent Integrator owns these module-local records and Git/GitHub. No shared harness/history or other module edits.
+- Goal: remove the 65,536-value same-day random space while keeping the 20-character contract and readable date. No generic source-event idempotency change, financial rule change, or cross-module contract change.
+
+## Implementation and regression evidence
+
+- `JournalEntryService` reserves a number via `JournalPersistencePort`; `JournalPersistenceAdapter` calls the DB `journal_slip_no_seq`. V19 adds the global `NO CYCLE` sequence capped at `36^8-1`; `JE-YYYYMMDD-XXXXXXXX` uses eight uppercase base36 digits, so the date is readable and the number is unique across dates and backdated requests. A year outside 0001–9999 is rejected before reservation. Rollback gaps are intentional.
+- The service rejects caller-supplied numbers in the new automatic namespace. V19 conservatively refuses existing 20-character JE-shaped rows before starting the sequence; existing four-character slips survive upgrade. DB failure/exhaustion is a typed allocation failure, mapped to HTTP 503 on all three creation routes. Validation errors remain 400. Existing UNIQUE storage remains the last line of defense.
+- Byte-identical `SlipNumberPeakDayRegressionTest.java` SHA-256 `849cbef7ed1575db20d656ed2d850c1f575cf35f60b699974ae0112361c8b997` was copied to the audited worktree without changing audited production. `./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.application.service.journal.SlipNumberPeakDayRegressionTest' --offline --no-daemon --console=plain --max-workers=1` failed 1/1 at assertion line 45: 5,000 same-day creates yielded 4,800 distinct slips (200 duplicate values). The same regression passes on the fixed branch.
+- H2 PostgreSQL-mode migration test persists 5,000 same-day slips with distinct DB rows, allocates/persists 200 concurrently, checks the final number and non-cycling exhaustion, and proves V18→V19 refusal for old reserved-shape rows while preserving legacy four-character slips. Adapter Spring context test verifies actual nextval and missing-sequence failure. Service tests cover manual/auto coexistence, DB error, exhaustion, and year 10000; MVC tests cover 503.
+
+## Commands, review, and limits
+
+- Final executed `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=2`: PASS in 1m46s; Core 322 tests/39 suites, API 74/22, Batch 37/5; total 433, failures/errors/skips 0. Literal `./gradlew :journal-ledger:test`: PASS in 16s, 37 tasks UP-TO-DATE. Focused core slip/service and three HTTP MVC class selections: PASS.
+- `git diff --check`: PASS. `rg -n '^(<<<<<<< |=======|>>>>>>> )' journal-ledger --glob '*.java' --glob '*.sql' --glob '*.md'`: no matches. Changed-file scope: journal-ledger only. Reviewer found manual-namespace collision and HTTP 400 mapping, plus date-length/fixture/doc issues; writer corrected them. Final independent read-only review: no outstanding finding.
+- Rollout requires old Journal writers stopped across migration and code replacement. V19's one-time `EXISTS` guard may scan historical `journal_entries`; target PostgreSQL duration/privileges need deployment validation. Any conflicting historical POSTED slip requires a separately approved reconciliation/migration plan. No live PostgreSQL, production load, distributed fault injection, or production data test was run. Do not drop the sequence after issuing numbers; rollback needs a reviewed forward plan. Generic event retry idempotency is unchanged.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 코드·책임 | PASS | `core/.../JournalEntryService.java:169`, `JournalPersistenceAdapter.java:59`, V19; module 433/433 | 해당 없음: 코드 변경 | 운영 PostgreSQL sequence privilege 확인 | read-only reviewer: no outstanding finding |
+| Q2 흐름·이유 | PASS | `docs/process-flow.md:539`, `docs/schema.md:32`, V19; migration 5/5 | 해당 없음: 핵심 흐름 변경 | 배포 중 old writer 정지 확인 | read-only reviewer: flow and failure paths checked |
+| Q3 기능·초보자 문서 | PASS | `docs/beginner-guide.md:127`, `docs/README.md:85`, `README.md:159`; literal module test PASS | 해당 없음: 동작/마이그레이션 변경 | live PG and load remain unverified | read-only reviewer: docs match code/test |
+| Q4 의도 주석 | PASS | `JournalEntryService.java:188`, `JournalPersistenceAdapter.java:63`, V19:4 | 해당 없음: 비자명 로직 변경 | 해당 없음: 주석은 검증된 로직 인접 | read-only reviewer: comments state rationale |
+
+---
+
+The following is retained historical worklog and is not a current GH-879 report.
+
 # 2026-09-28 — GH-769 unmatched Kafka event quarantine and replay
 
 ## Intake, isolation, and ownership

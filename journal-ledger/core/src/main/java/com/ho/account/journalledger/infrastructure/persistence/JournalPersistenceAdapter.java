@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
 import jakarta.persistence.EntityManager;
@@ -53,6 +54,17 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class JournalPersistenceAdapter implements JournalPersistencePort {
+
+    @Override
+    public long nextSlipNumber() {
+        try {
+            return ((Number) entityManager.createNativeQuery("SELECT nextval('journal_slip_no_seq')")
+                    .getSingleResult()).longValue();
+        } catch (RuntimeException failure) {
+            // The database owns uniqueness. Never substitute a random/local counter on failure.
+            throw new SlipNumberAllocationException("전표번호 채번에 실패했습니다.", failure);
+        }
+    }
 
     /**
      * 전표 JPA 저장소.
