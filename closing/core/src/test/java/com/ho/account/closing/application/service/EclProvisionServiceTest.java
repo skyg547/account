@@ -264,6 +264,29 @@ class EclProvisionServiceTest {
         verifyNoInteractions(closingJournalEntryPort);
     }
 
+    @Test
+    void laterGroupMissingRateFailsAllGroupPreflightBeforeAnyJournalWrite() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        EclAllowanceSummary usd = summary(
+                date, "RUN-A", "USD", "12000", "129100", "550100", "480100", "100.00");
+        EclAllowanceSummary eur = summary(
+                date, "RUN-A", "EUR", "12100", "139100", "560100", "490100", "100.00");
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(usd, eur));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "USD", "KRW", date))
+                .thenReturn(balance("USD", "80.00", "104000.00"));
+        when(allowanceBalanceLookupPort.findCreditBalance("139100", "EUR", "KRW", date))
+                .thenReturn(new AllowanceBalance(
+                        "EUR", "KRW", new BigDecimal("80.00"), new BigDecimal("120000.00")));
+        when(rates.findRate("EUR", "KRW", date)).thenReturn(Optional.of(new BigDecimal("1500")));
+        when(rates.findRate("USD", "KRW", date)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 690L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FX rate not found");
+
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
     private static EclAllowanceSummary summary(LocalDate baseDate,
                                                String runId,
                                                String currencyCode,
@@ -289,14 +312,13 @@ class EclProvisionServiceTest {
                 new BigDecimal("300.00"));
     }
 
-    private static ClosingAccountingProperties.AutomatedJournalRule rule(
+    private static ClosingAccountingProperties.EclAccountMapping rule(
             String debitAccountCode,
             String creditAccountCode) {
-        ClosingAccountingProperties.AutomatedJournalRule rule =
-                new ClosingAccountingProperties.AutomatedJournalRule();
+        ClosingAccountingProperties.EclAccountMapping rule =
+                new ClosingAccountingProperties.EclAccountMapping();
         rule.setDebitAccountCode(debitAccountCode);
         rule.setCreditAccountCode(creditAccountCode);
-        rule.setAmount(BigDecimal.ONE);
         return rule;
     }
 

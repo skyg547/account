@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:06" hostname="ho-To-Be-Filled-By-O-E-M" time="0.005">
+  <properties/>
+  <testcase name="resolvesSingleBaseDateAsOneDayRange()" classname="com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest" time="0.001"/>
+  <testcase name="rejectsEndDateBeforeStartDate()" classname="com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest" time="0.002"/>
+  <testcase name="resolvesExplicitStartAndEndDate()" classname="com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,3 +1,10 @@
+## 2026-10-06 — GH-858 Draft PR #875 handoff
+
+- Source: [Issue #858](https://github.com/skyg547/account/issues/858), `status:needs-review`; implementation branch `agent/858-require-fx-rate` in `/tmp/account-858-require-fx-rate`, based on `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`; [Draft PR #875](https://github.com/skyg547/account/pull/875) uses `Refs #858`.
+- Changed files: `account-mart/mart-core/.../IntegratedPositionProcessor.java`, its unit test, `account-mart/mart-batch/.../IntegratedPositionEtlJobTest.java`, and `account-mart/docs/ETL_INTERFACE_SPEC.md`. A missing or nonpositive foreign FX rate now fails the CDM Step/Job instead of storing principal as KRW market value. No batch wiring/schema/other module changed.
+- Commands/results: targeted core 8 and batch 3 PASS; `./gradlew :account-mart:test --offline --console=plain --max-workers=1 --no-daemon` success but `NO-SOURCE`; child suites core 22, batch 10, API 3 PASS; final targeted batch 3 PASS after test-only review fix. `git diff --check` and conflict marker scan PASS. Separate read-only review has no remaining P0–P3 and Q1–Q4 PASS; see PR body for file/test evidence.
+- Rollback: reviewed four-file revert only after foreign-rate completeness is assured or affected jobs are paused, because the old 1:1 fallback returns. Residual limits: H2 tests do not prove production-scale parallel CDM or corrected-rate/prior-snapshot rerun. Next: human review, current-head CI, then separately authorized Ready/merge/Issue close; preserve branch/worktree until merge verification.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
@@ -4018,9 +4025,19 @@
 - #799 from #751 is implementation-complete but verification-blocked, on agent/799-department-fail-closed / C:/tmp/account-799-department-fail-closed, base origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65. Remote department validation now fails closed for non-404 HTTP/transport/unverified or malformed 200, including trailing content and duplicate code keys; 404 denies and AuthService error is generic. No local-mode or JWT/role-rule change.
 - Writer final full Auth core139/API43=182 tests PASS and separate independent reviewer targeted adapter45/API22=67 PASS, no P0-P3; Q1-Q3 PASS, repository intent-comment Q4 PASS. Required combined Gateway test exited1 at compileJava because 32 dependencies are missing from offline cache; no Gateway tests ran, so automation actual-verification Q4 FAIL. No dependency download or live endpoint/timeout test.
 - Draft PR may present the frozen code and blocker. Before Ready: exact-head Gateway tests in a permitted environment, required PR CI, latest-main integration, and final independent review. Account workflow alone handles final merge and Issue close. Revert the Issue-scoped commit to roll back; no schema/data recovery. No conflict occurred.
-## 2026-10-03 — GH-798 cashflow null items / Draft PR #841
 
-- Handoff to human review: [Issue #798](https://github.com/skyg547/account/issues/798) OPEN / `status:needs-review`; [Draft PR #841](https://github.com/skyg547/account/pull/841) (`Refs #798`), branch `agent/798-cashflow-null-items`, worktree `/tmp/account-798-cashflow-null-items`, base `8140582b53467662b400273d04f3da8c5f33d944`, implementation commit `a6a1b7e8`.
-- Files: `cashflow/api/src/main/java/com/ho/account/cashflow/api/dto/GenerateCashflowStatementRequest.java`, `cashflow/api/src/test/java/com/ho/account/cashflow/api/CashflowApplicationTest.java`, `cashflow/docs/README.md`; parent-only record updates in `docs/ai-harness/{worklog,agent-status,handoff}.md`. No other modules, shared contracts, core, batch, persistence, or schema were changed.
-- Verified: red baseline reproduced two NPE cases; fixed focused API 11/11, offline core/API/batch 23/23, and harness quality 32/32 PASS with no failure/error/skip. Parent `:cashflow:test` returned `NO-SOURCE`, so explicit subproject tasks provide real test evidence. Diff check and conflict-marker scan PASS. Independent `/root/cashflow_review` found no issues; Q1–Q4 PASS with evidence table in `worklog.md` and PR body.
-- Rollback: reviewed Issue-scoped revert PR, with no data migration. Residual risk/limit: no live socket or external DB test; Issue acceptance is covered by MockMvc and local memory. Parent Integrator retains Git/GitHub authority; human reviewer is next. Keep Draft until the separate Ready/merge gate; do not close Issue or remove branch/worktree yet.
+## 2026-10-01 GH-747 PAT authority handoff
+
+- Issue #747 / `agent/747-pat-authority` / `/tmp/account-747-pat-authority` / `origin/main@b06e7de3`; [Draft PR #814](https://github.com/skyg547/account/pull/814) is open with `Refs #747`. The branch changes only `auth/**` and the three user-requested parent AI-harness records.
+- All PAT management methods now verify the login Bearer JWT and current exact AuthUser before DB access. Owner endpoints cannot use caller-supplied identities; administrator actions require current verified system-admin role. V74 widens PAT owner name to 80 and adds actor-attributed lifecycle rows. Revocation uses a conditional database transition so repeat/competing calls do not create another audit row.
+- Local gates: auth core143/API52/Gateway74 tests PASS, PAT full HTTP9 and H2 conditional JPA1 PASS, auth API bootJar PASS, harness quality32 PASS, diff/markers clean. Independent `/root/pat_review` found no blocking findings and Q1–Q4 PASS. No PostgreSQL runtime/concurrent-request, deployment, or real credentials used.
+- Rollback: reviewed Issue-scoped code revert; use a reviewed forward migration for schema correction and preserve audit rows. Next owner is human PR reviewer and PostgreSQL/CI integration gate before Ready or merge. Issue closure and worktree/branch removal remain separate gates.
+- Remote CI on Draft PR #814 initial head `d225857b` failed before steps (no runner assigned and no logs). Next owner should restore/rerun checks and verify the final head before Ready; this is not a failed auth test result.
+
+## 2026-10-05 — GH-829 교차 고객 수납 반제 방지 / Draft PR #844
+
+- Issue [#829](https://github.com/skyg547/account/issues/829), branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd1331fb4be5d233b4ee717d1cf7423df9`, [Draft PR #844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 변경: `CollectionService.java` 공통 매칭의 고객 일치 사전 검증; `CollectionServiceTest.java`의 교차 고객 무변경·포트 미호출 및 같은 고객 수동·자동 부분 매칭 테스트; `receivable/docs/process-flow.md`의 기능·초보자 검증 설명. 다른 모듈·공용 계약·DB는 변경하지 않았다.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; `git diff --check`·충돌 마커 PASS. 독립 읽기 전용 리뷰 지적 사항 없음, Q1–Q4 PASS. 자세한 명령·근거는 `worklog.md`와 PR 본문 참조.
+- 남은 위험: 실제 PostgreSQL·원격 GL 및 HTTP 종단 실행을 검증하지 않았고 기존 오배분 데이터는 정정하지 않았다. 변경 롤백은 PR 코드·테스트·문서 커밋 revert이며 운영 데이터·마이그레이션은 변경 없음.
+- 다음 소유자: 사람 리뷰어가 최신 head/base·CI와 운영 연동 위험을 검토한다. 작성자와 독립 리뷰어의 권한은 분리했고 Git/PR·기록은 부모 Integrator가 소유한다. PR은 Draft이며 별도 승인 전 Ready·merge·Issue close·branch/worktree 삭제 없음.

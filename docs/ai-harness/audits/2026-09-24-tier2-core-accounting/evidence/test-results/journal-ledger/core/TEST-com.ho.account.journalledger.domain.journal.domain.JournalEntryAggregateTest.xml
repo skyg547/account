@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.012">
+  <properties/>
+  <testcase name="차변 또는 대변 한쪽만 있는 목록은 합계가 우연히 0이어도 전표가 될 수 없다." classname="com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest" time="0.001"/>
+  <testcase name="JournalEntry가 상세 라인의 소유권을 설정하고 외부 컬렉션 변경을 차단한다." classname="com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest" time="0.002"/>
+  <testcase name="정상적인 헤더 및 차대변 라인이 설정된 전표는 불변성 검증을 통과한다." classname="com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest" time="0.0"/>
+  <testcase name="거래통화가 같아도 기준통화 차대가 다르면 승인을 차단한다." classname="com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest" time="0.0"/>
+  <testcase name="전표 작성일(slipDate)이 누락되면 도메인 불변성 검증 시 예외가 발생한다." classname="com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

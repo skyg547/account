@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.ExitStatus;
+import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
@@ -129,6 +130,54 @@ public class IntegratedPositionEtlJobTest {
                 String.class,
                 java.sql.Date.valueOf(baseDate));
         assertThat(auditType).isEqualTo("NEGATIVE_BALANCE");
+    }
+
+    @Test
+    @DisplayName("기준일 USD 환율 누락 시 CDM Step과 전체 Job이 실패하고 평가금액을 저장하지 않는다")
+    void shouldFailJobWhenForeignRateIsMissing() throws Exception {
+        jdbcTemplate.update("DELETE FROM market_exchange_rate WHERE base_dt = ? AND base_currency = 'USD' AND quote_currency = 'KRW'",
+                java.sql.Date.valueOf(BASE_DATE));
+
+        assertForeignRateFailure();
+    }
+
+    @Test
+    @DisplayName("기준일 USD 환율이 0이면 CDM Step과 전체 Job이 실패하고 평가금액을 저장하지 않는다")
+    void shouldFailJobWhenForeignRateIsZero() throws Exception {
+        jdbcTemplate.update("UPDATE market_exchange_rate SET base_rate = 0 WHERE base_dt = ? AND base_currency = 'USD' AND quote_currency = 'KRW'",
+                java.sql.Date.valueOf(BASE_DATE));
+
+        assertForeignRateFailure();
+    }
+
+    private void assertForeignRateFailure() throws Exception {
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addString("baseDate", BASE_DATE.toString())
+                .addLong("time", System.nanoTime())
+                .toJobParameters();
+        JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
+
+        assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(jobExecution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.FAILED.getExitCode());
+        assertThat(jobExecution.getStepExecutions())
+                .filteredOn(step -> "cdmLoadStep".equals(step.getStepName()))
+                .singleElement()
+                .satisfies(step -> {
+                    assertThat(step.getStatus()).isEqualTo(BatchStatus.FAILED);
+                    assertThat(step.getExitStatus().getExitCode()).isEqualTo(ExitStatus.FAILED.getExitCode());
+                    assertThat(step.getFailureExceptions())
+                            .anySatisfy(failure -> assertThat(failure)
+                                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                                    .hasRootCauseMessage("기준일의 유효한 원화 환율이 없습니다: " + BASE_DATE + " USD/KRW"));
+                });
+        Integer usdPositions = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_input_positions WHERE base_dt = ? AND acc_no = 'DEMO-ACC005'",
+                Integer.class, java.sql.Date.valueOf(BASE_DATE));
+        assertThat(usdPositions).isZero();
+        Integer snapshotRows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_exposure_snapshots WHERE base_date = ?",
+                Integer.class, java.sql.Date.valueOf(BASE_DATE));
+        assertThat(snapshotRows).isZero();
     }
 
     private void seedDemoSourceData(LocalDate baseDate) {
@@ -300,4 +349,3 @@ public class IntegratedPositionEtlJobTest {
                 branchCode);
     }
 }
-

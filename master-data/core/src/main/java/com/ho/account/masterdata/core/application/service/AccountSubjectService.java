@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,8 +41,9 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
-        if (accountSubjectPersistencePort.findByCode(command.code()).isPresent()) {
-            throw new IllegalArgumentException("이미 해당 시점에 활성화된 계정과목 코드가 존재합니다: " + command.code());
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
+        if (accountSubjectPersistencePort.existsByCode(command.code())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 계정과목 코드입니다: " + command.code());
         }
 
         AccountSubject accountSubject = command.toEntity();

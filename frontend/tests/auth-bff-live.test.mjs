@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, createHmac } from 'node:crypto';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,6 +12,7 @@ const MOCK_BFF_GATEWAY_SECRET = 'test-bff-gateway-secret-that-is-long-enough';
 const productionMode = process.env.AUTH_BFF_TEST_MODE === 'production';
 const expectedCookieName = productionMode ? '__Host-account_session' : 'account_session';
 const upstreamRequests = [];
+const simulatedReceipts = new Map();
 let mockGateway;
 let nextProcess;
 let frontendOrigin;
@@ -77,7 +78,9 @@ before(async () => {
       method: request.method,
       url: request.url,
       authorization: request.headers.authorization,
+      idempotencyKey: request.headers['x-idempotency-key'],
       cookie: request.headers.cookie,
+      authUser: request.headers['x-auth-user'],
       userId: request.headers['x-user-id'],
       forwardedFor: request.headers['x-forwarded-for'],
       bffRateKey: request.headers['x-bff-rate-key'],
@@ -117,6 +120,22 @@ before(async () => {
         'X-Auth-Error': 'token_expired',
       });
       response.end('{"message":"expired"}');
+      return;
+    }
+
+    if (request.method === 'POST' && request.url === '/api/v1/internalaudit/rcms/processes') {
+      // Simulate the Gateway command contract; real receipt persistence is tested in Internal Audit.
+      const key = request.headers['x-idempotency-key'];
+      const prior = simulatedReceipts.get(key);
+      if (prior && prior.body !== body) {
+        response.writeHead(409, { 'Content-Type': 'application/json' });
+        response.end('{"code":"IDEMPOTENCY_CONFLICT"}');
+        return;
+      }
+      const result = prior?.result ?? '{"processId":"first-result"}';
+      simulatedReceipts.set(key, { body, result });
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(result);
       return;
     }
 
@@ -300,6 +319,7 @@ test('protected proxy injects only the server cookie token and strips spoofed id
     headers: {
       Cookie: `${sessionCookie}; theme=dark`,
       Authorization: 'Bearer browser-controlled-value',
+      'X-Auth-User': 'spoofed-browser-user',
       'X-User-ID': 'spoofed-browser-user',
       'X-Bff-Rate-Key': 'browser-chosen-key',
       'X-Bff-Rate-Timestamp': '1',
@@ -316,6 +336,7 @@ test('protected proxy injects only the server cookie token and strips spoofed id
   assert.equal(forwarded.url, '/api/protected?view=summary');
   assert.equal(forwarded.authorization, `Bearer ${MOCK_SESSION_TOKEN}`);
   assert.equal(forwarded.cookie, undefined);
+  assert.equal(forwarded.authUser, undefined);
   assert.equal(forwarded.userId, undefined);
   assert.equal(forwarded.forwardedFor, undefined);
   assert.equal(forwarded.bffRateKey, undefined);
@@ -352,15 +373,89 @@ test('same-origin mutation reaches Gateway with the server credential', async ()
     headers: sameOriginHeaders({
       Cookie: sessionCookie,
       'Content-Type': 'application/json',
+      Authorization: 'Bearer browser-controlled-value',
+      'X-Auth-User': 'spoofed-browser-user',
       'X-User-ID': 'spoofed-browser-user',
+      'X-Idempotency-Key': 'retry_839.Key-~1',
     }),
     body: '{"change":true}',
   });
   assert.equal(response.status, 200);
   const forwarded = upstreamRequests.at(-1);
   assert.equal(forwarded.authorization, `Bearer ${MOCK_SESSION_TOKEN}`);
+  assert.equal(forwarded.authUser, undefined);
   assert.equal(forwarded.userId, undefined);
+  assert.equal(forwarded.idempotencyKey, 'retry_839.Key-~1');
   assert.equal(forwarded.body, '{"change":true}');
+});
+
+test('a valid 255-character idempotency key is forwarded unchanged on writes', async () => {
+  const key = 'k'.repeat(255);
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+    const response = await fetch(`${frontendOrigin}/api/protected`, {
+      method,
+      headers: sameOriginHeaders({ Cookie: sessionCookie, 'X-Idempotency-Key': key }),
+    });
+    assert.equal(response.status, 200, method);
+    assert.equal(upstreamRequests.at(-1).idempotencyKey, key, method);
+  }
+});
+
+test('malformed and oversized idempotency keys are rejected before Gateway', async () => {
+  for (const key of ['', 'two words', 'one,two', 'é', 'k'.repeat(256)]) {
+    const beforeCount = upstreamRequests.length;
+    const response = await fetch(`${frontendOrigin}/api/protected`, {
+      method: 'POST',
+      headers: sameOriginHeaders({ Cookie: sessionCookie, 'X-Idempotency-Key': key }),
+    });
+    assert.equal(response.status, 400, JSON.stringify(key));
+    assert.match((await response.json()).message, /X-Idempotency-Key/);
+    assert.equal(upstreamRequests.length, beforeCount, JSON.stringify(key));
+  }
+});
+
+test('duplicate raw idempotency headers are rejected before Gateway', async () => {
+  const beforeCount = upstreamRequests.length;
+  const response = await new Promise((resolve, reject) => {
+    const clientRequest = httpRequest(`${frontendOrigin}/api/protected`, {
+      method: 'POST',
+      headers: [
+        'Origin', frontendOrigin,
+        'Sec-Fetch-Site', 'same-origin',
+        'Cookie', sessionCookie,
+        'X-Idempotency-Key', 'retry-one',
+        'X-Idempotency-Key', 'retry-two',
+      ],
+    }, (upstreamResponse) => {
+      upstreamResponse.resume();
+      resolve(upstreamResponse);
+    });
+    clientRequest.on('error', reject);
+    clientRequest.end();
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(upstreamRequests.length, beforeCount);
+});
+
+test('BFF preserves simulated first-result replay and payload conflict responses', async () => {
+  const url = `${frontendOrigin}/api/v1/internalaudit/rcms/processes`;
+  const headers = sameOriginHeaders({
+    Cookie: sessionCookie,
+    'Content-Type': 'application/json',
+    'X-Idempotency-Key': 'retry-839-simulated-replay',
+  });
+  const first = await fetch(url, { method: 'POST', headers, body: '{"process":"first"}' });
+  const replay = await fetch(url, { method: 'POST', headers, body: '{"process":"first"}' });
+  const conflict = await fetch(url, { method: 'POST', headers, body: '{"process":"changed"}' });
+  assert.equal(first.status, 200);
+  assert.equal(replay.status, 200);
+  assert.deepEqual(await replay.json(), await first.json());
+  assert.equal(conflict.status, 409);
+  assert.deepEqual(await conflict.json(), { code: 'IDEMPOTENCY_CONFLICT' });
+  assert.deepEqual(
+    upstreamRequests.slice(-3).map((request) => request.idempotencyKey),
+    Array(3).fill('retry-839-simulated-replay'),
+  );
 });
 
 test('upstream 401 clears the browser session', async () => {

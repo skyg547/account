@@ -2,6 +2,9 @@ package com.ho.account.deposit.application.service;
 
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.contracts.outbox.OutboxPort;
+import com.ho.account.contracts.outbox.OutboxEventPublisher;
 import com.ho.account.deposit.application.port.out.DepositAccountMappingPort;
 import com.ho.account.deposit.application.port.out.DepositAccountPersistencePort;
 import com.ho.account.deposit.domain.DepositAccount;
@@ -21,14 +24,22 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.concurrent.CountDownLatch;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ExecutionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 /**
  * [애플리케이션 서비스 - 동시성 및 낙관적 잠금 재시도 검증 테스트]
@@ -63,15 +74,28 @@ class DepositServiceConcurrencyTest {
     private MasterDataQueryPort masterDataQueryPort;
     @MockBean
     private JournalPostingPort journalPostingPort;
+    @MockBean
+    private OutboxPort outboxPort;
+    @MockBean
+    private OutboxEventPublisher outboxEventPublisher;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Test
     @DisplayName("동시 10개의 입금 요청 시 낙관적 잠금 및 재시도 메커니즘을 통해 갱신 손실 없이 잔액 정합성을 유지한다")
-    void concurrentDepositsMaintainBalanceIntegrity() throws InterruptedException {
+    void concurrentDepositsMaintainBalanceIntegrity() throws InterruptedException, ExecutionException {
+        when(mappingPort.resolveInitialDepositAccounts(any(DepositAccount.class)))
+                .thenReturn(new DepositAccountMappingPort.InitialDepositAccounts("10100", "20200"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
         DepositService service = new DepositService(
                 persistencePort,
                 mappingPort,
                 masterDataQueryPort,
-                journalPostingPort
+                journalPostingPort,
+                outboxPort,
+                outboxEventPublisher,
+                transactionManager
         );
 
         DepositAccount account = new DepositAccount();
@@ -87,19 +111,16 @@ class DepositServiceConcurrencyTest {
 
         int threadCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch latch = new CountDownLatch(threadCount);
+        List<Future<?>> results = new ArrayList<>();
 
         for (int i = 0; i < threadCount; i++) {
-            executorService.submit(() -> {
-                try {
-                    service.deposit("DEP-CONC-001", new BigDecimal("1000.00"));
-                } finally {
-                    latch.countDown();
-                }
-            });
+            results.add(executorService.submit(() ->
+                    service.deposit("DEP-CONC-001", new BigDecimal("1000.00"))));
         }
 
-        latch.await();
+        for (Future<?> result : results) {
+            result.get();
+        }
         executorService.shutdown();
 
         DepositAccount updatedAccount = persistencePort.findByAccountNumber("DEP-CONC-001").orElseThrow();

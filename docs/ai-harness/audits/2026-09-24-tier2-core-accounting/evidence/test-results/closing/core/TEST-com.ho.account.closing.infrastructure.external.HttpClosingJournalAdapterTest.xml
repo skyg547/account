@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" tests="46" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:13" hostname="ho-To-Be-Filled-By-O-E-M" time="1.197">
+  <properties/>
+  <testcase name="[1] timeout=0ms" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.202"/>
+  <testcase name="[2] timeout=-1s" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[3] timeout=2147483648ms" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[4] timeout=invalid" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[1] path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.131"/>
+  <testcase name="[2] path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.008"/>
+  <testcase name="[3] path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.05"/>
+  <testcase name="[4] path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.007"/>
+  <testcase name="[5] path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="missingSlipReturnsEmpty()" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="healthyCreateApprovePostAndQueriesPreservePrecisionActorAndLineage()" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.232"/>
+  <testcase name="[1] status=300, path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.012"/>
+  <testcase name="[2] status=300, path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[3] status=300, path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.054"/>
+  <testcase name="[4] status=300, path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.009"/>
+  <testcase name="[5] status=300, path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.009"/>
+  <testcase name="[6] status=301, path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.016"/>
+  <testcase name="[7] status=301, path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[8] status=301, path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.049"/>
+  <testcase name="[9] status=301, path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[10] status=301, path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[11] status=302, path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.009"/>
+  <testcase name="[12] status=302, path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[13] status=302, path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.049"/>
+  <testcase name="[14] status=302, path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[15] status=302, path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.008"/>
+  <testcase name="[16] status=303, path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.013"/>
+  <testcase name="[17] status=303, path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[18] status=303, path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.047"/>
+  <testcase name="[19] status=303, path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[20] status=303, path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[21] status=304, path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.009"/>
+  <testcase name="[22] status=304, path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[23] status=304, path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.007"/>
+  <testcase name="[24] status=304, path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[25] status=304, path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[26] status=307, path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.01"/>
+  <testcase name="[27] status=307, path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[28] status=307, path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.049"/>
+  <testcase name="[29] status=307, path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[30] status=307, path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[31] status=308, path=/api/v1/journals/posting" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.007"/>
+  <testcase name="[32] status=308, path=/api/journals/42/approve" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="[33] status=308, path=/api/journals/42/post" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.048"/>
+  <testcase name="[34] status=308, path=/api/journals/CL-42" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[35] status=308, path=/api/journals" classname="com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
