@@ -225,3 +225,17 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 
 - [Draft PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE, `Refs #777`, initial head `5e4c428e`; old #808 remains CLOSED. Issue #777 remains OPEN / `status:needs-review`, and the isolated worktree is retained.
 - GitHub-hosted module/harness/merge-guard jobs did not start because their annotations report recent-payment or spending-limit restrictions. They are an external CI gate, not executed test failures or successes. No billing setting was accessed or changed. The PR body records local verification, Q1–Q4, rollback, residual risks and human authority separation. Next owner is the human current-head reviewer and account owner for CI availability; Ready/merge/Issue close/deployment/cleanup remain unperformed.
+
+## GH-893 — verified Draft handoff
+
+- Issue [#893](https://github.com/skyg547/account/issues/893), branch `agent/893-fx-source-pool`, worktree `/tmp/account-893-fx-source-pool`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; only `closing/**` changed.
+- Accepted local evidence: Hikari-backed two-partition cursor test holds one connection 5.5 seconds beyond the 5-second acquisition window while the second has acquired its own; audited behavior RED with timeout, remediated behavior PASS. JobLauncher rejects grid3/pool2 before source work. Config and docs bind positive fetch, PostgreSQL auto-commit, pool budget1–8, timeouts and remaining server-cursor limits together.
+- Full `./gradlew :closing:test` and final `./gradlew :closing:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=2` PASS637/0 failures/errors/skips; both boot JARs PASS. Independent read-only reviewer found no remaining issue and marked Q1–Q4 PASS; [worklog](worklog.md#2026-10-09--gh-893-fx-parallel-cursor-source-pool) contains the evidence table.
+- Rollback: stop FX work, review and revert only this Closing delta, preserve posted/draft Journal effects and Batch checkpoints, reconcile deterministic slips/lineage before retry. No migration reversal. Real PostgreSQL memory, server cursor, query plan, source connection capacity and load remain untested; human/operations owners must review before Ready/deployment.
+- 권한 분리: 부모 Integrator만 구현·모듈 기록·commit/push/Draft PR을 갱신했고 독립 리뷰어는 읽기 전용이다. AI 검증은 사람 리뷰와 current-head CI를 대체하지 않는다. Ready·merge·Issue close·배포·branch/worktree 삭제는 별도 권한 단계다.
+
+### GH-893 Draft publication
+
+- [Draft PR #908](https://github.com/skyg547/account/pull/908) is OPEN/DRAFT with `Refs #893`, initial head `25798acfd5b1d07af53d26b259138e3612dfb629`; Issue #893 is OPEN / `status:needs-review`. At publication hosted module/result/discipline checks remain pending; no hosted test PASS is claimed. Next owner: human reviewer for current-head checks, then operations/accounting owner for live PostgreSQL source capacity, server cursor and load evidence before Ready/deployment. Worktree and branch stay available.
+
+- Hosted checkpoint on `09d8a311`: harness PASS; merge-guard policy FAIL (`TRUST_POLICY_UNCONFIGURED` plus Draft/authority requirements). The initial Closing module job was cancelled after the record-only push; no current-head hosted module PASS is available. Do not advance Ready/merge until the repository trust policy and current-head CI are reviewed by their owners.

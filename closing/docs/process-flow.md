@@ -364,8 +364,13 @@ sequenceDiagram
 
 FX 원천 잔액은 차변을 양수, 대변을 음수로 집계합니다. `FxValuationService`는 재평가 차이를 이 부호에 맞춰 계정 라인과 환산손익 반대 라인으로 구성합니다. Batch는 기술적인 범위 분할·Cursor·chunk/checkpoint만 맡고, 한 chunk 안의 어느 항목이라도 실패하면 실패 ID를 모아 예외를 던져 그 chunk 전체를 롤백합니다.
 
-Job의 첫 step은 전체 source를 스트리밍하며 core preparation을 호출하지만 Journal에는 쓰지
-않습니다. 그 다음에만 기존 고정 범위 partition, cursor, chunk posting을 수행합니다.
+Job의 첫 step은 전체 source를 행별 callback으로 core preparation에 전달하지만 Journal에는 쓰지
+않습니다. PostgreSQL 원천 연결의 auto-commit 때문에 드라이버가 결과 전체를 버퍼링할 수 있어
+이 단계의 서버 커서 스트리밍은 보장되지 않습니다. 그 다음에만 기존 고정 범위 partition,
+cursor, chunk posting을 수행합니다.
+Job parameter 검증은 `grid-size`가 Journal 읽기 전용 source pool 상한을 넘으면 첫 step 전에
+거부합니다. 파티션별 cursor는 닫힐 때까지 연결 하나를 점유하므로 승인된 병렬 수와 풀 크기를
+함께 늘려야 하며 최대 8개까지만 허용합니다. 평가 금액·상태 전이 규칙은 바뀌지 않습니다.
 `allowStartIfComplete(true)`이므로 posting 실패 후 재시작해도 validation을 다시 실행하고 기존
 checkpoint에서 posting을 재개합니다. 두 step은 원장을 따로 읽으며 분산 snapshot을 만들지
 않습니다. 따라서 실행 동안 원장, 기준일 환율, 유효 정책을 운영 절차로 동결해야 합니다.

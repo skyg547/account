@@ -21,8 +21,10 @@ public class ClosingReadOnlySourceConfiguration {
             @Value("${closing.sources.ecl.password}") String eclPassword,
             @Value("${closing.sources.master-data.url}") String masterUrl,
             @Value("${closing.sources.master-data.username}") String masterUsername,
-            @Value("${closing.sources.master-data.password}") String masterPassword) {
+            @Value("${closing.sources.master-data.password}") String masterPassword,
+            @Value("${closing.sources.journal.maximum-pool-size:1}") int journalMaximumPoolSize) {
         return new ClosingReadOnlySources(journalUrl, journalUsername, journalPassword,
-                eclUrl, eclUsername, eclPassword, masterUrl, masterUsername, masterPassword);
+                eclUrl, eclUsername, eclPassword, masterUrl, masterUsername, masterPassword,
+                journalMaximumPoolSize);
     }
 }

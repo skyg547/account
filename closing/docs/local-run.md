@@ -365,6 +365,52 @@ bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --conso
 .\gradlew :closing:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=fxValuationJob valuationDate=2026-04-30 valuationBatchId=20260430 --spring.batch.jdbc.initialize-schema=always" --console=plain
 ```
 
+### FX 커서와 Journal 연결 예산 (GH-893)
+
+`dev`에서 외부 읽기 전용 원천을 사용하려면 승인된 source 설정과
+`closing.sources.enabled=true`가 필요합니다. 아래는 비밀값을 제외한 병렬성 설정 예입니다.
+
+```yaml
+account:
+  closing:
+    batch:
+      fx:
+        grid-size: 2
+        chunk-size: 1000
+closing:
+  sources:
+    journal:
+      maximum-pool-size: 2
+```
+
+기본값은 `grid-size=1`, Journal source pool=1입니다. 두 값은 각각 1 이상이어야 하고
+Journal pool은 최대 8개입니다. `grid-size`가 pool 크기보다 크면 Job parameter 검증에서
+첫 evidence scan과 posting 전에 실패합니다. 커서 파티션마다 연결 하나를 끝날 때까지
+점유하므로, 풀 크기를 2로 두면 동시 커서는 최대 2개입니다. 이 외에 ECL·Master Data
+읽기 전용 풀은 각각 1개라 외부 source 연결 예산은 인스턴스당 최대 `Journal pool + 2`개이며
+Closing 기본 DataSource 연결은 별도입니다. 실제 DB 허용 연결 수와 다른 workload를 먼저
+확인한 후 값을 승인해야 합니다.
+
+FX Reader의 JDBC fetch size는 `chunk-size` 값(기본 1000)을 사용하며, chunk 크기는
+checkpoint/쓰기 트랜잭션 단위이기도 합니다. PostgreSQL에서 서버 커서로 행을 나눠 받으려면
+양수 fetch size와 auto-commit=false가 함께 필요합니다. 파티션 Reader는 둘 다 설정하지만
+서버는 각 커서의 트랜잭션·연결을 닫힐 때까지 유지합니다. 첫 전체 evidence scan은
+`JdbcTemplate`에 fetch size 1000을 요청하나 원천 연결에 별도의 transaction을 열지
+않으므로 PostgreSQL 서버 커서 스트리밍은 보장되지 않습니다. 파티션 생성의 계정 목록
+조회도 이 fetch size 계약 밖입니다. 대량 원장에서는 이 단계의 메모리·실행계획을 별도로
+검증해야 합니다.
+
+Hikari 연결 획득 대기는 5초, 연결 검증 제한은 2초, PostgreSQL 드라이버의 연결 시도는
+5초, socket read timeout은 60초입니다. 획득 대기는 SQL 실행 제한이 아니며, socket
+timeout도 Job 전체 수행시간 제한이 아닙니다. 느린 원장·네트워크에서 60초 제한과
+재시작 동작을 실제 PostgreSQL로 검증해야 합니다. 아래 회귀 테스트는 H2를 통한 실제
+Hikari 풀에서 첫 커서를 5.5초 유지하고 두 파티션이 완료되는 것을 확인합니다. 실제
+PostgreSQL의 서버 커서·운영 부하를 입증하는 테스트는 아닙니다.
+
+```bash
+./gradlew :closing:batch:test --tests '*FxValuationSourcePoolConcurrencyTest' --tests '*FxValuationUnsupportedPoolBudgetTest'
+```
+
 ### FX 평가 적격성 설정 (GH-780)
 
 아래는 합성 현금/수익 두 계정의 설정 형태입니다. 실제 계정 코드와 적용 기간은 승인된
