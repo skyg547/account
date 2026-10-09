@@ -449,3 +449,8 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 | Q2 | PASS | `docs/schema.md:5`, `DailyClosingStatus.java:54`; 상태 복원, 잠금→매핑→저장 흐름과 버전 충돌 설명 | 해당 없음: 핵심 저장 흐름 변경 | 분산 장애 검증은 후속 | 동일 리뷰어 기능 문서와 코드 대조 |
 | Q3 | PASS | `docs/beginner-guide.md:5`, `docs/schema.md:13`; `./gradlew :closing:test` 636 PASS | 해당 없음: 모듈 구조 설명 변경 | 운영 환경 실행 설명은 검증 범위 밖 | 동일 리뷰어 문서·검증 명령 확인 |
 | Q4 | PASS | `JpaClosingAggregatePersistenceAdapter.java:83`, `ClosingEntityMapper.java:348`; 의도 주석 보완 후 집중 테스트 PASS | 해당 없음: 비자명 락/참조 로직 변경 | 주석과 매핑 동기화 필요 | 동일 리뷰어 보완 재확인 |
+
+### GH-895 Draft PR #910 publication
+
+- Published [OPEN Draft PR #910](https://github.com/skyg547/account/pull/910) with `Refs #895`, initially MERGEABLE, from `agent/895-closing-pure-domain` to `main`; reviewed implementation head `76cea97532eab0d9828525fd380314df6f94def3`. Issue #895 is OPEN / `status:needs-review` with [review handoff](https://github.com/skyg547/account/issues/895#issuecomment-6081357887). Worktree stays available.
+- PR body includes 636-test final-head evidence, API/Batch packaging, architecture RED/GREEN static evidence, independent Q1–Q4, rollback, untested PostgreSQL/distributed/load gates and writer/reviewer/Integrator/human authority separation. Ready, merge, Issue close, deployment and cleanup were not performed. Current-head hosted checks and human review remain pending.

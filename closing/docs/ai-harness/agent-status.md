@@ -175,3 +175,8 @@
 - Ten JPA-backed domain classes now use plain domain state and rules. Infrastructure entities, explicit mapper and port adapters own table/column/callback mappings. Daily status retains `@Version`, locked lookups and stale-version rejection.
 - Final forced `./gradlew :closing:test --console=plain --max-workers=1 --no-daemon --rerun-tasks` PASS: Core375/API159/Batch102 = 636 tests, failures/errors/skips0. API and Batch `bootJar` PASS. Audited source has 46 forbidden domain import lines; current source has 0; architecture guard negative fixtures PASS. Scope, whitespace, conflict-marker and unmerged-index gates PASS.
 - Independent `/root/closing_review`: no P0–P3, Q1–Q4 PASS after Q4 comments were restored and focused tests rerun. Actual PostgreSQL locking/DDL, distributed faults, production data and load remain unverified. Next owner after Draft is the human current-head/CI reviewer. Ready, merge, Issue close, deployment and branch/worktree cleanup remain separate gates.
+
+### GH-895 Draft publication
+
+- [Draft PR #910](https://github.com/skyg547/account/pull/910) is OPEN/DRAFT with `Refs #895`, targeting `main` from `agent/895-closing-pure-domain`; implementation commit `76cea97532eab0d9828525fd380314df6f94def3`. Issue #895 remains OPEN and is `status:needs-review`; [review handoff comment](https://github.com/skyg547/account/issues/895#issuecomment-6081357887) records the gates. The isolated worktree is retained.
+- PR body contains the forced 636-test verification, both boot JARs, independent Q1–Q4, rollback, remaining live-environment gates and explicit authority separation. Human current-head/CI review is next; Ready, merge, Issue close, deployment and cleanup were not performed.
