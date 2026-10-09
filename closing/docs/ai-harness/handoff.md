@@ -237,3 +237,5 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 ### GH-893 Draft publication
 
 - [Draft PR #908](https://github.com/skyg547/account/pull/908) is OPEN/DRAFT with `Refs #893`, initial head `25798acfd5b1d07af53d26b259138e3612dfb629`; Issue #893 is OPEN / `status:needs-review`. At publication hosted module/result/discipline checks remain pending; no hosted test PASS is claimed. Next owner: human reviewer for current-head checks, then operations/accounting owner for live PostgreSQL source capacity, server cursor and load evidence before Ready/deployment. Worktree and branch stay available.
+
+- Hosted checkpoint on `09d8a311`: harness PASS; merge-guard policy FAIL (`TRUST_POLICY_UNCONFIGURED` plus Draft/authority requirements). The initial Closing module job was cancelled after the record-only push; no current-head hosted module PASS is available. Do not advance Ready/merge until the repository trust policy and current-head CI are reviewed by their owners.

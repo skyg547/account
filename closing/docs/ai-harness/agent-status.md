@@ -178,3 +178,5 @@
 ### GH-893 Draft publication
 
 - [Draft PR #908](https://github.com/skyg547/account/pull/908) is OPEN/DRAFT to `main` with `Refs #893`; initial verified head `25798acfd5b1d07af53d26b259138e3612dfb629`. Issue remains OPEN / `status:needs-review`; worktree retained. Initial hosted module and discipline/result jobs are pending; no remote test success is claimed at publication. Human reviewer owns current-head checks and PostgreSQL capacity review.
+
+- Hosted checkpoint on `09d8a311`: harness PASS; merge guard FAIL with `TRUST_POLICY_UNCONFIGURED` and Draft/authority-policy requirements. The initial code-head Closing job was cancelled after the record-only push; no current-head hosted module PASS is claimed. PR body carries these details; keep Draft for human/current-head CI review.
