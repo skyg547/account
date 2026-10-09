@@ -34,6 +34,12 @@ public class ProvisionBatch {
     @Column(nullable = false, length = 50)
     private ProvisionType provisionType;
 
+    @Column(name = "execution_key", length = 100, unique = true)
+    private String executionKey;
+
+    @Column(name = "journal_count")
+    private Integer journalCount;
+
     @Column(nullable = false)
     private LocalDateTime runDateTime;
 
@@ -70,7 +76,8 @@ public class ProvisionBatch {
         RUNNING,
         COMPLETED,
         FAILED,
-        PENDING_APPROVAL
+        PENDING_APPROVAL,
+        RECONCILIATION_REQUIRED
     }
 
     @PrePersist
@@ -131,6 +138,11 @@ public class ProvisionBatch {
     public ProvisionType getProvisionType() {
         return provisionType;
     }
+
+    public String getExecutionKey() { return executionKey; }
+    public void setExecutionKey(String executionKey) { this.executionKey = executionKey; }
+    public Integer getJournalCount() { return journalCount; }
+    public void setJournalCount(Integer journalCount) { this.journalCount = journalCount; }
 
     public void setProvisionType(ProvisionType provisionType) {
         this.provisionType = provisionType;

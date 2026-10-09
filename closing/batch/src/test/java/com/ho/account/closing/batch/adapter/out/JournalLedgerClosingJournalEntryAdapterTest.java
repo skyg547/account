@@ -69,6 +69,23 @@ class JournalLedgerClosingJournalEntryAdapterTest {
     }
 
     @Test
+    void exactPostedSlipReturnsPostedEvidenceWithoutCreatingAnotherJournal() {
+        JournalPostingPort postingPort = mock(JournalPostingPort.class);
+        JournalQueryPort queryPort = mock(JournalQueryPort.class);
+        JournalLedgerClosingJournalEntryAdapter adapter =
+                new JournalLedgerClosingJournalEntryAdapter(postingPort, queryPort);
+        ClosingJournalEntryCommand command = command();
+        when(queryPort.findBySlipNo(command.slipNo()))
+                .thenReturn(Optional.of(existingSummary(command, "POSTED")));
+        when(queryPort.getJournalDetails(77L)).thenReturn(existingDetails(command));
+
+        var result = adapter.createDraftAdjustment(command);
+
+        assertThat(result.status()).isEqualTo("POSTED");
+        verifyNoInteractions(postingPort);
+    }
+
+    @Test
     void lineageDedupeReturningAnotherSlipFailsInsteadOfRecordingWrongJournal() {
         JournalPostingPort postingPort = mock(JournalPostingPort.class);
         JournalQueryPort queryPort = mock(JournalQueryPort.class);

@@ -5,6 +5,8 @@ import com.ho.account.closing.application.port.in.ClosingUseCase;
 import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
 import com.ho.account.closing.application.port.in.FinancialClosingCalculationResult;
 import com.ho.account.closing.application.port.out.ClosingAdjustmentPersistencePort;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunLockPort;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunManifestPort;
 import com.ho.account.closing.application.port.out.ClosingAggregatePersistencePort;
 import com.ho.account.closing.application.port.out.ClosingAuditLogPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
@@ -38,10 +40,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
@@ -64,6 +69,8 @@ public class ClosingService implements ClosingUseCase {
     private final PeriodLockPersistencePort periodLockPersistencePort;
     private final ReopenApprovalPersistencePort reopenApprovalPersistencePort;
     private final ClosingBatchExecutionRecorder batchExecutionRecorder;
+    private final ClosingFinancialRunLockPort financialRunGate;
+    private final ClosingFinancialRunManifestPort financialRunManifest;
     private final ClosingAdjustmentPersistencePort closingAdjustmentPersistencePort;
     private final ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
     
@@ -291,47 +298,160 @@ public class ClosingService implements ClosingUseCase {
         return periodTransitions.decide(approvalId, newStatus, approvedBy);
     }
 
+    /** The key is scoped to this endpoint and binds period, type and trusted actor. */
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType, String runBy) {
+    public ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType,
+                                            String runBy, String executionKey) {
         requireSupportedValuationType(valuationType);
         requireActor(runBy, "runBy");
-        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
+        String key = requireExecutionKey(executionKey);
+        FiscalPeriodRef period = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-
-        // @todo Add an explicit execution key with a unique constraint. Completion requires
-        // period/type/business-date/key lookup plus duplicate-request and crash-recovery tests.
-        ValuationBatch batch = batchExecutionRecorder.startValuation(
-                fiscalPeriod, valuationType, runBy);
-
+        ValuationBatch batch;
         try {
-            FinancialClosingCalculationResult result = financialClosingCalculation.runFxValuation(
-                    fiscalPeriod.endDate(), batch.getId());
-            return finishValuation(batch.getId(), result, runBy);
-        } catch (RuntimeException e) {
-            markValuationFailedPreservingCause(batch.getId(), runBy, e);
-            throw e;
+            batch = batchExecutionRecorder.claimValuation(period, valuationType, runBy, key);
+        } catch (DataIntegrityViolationException duplicate) {
+            // A concurrent insert won the unique key. Its committed run is the retry result.
+            ValuationBatch existing;
+            try {
+                existing = batchExecutionRecorder.findValuationByKey(key);
+            } catch (EntityNotFoundException unrelatedConstraint) {
+                duplicate.addSuppressed(unrelatedConstraint);
+                throw duplicate;
+            }
+            requireSameValuationRequest(existing, fiscalPeriodId, valuationType, runBy);
+            batch = existing;
         }
+        Long batchId = batch.getId();
+        AtomicReference<Integer> knownCount = new AtomicReference<>();
+        AtomicBoolean startedFinancialWork = new AtomicBoolean();
+        try {
+            return financialRunGate.withExclusiveRun("VALUATION", key,
+                    () -> executeValuationRun(key, period, runBy, batchId, knownCount, startedFinancialWork));
+        } catch (RuntimeException failure) {
+            if (startedFinancialWork.get()) markValuationFailure(batchId, knownCount.get(), runBy, failure);
+            throw failure;
+        }
+    }
+
+    private ValuationBatch executeValuationRun(String key, FiscalPeriodRef period, String runBy,
+                                               Long batchId, AtomicReference<Integer> knownCount,
+                                               AtomicBoolean startedFinancialWork) {
+        // The gate's DB row lock proves that no previous worker is still posting this key.
+        ValuationBatch current = batchExecutionRecorder.findValuationByKey(key);
+        if (current.getStatus() == ValuationBatch.ValuationBatchStatus.COMPLETED
+                || current.getStatus() == ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL) return current;
+        startedFinancialWork.set(true);
+        FinancialClosingCalculationResult result = financialClosingCalculation.runFxValuation(period.endDate(), batchId);
+        knownCount.set(result.journalCount());
+        return batchExecutionRecorder.finishValuation(batchId, result.journalCount(),
+                result.singleJournalEntryId(),
+                closingAccountingProperties.isAutoPostAdjustments() || result.allPosted(), runBy);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType, String runBy) {
+    public ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType,
+                                            String runBy, String executionKey) {
         requireSupportedProvisionType(provisionType);
         requireActor(runBy, "runBy");
-        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
+        String key = requireExecutionKey(executionKey);
+        FiscalPeriodRef period = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-
-        ProvisionBatch batch = batchExecutionRecorder.startProvision(
-                fiscalPeriod, provisionType, runBy);
-
+        ProvisionBatch batch;
         try {
-            FinancialClosingCalculationResult result = financialClosingCalculation.runEclProvision(
-                    fiscalPeriod.endDate(), batch.getId());
-            return finishProvision(batch.getId(), result, runBy);
-        } catch (RuntimeException e) {
-            markProvisionFailedPreservingCause(batch.getId(), runBy, e);
-            throw e;
+            batch = batchExecutionRecorder.claimProvision(period, provisionType, runBy, key);
+        } catch (DataIntegrityViolationException duplicate) {
+            ProvisionBatch existing;
+            try {
+                existing = batchExecutionRecorder.findProvisionByKey(key);
+            } catch (EntityNotFoundException unrelatedConstraint) {
+                duplicate.addSuppressed(unrelatedConstraint);
+                throw duplicate;
+            }
+            requireSameProvisionRequest(existing, fiscalPeriodId, provisionType, runBy);
+            batch = existing;
+        }
+        Long batchId = batch.getId();
+        AtomicReference<Integer> knownCount = new AtomicReference<>();
+        AtomicBoolean startedFinancialWork = new AtomicBoolean();
+        try {
+            return financialRunGate.withExclusiveRun("PROVISION", key,
+                    () -> executeProvisionRun(key, period, runBy, batchId, knownCount, startedFinancialWork));
+        } catch (RuntimeException failure) {
+            if (startedFinancialWork.get()) markProvisionFailure(batchId, knownCount.get(), runBy, failure);
+            throw failure;
+        }
+    }
+
+    private ProvisionBatch executeProvisionRun(String key, FiscalPeriodRef period, String runBy,
+                                               Long batchId, AtomicReference<Integer> knownCount,
+                                               AtomicBoolean startedFinancialWork) {
+        ProvisionBatch current = batchExecutionRecorder.findProvisionByKey(key);
+        if (current.getStatus() == ProvisionBatch.ProvisionBatchStatus.COMPLETED
+                || current.getStatus() == ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL) return current;
+        startedFinancialWork.set(true);
+        FinancialClosingCalculationResult result = financialClosingCalculation.runEclProvision(period.endDate(), batchId);
+        knownCount.set(result.journalCount());
+        return batchExecutionRecorder.finishProvision(batchId, result.journalCount(),
+                result.singleJournalEntryId(),
+                closingAccountingProperties.isAutoPostAdjustments() || result.allPosted(), runBy);
+    }
+
+    private String requireExecutionKey(String key) {
+        if (key == null || key.isBlank() || key.length() > 100 || !key.equals(key.trim())) {
+            throw new IllegalArgumentException("executionKey must be 1-100 non-blank characters without surrounding whitespace");
+        }
+        return key;
+    }
+
+    private void requireSameValuationRequest(ValuationBatch batch, Long periodId,
+                                              ValuationBatch.ValuationType type, String actor) {
+        if (!Objects.equals(batch.getFiscalPeriodId(), periodId) || batch.getValuationType() != type
+                || !Objects.equals(batch.getRunBy(), actor.trim())) {
+            throw new IllegalStateException("Execution key already belongs to different business content");
+        }
+    }
+
+    private void requireSameProvisionRequest(ProvisionBatch batch, Long periodId,
+                                              ProvisionBatch.ProvisionType type, String actor) {
+        if (!Objects.equals(batch.getFiscalPeriodId(), periodId) || batch.getProvisionType() != type
+                || !Objects.equals(batch.getRunBy(), actor.trim())) {
+            throw new IllegalStateException("Execution key already belongs to different business content");
+        }
+    }
+
+    private void markValuationFailure(Long id, Integer count, String actor, RuntimeException failure) {
+        try {
+            if (manifestExistsOrUnknown("VALUATION", id, failure)) {
+                batchExecutionRecorder.valuationOutcomeUnknown(id, count, actor);
+            } else {
+                batchExecutionRecorder.valuationNoEffectFailure(id, actor);
+            }
+        } catch (RuntimeException recorderFailure) {
+            failure.addSuppressed(recorderFailure);
+        }
+    }
+
+    private void markProvisionFailure(Long id, Integer count, String actor, RuntimeException failure) {
+        try {
+            if (manifestExistsOrUnknown("PROVISION", id, failure)) {
+                batchExecutionRecorder.provisionOutcomeUnknown(id, count, actor);
+            } else {
+                batchExecutionRecorder.provisionNoEffectFailure(id, actor);
+            }
+        } catch (RuntimeException recorderFailure) {
+            failure.addSuppressed(recorderFailure);
+        }
+    }
+
+    private boolean manifestExistsOrUnknown(String scope, Long id, RuntimeException failure) {
+        try {
+            return financialRunManifest.exists(scope, id);
+        } catch (RuntimeException lookupFailure) {
+            failure.addSuppressed(lookupFailure);
+            return true;
         }
     }
 
@@ -420,31 +540,6 @@ public class ClosingService implements ClosingUseCase {
         }
     }
 
-    private ValuationBatch finishValuation(
-            Long batchId,
-            FinancialClosingCalculationResult result,
-            String actor) {
-        String reportLink = "/reports/valuation/" + batchId;
-        if (result.journalCount() == 0 || closingAccountingProperties.isAutoPostAdjustments()) {
-            return batchExecutionRecorder.markValuationCompleted(
-                    batchId, result.singleJournalEntryId(), reportLink, actor);
-        }
-        return batchExecutionRecorder.markValuationPendingApproval(
-                batchId, result.singleJournalEntryId(), reportLink, actor);
-    }
-
-    private ProvisionBatch finishProvision(
-            Long batchId,
-            FinancialClosingCalculationResult result,
-            String actor) {
-        if (result.journalCount() == 0 || closingAccountingProperties.isAutoPostAdjustments()) {
-            return batchExecutionRecorder.markProvisionCompleted(
-                    batchId, result.singleJournalEntryId(), actor);
-        }
-        return batchExecutionRecorder.markProvisionPendingApproval(
-                batchId, result.singleJournalEntryId(), actor);
-    }
-
     private void requireSupportedValuationType(ValuationBatch.ValuationType valuationType) {
         if (valuationType != ValuationBatch.ValuationType.FX_RATE) {
             throw new IllegalArgumentException("Only FX_RATE valuation is supported");
@@ -467,19 +562,4 @@ public class ClosingService implements ClosingUseCase {
         return value != null && !value.trim().isEmpty();
     }
 
-    private void markValuationFailedPreservingCause(Long batchId, String actor, Exception cause) {
-        try {
-            batchExecutionRecorder.markValuationFailed(batchId, actor);
-        } catch (RuntimeException recorderFailure) {
-            cause.addSuppressed(recorderFailure);
-        }
-    }
-
-    private void markProvisionFailedPreservingCause(Long batchId, String actor, Exception cause) {
-        try {
-            batchExecutionRecorder.markProvisionFailed(batchId, actor);
-        } catch (RuntimeException recorderFailure) {
-            cause.addSuppressed(recorderFailure);
-        }
-    }
 }

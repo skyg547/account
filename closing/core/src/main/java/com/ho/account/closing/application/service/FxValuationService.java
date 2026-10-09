@@ -109,7 +109,7 @@ public class FxValuationService {
     public ClosingJournalEntryResult postPreparedFxValuation(ClosingJournalEntryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         ClosingJournalEntryResult result = closingJournalEntryPort.createDraftAdjustment(command);
-        if (accountingProperties.isAutoPostAdjustments()) {
+        if (accountingProperties.isAutoPostAdjustments() && !"POSTED".equals(result.status())) {
             closingJournalEntryPort.approveAndPost(result.journalEntryId(), SYSTEM_ACTOR);
         }
         return result;

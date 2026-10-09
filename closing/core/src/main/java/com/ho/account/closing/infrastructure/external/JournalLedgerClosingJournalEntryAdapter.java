@@ -45,7 +45,7 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
             JournalSummary summary = existing.get();
             List<JournalDetailSummary> details = journalQueryPort.getJournalDetails(summary.getId());
             requireSameClosingRequest(command, summary, details);
-            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo());
+            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo(), summary.getStatus());
         }
 
         JournalEntryCommand journalCommand = new JournalEntryCommand(
@@ -105,7 +105,7 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
             throw new IllegalStateException(
                     "Closing slip already exists with different business content: " + command.slipNo());
         }
-        if ("REJECTED".equals(persisted.getStatus()) || "REVERSED".equals(persisted.getStatus())) {
+        if (!"DRAFT".equals(persisted.getStatus()) && !"POSTED".equals(persisted.getStatus())) {
             throw new IllegalStateException(
                     "Closing slip exists in a non-reusable status " + persisted.getStatus()
                             + ": " + command.slipNo());

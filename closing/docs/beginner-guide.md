@@ -125,8 +125,9 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 Journal의 정상 승인 절차에 따라 검토합니다.
 
 API 실행 이력은 전표가 없거나 지원되는 어댑터에서 실제 자동 전기된 경우 `COMPLETED`, DRAFT 전표가 있으면
-`PENDING_APPROVAL`, 처리 중 예외가 나면 `FAILED`입니다. 여러 전표가 생성되어도 기존 이력
-테이블에는 ID 한 개만 담을 수 있으므로 `generated_journal_entry_id`는 `null`입니다.
+`PENDING_APPROVAL`입니다. 처리 중 전표 결과가 불명확하면 `RECONCILIATION_REQUIRED`로 표시하고
+같은 `executionKey`로 원래 실행 ID를 복구합니다. 여러 전표의 ID는 단일 컬럼에 담을 수 없어
+`generated_journal_entry_id`는 `null`이지만 `journalCount`가 건수를 보존합니다.
 
 FX Batch는 먼저 전표를 쓰지 않는 전체 검사를 하고, 성공한 뒤 partition/cursor/chunk 전기를
 시작합니다. 재시작 시에도 검사를 다시 합니다. 다만 검사와 전기 사이를 묶는 분산 snapshot은
