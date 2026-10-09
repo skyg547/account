@@ -7,7 +7,7 @@
 - GPT-6 Sol / high implementation writer; separate read-only GPT-6 Sol / high reviewer. The parent owns records, commit, branch push and Draft PR. Review found no remaining P0–P3; Q1–Q4 PASS.
 - Final required `./gradlew :closing:test --console=plain`: PASS, Core 379 (1 opt-in PostgreSQL skip), API 164, Batch 102; 645 total, 644 executed, failures/errors 0. Separate PostgreSQL opt-in test: 1/1 PASS with sanitized XML in `../annual-close-postgres-junit.xml`. API/Batch bootJar PASS.
 - Audited `a97d10ab` RED 1/1 for the no-N+1 dependency guard; current branch GREEN. Synthetic 20,000 balanced journals and 250,000-journal/500,000-detail PostgreSQL plan, cutoff, timeout and restart evidence are recorded in `../annual-close-postgresql-evidence.md`.
-- Status: implementation and independent review complete; Draft `Refs #888` publication pending. Issue remains open. 100M rows, production PostgreSQL, remote latency, heap peak and distributed faults remain unverified; human review and operating-scale evidence are the next gates before Ready/merge/Issue close.
+- Status: [Draft PR #903](https://github.com/skyg547/account/pull/903) published with `Refs #888` from implementation commit `56ac870aab70b3ac262e9b65d1ce52586f7894f1`; Issue remains OPEN / `status:needs-review`. Implementation-head hosted Harness Validation and Closing Module Validation passed; Agent Merge Guard failed with `TRUST_POLICY_UNCONFIGURED` and authority-evidence requirements. 100M rows, production PostgreSQL, remote latency, heap peak and distributed faults remain unverified; human review, CI policy configuration and operating-scale evidence are the next gates before Ready/merge/Issue close.
 
 ## GH-772 historical status
 

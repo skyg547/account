@@ -18,6 +18,12 @@
 
 Rollback is a reviewed revert of this Closing-only commit; retain existing posted annual journals, inspect pending drafts/lineage, and do not delete financial rows. No conflict occurred. Draft PR is a human review gate; 100M and operational verification still limit Issue closure.
 
+### Draft publication
+
+- Published [Draft PR #903](https://github.com/skyg547/account/pull/903) to `main` with `Refs #888`; implementation commit `56ac870aab70b3ac262e9b65d1ce52586f7894f1`. Issue moved to `status:needs-review` and remains OPEN. Worktree and branch are retained.
+- Implementation-head hosted Harness Validation and Closing Module Validation PASS. Agent Merge Guard's implementation-discipline job FAIL reports `IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, `TRUST_POLICY_UNCONFIGURED`; its workflow leaves trust policy unconfigured. This is a remote review-policy gate, not a Closing test failure, and this PR does not change the out-of-scope policy. A later records-only commit still requires current-head CI confirmation.
+- Next owner: human reviewer/repository policy owner for current-head CI and trust-policy setup, then workload owner for 100M/production PostgreSQL and distributed verification. Ready, merge, Issue close, deployment and resource deletion are not authorized by this Draft.
+
 ## 2026-09-25 — contract and reproduction
 
 The user authorized implementation within `closing/**`, a dedicated branch/worktree, verification and Draft PR publication. The explicit ban on shared harness edits takes precedence over the generic shared-record rule. These three module-local records are the parent-owned handoff.
