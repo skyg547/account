@@ -178,3 +178,4 @@
 ### GH-890 Draft published
 
 - [PR #905](https://github.com/skyg547/account/pull/905) is OPEN/DRAFT with `Refs #890`, initial head `4a779bee`. Issue #890 remains OPEN; the worktree is retained. PR publication does not satisfy the outstanding #890 P1/P2 acceptance gaps.
+- 2026-10-09 re-audit: `:closing:test` PASS (up-to-date); forced API159/Batch111/Core373 = 643/643 PASS with 29 tasks executed. Independent read-only review reconfirmed Q1–Q4 PASS for the bounded diff and P1/P2 unmet Issue criteria. Gateway routes omit `/api/v1/journals/posting` and rebuild actor/role headers only from validated JWTs; Closing-only changes cannot establish the required trusted maker/checker/poster flow.

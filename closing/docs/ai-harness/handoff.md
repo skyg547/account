@@ -237,3 +237,4 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 ### GH-890 Draft publication
 
 - [PR #905](https://github.com/skyg547/account/pull/905) is OPEN/DRAFT and uses `Refs #890`; initial implementation head `4a779bee`. Issue #890 is OPEN. Human review and the trusted Journal service identity/role contract precede further implementation and Ready consideration. No merge, Issue close, deployment or worktree/branch deletion was performed.
+- Re-audit: forced `:closing:core:test :closing:batch:test :closing:api:test --rerun-tasks` passed 643/643 (API159, Batch111, Core373). Gateway's Journal route omits `/api/v1/journals/posting`, and it discards caller-supplied identity headers; an authorized cross-service route and distinct authenticated maker/checker/poster principals are needed before #890's recovery tests can be implemented safely. Independent read-only review reconfirmed this scope blocker and Q1–Q4 PASS for the existing bounded diff.
