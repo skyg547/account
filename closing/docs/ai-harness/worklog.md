@@ -452,3 +452,8 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 | Q4 | PASS | `EclAllowanceSummary.java:49`, `JdbcEclAllowanceResultAdapter.java:103`, `EclProvisionService.java:187,215`의 정밀 대사·상쇄 방지·역분개 여유 의도; 집중56 PASS | 해당 없음: 비자명 로직 변경 | 설명 길이와 Journal 장문 사유 제한 | 동일 리뷰어 변경 주석 확인 |
 
 - 권한 분리: `gpt-6-sol` / high 작성자는 Closing만 수정했고 독립 리뷰어는 읽기 전용이다. 부모 Integrator만 모듈 기록·commit·push·Draft PR을 수행한다. AI 리뷰는 사람/GitHub 승인을 대체하지 않는다. Draft에는 `Refs #891`을 사용하고 Ready·merge·Issue close·배포·branch/worktree 삭제는 수행하지 않는다.
+
+### GH-891 Draft PR 게시
+
+- 부모가 검증된 Closing-only head `2ee7ae3841fd17181ac97bc84175dbe143403da0`을 push하고 [Draft PR #906](https://github.com/skyg547/account/pull/906)을 `main` 대상으로 생성했다. 원격은 OPEN/DRAFT, 초기 MERGEABLE, 본문은 `Refs #891`, 650개 전체/56개 독립 검증, Q1–Q4, rollback, 남은 위험과 구현·리뷰·인간 권한 분리를 포함한다. Issue는 OPEN이다.
+- 게시 직후 hosted module detection, merge guard, harness check는 PENDING이었다. 이는 CI 통과 증거가 아니다. 이 기록만 추가한 최종 head에 대해 사람 리뷰와 current-head CI를 다시 확인해야 한다. Ready, merge, Issue close, 배포, 자원 삭제는 수행하지 않았다.
