@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.application.service.journal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -60,6 +61,23 @@ class KafkaJournalEventServiceTest {
     }
 
     @Test
+    void closedSourceDateFailureDoesNotBecomeDurableNoRuleQuarantine() {
+        LocalDate sourceDate = LocalDate.of(2026, 8, 31);
+        Map<String, Object> event = Map.of("ruleCode", "SOURCE_EVENT");
+        when(journals.createJournalEntryFromEvent(event, sourceDate))
+                .thenThrow(new IllegalStateException("이미 마감된 기간입니다."));
+
+        assertThatThrownBy(() -> service.process(
+                        new KafkaJournalEventUseCase.BrokerRecord("transaction-events", 0, 773L),
+                        event, sourceDate))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간");
+
+        verify(quarantinePort, never()).save(any());
+        verify(codec, never()).encode(any());
+    }
+
+    @Test
     void duplicateBrokerCoordinateDoesNotEvaluateOrPersistAgain() {
         JournalEventQuarantine existing = JournalEventQuarantine.unmatched(
                 "transaction-events", 3, 769L, "{}",
@@ -95,6 +113,24 @@ class KafkaJournalEventServiceTest {
         assertThat(quarantine.getReplayAttempts()).isOne();
         assertThat(quarantine.getLastReplayActor()).isEqualTo("accounting-admin");
         verify(quarantinePort).save(quarantine);
+    }
+
+    @Test
+    void replayUsesStoredSourceDateAcrossMonthAndYearBoundary() {
+        LocalDate sourceDate = LocalDate.of(2026, 12, 31);
+        JournalEventQuarantine quarantine = JournalEventQuarantine.unmatched(
+                "transaction-events", 0, 2L, "{\"accountingDate\":\"2026-12-31\"}",
+                sourceDate, Instant.parse("2027-01-01T00:01:00Z"));
+        Map<String, Object> decoded = Map.of("accountingDate", "2026-12-31");
+        when(quarantinePort.findByIdForUpdate(2L)).thenReturn(Optional.of(quarantine));
+        when(codec.decode(quarantine.getPayloadJson())).thenReturn(decoded);
+        when(journals.createJournalEntryFromEvent(decoded, sourceDate)).thenReturn(Optional.empty());
+
+        service.replay(2L, "accounting-admin");
+
+        // Replay in the new year must reuse the date stored when the broker record was accepted.
+        verify(journals).createJournalEntryFromEvent(decoded, sourceDate);
+        assertThat(quarantine.getAccountingDate()).isEqualTo(sourceDate);
     }
 
     @Test

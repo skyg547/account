@@ -11,6 +11,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 
 /**
@@ -96,7 +97,16 @@ public class KafkaTransactionListener {
 
     private LocalDate accountingDate(Map<String, Object> event) {
         Object supplied = event.get("accountingDate");
-        return supplied == null ? LocalDate.now() : LocalDate.parse(supplied.toString());
+        // A consumer retry can run after a calendar boundary; only the source's explicit date is stable.
+        if (!(supplied instanceof String date) || date.isBlank()) {
+            throw new IllegalArgumentException("Kafka event accountingDate must be an ISO-8601 date");
+        }
+        try {
+            return LocalDate.parse(date);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(
+                    "Kafka event accountingDate must be an ISO-8601 date", exception);
+        }
     }
 
     private Map<String, Object> trustedEvent(Map<String, Object> event) {
