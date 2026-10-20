@@ -116,6 +116,65 @@ reader checkpoint를 이어받습니다. 따라서 종료 별칭만 있거나 �
 기간과 동일한 범위에서 이미 커밋된 chunk 다음부터 계속합니다. 새 JobInstance만 그 시작 시점의
 전일을 새로 결정합니다.
 
+### JPA cleanup 규모와 PostgreSQL 검증
+
+기본 JPA 어댑터의 `deleteBalancesBetween`은 `LedgerBalancePersistencePort` 뒤에서
+GL과 SL에 각각 `balance_date BETWEEN :startDate AND :endDate` bulk DELETE를 실행합니다.
+`BETWEEN`은 양끝을 포함합니다. 먼저 flush하고 두 DELETE 뒤 영속성 컨텍스트를 clear하여
+bulk 삭제 전후의 관리 엔티티가 남지 않게 합니다. 조회 목록 크기는 삭제 대상 행 수와
+무관합니다. cleanup은 owner를 검사하는 `BalanceReaggregationService.clean` 트랜잭션 안에서
+실행되므로 한쪽 DELETE가 실패하면 양쪽 삭제가 함께 롤백됩니다.
+
+Issue #883의 합성 PostgreSQL 16 검증은 GL/SL에 각각 200,000행과 기존 계정 선행
+`idx_gl_balance_lookup`/`idx_sl_balance_lookup` 형태의 인덱스를 넣고
+`EXPLAIN (ANALYZE, BUFFERS) DELETE ... WHERE balance_date BETWEEN ...`을 실행했습니다.
+하루 범위(각 500행)는 둘 다 Bitmap Index Scan → Bitmap Heap Scan으로 약 1.7 ms,
+전체 400일 범위(각 200,000행)는 Seq Scan으로 GL 116.7 ms, SL 1,151.6 ms였습니다.
+하루 계획의 Index Cond가 날짜만 포함해도 기존 인덱스의 선행 열은 계정·차원입니다.
+각 Bitmap Index Scan이 238개의 index buffer를 읽었으므로, 이를 날짜 선행 인덱스와 같은
+선택도로 해석하면 안 됩니다. 재현용 합성 분포와 계획 명령은 다음과 같습니다.
+
+```sql
+CREATE SCHEMA cleanup_plan_883;
+SET search_path TO cleanup_plan_883;
+CREATE TABLE gl_balances (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_code text NOT NULL, currency_code text NOT NULL, balance_date date NOT NULL);
+CREATE TABLE sl_balances (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_code text NOT NULL, bp_code text, dept_code text,
+    currency_code text NOT NULL, balance_date date NOT NULL);
+CREATE INDEX idx_gl_balance_lookup ON gl_balances(account_code, currency_code, balance_date);
+CREATE INDEX idx_sl_balance_lookup ON sl_balances(account_code, bp_code, dept_code, balance_date);
+INSERT INTO gl_balances(account_code, currency_code, balance_date)
+SELECT 'A'||(g%1000), 'KRW', DATE '2025-01-01'+(g%400) FROM generate_series(1,200000) g;
+INSERT INTO sl_balances(account_code, bp_code, dept_code, currency_code, balance_date)
+SELECT 'A'||(g%1000), 'BP'||(g%10), 'D'||(g%5), 'KRW', DATE '2025-01-01'+(g%400)
+FROM generate_series(1,200000) g;
+ANALYZE gl_balances; ANALYZE sl_balances;
+BEGIN;
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM gl_balances
+WHERE balance_date BETWEEN DATE '2025-06-01' AND DATE '2025-06-01';
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM sl_balances
+WHERE balance_date BETWEEN DATE '2025-06-01' AND DATE '2025-06-01';
+ROLLBACK;
+BEGIN;
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM gl_balances
+WHERE balance_date BETWEEN DATE '2025-01-01' AND DATE '2026-02-04';
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM sl_balances
+WHERE balance_date BETWEEN DATE '2025-01-01' AND DATE '2026-02-04';
+ROLLBACK;
+```
+
+이 명령은 빈 합성 데이터베이스에서 실행했습니다. 실제
+Flyway 테이블 전체 열·제약과 운영 행 분포는 아래의 별도 통합 테스트·배포 검증 대상입니다.
+두 범위 모두 트랜잭션 안에서 0 또는 199,500행을 확인한 뒤 `ROLLBACK`하여 각 테이블의
+200,000행 복원을 확인했습니다. 전 기간 GL/SL DELETE를 한 트랜잭션에서 다시 측정한 시간은
+두 DELETE 완료까지 1,267.9 ms, `ROLLBACK` 완료까지 1,276.3 ms였습니다. 별도 실제
+JPA/Flyway PostgreSQL 통합 테스트는 시작일과
+종료일을 지우고 바깥 날짜를 보존하며 GL/SL 롤백을 확인했습니다. 측정치는 일회용 컨테이너의
+합성 분포에서 얻은 값이며 운영 잠금 대기·WAL·디스크·부하 시간을 대표하지 않습니다.
+대량 삭제는 단일 cleanup 트랜잭션을 오래 점유할 수 있으므로 배포 전 승인된 데이터 분포에서
+실행 계획, 락 대기, 트랜잭션 시간과 WAL 용량을 다시 측정해야 합니다.
+
 잔액 조회는 긴 shared lock 대신 조회 전 `OPEN+epoch`, materialize/집계 후 같은
 `OPEN+epoch`를 확인합니다. 중간에 재집계가 시작되거나 끝났으면 결과를 반환하지 않습니다.
 직접 DB SQL과 barrier를 모르는 구버전 writer는 이 통제를 우회하므로 혼용할 수 없습니다.

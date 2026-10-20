@@ -1,3 +1,18 @@
+# GH-884 agent status
+
+- Issue: [#884](https://github.com/skyg547/account/issues/884), review handoff `status:needs-review`; [Draft PR #899](https://github.com/skyg547/account/pull/899) is open with `Refs #884`.
+- Base/branch/worktrees: `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; `agent/884-kafka-accounting-date`; `/tmp/account-884-kafka-accounting-date`; detached audited proof `/tmp/account-884-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope/ownership: `journal-ledger/**` only, including these three module-local records. Requested `gpt-6-sol` / high implementation writer owned the eight code/test/feature-document files; independent reviewer was read-only; parent Integrator owns Git/GitHub and these records. Other modules and repository-level shared harness/history files remain unchanged.
+- Result: Kafka requires a validated explicit ISO `accountingDate`; missing or malformed dates fail before journal generation. Stored quarantine replay retains its accepted date. Core closed-period validation remains active, while authenticated HTTP maker requests can explicitly choose an open adjustment date.
+- RED/GREEN: byte-identical regression SHA-256 `3126aa7d90df830e60bc3a0b9a981d9e06aa78f8475ba5e7d9f02e9ca8c07325` failed 1/1 on audited source, where missing date raised no error; final module run passed core326/API79/Batch37 = 442 tests, failures/errors/skips0.
+- Review: independent read-only reviewer found no P0-P3 and confirmed Q1-Q4 PASS after the original writer strengthened adjustment tests. Diff, scope, marker and unmerged-index checks passed.
+- Limits/rollback: no live Kafka/DLT, PostgreSQL, distributed or load test, production data, deployment, or fully composed HTTP-to-rule test. The current event has no separate immutable source-event date or signed authorization proof, so a producer's deliberately false declared date cannot be detected here. Reviewed Issue-scoped revert requires affected Kafka consumption paused because it restores the fallback defect; no schema/data migration.
+- Authority: Draft publication only. Human reviewer owns current-head CI and Ready/merge/Issue close; branch and worktree cleanup remain separate gates.
+
+---
+
+The following entries are retained history and are not current GH-884 evidence.
+
 # GH-879 agent status
 
 - Issue: [#879](https://github.com/skyg547/account/issues/879), review handoff `status:needs-review`; [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.

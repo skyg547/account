@@ -130,8 +130,12 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 판단하지 말고 캘린더 상태와 미완료 전이를 함께 확인해야 합니다.
 동시성 경계와 운영 복구 조건은 [업무 흐름](process-flow.md#월말-동시-결정과-복구-gh-774)에 설명합니다.
 
-V52와 후속 V53은 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
-새 API/Batch를 시작하기 전에 V53까지 release-time migrate/validate를 수행해야 합니다.
+V52와 후속 V53/V54는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
+새 API/Batch를 시작하기 전에 V54까지 release-time migrate/validate를 수행해야 합니다.
+
+V54는 평가·충당 실행 이력에 endpoint별 고유 `execution_key`와 `journal_count`,
+실행 키 잠금 테이블과 불변 명령 manifest 테이블을 추가합니다.
+기존 이력은 임의 키를 부여하지 않고 null로 남깁니다. 새 API 호출은 키가 필수입니다.
 기존 버전 writer는 새 잠금·전이 규칙을 모르므로 혼합 버전 쓰기를 허용하지 않습니다.
 미해결 전이 컬럼을 삭제하는 down migration이나 데이터 초기화는 롤백 방법이 아닙니다.
 
@@ -152,6 +156,14 @@ V52에서 이미 만들어진 CLOSED 미완료 전이는 증빙 ID가 없을 수
 허용하지만, 새 writer는 반드시 ID를 넣고 런타임 dispatch/finish는 누락 시 차단합니다. V53은
 forward-only입니다. 롤백 시 증빙이나 미완료 전이를 삭제하지 말고 원격 Master와 먼저 대사합니다.
 
+## 재오픈 회차와 체크리스트 이력 (GH-885)
+
+V54는 `closing_calendars`, `closing_tasks`, `closing_gates`에 양수 `cycle_number`를 추가하고 캘린더에 `last_source_changed_at`(UTC)을 추가합니다. 기존 자식 행은 1회차로 backfill합니다. 재오픈 이력이 없는 캘린더도 1회차입니다. 이미 재오픈된 기존 캘린더(`reopened_at IS NOT NULL`)는 자식 행의 정확한 과거 회차를 복구할 수 없으므로 캘린더만 2회차로 두어 과거 완료/통과 행을 차단합니다. 해당 기간은 운영자가 새 태스크·게이트를 정의해야 다시 마감할 수 있습니다. 캘린더의 번호가 현재 회차이며 각 태스크·게이트 행의 번호가 해당 행의 이력 회차입니다. 승인된 재오픈의 원격 `OPEN` 결과를 확인한 뒤 한 로컬 트랜잭션에서 번호를 올리고 직전 회차 정의를 `PENDING` 행으로 복제합니다. 완료/통과 상태, 작업자, 통과 시각은 복제하지 않습니다. 원본 행과 감사 기록은 보존합니다.
+
+현재 회차만 일반 태스크 조회, 게이트 선행조건, 최종 마감 준비에 참여하고, 이전 회차 ID의 상태 변경은 거부합니다. 동일한 원천 상태에도 체크리스트 증빙을 자동 이월하지 않습니다. 새 마감은 새 시작 시각 뒤의 최종 마감 증빙을 요구합니다. V54 적용 전 오래된 writer를 배출하고, 롤백은 회차 행을 삭제하거나 번호를 되돌리는 방식으로 하지 않습니다. 원천별 권위 있는 변경 워터마크가 없으므로 공급자 제출 이후의 모든 외부 변경을 DB 회차 번호만으로 감지할 수는 없습니다.
+Closing이 조정 전표를 승인해 등록하면 `last_source_changed_at`을 갱신합니다. 현재 회차에서 통제가 진행됐다면 회차를 올리고 새로운 `PENDING` 정의를 복제하며, 이전 완료 행은 보존합니다. 마감 증빙의 `observedAt`은 현재 시작 시각과 이 원천 변경 시각 양쪽보다 늦어야 합니다. 이 시각은 Closing을 통과한 조정만 포착하며 다른 모듈이 직접 전기한 거래의 워터마크가 아닙니다.
+재오픈 시각은 과거 writer에서 UTC로 저장되지 않았으므로 V54는 `last_source_changed_at`을 SQL 시각으로 추정해 채우지 않습니다. 기존 재오픈 행은 이 값이 null이면 최종 마감을 거부하고, 현재 회차의 새 태스크·게이트 정의 또는 조정 등록 때 애플리케이션 UTC 시각으로 경계를 세웁니다. 그 뒤 공급자는 더 늦은 새 증빙을 제출해야 합니다.
+
 ## 외부 데이터 의존성
 
 | 외부 데이터 | 제공 모듈 | `closing`에서 사용하는 이유 |
@@ -170,8 +182,8 @@ FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineag
 기존 lineage의 backfill은 필요하지 않습니다. 근거 없는 레거시 식별자는 별도 대사가 필요합니다.
 
 API와 Batch의 FX/ECL 원장 조회는 core의 `PostedJournalContributionQuery`를 공유합니다.
-API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 이번 금융
-실행 변경에는 스키마나 migration 추가가 없습니다.
+API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 실행 키와
+전표 건수는 V54에서 기존 이력 테이블에 추가합니다.
 
 ## `allowance_summary` 연결 기준
 
@@ -214,11 +226,11 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. V54는 활성 잠금·대기 요청 고유 키를 추가합니다. 기존 writer를 배출하고 V54까지 migrate/validate한 후 새 writer를 시작합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를 추가합니다. 새 writer를 시작하기 전에 V56까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
-- V54부터 `period_locks` unlock은 행을 비활성화하고 해제자·시각을 보존합니다. 별도 `unlock_reason` 컬럼은 아직 없으며 기존 해제 감사 로그의 사유가 남습니다.
+- V56부터 `period_locks` unlock은 행을 비활성화하고 해제자·시각을 보존합니다. 별도 `unlock_reason` 컬럼은 아직 없으며 기존 해제 감사 로그의 사유가 남습니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
-- `valuation_batches`/`provision_batches`에는 기간·유형·기준일·요청 키의 멱등 unique key가 아직 없습니다. 중복 요청과 crash recovery를 포함한 migration이 필요합니다.
+- V55는 `valuation_batches`/`provision_batches`에 API별 고유 `execution_key`를 추가하고 `closing_financial_run_locks`로 동시 실행을 직렬화합니다. 기간·유형·인증된 실행자는 같은 키 재사용 시 application에서 검증합니다. `closing_financial_run_manifests`는 첫 Journal 쓰기 전에 확정된 명령 전체를 저장합니다.
 - 두 history 테이블의 `generated_journal_entry_id`는 scalar라서 0건/다중 전표 실행 ID를 표현하지 못합니다. 현재는 `null`이며, 다중 전표 조회 모델은 후속 설계가 필요합니다.
 
 원격 Journal의 멱등 slip 처리와 로컬 history/Batch metadata 사이 원자성, FX Batch validation과

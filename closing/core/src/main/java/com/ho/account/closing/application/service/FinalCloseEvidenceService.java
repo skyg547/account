@@ -175,10 +175,16 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
         if (calendar.getCloseInitiatedAt() == null) {
             throw rejected("calendar has no close initiation time");
         }
+        if (calendar.getReopenedAt() != null && calendar.getLastSourceChangedAt() == null) {
+            throw rejected("legacy reopened calendar requires a new UTC evidence fence");
+        }
         Instant now = clock.instant();
         Instant initiatedAt = calendar.getCloseInitiatedAt().toInstant(ZoneOffset.UTC);
-        if (!selected.observedAt().isAfter(initiatedAt)) {
-            throw rejected("snapshot must be observed after the current close initiation");
+        Instant sourceChangedAt = calendar.getLastSourceChangedAt() == null
+                ? initiatedAt : calendar.getLastSourceChangedAt().toInstant(ZoneOffset.UTC);
+        Instant requiredAfter = initiatedAt.isAfter(sourceChangedAt) ? initiatedAt : sourceChangedAt;
+        if (!selected.observedAt().isAfter(requiredAfter)) {
+            throw rejected("snapshot must be observed after the current close initiation and source change");
         }
         if (selected.observedAt().isAfter(now)) {
             throw rejected("snapshot observation time is in the future");

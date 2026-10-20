@@ -34,6 +34,12 @@ public class ValuationBatch {
     @Column(nullable = false, length = 50)
     private ValuationType valuationType;
 
+    @Column(name = "execution_key", length = 100, unique = true)
+    private String executionKey;
+
+    @Column(name = "journal_count")
+    private Integer journalCount;
+
     @Column(nullable = false)
     private LocalDateTime runDateTime;
 
@@ -68,7 +74,8 @@ public class ValuationBatch {
         RUNNING,
         COMPLETED,
         FAILED,
-        PENDING_APPROVAL
+        PENDING_APPROVAL,
+        RECONCILIATION_REQUIRED
     }
 
     @PrePersist
@@ -129,6 +136,11 @@ public class ValuationBatch {
     public ValuationType getValuationType() {
         return valuationType;
     }
+
+    public String getExecutionKey() { return executionKey; }
+    public void setExecutionKey(String executionKey) { this.executionKey = executionKey; }
+    public Integer getJournalCount() { return journalCount; }
+    public void setJournalCount(Integer journalCount) { this.journalCount = journalCount; }
 
     public void setValuationType(ValuationType valuationType) {
         this.valuationType = valuationType;

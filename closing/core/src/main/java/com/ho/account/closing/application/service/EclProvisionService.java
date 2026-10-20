@@ -217,7 +217,7 @@ public class EclProvisionService {
 
     private ClosingJournalEntryResult postProvisionJournalEntry(ClosingJournalEntryCommand command) {
         ClosingJournalEntryResult result = closingJournalEntryPort.createDraftAdjustment(command);
-        if (accountingProperties.isAutoPostAdjustments()) {
+        if (accountingProperties.isAutoPostAdjustments() && !"POSTED".equals(result.status())) {
             closingJournalEntryPort.approveAndPost(result.journalEntryId(), SYSTEM_ACTOR);
         }
 
