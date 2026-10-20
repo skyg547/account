@@ -5,6 +5,13 @@
 - RED focused tests 2/5 failed on old behavior. GREEN focused 12/12 passed. Requested offline core/API/Batch command passed 612 tests (523/84/5), zero failures/errors; 24 API PostgreSQL-only tests skipped. Separate read-only reviewer found no remaining findings and judged Q1–Q4 PASS. H2 is not PostgreSQL V9 evidence; current-head CI, synthetic PostgreSQL validation, and human review remain gates.
 - Functional commit `49a8263c`; [Draft PR #927](https://github.com/skyg547/account/pull/927), `Refs #911`. Rollback is a reviewed revert of issue-scoped code/tests/module docs with all business/audit rows preserved. Parent Integrator owns Git/GitHub; Ready, merge, Issue closure, and resource removal remain human gates.
 
+## 2026-10-20 — GH-916 auth safe errors and bounded input / Draft PR #925
+
+- Codex used `$account-issue-loop`, `$account-hexagonal-change`, auth API/core parallel ownership under `$account-module-parallel`, and `$account-review-handoff` on `agent/916-auth-error-input-safety` in `/tmp/account-916-auth-error-input-safety`, base `origin/main@a24ceb02`; auth implementation `32387e3a`; [Draft PR #925](https://github.com/skyg547/account/pull/925), `Refs #916`.
+- Changed 15 `auth/**` source/test/module-doc files for safe malformed JSON 400, opaque correlated 500/logging, strict scalar types, 80-character login and PAT owner, 100-character PAT name, bounded expiry, and Unicode-normalized login-attempt key. This record and three named AI harness records are the only shared documentation changes.
+- Requested core/API/Gateway suite PASS 347/347 (197/76/74; failures/errors/skips 0); auth bootJar, HTTP/H2 schema boundaries, diff, marker checks PASS. Separate read-only reviewer confirmed no acceptance blocker and Q1–Q4 PASS; initial focused stale-build Unicode failure was superseded by full current-source PASS.
+- Residual: no live PostgreSQL/deployment evidence; broad existing IAE→400 taxonomy persists with fixed safe text. Rollback by reviewed issue-scope revert. Human reviewer/authorized Integrator owns current-head CI and later Ready/merge/Issue closure/cleanup; Draft and implementation do not grant merge authority.
+
 ## 2026-10-01 — GH-755 account classification SCD2 preservation
 
 - Codex used `$account-issue-loop`, `$account-hexagonal-change`, single-module `$account-module-parallel` ownership, and `$account-review-handoff` on `agent/755-preserve-account-classification` in `/tmp/account-755-preserve-account-classification`, based on `origin/main@b06e7de3`. Issue [#755](https://github.com/skyg547/account/issues/755) is `status:needs-review`; implementation `194773ba`; [Draft PR #822](https://github.com/skyg547/account/pull/822), `Refs #755`.

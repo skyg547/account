@@ -12,6 +12,14 @@
 | `DELETE` | `/api/auth/pat/{id}` | 인증된 소유자의 PAT 폐기. |
 | `GET/DELETE` | `/api/auth/admin/pat[/{id}]` | 현재 시스템 관리자만 전체 목록 조회·강제 폐기. |
 
+## 요청 형식과 오류 경계
+
+로그인 요청의 `username`은 `auth_users`와 `auth_login_attempts`의 80자 한도에 맞춰 검증합니다. 길이 81자 이상은 core의 잠금 조회·실패 기록 전에 HTTP 400 `VALIDATION_ERROR`로 중단됩니다. 소문자 정규화 후 실패 기록 키가 80자를 넘는 Unicode 입력도 core가 조회 전에 400 `INVALID_REQUEST`로 중단합니다. 길이 이내에서 비밀번호 등이 틀린 요청은 기존 401 `INVALID_CREDENTIALS` 동작을 유지합니다.
+
+PAT 생성 요청에서는 선택적 레거시 `username`을 80자, `tokenName`을 `auth_personal_access_tokens.token_name`의 100자까지 받습니다. 본문의 `username`은 검증되더라도 소유자 선택에는 사용되지 않습니다. `expireDays`를 생략하면 90일이고, 명시하면 1~3650일이어야 합니다. 길이와 기간 위반은 PAT 생성 전에 HTTP 400 `VALIDATION_ERROR`로 거부합니다. core도 검증된 소유자와 PAT 이름·기간의 상한을 저장 전에 다시 확인합니다.
+
+로그인·PAT 본문에서 JSON 구문이 깨지거나 자료형이 맞지 않으면 HTTP 400 `INVALID_REQUEST`와 고정된 `Malformed request body`를 반환합니다. 파서 메시지와 제출 내용은 응답에 넣지 않습니다. 예상 밖의 서버 오류는 HTTP 500 `INTERNAL_SERVER_ERROR`와 참조 ID를 담은 일반 메시지로 응답합니다. 서버 로그에는 참조 ID와 예외 종류만 남겨 오류와 요청을 연결하며 예외 메시지나 요청 본문을 기록하지 않습니다.
+
 ## PAT 관리 권한 흐름
 
 모든 PAT 경로는 로그인에서 발급한 `Authorization: Bearer <JWT>`를 요구합니다. Auth는 JWT의 서명·issuer·만료와 역할 버전을 확인한 다음, JWT subject와 정확히 같은 키의 현재 `AuthUser`를 조회합니다. 활성·잠금·유효 역할 상태도 현재 계정에서 검사합니다. 일반 경로는 이 정식 username의 PAT만 처리하고, 관리자 경로는 현재 유효 역할에 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN`이 있는 경우만 허용합니다. JWT의 역할 문자열과 `X-Auth-*` 헤더, 요청 본문·쿼리의 `username`은 권한 근거가 아닙니다. 대소문자가 다른 username은 다른 사용자로 취급합니다.

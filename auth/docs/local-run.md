@@ -63,6 +63,16 @@ local profile은 다음을 적용합니다.
 - `spring.sql.init.mode=never`
 - 보안 입력과 데모 사용자 기본값 없음
 
+### memory 사용자 저장소로 실행
+
+같은 `local` 프로파일에서 사용자·역할 저장소만 메모리 어댑터로 바꾸려면, 위에서 생성한 임시 보안 입력을 유지한 채 실행 인자로 모드를 지정합니다. `local`의 기본값은 JPA이므로 명시적 실행 인자가 필요합니다.
+
+```powershell
+.\gradlew :auth:api:bootRun --args='--spring.profiles.active=local --auth.persistence.mode=memory --auth.login-security.store=memory --server.port=8081' --console=plain --max-workers=1
+```
+
+두 모드 모두 전체 Auth 애플리케이션이 기동됩니다. PAT 관리 경로(`POST/GET/DELETE /api/auth/pat` 및 `/api/auth/admin/pat`)는 **JPA 모드에서만** 등록되며, memory 모드에서는 경로가 없어 HTTP 404를 반환합니다. memory 모드에는 PAT 발급·조회·폐기 또는 PAT 감사 저장 기능이 없습니다. PAT를 시험하려면 기본 JPA 모드를 사용합니다. 이 memory 모드는 로컬 데모용이며 재시작 시 사용자·역할 상태가 사라집니다.
+
 ## PowerShell H2 API 실행
 
 보안 입력을 생성한 현재 PowerShell에서 실행합니다.
@@ -109,6 +119,8 @@ java -jar $jar.FullName --spring.profiles.active=local --server.port=8081
 ```
 
 테스트 범위에는 local resource 정책, H2/Flyway 컨텍스트, 로그인 실패 JPA commit, API/core 경계와 Boot JAR 패키징이 포함됩니다. `:auth:core:test`는 테스트 프로세스에서 임시 PostgreSQL 서버를 띄워 서로 다른 트랜잭션의 최초 실패, 기존 행 증가, 만료 및 성공 경합을 확인합니다. 이 테스트는 PostgreSQL 실행 파일을 시작할 수 있는 로컬 환경이 필요하며 운영 DB 계정은 사용하지 않습니다.
+
+`AuthJpaModeStartupTest`와 `AuthMemoryModeStartupTest`는 임시 자격증명을 테스트 실행 중 생성해 전체 `AuthApplication` 빈 그래프를 각각 시작하고 PAT HTTP 경로의 존재 여부를 확인합니다. JPA PAT의 실제 생성·조회·폐기 및 감사 동작은 `PersonalAccessTokenHttpIntegrationTest`가 H2에서 검사합니다. H2 검증은 PostgreSQL 검증을 대신하지 않습니다.
 
 ## fail-closed 확인
 
