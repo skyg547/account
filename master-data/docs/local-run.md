@@ -177,6 +177,14 @@ curl -i 'http://localhost:8082/api/basic/businesspartners/BP-923/eligibility'
 
 이 명령은 정책, 서비스의 audit/멱등성, MVC의 상태·actor 매핑을 확인합니다. HTTP 서버 종단, PostgreSQL migration·trigger, 공용 계약 및 실제 payable/receivable 소비자는 별도 검증 범위입니다.
 
+V11 실제 PostgreSQL as-of 재현은 위에서 설명한 **합성 테스트 전용** 로컬 PostgreSQL 16 fixture가 준비된 경우에만 다음 opt-in 명령으로 검증합니다. 테스트는 매 실행마다 새 임의 schema를 만들고 기존 schema를 삭제하지 않습니다. 감사 이력의 제출→승인→재제출, 같은 시각의 audit ID 순서, 증빙 만료를 확인합니다. 환경변수가 없으면 JUnit이 이 테스트를 skip합니다.
+
+```bash
+MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:17533/master_data_753 \
+./gradlew :master-data:api:test --tests '*MasterDataScreeningPostgresqlAsOfTest' \
+  --offline --no-daemon --console=plain --max-workers=2
+```
+
 ## 일일 유효성 Batch 실행
 
 
