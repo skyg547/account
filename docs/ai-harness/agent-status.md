@@ -3,7 +3,7 @@
 - State: Issue #917; `agent/917-auth-memory-pat` in `/tmp/account-917-auth-memory-pat`, base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`. [Draft PR #926](https://github.com/skyg547/account/pull/926) uses `Refs #917`.
 - Scope: `auth/**` PAT service/controller conditional wiring, safe absent-route 404, full-context startup tests, module docs, plus the three explicitly requested AI harness status records. No other module or shared contract changed; `docs/history/CODEX_WORKLOG.md` is excluded by the user's restriction on other shared documentation.
 - Verification: requested offline core/API/gateway command PASS, 195/67/74 = 336 tests with zero failures/errors/skips; focused startup tests 2/2 PASS after initial memory missing-port RED; actual local JPA and memory `bootRun` startup PASS with generated unprinted credentials and ephemeral ports. Diff/marker and harness quality 32/32 checks PASS. Independent read-only reviewer found no defects and Q1–Q4 PASS.
-- Residual/next owner: H2/MockMvc and local bootRun are not PostgreSQL evidence; no production data or deployment touched. Human reviewer owns current-head CI and Draft review. Ready, merge, Issue close, and branch/worktree cleanup remain separate gates.
+- Residual/next owner: H2/MockMvc and local bootRun are not PostgreSQL evidence; no production data or deployment touched. Remote harness validation and merge-guard candidate passed. Implementer PR discipline fails only for Draft status and repository trust policy not configured; it is a merge gate, not a test failure. Human reviewer owns Draft review and current-head CI. Ready, merge, Issue close, and branch/worktree cleanup remain separate gates.
 
 ## 2026-10-09 — GH-892 ECL lineage / Draft PR #907
 
