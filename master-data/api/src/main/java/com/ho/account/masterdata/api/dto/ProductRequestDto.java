@@ -2,9 +2,9 @@ package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -24,8 +24,20 @@ public class ProductRequestDto {
     private String unitOfMeasure;
 
     @NotNull(message = "가격은 필수입니다.")
-    @PositiveOrZero(message = "가격은 0원 이상이어야 합니다.")
     private BigDecimal price;
+
+    @AssertTrue(message = "가격은 0 이상이며 NUMERIC(19,4)에 손실 없이 저장할 수 있어야 합니다.")
+    public boolean isPriceExactlyRepresentable() {
+        if (price == null) {
+            return true; // @NotNull reports a missing price; core owns the value rule.
+        }
+        try {
+            Product.requireValidPrice(price);
+            return true;
+        } catch (IllegalArgumentException invalidPrice) {
+            return false;
+        }
+    }
 
     @NotNull(message = "상품 유형은 필수입니다.")
     private Product.ProductType productType;

@@ -33,12 +33,12 @@ public class ProductService implements ProductUseCase {
      * 새로운 상품을 생성합니다.
      */
     public Product createProduct(ProductCommand command) {
+        Product product = command.toEntity();
         businessKeyLockPort.lock(MasterDataType.PRODUCT, command.productCode());
         // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
         if (productPersistencePort.existsByProductCode(command.productCode())) {
             throw new MasterDataVersionConflictException("이미 이력이 존재하는 상품 코드입니다: " + command.productCode());
         }
-        Product product = command.toEntity();
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
         product.setAuditUser("system");
@@ -78,19 +78,13 @@ public class ProductService implements ProductUseCase {
             throw new IllegalArgumentException("상품 코드는 SCD2 버전 수정에서 변경할 수 없습니다: " + currentActive.getProductCode());
         }
 
-        // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
+        // 새 버전의 단가를 포함한 모든 값을 먼저 검증해야 옛 버전을 닫지 않습니다.
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
         LocalDate newValidTo = command.validTo() != null
                 ? command.validTo()
                 : LocalDate.of(9999, 12, 31);
         MasterDataValidityPolicy.requireVersionSplit(
                 currentActive.getValidFrom(), currentActive.getValidTo(), newValidFrom, newValidTo);
-        LocalDate oldValidTo = newValidFrom.minusDays(1);
-
-        currentActive.terminate(oldValidTo);
-        productPersistencePort.save(currentActive);
-
-        // SCD2: 새로운 버전 생성
         Product newVersion = new Product();
         newVersion.setProductCode(currentActive.getProductCode());
         newVersion.setName(command.name() != null ? command.name() : currentActive.getName());
@@ -101,6 +95,11 @@ public class ProductService implements ProductUseCase {
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
         newVersion.setAuditUser("system");
+
+        // SCD2: 검증된 새 버전을 준비한 뒤 기존 활성 버전을 종료합니다.
+        LocalDate oldValidTo = newValidFrom.minusDays(1);
+        currentActive.terminate(oldValidTo);
+        productPersistencePort.save(currentActive);
 
         return productPersistencePort.save(newVersion);
     }

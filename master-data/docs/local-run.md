@@ -131,6 +131,23 @@ PostgreSQL 전용 SQL이며 release migration-runner의 기존 SQL 복사 경로
 새 H2 구성도 target8을 명시해야 합니다. PostgreSQL 검증/배포에는 이 target을 적용하지
 마세요. 이후 공통 migration을 추가할 때는 이 H2 경계를 함께 검토해야 합니다.
 
+### PostgreSQL 상품 가격 회귀 검증
+
+전제: JDK 17, 캐시된 Gradle 의존성, 로컬 합성 PostgreSQL 16 및 위와 같은
+`MASTER_DATA_TEST_POSTGRES_URL` 환경변수입니다. 다음 명령은 새 임의 schema에서
+V9→V10 이행, 음수 레거시 행의 안전한 거부, DB CHECK, 상품 JPA 저장·재조회 가격 일치를
+검증합니다. H2 테스트만 실행하면 PostgreSQL 항목은 환경변수 조건으로 skip됩니다.
+
+```bash
+MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:17512/master_data_912 \
+./gradlew :master-data:api:test --tests '*MasterDataProductPricePostgresqlTest' \
+  --offline --no-daemon --console=plain --max-workers=2
+```
+
+API 입력 `1.23456`은 HTTP 400, `1.230000`은 허용됩니다. 승인 UPDATE의 부적합한
+가격은 기존 SCD2 행을 종료하기 전에 거부됩니다. PostgreSQL migration의 테이블 잠금은
+테이블 크기에 따라 쓰기를 기다리게 하므로 배포 창에서 확인해야 합니다.
+
 ## 일일 유효성 Batch 실행
 
 `Master Data Batch Validity` Run Configuration 또는 아래 명령을 사용합니다. `asOfDate`는 Spring Batch의 식별 파라미터이므로 재실행할 회계 기준일을 반드시 명시합니다.

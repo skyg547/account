@@ -155,3 +155,13 @@ prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외�
 경쟁 검증은 [local-run](docs/local-run.md#postgresql-scd2-회귀-검증)의 별도 환경이 필요합니다.
 H2는 V8까지만 적용하므로 PostgreSQL exclusion의 증거가 아닙니다.
 기간 충돌409, 기존 데이터 보정 절차와 롤백 제약은 [schema](docs/schema.md#업무-키-잠금과-기간-제약-gh-753)를 참조하세요.
+
+### 상품 가격 저장 규칙 (GH-912)
+
+상품 가격은 직접 API, 승인 변경 요청, core 유즈케이스에서 동일하게 검사합니다. 필수 가격은
+0 이상이고 `NUMERIC(19,4)`에 반올림 없이 저장할 수 있어야 합니다. 최대값은
+`999999999999999.9999`이며 `1.23456`과 이 범위를 넘는 값은 거부합니다. `1.230000`처럼
+추가 자리가 0뿐인 값은 허용하고 소수 4자리로 정규화합니다. 승인 UPDATE에서 가격을
+생략하면 현재 버전 가격을 유지하며, 유효하지 않은 새 가격은 이전 버전 종료 전에 거부합니다.
+PostgreSQL V10은 음수 가격을 DB에서도 차단합니다. 실제 저장·재조회와 migration 검증 방법은
+[local-run](docs/local-run.md#postgresql-상품-가격-회귀-검증)을 참조하세요.
