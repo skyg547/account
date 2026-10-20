@@ -10,6 +10,21 @@ Closing의 회계기간 상태 변경은 `X-Service-Assertion`에 별도 HS256 J
 
 현재 Closing HTTP 호출자는 이 assertion을 발급하지 않으므로 해당 호출은 401로 차단됩니다. Closing 클라이언트가 별도 키를 안전하게 주입받아 위 claim을 생성하도록 연동 변경이 필요합니다. 또한 Master Data는 서명된 `roleVersion`을 형식 검증하지만 현재 Auth 상태를 다시 조회하지 않습니다. Gateway 경로는 별도로 Auth의 현재 버전을 확인하며, Master Data에 직접 도달한 유효기간 내 토큰은 역할 변경 직후에도 과거 역할을 유지할 수 있습니다. 직접 서비스 접근 제한 또는 수신 서비스의 bounded Auth 조회를 별도 통합 게이트로 검토해야 합니다.
 
+### HTTP 오류 계약
+
+요청은 인증 필터 → Controller 입력 검증 → core 유즈케이스 순서로 처리됩니다. 필터가 거부한 요청은 Controller와 변경 유즈케이스에 도달하지 않습니다. `MasterDataIngressHttpTest`는 실제 필터 및 `MasterDataExceptionHandler`를 조립해 인증, 일반 입력, 변경 요청의 조회·상태·버전 충돌을 검증합니다. 멱등성·SCD2 기간 충돌은 기존 별도 테스트로 검증하며 전체 HTTP 조립 검증 범위에는 포함되지 않습니다.
+
+| 상태 | 조건 | 응답 |
+| --- | --- | --- |
+| 400 | 필수 쿼리/헤더 누락, 잘못된 경로 ID·JSON·타입, DTO 또는 필드 규칙 검증 실패 | `ApiResponse.success=false`; 일반 입력 형식 오류는 `Bad request`, 필드 규칙 오류는 고정된 안전한 규칙 설명 |
+| 401 | 사용자 토큰 또는 Closing assertion 누락·불일치·만료, 잘못된 서비스 identity | 빈 본문 |
+| 403 | 검증된 사용자에게 승인 또는 직접 쓰기 역할이 없음 | 빈 본문 |
+| 404 | 변경 요청 ID가 존재하지 않음 | `ApiResponse.success=false`, `Change request not found` |
+| 409 | 변경 요청 버전·멱등성·적용 상태·SCD2 기간 충돌 | `ApiResponse.success=false`; 각각 `Master-data version conflict`, `Master-data idempotency conflict`, `Change request state conflict`, `Master-data validity period conflict.` |
+| 500 | 위 사례로 분류되지 않는 서버 오류 | `ApiResponse.success=false`, `Internal server error` |
+
+예를 들어 유효한 관리자 JWT로 `POST /api/master-data/change-requests/42/approve`를 호출했을 때 ID 42가 없으면 404입니다. 인증이 없으면 먼저 401로 끝나며 해당 ID를 조회하거나 변경하지 않습니다. 로컬에서 회귀를 확인하려면 저장소 루트에서 `./gradlew :master-data:api:test --tests com.ho.account.masterdata.api.web.MasterDataIngressHttpTest --offline --no-daemon --console=plain --max-workers=2`를 실행합니다. 이 테스트는 H2와 가짜 포트를 사용하므로 실제 PostgreSQL 및 서비스 간 호출의 증거는 아닙니다.
+
 | 컨트롤러 | 경로 | 역할 |
 | --- | --- | --- |
 | `AccountSubjectController` | `/api/basic/account-subjects` | 계정과목 생성, 조회, SCD2 수정, 종료 |
