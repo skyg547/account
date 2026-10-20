@@ -8,6 +8,7 @@
 - Raw-detail denial audit is a WARN event; durable collection and live PostgreSQL were not verified. Next owner is the user for the scope decision, then the implementation owner and independent reviewer.
 - Follow-up: unauthenticated numeric raw-detail requests now emit an `actor=unverified` denial audit; focused HTTP test passed. This does not resolve the frontend P1 or verify operational audit retention.
 - Latest `origin/main@b2912554` merged with no conflict; integrated required command passed core 613, API 103, batch 5 (721 passed, 27 PostgreSQL-only skipped, zero failures/errors). The #913 field-limit interaction was resolved in the synthetic test fixture. Independent final review confirmed the frontend P1 and Q1/Q3 FAIL; Draft #938 is open and remote CI was queued at publication.
+- Current-head follow-up: local required Gradle command returned BUILD SUCCESSFUL (all tasks up-to-date); independent focused HTTP tests passed and `git diff --check origin/main...HEAD` passed. Remote `master-data`, Module Validation, and Harness Validation checks passed. Agent Merge Guard failed because its trust policy is unconfigured and the PR remains Draft; this is a repository gate, not evidence of a code test failure. The frontend P1 still blocks Ready.
 
 ## 2026-10-20 — Issue #911 / Draft PR #927
 
