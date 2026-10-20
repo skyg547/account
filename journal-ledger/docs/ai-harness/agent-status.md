@@ -1,3 +1,16 @@
+# GH-881 agent status
+
+- Issue: [#881](https://github.com/skyg547/account/issues/881), `status:needs-review`; [Draft PR #896](https://github.com/skyg547/account/pull/896) is open with `Refs #881`.
+- Base/branch/worktrees: `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; `agent/881-journal-reaggregation-order`; `/tmp/account-881-journal-reaggregation-order`; audited proof `/tmp/account-881-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope and ownership: `journal-ledger/**` only. Service, SQL, and documentation writers owned disjoint files; independent Reviewer was read-only; parent Integrator owns these module-local records and Git/GitHub. Other modules and repository-wide harness/history were not edited.
+- Result: the direct rebuild source query specifies date/entry/detail ID order. Current base already has `TreeMap` chronological core grouping; this branch adds direct-service regression and actual JPA/JDBC integration tests, plus module docs distinguishing direct single-transaction rebuilding from the wired owner-controlled chunk Job.
+- RED/GREEN: byte-identical `AuditedSourceOrderRegressionTest.java` SHA-256 `af5c2149e17ccc90fbf0b6c82b1d2610999a86c62d15981d04b48d0e5a73e142` failed 1/1 on the audited revision at the earlier-day-save assertion and passed 1/1 here.
+- Verification: `./gradlew :journal-ledger:test --no-daemon --console=plain --max-workers=1` PASS, Core 328 + API 74 + Batch 37 = 439 tests; failures/errors/skips 0. Real-adapter JPA/JDBC × insertion-order cases 4/4 PASS. Staged diff whitespace and module conflict-marker checks PASS. A concurrent writer test run previously failed writing Gradle XML; the later parent-run serial full suite passed.
+- Independent review: no open P0–P3; Q1–Q4 PASS with evidence in [worklog.md](worklog.md). H2 PostgreSQL mode does not establish live PostgreSQL plan, production load, production-data reconciliation, or distributed failure behavior. Human review and these environment gates remain before Ready/merge.
+- Rollback: reviewed issue-scoped revert of query, tests, and module docs; no migration or production data changed. Ready, merge, Issue close, deployment, and branch/worktree deletion remain separate human gates.
+
+---
+
 # GH-879 agent status
 
 - Issue: [#879](https://github.com/skyg547/account/issues/879), review handoff `status:needs-review`; [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.

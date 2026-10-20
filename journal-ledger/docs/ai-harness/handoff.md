@@ -1,3 +1,18 @@
+# GH-881 handoff
+
+Issue [#881](https://github.com/skyg547/account/issues/881) direct core reaggregation order proof is implemented and independently reviewed. [Draft PR #896](https://github.com/skyg547/account/pull/896) is open with `Refs #881`.
+
+- Branch/worktrees/base: `agent/881-journal-reaggregation-order`; `/tmp/account-881-journal-reaggregation-order`; `origin/main@9348966a`; audited proof `/tmp/account-881-audited-proof@a97d10ab`. Both worktrees are retained for review.
+- Scope: shared direct-source repository query, direct-service regression/integration tests, and functional documentation, plus these three module-local AI harness records, all under `journal-ledger/**`. No other module or repository-wide harness/history change.
+- Behavior: the source query orders POSTED details by date/entry/detail IDs. Core's chronological `TreeMap` processing was already present on the base; the new tests establish GL/SL order independence and prior-period opening through actual JPA/JDBC balance adapters. The wired 100-row chunk Job retains owner barrier, restart checkpoint, and final reconciliation; direct service is single-transaction and materializes the input.
+- Evidence: byte-identical SHA-256 `af5c2149e17ccc90fbf0b6c82b1d2610999a86c62d15981d04b48d0e5a73e142` portable test failed 1/1 on audited code and passed 1/1 here. Requested module test passed 439/439 (Core 328, API 74, Batch 37; 0 failures/errors/skips). Four actual-adapter insertion-order cases passed. Whitespace/conflict checks passed. Independent Reviewer found no open P0–P3 and Q1–Q4 PASS; details are in [worklog.md](worklog.md).
+- Limits: H2 PostgreSQL mode only; no live PostgreSQL execution plan, production-scale load, distributed fault, production data, or deployment test. Query sort cost should be assessed in the target DB before large direct rebuilds. A concurrent Gradle run initially failed writing XML; the later serial full run passed.
+- Rollback: reviewed scoped revert of query/tests/module docs, retaining historical append-only records. No migration/data change. The audited proof worktree is a local test fixture and is not part of the PR.
+- Authority: service/SQL/docs writers owned disjoint module files; independent Reviewer made no edits; parent Integrator alone owns Git/GitHub and local records. User authorized Draft PR publication. Human reviewer owns Ready, merge, Issue close, production verification/deployment, and branch/worktree deletion.
+- Next owner: human reviewer for Draft diff and target PostgreSQL/performance evidence, then separate Ready/merge decision.
+
+---
+
 # GH-879 handoff
 
 Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.

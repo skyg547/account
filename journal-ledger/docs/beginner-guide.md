@@ -100,6 +100,12 @@ HTTP/Kafka Adapter
 운영자는 같은 JobParameters의 같은 JobInstance를 재시작해야 하며, 마지막 GL/SL 대사가
 성공한 뒤에만 조회와 전기가 다시 열립니다.
 
+이는 현재 연결된 `dailyBalanceReaggregationJob`의 흐름입니다. core에는 직접 호출할 수 있는
+`LedgerService.reaggregateLedgerBalancesForPeriod(startDate, endDate)`도 있습니다. 직접 경로는
+한 트랜잭션에서 전체 `POSTED` 상세를 읽고 날짜 오름차순으로 다시 계산하며, Batch의
+공사 중 표지판(owner barrier)·중간 저장 지점·마지막 대사를 거치지 않습니다. 현재 모듈에서
+확인되는 이 직접 메서드의 호출은 테스트뿐입니다. 대량 처리와 실패 재시작에는 위 Batch Job을 사용합니다.
+
 상세 호출 흐름은 [process-flow.md](process-flow.md), 테이블 관계는 [schema.md](schema.md)를 참고합니다.
 
 ## 로컬 실행

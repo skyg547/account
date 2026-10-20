@@ -104,11 +104,13 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
 
        /**
         * 특정 기간 내에 전기(POSTED)된 모든 전표 상세 내역 조회
+        * 날짜와 PK 순서를 고정해 직접 재집계가 Batch reader와 같은 순서로 원천 행을 받습니다.
         */
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
                      "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
-                     "AND je.status = 'POSTED'")
+                     "AND je.status = 'POSTED' " +
+                     "ORDER BY je.accountingDate ASC, je.id ASC, jd.id ASC")
        List<JournalDetail> findPostedJournalDetailsByAccountingDateBetween(
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate);
