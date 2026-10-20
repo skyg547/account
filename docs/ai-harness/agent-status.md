@@ -1,6 +1,6 @@
-## 2026-10-20 — GH-924 actor/audit evidence, Draft handoff pending
+## 2026-10-20 — GH-924 actor/audit evidence, Draft PR #937
 
-- [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b2912554`; Draft PR publication pending, `Refs #924`. Only `master-data/**`, `auth/**` and the four user-named harness/history records changed.
+- [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b2912554`; [Draft PR #937](https://github.com/skyg547/account/pull/937), `Refs #924`. Only `master-data/**`, `auth/**` and the four user-named harness/history records changed.
 - Authenticated direct actors, separate Closing service/business actors, immutable request/decision reasons and request-to-SCD2 IDs, durable login/PAT events, and safe bounded export evidence are implemented. PostgreSQL V11/V75 and isolated local H2 migration are covered by synthetic tests.
 - Requested five-project offline suite PASS: 623 master core, 128 master API (27 skipped), 200 auth core, 85 auth API, 74 gateway; zero failures/errors. Master Batch 5 PASS; both API bootJars and local unauthenticated HTTP 401 smoke PASS. Diff/marker/scope gates and independent Q1–Q4 review PASS. An earlier Gradle XML output collision was resolved by serialized rerun.
 - Residual owner: operations must validate deployed PostgreSQL grants, immutable seven-year export/restore evidence. Human reviewer owns current-head CI and Draft review; Ready, merge, Issue close and cleanup remain separate gates. Preserve worktree and branch.
