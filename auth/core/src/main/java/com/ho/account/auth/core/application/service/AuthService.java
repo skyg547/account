@@ -152,7 +152,8 @@ public class AuthService implements AuthUseCase {
                         effectiveAssignments,
                         user.getRoleVersion()),
                 authenticatedAt);
-        loginAttemptPort.recordSuccess(username);
+        // Use the verified account identity; the attempt adapter also normalizes it for the counter key.
+        loginAttemptPort.recordSuccess(user.getUsername());
 
         return new AuthenticationResult(
                 issuedToken.token(),

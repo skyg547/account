@@ -22,5 +22,8 @@ public interface MasterDataChangeApplier {
      */
     void validate(MasterDataChangeRequest request);
 
-    void apply(MasterDataChangeRequest request);
+    AppliedVersion apply(MasterDataChangeRequest request);
+
+    /** Persisted row identifiers before and after the approved operation. */
+    record AppliedVersion(Long beforeId, Long afterId) { }
 }

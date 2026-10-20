@@ -66,6 +66,9 @@ public class MasterDataChangeRequestEntity {
     @Column(length = 500)
     private String reason;
 
+    @Column(length = 500)
+    private String decisionReason;
+
     @Column(columnDefinition = "TEXT")
     private String payloadJson;
 

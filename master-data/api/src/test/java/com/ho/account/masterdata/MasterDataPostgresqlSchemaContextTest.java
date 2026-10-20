@@ -24,8 +24,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
                 "spring.datasource.username=sa",
                 "spring.datasource.password=",
                 "spring.flyway.enabled=true",
-                "spring.flyway.target=8",
-                "spring.flyway.locations=classpath:db/migration",
+                "spring.flyway.target=8.1",
+                "spring.flyway.locations=classpath:db/migration,classpath:db/migration-h2",
                 "spring.flyway.clean-disabled=true",
                 "spring.flyway.baseline-on-migrate=false",
                 "spring.jpa.hibernate.ddl-auto=validate",
@@ -61,8 +61,8 @@ class MasterDataPostgresqlSchemaContextTest {
                   AND table_name IN (
                     'account_subjects', 'business_partners', 'business_partner_accounts',
                     'currencies', 'departments', 'exchange_rates', 'fiscal_periods',
-                    'master_data_change_requests', 'products', 'tax_profiles')
-                """, Integer.class)).isEqualTo(10);
+                    'master_data_change_requests', 'master_data_audit_events', 'products', 'tax_profiles')
+                """, Integer.class)).isEqualTo(11);
         assertThat(accountSubjectRepository.count()).isZero();
         assertThat(businessPartnerRepository.count()).isZero();
     }

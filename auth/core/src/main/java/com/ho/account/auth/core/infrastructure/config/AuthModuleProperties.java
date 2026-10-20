@@ -344,7 +344,7 @@ public class AuthModuleProperties {
     public static class LoginSecurity {
         private int maxFailures = 5;
         private long lockDurationMinutes = 15L;
-        private String store = "memory";
+        private String store = "jpa";
 
         public int getMaxFailures() {
             return maxFailures;

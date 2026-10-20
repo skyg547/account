@@ -165,7 +165,8 @@ class MasterDataChangeRequestControllerTest {
                 .andExpect(jsonPath("$.targetKey").value("BP-042"))
                 .andExpect(jsonPath("$.status").value("REJECTED"))
                 .andExpect(jsonPath("$.approvedBy").value("reviewer"))
-                .andExpect(jsonPath("$.reason").value("등록번호 증빙 불충분"));
+                .andExpect(jsonPath("$.reason").value("거래처 정보 정정"))
+                .andExpect(jsonPath("$.decisionReason").value("등록번호 증빙 불충분"));
 
         verify(useCase).reject(42L, "reviewer", "등록번호 증빙 불충분");
     }

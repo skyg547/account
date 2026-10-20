@@ -85,10 +85,13 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
     }
 
     @Override
-    public void apply(MasterDataChangeRequest request) {
+    public AppliedVersion apply(MasterDataChangeRequest request) {
         validate(request);
-        switch (request.getChangeType()) {
-            case CREATE -> accountSubjectUseCase.createAccountSubject(command(request));
+        return switch (request.getChangeType()) {
+            case CREATE -> {
+                AccountSubject next = accountSubjectUseCase.createAccountSubject(command(request));
+                yield new AppliedVersion(null, next == null ? null : next.getId());
+            }
             case UPDATE -> {
                 AccountSubjectCommand command = command(request);
                 MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
@@ -96,13 +99,15 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
                 AccountSubject current = current(request);
                 MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
                         current.getValidTo(), command.validFrom(), command.validTo());
-                accountSubjectUseCase.updateAccountSubject(request.getTargetKey(), command);
+                AccountSubject next = accountSubjectUseCase.updateAccountSubject(request.getTargetKey(), command);
+                yield new AppliedVersion(current.getId(), next == null ? null : next.getId());
             }
             case DEACTIVATE -> {
-                current(request);
+                Long id = current(request).getId();
                 accountSubjectUseCase.deactivateAccountSubject(request.getTargetKey(), request.getEffectiveDate());
+                yield new AppliedVersion(id, id);
             }
-        }
+        };
     }
 
     private AccountSubject current(MasterDataChangeRequest request) {

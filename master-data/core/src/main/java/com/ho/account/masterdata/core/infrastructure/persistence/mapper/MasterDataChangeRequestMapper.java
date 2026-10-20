@@ -29,6 +29,7 @@ public class MasterDataChangeRequestMapper {
                 entity.getRequestedAt(),
                 entity.getApprovedAt(),
                 entity.getReason(),
+                entity.getDecisionReason(),
                 entity.getPayloadJson(),
                 entity.getSourceReference(),
                 entity.getAppliedAt());
@@ -50,6 +51,7 @@ public class MasterDataChangeRequestMapper {
         entity.setRequestedAt(domain.getRequestedAt());
         entity.setApprovedAt(domain.getApprovedAt());
         entity.setReason(domain.getReason());
+        entity.setDecisionReason(domain.getDecisionReason());
         entity.setPayloadJson(domain.getPayloadJson());
         entity.setSourceReference(domain.getSourceReference());
         entity.setAppliedAt(domain.getAppliedAt());

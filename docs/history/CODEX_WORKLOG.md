@@ -1,3 +1,10 @@
+## 2026-10-20 — GH-924 master-data/Auth actor and audit evidence
+
+- `$account-issue-loop`, `$account-hexagonal-change`, `$account-module-parallel` and `$account-review-handoff` governed Issue #924 on `agent/924-actor-audit` in `/tmp/account-924-actor-audit`, base `origin/main@b2912554`. Parallel writers owned disjoint `master-data/**` and `auth/**`; independent read-only reviewers checked both. Parent alone updated the four requested shared records and Git/GitHub state.
+- Master Data actor attribution, request/decision reason separation, SCD2 lineage and digest-only append events; Auth retained login and PAT reason/status events; PostgreSQL V11/V75 and local H2 paths, tests and module docs changed. No other module or shared contract source changed.
+- Requested five-project offline suite PASS (master core 623/API 128, auth core 200/API 85, gateway 74; 27 existing API skips), Master Batch 5 PASS, API bootJars PASS, synthetic embedded PostgreSQL grants/export/integrity tests PASS, local JAR unauthenticated HTTP 401 PASS. First overlapping Gradle XML-result write error was resolved by serialized rerun. Independent Q1–Q4 PASS; diff/marker/scope gates PASS.
+- Draft PR pending with `Refs #924`; actual deployment grants, immutable retention/export and restore drills remain operational gates. Rollback via reviewed code revert and forward schema correction preserving audit history. Human reviewer separately controls Ready, merge, Issue close and cleanup.
+
 ## 2026-10-20 — GH-911 master-data bulk reference duplicate fail-closed
 
 - Issue #911 used `agent/911-bp-bulk-fail-closed` at `/tmp/account-911-bp-bulk-fail-closed` from `origin/main@a24ceb02`; `$account-issue-loop`, `$account-hexagonal-change`, single-module `$account-module-parallel` ownership, and `$account-review-handoff` governed the work. Five `master-data/**` functional files changed, plus three module-local harness records and this history entry. Shared contracts, other modules, and shared harness documents were not edited.

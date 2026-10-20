@@ -5,11 +5,12 @@ import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,11 +22,24 @@ import java.util.Optional;
  * 부서 관리 서비스
  */
 @Service
-@RequiredArgsConstructor
 public class DepartmentService implements DepartmentUseCase {
 
     private final DepartmentPersistencePort departmentPersistencePort;
     private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
+
+    DepartmentService(DepartmentPersistencePort departmentPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(departmentPersistencePort, businessKeyLockPort, event -> { });
+    }
+
+    @Autowired
+    public DepartmentService(DepartmentPersistencePort departmentPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort, MasterDataAuditPort auditPort) {
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort;
+    }
 
     @Override
     @Transactional
@@ -51,7 +65,12 @@ public class DepartmentService implements DepartmentUseCase {
         MasterDataValidityPolicy.applyDefaultWindow(department::getValidFrom, department::setValidFrom,
                 department::getValidTo, department::setValidTo);
 
-        return departmentPersistencePort.save(department);
+        department.setAuditUser(MasterDataActorContext.auditUser());
+
+        Department saved = departmentPersistencePort.save(department);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_CREATE", MasterDataType.DEPARTMENT,
+                saved.getCode(), null, saved.getId());
+        return saved;
     }
 
     @Override
@@ -120,12 +139,16 @@ public class DepartmentService implements DepartmentUseCase {
         
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
+        newVersion.setAuditUser(MasterDataActorContext.auditUser());
         newVersion.validateBusinessFields();
 
         currentActive.terminate(oldValidTo);
         departmentPersistencePort.save(currentActive);
 
-        return departmentPersistencePort.save(newVersion);
+        Department saved = departmentPersistencePort.save(newVersion);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_UPDATE", MasterDataType.DEPARTMENT,
+                saved.getCode(), currentActive.getId(), saved.getId());
+        return saved;
     }
 
     @Override
@@ -145,6 +168,9 @@ public class DepartmentService implements DepartmentUseCase {
         LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, department.getValidFrom(), department.getValidTo());
         department.terminate(terminationDate);
+        department.setAuditUser(MasterDataActorContext.auditUser());
         departmentPersistencePort.save(department);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_DEACTIVATE", MasterDataType.DEPARTMENT,
+                department.getCode(), department.getId(), department.getId());
     }
 }

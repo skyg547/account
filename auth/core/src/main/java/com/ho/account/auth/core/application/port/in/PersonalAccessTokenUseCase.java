@@ -15,5 +15,5 @@ public interface PersonalAccessTokenUseCase {
 
     boolean revokeOwnToken(String authorizationHeader, String tokenId);
 
-    boolean revokeTokenForAdmin(String authorizationHeader, String tokenId);
+    boolean revokeTokenForAdmin(String authorizationHeader, String tokenId, String reasonCode);
 }

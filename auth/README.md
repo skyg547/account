@@ -47,6 +47,9 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
   - `V70__auth_user_role_schema.sql`: 사용자와 역할 할당
   - `V71__auth_login_attempts.sql`: 공유 로그인 실패/잠금
   - `V72__auth_role_assignment_apply_log.sql`: Governance 승인 반영 멱등 이력
+  - `V73__auth_personal_access_tokens.sql`: PAT 해시와 수명 상태
+  - `V74__auth_pat_lifecycle_events.sql`: PAT 생성·폐기 이벤트
+  - `V75__auth_security_event_evidence.sql`: PAT 사유·전후 상태와 로그인 실패·성공 이벤트
 - memory와 JPA 모드 모두 역할의 `dataScope`, `validFrom`, `validTo`를 보존합니다.
 - 현재 지원하는 인가 범위는 subject가 없는 정확한 `GLOBAL`뿐입니다. 새 승인에 범위가 없거나 다른 값이면 저장하지 않고 거부합니다. 기존 비전역 범위 행은 승격하지 않으며 로그인·토큰 버전 검증에서 계정을 차단합니다. 관리자 사용자 목록은 현재 저장된 전역 관리자 역할도 확인합니다. 입력·출력·남는 Gateway 제한은 [역할 범위 흐름](./docs/process-flow.md)에 설명합니다.
 
@@ -64,14 +67,14 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 
 - PAT 관리 기능은 `auth.persistence.mode=jpa`(기본값)에서만 제공됩니다. 로컬 데모용 `memory` 모드에서는 PAT 서비스와 HTTP 경로가 등록되지 않아 요청에 404가 반환됩니다. 모드별 실행 방법은 [local-run](./docs/local-run.md)을 참고합니다.
 - `POST/GET/DELETE /api/auth/pat` 계열은 로그인 JWT의 `Authorization: Bearer` 헤더를 검증하고 현재 AuthUser의 정확한 username에만 연결합니다. 요청의 `username`과 `X-Auth-*` 헤더는 권한에 사용하지 않습니다.
-- `/api/auth/admin/pat` 계열은 현재 유효한 시스템 관리자 역할이 있어야 하며, 생성·실제 폐기 시 행위자와 소유자를 감사 이력에 기록합니다. 자세한 흐름과 실패 코드는 [PAT 관리 권한 흐름](./docs/process-flow.md#pat-관리-권한-흐름)을 참고합니다.
+- `/api/auth/admin/pat` 계열은 현재 유효한 시스템 관리자 역할이 있어야 합니다. PAT 생성과 실제 폐기는 행위자와 소유자를 감사 이력에 기록하며, 관리자 폐기는 필수 `X-Audit-Reason` 코드(`ADMIN_SECURITY`, `ADMIN_OFFBOARDING`, `ADMIN_ROTATION`)와 토큰의 전후 상태를 함께 남깁니다. 누락·빈값·미지원 코드는 변경 전에 400으로 거부합니다. 자세한 흐름과 실패 코드는 [PAT 관리 권한 흐름](./docs/process-flow.md#pat-관리-권한-흐름)을 참고합니다.
 
 ### 📌 로그인 실패 감사와 임시 잠금
 
 - 로그인 성공/실패는 `LoginAttemptPort`로 기록합니다.
 - 기본 정책은 연속 5회 실패 시 15분 잠금입니다.
-- 단일 인스턴스는 memory, 다중 인스턴스는 `AUTH_LOGIN_SECURITY_STORE=jpa`를 사용합니다.
-- JPA 모드는 정규화한 username별 DB 행을 잠그고 최초 행 생성, 실패 증가, 만료 후 재시작, 성공 시 초기화를 직렬화합니다. 잠금 중 도착한 성공 기록은 갱신된 잠금을 해제하지 않습니다.
+- `AUTH_LOGIN_SECURITY_STORE`의 기본값은 `jpa`입니다. 명시적 `memory` 모드는 단일 프로세스 학습용이며 영속 감사 이벤트가 없습니다.
+- JPA 모드는 정규화한 username별 DB 행을 잠그고 최초 행 생성, 실패 증가, 만료 후 재시작, 성공 시 초기화를 직렬화합니다. 잠금 중 도착한 성공 기록은 갱신된 잠금을 해제하지 않습니다. 실패·성공 전이는 별도 감사 행에 보존되므로 성공 시 임시 카운터가 지워져도 이력은 남습니다. 보존·내보내기와 운영 검증 범위는 [schema.md](./docs/schema.md)를 따릅니다.
 - 이미 잠금 확인을 통과해 처리 중인 요청은 잠금이 생긴 뒤에도 실패를 기록하거나 JWT 발급을 끝낼 수 있습니다. 상세한 순서와 검증 범위는 [process-flow.md](./docs/process-flow.md)를 참조합니다.
 
 ### 📌 Governance 역할 할당 반영과 멱등성
@@ -117,7 +120,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 2. 실행 구성에 `local` 프로파일과 JWT/internal-token 환경변수를 필수로 주입합니다. 로그인 사용자가 필요하면 저장소 밖의 승인된 런타임 입력으로 configured user를 추가합니다.
 3. `Auth bootRun`을 실행합니다.
 4. Config Server/Eureka/PostgreSQL 없이 내장 WAS가 `8081` 포트에서 시작됩니다.
-5. Flyway V70~V74 적용 후 Hibernate가 스키마를 검증합니다.
+5. Flyway V70~V75 적용 후 Hibernate가 스키마를 검증합니다.
 
 local SQL 데모 credential과 기본 사용자는 없으며 `spring.sql.init.mode=never`입니다. 선택적 configured user는 외부 런타임 입력/placeholder인 `AUTH_USERS_0_USERNAME`, `AUTH_USERS_0_PASSWORD` 등으로 제공하고, 저장소 파일·쉘 히스토리·로그에 값을 남기지 않습니다. `AUTH_USERS_0_PASSWORD`는 외부에서 준비한 정책 준수 인코딩 값이어야 합니다.
 

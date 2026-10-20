@@ -7,10 +7,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
+import org.mockito.ArgumentCaptor;
 
 import com.ho.account.masterdata.core.application.command.ProductCommand;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
+import com.ho.account.masterdata.core.domain.audit.MasterDataAuditEvent;
 import com.ho.account.masterdata.core.domain.model.Product;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -43,6 +47,31 @@ class ProductPriceServiceTest {
 
         assertThat(old.getValidTo()).isEqualTo(LocalDate.of(9999, 12, 31));
         verify(persistence, never()).save(any());
+    }
+
+    @Test
+    void directCreateUsesVerifiedActorAndEmitsIdentifierOnlyEvent() {
+        MasterDataAuditPort audit = mock(MasterDataAuditPort.class);
+        ProductService audited = new ProductService(persistence,
+                mock(MasterDataBusinessKeyLockPort.class), audit);
+        when(persistence.save(any())).thenAnswer(invocation -> {
+            Product row = invocation.getArgument(0);
+            row.setId(924L);
+            return row;
+        });
+
+        try (MasterDataActorContext.Scope ignored = MasterDataActorContext.enter(null, "actor-924")) {
+            assertThat(audited.createProduct(command("10.0000", LocalDate.now())).getAuditUser())
+                    .isEqualTo("actor-924");
+        }
+
+        ArgumentCaptor<MasterDataAuditEvent> events = ArgumentCaptor.forClass(MasterDataAuditEvent.class);
+        verify(audit).append(events.capture());
+        assertThat(events.getValue().businessActor()).isEqualTo("actor-924");
+        assertThat(events.getValue().afterVersionId()).isEqualTo(924L);
+        assertThat(events.getValue().beforeVersionId()).isNull();
+        assertThat(events.getValue().reason()).isNull();
+        assertThat(MasterDataActorContext.current()).isNull();
     }
 
     private static Product existing(LocalDate from) {

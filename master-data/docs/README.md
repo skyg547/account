@@ -51,7 +51,8 @@ Spring Data 타입이 domain package로 역류하지 않습니다.
 2. [process-flow.md](process-flow.md)
 3. [schema.md](schema.md)
 4. [local-run.md](local-run.md)
-5. [archive/legacy-kafka-config.md](archive/legacy-kafka-config.md): 실제 adapter 없이 잘못된 prefix에 있던 과거 Kafka 설정 기록
+5. [audit-evidence.md](audit-evidence.md): actor propagation, durable event lineage, retention and export procedure
+6. [archive/legacy-kafka-config.md](archive/legacy-kafka-config.md): 실제 adapter 없이 잘못된 prefix에 있던 과거 Kafka 설정 기록
 
 ## Local Verification
 

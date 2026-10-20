@@ -79,6 +79,7 @@ class AccountSubjectClassificationUpdateTest {
         when(accounts.findByCodeForUpdate("AC-755")).thenReturn(Optional.of(original));
         when(accounts.save(org.mockito.ArgumentMatchers.any(AccountSubject.class))).thenAnswer(invocation -> {
             AccountSubject account = invocation.getArgument(0);
+            if (account.getId() == null) account.setId(901L);
             saved.add(account);
             return account;
         });
@@ -163,6 +164,7 @@ class AccountSubjectClassificationUpdateTest {
 
     private static AccountSubject original(AccountType type) {
         AccountSubject account = new AccountSubject();
+        account.setId(900L);
         account.setCode("AC-755");
         account.setName("Original");
         account.setCategory(type == AccountType.NON_OPERATING_INCOME

@@ -70,6 +70,15 @@ class AuthJpaLoginAttemptIntegrationTest {
                 .isInstanceOf(InvalidCredentialsException.class);
 
         assertThat(loginAttemptPort.isLocked("admin")).isTrue();
+        // A read-only export can recover reason and state even when the mutable counter is later reset.
+        var exported = jdbc.queryForList("select event_id, claimed_username, authenticated_username, "
+                + "event_type, reason_code, before_failure_count, after_failure_count, occurred_at "
+                + "from auth_login_security_events where claimed_username = ? and event_type = ?",
+                "admin", "FAILURE");
+        assertThat(exported).isNotEmpty();
+        assertThat(exported.get(exported.size() - 1).get("reason_code")).isEqualTo("USER_NOT_FOUND");
+        assertThat(exported).allSatisfy(row -> assertThat(row)
+                .doesNotContainKeys("password", "otp_code", "token_hash", "raw_token"));
     }
 
     @Test

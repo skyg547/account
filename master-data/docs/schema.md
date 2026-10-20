@@ -1,5 +1,10 @@
 # master-data schema
 
+V11 adds `master_data_change_requests.decision_reason` and the append-only
+`master_data_audit_events` ledger. Its `request_id`/`source_reference` and
+`before_version_id`/`after_version_id` link an approved request to resulting
+SCD2 rows. See [audit-evidence.md](audit-evidence.md) for retention and export.
+
 ## 핵심 모델
 
 ```mermaid
@@ -33,7 +38,7 @@ erDiagram
 | `id` | 각 이력 행을 구분하는 기술 기본키. 업무 코드는 SCD2 때문에 unique가 아닙니다. |
 | `validFrom` | 해당 버전이 유효해지는 시작일. |
 | `validTo` | 해당 버전이 끝나는 일자. 종료되지 않은 행은 보통 `9999-12-31`입니다. |
-| `auditUser` | 마지막 변경자. 현재 일부 엔티티는 기본값을 사용하므로 사용자 전파 고도화가 필요합니다. |
+| `auditUser` | 마지막 변경자. 인증된 HTTP 직접 변경은 검증된 actor를 저장합니다. 승인 반영은 실제 실행 actor를 저장하며 감사 이벤트가 요청·승인자 계보를 연결합니다. |
 | 활성 여부 | 별도 `isCurrent` 컬럼이 아니라 `validFrom <= 기준일 <= validTo`로 계산합니다. |
 
 SCD2 테이블은 업무 식별 코드와 유효 기간이 함께 중요합니다. `account_subjects`, `business_partners`, `departments`, `products`에는 업무 코드와 유효 기간을 앞부분으로 하는 인덱스가 있어 기준일 조회와 버전 개수 집계를 지원합니다. 단순히 업무 코드만 unique로 묶으면 과거 버전을 보존할 수 없습니다.
@@ -104,7 +109,7 @@ DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요�
 테이블을 잠그므로 동시 쓰기가 검사 결과를 무효화할 수 없습니다. 음수 이력이 있으면
 migration은 행 값을 출력하거나 수정하지 않고 실패합니다. 데이터 소유자가 가격과 승인
 계보를 검토해 별도 보정안을 승인한 뒤 다시 적용해야 합니다. 과거 Flyway 파일을 바꾸거나
-이력 행을 삭제하지 않습니다. H2 local은 V8까지만 적용하므로 이 제약의 증거가 아닙니다.
+이력 행을 삭제하지 않습니다. H2 local은 공통 V8과 감사 전용 V8.1만 적용하므로 PostgreSQL V9 기간 제약의 증거가 아닙니다.
 
 - `V2__master_data_change_requests.sql`: 변경 요청 테이블과 상태/업무 키 조회 인덱스를 만듭니다.
 - `V3__master_data_change_request_lock_version.sql`: 기존 요청 데이터에 기본값 0을 적용하며 `lock_version`을 추가합니다.

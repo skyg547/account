@@ -80,6 +80,22 @@ class MasterDataChangeRequestPayloadValidationTest {
 
     @BeforeEach
     void setUpRealDecoderAppliersAndService() {
+        AccountSubject savedAccount = new AccountSubject();
+        savedAccount.setId(901L);
+        Department savedDepartment = new Department();
+        savedDepartment.setId(901L);
+        Product savedProduct = new Product();
+        savedProduct.setId(901L);
+        BusinessPartner savedPartner = mock(BusinessPartner.class);
+        when(savedPartner.getId()).thenReturn(901L);
+        when(accounts.createAccountSubject(any())).thenReturn(savedAccount);
+        when(accounts.updateAccountSubject(any(), any())).thenReturn(savedAccount);
+        when(departments.createDepartment(any())).thenReturn(savedDepartment);
+        when(departments.updateDepartment(any(), any())).thenReturn(savedDepartment);
+        when(products.createProduct(any())).thenReturn(savedProduct);
+        when(products.updateProduct(any(), any())).thenReturn(savedProduct);
+        when(partners.createBusinessPartner(any())).thenReturn(savedPartner);
+        when(partners.updateBusinessPartner(any(), any())).thenReturn(savedPartner);
         JacksonMasterDataChangePayloadDecoder decoder = new JacksonMasterDataChangePayloadDecoder(
                 new ObjectMapper().registerModule(new JavaTimeModule()));
         service = new MasterDataChangeRequestService(persistence, versions, List.of(
@@ -644,12 +660,14 @@ class MasterDataChangeRequestPayloadValidationTest {
     private void stubCurrentLookupForApply(MasterDataType type, ChangeType change, LocalDate currentValidTo) {
         if (change != ChangeType.CREATE && type == MasterDataType.ACCOUNT_SUBJECT) {
             AccountSubject current = new AccountSubject();
+            current.setId(900L);
             current.setValidFrom(EFFECTIVE_DATE.minusDays(1));
             current.setValidTo(currentValidTo);
             when(accountRows.findByCodeForUpdate(TARGET_KEY)).thenReturn(Optional.of(current));
         }
         if (change != ChangeType.CREATE && type == MasterDataType.DEPARTMENT) {
             Department current = new Department();
+            current.setId(900L);
             current.setValidFrom(EFFECTIVE_DATE.minusDays(1));
             current.setValidTo(currentValidTo);
             when(departmentRows.findActiveByCodeForUpdate(TARGET_KEY)).thenReturn(Optional.of(current));
@@ -657,6 +675,7 @@ class MasterDataChangeRequestPayloadValidationTest {
         if (change != ChangeType.CREATE && type == MasterDataType.BUSINESS_PARTNER) {
             BusinessPartner current = BusinessPartner.create(TARGET_KEY, "valid", null, null, null, null,
                     null, true, null, null, EFFECTIVE_DATE.minusDays(1), currentValidTo);
+            current.setId(900L);
             when(partnerRows.findByBusinessPartnerCodeForUpdate(TARGET_KEY)).thenReturn(Optional.of(current));
         }
         if (type == MasterDataType.PRODUCT && change != ChangeType.CREATE) {
@@ -819,6 +838,7 @@ class MasterDataChangeRequestPayloadValidationTest {
     void applyRechecksVersionAfterWaitingForBusinessKeyBeforeAnyMutation() {
         MasterDataChangeApplier applier = mock(MasterDataChangeApplier.class);
         when(applier.targetType()).thenReturn(MasterDataType.ACCOUNT_SUBJECT);
+        when(applier.apply(any())).thenReturn(new MasterDataChangeApplier.AppliedVersion(null, 901L));
         MasterDataChangeRequestService applying = new MasterDataChangeRequestService(
                 persistence, versions, List.of(applier), locks);
         MasterDataChangeRequest request = pendingRequest(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE, "{}", null);
@@ -898,6 +918,7 @@ class MasterDataChangeRequestPayloadValidationTest {
     void dueApplyLocksDistinctBusinessKeysInOrderBeforeRequestRows() {
         MasterDataChangeApplier applier = mock(MasterDataChangeApplier.class);
         when(applier.targetType()).thenReturn(MasterDataType.ACCOUNT_SUBJECT);
+        when(applier.apply(any())).thenReturn(new MasterDataChangeApplier.AppliedVersion(null, 901L));
         MasterDataChangeRequestService applying = new MasterDataChangeRequestService(
                 persistence, versions, List.of(applier), locks);
         MasterDataChangeRequest first = MasterDataChangeRequest.reconstitute(

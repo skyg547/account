@@ -27,6 +27,7 @@ public class MasterDataChangeRequestDto {
     private final LocalDateTime requestedAt;
     private final LocalDateTime approvedAt;
     private final String reason;
+    private final String decisionReason;
     private final String payloadJson;
     private final String sourceReference;
     private final LocalDateTime appliedAt;
@@ -35,6 +36,15 @@ public class MasterDataChangeRequestDto {
             ChangeStatus status, LocalDate effectiveDate, Integer requestedVersion, String requestedBy,
             String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt, String reason,
             String payloadJson, String sourceReference, LocalDateTime appliedAt) {
+        this(id, targetType, targetKey, changeType, status, effectiveDate, requestedVersion,
+                requestedBy, approvedBy, requestedAt, approvedAt, reason, null,
+                payloadJson, sourceReference, appliedAt);
+    }
+
+    public MasterDataChangeRequestDto(Long id, MasterDataType targetType, String targetKey, ChangeType changeType,
+            ChangeStatus status, LocalDate effectiveDate, Integer requestedVersion, String requestedBy,
+            String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt, String reason,
+            String decisionReason, String payloadJson, String sourceReference, LocalDateTime appliedAt) {
         this.id = id;
         this.targetType = targetType;
         this.targetKey = targetKey;
@@ -47,6 +57,7 @@ public class MasterDataChangeRequestDto {
         this.requestedAt = requestedAt;
         this.approvedAt = approvedAt;
         this.reason = reason;
+        this.decisionReason = decisionReason;
         this.payloadJson = payloadJson;
         this.sourceReference = sourceReference;
         this.appliedAt = appliedAt;
@@ -56,7 +67,8 @@ public class MasterDataChangeRequestDto {
         return new MasterDataChangeRequestDto(entity.getId(), entity.getTargetType(), entity.getTargetKey(),
                 entity.getChangeType(), entity.getStatus(), entity.getEffectiveDate(), entity.getRequestedVersion(),
                 entity.getRequestedBy(), entity.getApprovedBy(), entity.getRequestedAt(), entity.getApprovedAt(),
-                entity.getReason(), entity.getPayloadJson(), entity.getSourceReference(), entity.getAppliedAt());
+                entity.getReason(), entity.getDecisionReason(), entity.getPayloadJson(),
+                entity.getSourceReference(), entity.getAppliedAt());
     }
 
     public Long getId() { return id; }
@@ -71,6 +83,7 @@ public class MasterDataChangeRequestDto {
     public LocalDateTime getRequestedAt() { return requestedAt; }
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public String getReason() { return reason; }
+    public String getDecisionReason() { return decisionReason; }
     public String getPayloadJson() { return payloadJson; }
     public String getSourceReference() { return sourceReference; }
     public LocalDateTime getAppliedAt() { return appliedAt; }
