@@ -49,7 +49,7 @@ PAT 생성의 `tokenName`은 최대 100자이며 `expireDays`는 생략 시 90�
 
 ## 운영에서 중요한 점
 
-- PAT 생성·목록·폐기에는 로그인 JWT가 필요합니다. `Authorization: Bearer <JWT>`를 보내면 Auth가 서명과 현재 계정 상태를 확인하고 본인의 PAT만 처리합니다. 본문이나 쿼리에 다른 `username`을 넣거나 `X-Auth-Roles`를 보내도 그 사용자·관리자로 바뀌지 않습니다. 현재 시스템 관리자만 `/api/auth/admin/pat`에서 전체 목록과 강제 폐기를 사용할 수 있습니다. 인증 실패는 401, 관리자 권한 부족은 403입니다.
+- PAT 생성·목록·폐기는 JPA 저장 모드에서만 제공됩니다. memory 저장 모드에서는 PAT 경로가 등록되지 않아 404이며, 일반 로그인 기능만 사용할 수 있습니다. JPA 모드의 PAT에는 로그인 JWT가 필요합니다. `Authorization: Bearer <JWT>`를 보내면 Auth가 서명과 현재 계정 상태를 확인하고 본인의 PAT만 처리합니다. 본문이나 쿼리에 다른 `username`을 넣거나 `X-Auth-Roles`를 보내도 그 사용자·관리자로 바뀌지 않습니다. 현재 시스템 관리자만 `/api/auth/admin/pat`에서 전체 목록과 강제 폐기를 사용할 수 있습니다. 인증 실패는 401, 관리자 권한 부족은 403입니다.
 - 로컬 예시: [local-run.md](./local-run.md)대로 Auth를 시작하고 활성 사용자로 `/api/auth/login`을 호출해 받은 JWT를 아래의 자리표시자에 넣습니다. 저장소에는 기본 사용자가 없으며, 원문 PAT와 JWT를 로그·공유 문서에 남기지 않습니다.
 
 ```bash

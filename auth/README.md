@@ -62,6 +62,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 
 ### 📌 PAT 관리
 
+- PAT 관리 기능은 `auth.persistence.mode=jpa`(기본값)에서만 제공됩니다. 로컬 데모용 `memory` 모드에서는 PAT 서비스와 HTTP 경로가 등록되지 않아 요청에 404가 반환됩니다. 모드별 실행 방법은 [local-run](./docs/local-run.md)을 참고합니다.
 - `POST/GET/DELETE /api/auth/pat` 계열은 로그인 JWT의 `Authorization: Bearer` 헤더를 검증하고 현재 AuthUser의 정확한 username에만 연결합니다. 요청의 `username`과 `X-Auth-*` 헤더는 권한에 사용하지 않습니다.
 - `/api/auth/admin/pat` 계열은 현재 유효한 시스템 관리자 역할이 있어야 하며, 생성·실제 폐기 시 행위자와 소유자를 감사 이력에 기록합니다. 자세한 흐름과 실패 코드는 [PAT 관리 권한 흐름](./docs/process-flow.md#pat-관리-권한-흐름)을 참고합니다.
 
