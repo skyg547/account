@@ -4,6 +4,7 @@ import com.ho.account.closing.application.port.out.RetainedEarningsMappingPort;
 import com.ho.account.closing.domain.ApprovedRetainedEarningsMapping;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalQueryPort;
+import com.ho.account.closing.application.port.out.AnnualJournalReadPort;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import java.time.LocalDate;
@@ -31,6 +32,7 @@ class AnnualClosingDestinationControlRegressionTest {
             String scenario,
             Optional<AccountSubjectRef> datedAccount) {
         JournalQueryPort journalQuery = mock(JournalQueryPort.class);
+        AnnualJournalReadPort annualRead = mock(AnnualJournalReadPort.class);
         JournalPostingPort journalPosting = mock(JournalPostingPort.class);
         MasterDataQueryPort masterData = mock(MasterDataQueryPort.class);
         RetainedEarningsMappingPort mappings = mock(RetainedEarningsMappingPort.class);
@@ -39,7 +41,7 @@ class AnnualClosingDestinationControlRegressionTest {
         when(masterData.findAccountSubjectAt(RETAINED_EARNINGS_ACCOUNT, YEAR_END))
                 .thenReturn(datedAccount);
         AnnualClosingService service = new AnnualClosingService(
-                journalQuery, journalPosting, masterData, mappings);
+                journalPosting, masterData, mappings, annualRead);
 
         assertThatThrownBy(() -> service.performIncomeStatementClosing(YEAR))
                 .as(scenario)
@@ -48,7 +50,7 @@ class AnnualClosingDestinationControlRegressionTest {
 
         verify(mappings).requireForYear(YEAR);
         verify(masterData).findAccountSubjectAt(RETAINED_EARNINGS_ACCOUNT, YEAR_END);
-        verifyNoInteractions(journalQuery, journalPosting);
+        verifyNoInteractions(journalQuery, journalPosting, annualRead);
     }
 
     private static Stream<Arguments> invalidDestinations() {

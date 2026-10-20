@@ -2,6 +2,7 @@ package com.ho.account.closing.config;
 
 import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
 import com.ho.account.closing.application.port.in.FinancialClosingCalculationResult;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunManifestPort;
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
@@ -57,7 +58,8 @@ public class FinancialClosingConfiguration {
             JournalQueryPort journalQueryPort,
             MasterDataQueryPort masterDataQueryPort,
             ExchangeRateQueryPort exchangeRateQueryPort,
-            ClosingAccountingProperties accountingProperties) {
+            ClosingAccountingProperties accountingProperties,
+            ClosingFinancialRunManifestPort commandManifest) {
         FxExchangeRateLookupPort exchangeRateLookupPort =
                 new MasterDataFxExchangeRateLookupAdapter(exchangeRateQueryPort);
         return compose(
@@ -67,7 +69,8 @@ public class FinancialClosingConfiguration {
                 exchangeRateLookupPort,
                 journalPostingPort,
                 journalQueryPort,
-                accountingProperties);
+                accountingProperties,
+                commandManifest);
     }
 
     @Bean
@@ -77,7 +80,8 @@ public class FinancialClosingConfiguration {
             ClosingReadOnlySources sources,
             JournalPostingPort journalPostingPort,
             JournalQueryPort journalQueryPort,
-            ClosingAccountingProperties accountingProperties) {
+            ClosingAccountingProperties accountingProperties,
+            ClosingFinancialRunManifestPort commandManifest) {
         JdbcClosingMasterDataAdapter masterDataAdapter =
                 new JdbcClosingMasterDataAdapter(sources.masterDataJdbcTemplate());
         return compose(
@@ -87,7 +91,8 @@ public class FinancialClosingConfiguration {
                 masterDataAdapter,
                 journalPostingPort,
                 journalQueryPort,
-                accountingProperties);
+                accountingProperties,
+                commandManifest);
     }
 
     @Bean
@@ -137,7 +142,8 @@ public class FinancialClosingConfiguration {
             FxExchangeRateLookupPort exchangeRateLookupPort,
             JournalPostingPort journalPostingPort,
             JournalQueryPort journalQueryPort,
-            ClosingAccountingProperties accountingProperties) {
+            ClosingAccountingProperties accountingProperties,
+            ClosingFinancialRunManifestPort commandManifest) {
         JdbcPostedJournalFinancialEvidenceAdapter financialEvidence =
                 new JdbcPostedJournalFinancialEvidenceAdapter(
                         journalJdbcTemplate,
@@ -163,7 +169,8 @@ public class FinancialClosingConfiguration {
                 financialEvidence,
                 fxValuationService,
                 eclProvisionService,
-                accountingProperties);
+                accountingProperties,
+                commandManifest);
     }
 
     static final class UnavailableJournalPorts implements JournalPostingPort, JournalQueryPort {
