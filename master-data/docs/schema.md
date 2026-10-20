@@ -97,6 +97,15 @@ DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요�
 
 ## Flyway
 
+상품 `products.price`는 `NUMERIC(19,4) NOT NULL`입니다. core는 0 이상,
+정수 최대 15자리·소수 최대 4자리의 정확한 표현만 받아 소수 4자리로 정규화합니다.
+`V10__product_nonnegative_price.sql`은 PostgreSQL에서 기존 음수 행을 검사한 뒤
+`ck_products_price_nonnegative` CHECK를 추가합니다. 검사와 제약 추가 동안 `products`
+테이블을 잠그므로 동시 쓰기가 검사 결과를 무효화할 수 없습니다. 음수 이력이 있으면
+migration은 행 값을 출력하거나 수정하지 않고 실패합니다. 데이터 소유자가 가격과 승인
+계보를 검토해 별도 보정안을 승인한 뒤 다시 적용해야 합니다. 과거 Flyway 파일을 바꾸거나
+이력 행을 삭제하지 않습니다. H2 local은 V8까지만 적용하므로 이 제약의 증거가 아닙니다.
+
 - `V2__master_data_change_requests.sql`: 변경 요청 테이블과 상태/업무 키 조회 인덱스를 만듭니다.
 - `V3__master_data_change_request_lock_version.sql`: 기존 요청 데이터에 기본값 0을 적용하며 `lock_version`을 추가합니다.
 - `V4__master_data_change_request_payload_text.sql`: 적용 이력이 있는 V2를 수정하지 않고 `payload_json`을 `TEXT`로 보정합니다. 현재 V2의 실제 SQL은 `TEXT`이며 이 작업은 V1–V7을 수정하지 않습니다. PostgreSQL clean/upgrade 경로는 합성 DB 회귀로 검증합니다.

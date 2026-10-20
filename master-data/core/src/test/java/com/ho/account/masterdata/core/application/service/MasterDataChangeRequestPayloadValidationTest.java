@@ -528,7 +528,7 @@ class MasterDataChangeRequestPayloadValidationTest {
     @EnumSource(value = MasterDataType.class, names = {"ACCOUNT_SUBJECT", "DEPARTMENT", "PRODUCT"})
     void sameSourceReferenceReplayPreservesEvenPreviouslyApprovedMalformedRequest(MasterDataType type) {
         String validJson = type == MasterDataType.PRODUCT
-                ? "{\"name\":\"valid\",\"productType\":\"SERVICE\"}" : "{\"name\":\"valid\"}";
+                ? "{\"name\":\"valid\",\"productType\":\"SERVICE\",\"price\":0}" : "{\"name\":\"valid\"}";
         for (String json : List.of(validJson, "{")) {
             MasterDataChangeRequest existing = pendingRequest(type, ChangeType.CREATE, json, "replayed-source");
             existing.approve("old-approver");
@@ -575,6 +575,9 @@ class MasterDataChangeRequestPayloadValidationTest {
                 String fields = "\"name\":" + (name == null ? "null" : "\"valid\"");
                 if (type == MasterDataType.PRODUCT) {
                     fields += ",\"productType\":" + (change == ChangeType.CREATE ? "\"SERVICE\"" : "null");
+                    if (change == ChangeType.CREATE) {
+                        fields += ",\"price\":0";
+                    }
                 }
                 for (String keyJson : List.of("", ",\"" + key + "\":null",
                         ",\"" + key + "\":\"" + TARGET_KEY + "\"")) {
@@ -582,7 +585,7 @@ class MasterDataChangeRequestPayloadValidationTest {
                         LocalDate validTo = sameDayEnd ? EFFECTIVE_DATE : null;
                         String dates = sameDayEnd ? ",\"validFrom\":\"2099-01-01\",\"validTo\":\"2026-08-01\"" : "";
                         cases.add(new ValidPayload(type, change, "key=" + keyJson + ", same-day=" + sameDayEnd,
-                                "{" + fields + keyJson + dates + "}", minimalExpectedCommand(type, name, validTo)));
+                                "{" + fields + keyJson + dates + "}", minimalExpectedCommand(type, change, name, validTo)));
                     }
                 }
             }
@@ -607,22 +610,28 @@ class MasterDataChangeRequestPayloadValidationTest {
                             + "\"validFrom\":\"2020-01-01\",\"validTo\":\"2027-12-31\"}",
                     new DepartmentCommand(TARGET_KEY, "department", "PARENT", Department.DepartmentType.COST_CENTER,
                             EFFECTIVE_DATE, LocalDate.of(2027, 12, 31))));
-            cases.add(new ValidPayload(MasterDataType.PRODUCT, change, "all fields, preserved negative precision",
+            cases.add(new ValidPayload(MasterDataType.PRODUCT, change, "all fields, preserved positive precision",
                     "{\"productCode\":\"MD-668\",\"name\":\"product\",\"description\":\"description\",\"unitOfMeasure\":\"EA\","
-                            + "\"price\":-12.3456,\"productType\":\"SERVICE\",\"validFrom\":\"2020-01-01\",\"validTo\":\"2027-12-31\"}",
-                    new ProductCommand(TARGET_KEY, "product", "description", "EA", new BigDecimal("-12.3456"),
+                            + "\"price\":12.3456,\"productType\":\"SERVICE\",\"validFrom\":\"2020-01-01\",\"validTo\":\"2027-12-31\"}",
+                    new ProductCommand(TARGET_KEY, "product", "description", "EA", new BigDecimal("12.3456"),
                             Product.ProductType.SERVICE, EFFECTIVE_DATE, LocalDate.of(2027, 12, 31))));
         }
         return cases.stream();
     }
 
     private static Object minimalExpectedCommand(MasterDataType type, String name, LocalDate validTo) {
+        return minimalExpectedCommand(type, ChangeType.UPDATE, name, validTo);
+    }
+
+    private static Object minimalExpectedCommand(MasterDataType type, ChangeType change,
+            String name, LocalDate validTo) {
         return switch (type) {
             case ACCOUNT_SUBJECT -> new AccountSubjectCommand(
                     TARGET_KEY, name, null, null, null, null, null, null, EFFECTIVE_DATE, validTo,
                     null, null, false);
             case DEPARTMENT -> new DepartmentCommand(TARGET_KEY, name, null, null, EFFECTIVE_DATE, validTo);
-            case PRODUCT -> new ProductCommand(TARGET_KEY, name, null, null, null,
+            case PRODUCT -> new ProductCommand(TARGET_KEY, name, null, null,
+                    change == ChangeType.CREATE ? BigDecimal.ZERO : null,
                     name == null ? null : Product.ProductType.SERVICE, EFFECTIVE_DATE, validTo);
             default -> throw new IllegalArgumentException("Unexpected test type");
         };
@@ -654,6 +663,9 @@ class MasterDataChangeRequestPayloadValidationTest {
             Product current = new Product();
             current.setId(900L);
             current.setProductCode(TARGET_KEY);
+            current.setName("Existing product");
+            current.setPrice(BigDecimal.ZERO);
+            current.setProductType(Product.ProductType.SERVICE);
             current.setValidFrom(EFFECTIVE_DATE.minusDays(1));
             current.setValidTo(currentValidTo);
             when(productRows.findActiveByProductCodeForUpdate(TARGET_KEY)).thenReturn(Optional.of(current));
@@ -673,7 +685,7 @@ class MasterDataChangeRequestPayloadValidationTest {
             for (ChangeType change : List.of(ChangeType.CREATE, ChangeType.UPDATE)) {
                 String decodeError = "Invalid " + type + " change payload";
                 String fields = type == MasterDataType.PRODUCT
-                        ? "\"name\":\"valid\",\"productType\":\"SERVICE\"" : "\"name\":\"valid\"";
+                        ? "\"name\":\"valid\",\"productType\":\"SERVICE\",\"price\":0" : "\"name\":\"valid\"";
                 String key = type == MasterDataType.PRODUCT ? "productCode" : "code";
                 String enumField = switch (type) {
                     case ACCOUNT_SUBJECT -> "category";
@@ -699,7 +711,7 @@ class MasterDataChangeRequestPayloadValidationTest {
                         "{" + fields + ",\"validFrom\":\"2026-07-01\",\"validTo\":\"2026-07-31\"}",
                         "SCD2 validTo cannot be before validFrom."));
                 if (change == ChangeType.CREATE) {
-                    String otherFields = type == MasterDataType.PRODUCT ? "\"productType\":\"SERVICE\"" : "";
+                    String otherFields = type == MasterDataType.PRODUCT ? "\"productType\":\"SERVICE\",\"price\":0" : "";
                     cases.add(new InvalidPayload(type, change, "missing required name",
                             "{" + otherFields + "}", "name is required"));
                     cases.add(new InvalidPayload(type, change, "null required name",
@@ -707,13 +719,17 @@ class MasterDataChangeRequestPayloadValidationTest {
                             "name is required"));
                 }
                 cases.add(new InvalidPayload(type, change, "blank required name",
-                        "{\"name\":\" \\t \"" + (type == MasterDataType.PRODUCT ? ",\"productType\":\"SERVICE\"" : "") + "}",
+                        "{\"name\":\" \\t \"" + (type == MasterDataType.PRODUCT ? ",\"productType\":\"SERVICE\",\"price\":0" : "") + "}",
                         "name"));
                 if (type == MasterDataType.PRODUCT && change == ChangeType.CREATE) {
                     cases.add(new InvalidPayload(type, change, "missing required productType",
-                            "{\"name\":\"valid\"}", "productType is required"));
+                            "{\"name\":\"valid\",\"price\":0}", "productType is required"));
                     cases.add(new InvalidPayload(type, change, "null required productType",
-                            "{\"name\":\"valid\",\"productType\":null}", "productType is required"));
+                            "{\"name\":\"valid\",\"productType\":null,\"price\":0}", "productType is required"));
+                    cases.add(new InvalidPayload(type, change, "missing required price",
+                            "{\"name\":\"valid\",\"productType\":\"SERVICE\"}", "price"));
+                    cases.add(new InvalidPayload(type, change, "null required price",
+                            "{\"name\":\"valid\",\"productType\":\"SERVICE\",\"price\":null}", "price"));
                 }
             }
         }
@@ -759,6 +775,7 @@ class MasterDataChangeRequestPayloadValidationTest {
             Product current = new Product();
             current.setProductCode(TARGET_KEY);
             current.setName("Existing product");
+            current.setPrice(BigDecimal.ZERO);
             current.setProductType(Product.ProductType.SERVICE);
             when(products.getProductByProductCode(TARGET_KEY)).thenReturn(Optional.of(current));
         }

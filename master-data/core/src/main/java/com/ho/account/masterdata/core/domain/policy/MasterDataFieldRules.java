@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 public final class MasterDataFieldRules {
     public static final class FieldValidationException extends IllegalArgumentException {
         public FieldValidationException(String message) { super(message); }
+        public FieldValidationException(String message, Throwable cause) { super(message, cause); }
     }
     public static final int ACCOUNT_CODE_MAX = 20;
     public static final int DEPARTMENT_CODE_MAX = 20;
@@ -52,11 +53,6 @@ public final class MasterDataFieldRules {
     }
 
     public static BigDecimal productPrice(BigDecimal price) {
-        BigDecimal value = price == null ? BigDecimal.ZERO : price;
-        // NUMERIC(19,4): avoid database rounding or overflow after an approval is recorded.
-        if (value.stripTrailingZeros().scale() > 4 || value.precision() - value.scale() > 15) {
-            throw new FieldValidationException("Product price must fit NUMERIC(19,4).");
-        }
-        return value;
+        return com.ho.account.masterdata.core.domain.model.Product.requireValidPrice(price);
     }
 }

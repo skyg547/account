@@ -76,7 +76,7 @@ class ProductPayloadValidationControllerTest {
 
     private org.springframework.test.web.servlet.ResultActions createWithName(String name) throws Exception {
         String body = new ObjectMapper().writeValueAsString(java.util.Map.of(
-                "productCode", "P-913", "name", name, "productType", "SERVICE"));
+                "productCode", "P-913", "name", name, "productType", "SERVICE", "price", 0));
         return mockMvc.perform(post("/api/basic/products")
                 .header("X-Auth-Roles", "ROLE_ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)

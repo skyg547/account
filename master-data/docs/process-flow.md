@@ -146,6 +146,34 @@ SCD2 행도 유효기간으로 찾습니다. 따라서 거래처가 나중에 �
 거래처명을 복원할 수 있습니다. 단건 조회는 `Optional` 반환으로 겹치는 기간이 두 행이면
 한 행을 임의 선택하지 않고 예외로 중단합니다.
 
+### 거래처 벌크 참조 조회의 중복 오류 (GH-911)
+
+`MonolithMasterDataQueryAdapter`의 `findAllByPartnerCodes(codes)` 구현은 현재 활성 거래처를
+한 번의 DB 조회로 읽고 코드별 `BusinessPartnerRef` Map을 반환합니다. 같은 입력 코드가
+여러 번 있어도 저장된 활성 버전이 한 건이면 정상적으로 한 항목을 반환하며, 없는 코드는
+Map에서 빠집니다. `null` 또는 빈
+입력은 빈 Map을 반환합니다.
+
+이 구현의 조회 결과에 **한 코드의 활성 버전이 둘 이상** 있으면
+`DuplicateBusinessPartnerReferenceException`을 던지고 Map 자체를 반환하지 않습니다.
+시작일이 같거나 달라도 같은 기준일에 겹치면 동일하게 실패합니다. 이 예외는
+`IllegalStateException`이므로 소비자는 이를 누락 코드나 성공한 일부 Map으로 바꾸지 말고
+검증을 중단해야 합니다. 현재 Tax의 HTTP 어댑터는 contracts 기본 벌크 메서드를 상속하여
+코드별 단건 HTTP 조회를 반복합니다. 그 경로는 이 전용 예외를 직접 받지 않지만, 단건 조회의
+비-404 HTTP 오류는 예외로 전파되고 Tax 검증 서비스도 조회 오류를 잡아 성공 건수를
+반환하지 않습니다. H2 회귀는 Monolith 경로의 손상된 합성 행 조회·어댑터 동작을 검증하지만
+PostgreSQL V9 exclusion과 운영 데이터 정합성의 증거는 아닙니다.
+
+JDK 17과 캐시된 Gradle 의존성이 있는 저장소 루트에서 다음 명령으로 확인할 수 있습니다.
+
+```bash
+./gradlew :master-data:core:test --tests 'com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapterTest' --offline --no-daemon --console=plain --max-workers=2
+./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2
+```
+
+첫 명령은 중복 시작일 두 경우와 반복·서로 다른·빈 입력을, 두 번째는 core/API/Batch의
+기존 계약 회귀를 확인합니다. 성공하면 두 명령 모두 `BUILD SUCCESSFUL`로 끝납니다.
+
 SCD2 교체용 `closeVersion`과 업무 종료용 `terminate`는 과거 조회를 위해 `useYn`을
 보존합니다. 서비스의 중복 종료 요청은 같은 종료일을 다시 적용할 때409로 거부합니다.
 
@@ -162,6 +190,9 @@ SCD2 교체용 `closeVersion`과 업무 종료용 `terminate`는 과거 조회�
    이미 반영된 같은 ID의 재시도도409이며, 승자가 저장한 `APPLIED` 상태는 보존하고 다시 반영하지 않습니다.
 4. 이전 버전의 종료일을 DB에 flush한 뒤 새 버전을 넣습니다. PostgreSQL의 즉시 exclusion
    검사가 정상적인 기간 분할의 중간 상태를 겹침으로 오인하지 않도록 합니다.
+   상품 UPDATE는 새 가격의 부호·정밀도·범위를 core에서 먼저 확인하고 새 버전을 준비한 뒤
+   이 종료/저장 단계를 시작합니다. 승인 요청은 접수·승인·반영 때 같은 가격 정책을
+   검사하며, 생략한 UPDATE 가격은 잠금 후 읽은 현재 버전에서 이어받습니다.
 5. `/apply-due`는 최대500건의 서로 다른 키를 유형/코드 순으로 먼저 잠급니다. 요청별 처리도
    같은 잠금 순서를 사용하여 키와 요청 잠금의 순서 역전을 피합니다. 한 chunk의 롤백 경계는
    유지되며, 이 경로가 선택한 키들은 chunk 종료까지 잠깁니다.

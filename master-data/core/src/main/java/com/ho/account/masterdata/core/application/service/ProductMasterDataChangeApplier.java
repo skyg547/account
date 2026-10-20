@@ -38,6 +38,9 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
 
     private ProductCommand validatedCommand(MasterDataChangeRequest request) {
         ProductCommand command = command(request);
+        if (command.price() != null) {
+            Product.requireValidPrice(command.price());
+        }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
         Product candidate;
@@ -51,7 +54,11 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
             candidate.setName(command.name() != null ? command.name() : current.getName());
             candidate.setDescription(command.description() != null ? command.description() : current.getDescription());
             candidate.setUnitOfMeasure(command.unitOfMeasure() != null ? command.unitOfMeasure() : current.getUnitOfMeasure());
-            candidate.setPrice(command.price() != null ? command.price() : current.getPrice());
+            if (command.price() != null) {
+                candidate.setPrice(command.price());
+            } else if (current.getPrice() != null) {
+                candidate.setPrice(current.getPrice());
+            }
             candidate.setProductType(command.productType() != null ? command.productType() : current.getProductType());
         }
         candidate.validateBusinessFields();

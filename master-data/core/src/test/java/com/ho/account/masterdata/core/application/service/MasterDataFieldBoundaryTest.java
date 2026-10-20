@@ -146,7 +146,7 @@ class MasterDataFieldBoundaryTest {
     private static Stream<Arguments> priceBoundaries() {
         return Stream.of(
                 Arguments.of("999999999999999.9999", true),
-                Arguments.of("-999999999999999.9999", true),
+                Arguments.of("-999999999999999.9999", false),
                 Arguments.of("1000000000000000.0000", false),
                 Arguments.of("1.0000", true),
                 Arguments.of("1.00001", false));
@@ -190,7 +190,7 @@ class MasterDataFieldBoundaryTest {
     private static String basePayload(MasterDataType type) {
         return switch (type) {
             case ACCOUNT_SUBJECT, DEPARTMENT -> "{\"name\":\"Valid\"}";
-            case PRODUCT -> "{\"name\":\"Valid\",\"productType\":\"SERVICE\"}";
+            case PRODUCT -> "{\"name\":\"Valid\",\"productType\":\"SERVICE\",\"price\":0}";
             case BUSINESS_PARTNER -> "{\"businessPartnerName\":\"Valid\"}";
             default -> throw new IllegalArgumentException("Unexpected type: " + type);
         };

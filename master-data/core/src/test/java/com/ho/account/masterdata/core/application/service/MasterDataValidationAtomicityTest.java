@@ -77,6 +77,7 @@ class MasterDataValidationAtomicityTest {
         current.setId(913L);
         current.setProductCode(KEY);
         current.setName("Current");
+        current.setPrice(java.math.BigDecimal.ZERO);
         current.setProductType(Product.ProductType.SERVICE);
         current.setValidFrom(FROM);
         current.setValidTo(OPEN);

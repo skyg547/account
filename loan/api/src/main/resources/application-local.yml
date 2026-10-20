@@ -28,6 +28,7 @@ spring:
   flyway:
     enabled: false
   jpa:
+    mapping-resources: META-INF/journal-ledger-orm.xml
     hibernate:
       ddl-auto: create-drop
     open-in-view: false

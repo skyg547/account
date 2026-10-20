@@ -82,14 +82,13 @@ public class ProductService implements ProductUseCase {
             throw new MasterDataFieldRules.FieldValidationException("Product code cannot change during update.");
         }
 
-        // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
+        // 새 버전의 단가를 포함한 모든 값을 먼저 검증해야 옛 버전을 닫지 않습니다.
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
         LocalDate newValidTo = command.validTo() != null
                 ? command.validTo()
                 : LocalDate.of(9999, 12, 31);
         MasterDataValidityPolicy.requireVersionSplit(
                 currentActive.getValidFrom(), currentActive.getValidTo(), newValidFrom, newValidTo);
-        LocalDate oldValidTo = newValidFrom.minusDays(1);
 
         // Construct and validate the effective next row before closing the current version.
         Product newVersion = new Product();
@@ -97,13 +96,19 @@ public class ProductService implements ProductUseCase {
         newVersion.setName(command.name() != null ? command.name() : currentActive.getName());
         newVersion.setDescription(command.description() != null ? command.description() : currentActive.getDescription());
         newVersion.setUnitOfMeasure(command.unitOfMeasure() != null ? command.unitOfMeasure() : currentActive.getUnitOfMeasure());
-        newVersion.setPrice(command.price() != null ? command.price() : currentActive.getPrice());
+        if (command.price() != null) {
+            newVersion.setPrice(command.price());
+        } else if (currentActive.getPrice() != null) {
+            newVersion.setPrice(currentActive.getPrice());
+        }
         newVersion.setProductType(command.productType() != null ? command.productType() : currentActive.getProductType());
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
         newVersion.setAuditUser("system");
         newVersion.validateBusinessFields();
 
+        // SCD2: 검증된 새 버전을 준비한 뒤 기존 활성 버전을 종료합니다.
+        LocalDate oldValidTo = newValidFrom.minusDays(1);
         currentActive.terminate(oldValidTo);
         productPersistencePort.save(currentActive);
 

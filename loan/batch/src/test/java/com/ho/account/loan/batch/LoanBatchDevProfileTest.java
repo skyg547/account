@@ -81,7 +81,7 @@ class LoanBatchDevProfileTest {
                 "com.ho.account.loan.infrastructure.adapter.LoanJournalAdapter",
                 "com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository",
                 "com.ho.account.shared.infrastructure.security.repository.AuditLogRepository",
-                "com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository",
+                "com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository",
                 "com.ho.account.journalledger.application.port.in.JournalUseCase"
         }) {
             assertThat(context.getBeanNamesForType(Class.forName(type))).as(type).isEmpty();

@@ -2,6 +2,7 @@ package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
+import jakarta.validation.constraints.AssertTrue;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -22,6 +23,19 @@ public class ProductRequestDto {
     private String unitOfMeasure;
 
     private BigDecimal price;
+
+    @AssertTrue(message = "가격은 0 이상이며 NUMERIC(19,4)에 손실 없이 저장할 수 있어야 합니다.")
+    public boolean isPriceExactlyRepresentable() {
+        if (price == null) {
+            return true; // core owns missing-price validation for CREATE vs partial UPDATE inheritance.
+        }
+        try {
+            Product.requireValidPrice(price);
+            return true;
+        } catch (IllegalArgumentException invalidPrice) {
+            return false;
+        }
+    }
 
     private Product.ProductType productType;
 

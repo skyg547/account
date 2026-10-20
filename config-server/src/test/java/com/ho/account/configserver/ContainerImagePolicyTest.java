@@ -15,7 +15,6 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
-@org.junit.jupiter.api.Disabled("Temporary disable for unblocking")
 class ContainerImagePolicyTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -62,12 +61,14 @@ class ContainerImagePolicyTest {
             }
         }
 
-        assertThat(targets.size()).isEqualTo(36);
-        assertThat(javaTargets).isEqualTo(35);
+        assertThat(targets.size()).isEqualTo(38);
+        assertThat(javaTargets).isEqualTo(37);
         assertThat(enabledJavaTargets).isEqualTo(35);
         assertThat(frontendTargets).isEqualTo(1);
-        assertThat(enabledGradleProjects)
+        assertThat(gradleProjects)
                 .containsExactlyInAnyOrderElementsOf(discoverEnabledExecutableProjects());
+        assertThat(enabledGradleProjects)
+                .doesNotContain(":cashflow:api", ":cashflow:batch");
         assertThat(gradleProjects)
                 .doesNotContain(":app", ":contracts", ":shared-kernel")
                 .allMatch(project -> !project.endsWith(":core"));
