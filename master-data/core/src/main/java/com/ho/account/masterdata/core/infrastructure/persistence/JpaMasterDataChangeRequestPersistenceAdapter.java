@@ -75,7 +75,7 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
 
     @Override
     public List<MasterDataChangeRequest> findReadyToApply(LocalDate effectiveDate, int limit) {
-        return repository.findByStatusAndEffectiveDateLessThanEqualOrderByEffectiveDateAscRequestedAtAsc(
+        return repository.findByStatusAndEffectiveDateLessThanEqualOrderByEffectiveDateAscRequestedAtAscIdAsc(
                 ChangeStatus.APPROVED,
                 effectiveDate,
                 PageRequest.of(0, limit)).stream()

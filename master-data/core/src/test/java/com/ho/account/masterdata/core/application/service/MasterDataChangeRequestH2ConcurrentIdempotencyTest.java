@@ -35,7 +35,7 @@ import org.springframework.transaction.support.TransactionTemplate;
                 "spring.datasource.hikari.maximum-pool-size=5",
                 "spring.flyway.enabled=true",
                 "spring.flyway.target=8",
-                "spring.flyway.locations=classpath:db/migration",
+                "spring.flyway.locations=classpath:db/migration,classpath:db/local-migration",
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "spring.jpa.open-in-view=false",
                 "spring.sql.init.mode=never",

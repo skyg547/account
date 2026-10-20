@@ -172,7 +172,9 @@ PostgreSQL에서는 최초 접수의 `INSERT ... ON CONFLICT DO NOTHING` 후 새
 
 CREATE/UPDATE payload의 업무 코드는 승인 대상 `targetKey`와 같아야 합니다. DEACTIVATE는 변경 필드가 없으므로 payload를 요구하지 않고 승인된 `effectiveDate`를 종료일로 사용합니다. 실제 typed applier와 도메인 서비스가 성공한 뒤에만 `APPLIED`가 됩니다.
 
-예약 반영인 `/apply-due`는 `findAll()` 후 메모리 필터를 하지 않습니다. `status=APPROVED`, `effectiveDate <= today` 조건으로 최대 500건씩 조회합니다. 현재 한 chunk가 하나의 트랜잭션이므로 운영 대량 처리에서는 요청별 `REQUIRES_NEW`와 DB `SKIP LOCKED` 파티셔닝이 다음 단계입니다.
+예약 반영인 `/apply-due`는 `findAll()` 후 메모리 필터를 하지 않습니다. `status=APPROVED`, `effectiveDate <= today` 조건으로 `effectiveDate`, `requestedAt`, `id` 순 최대 500건을 조회합니다. 각 후보는 별도 `REQUIRES_NEW` 트랜잭션에서 업무 키 → 요청 행 순으로 잠근 뒤 상태와 버전을 다시 확인합니다. 성공한 SCD2 변경과 `APPLIED`는 함께 커밋됩니다. 확정적인 버전 충돌·입력 오류는 해당 반영만 롤백하고 별도 트랜잭션에 `FAILED_CONFLICT` 또는 `FAILED_INVALID`와 안전한 실패 코드·시각을 저장합니다. 원래 요청 사유와 승인 감사 정보는 그대로 둡니다. HTTP 응답에는 실제 처리된 성공·실패 건이 선택 순서로 포함되며, 다른 작업자가 먼저 처리한 건은 건너뜁니다.
+
+다시 실행하면 `APPROVED`만 선택하므로 `APPLIED`와 `FAILED_*`는 중복 반영되지 않습니다. 격리된 실패 요청은 자동 재시도하지 않으며 담당자가 원인을 확인하고 새 승인 요청을 제출해야 합니다. SQL 연결·잠금 등 인프라 오류와 예상 밖 오류는 해당 요청을 `APPROVED`로 남기고 호출을 실패시켜, 장애 복구 후 다시 시도할 수 있게 합니다. 이때 이미 커밋된 앞 요청은 유지되며 뒤 요청은 다음 실행에서 처리됩니다. 두 작업자가 같은 후보를 읽을 수 있지만 잠금 후 상태를 재확인해 한 번만 적용합니다. 합성 PostgreSQL 두 작업자 테스트는 중복 반영을 차단하지만, 아직 `SKIP LOCKED`가 없어 같은 앞쪽 요청을 기다릴 수 있으며 운영 규모 처리량은 별도 검증이 필요합니다.
 
 ## 타 모듈 조회 흐름
 
@@ -244,9 +246,8 @@ SCD2 교체용 `closeVersion`과 업무 종료용 `terminate`는 과거 조회�
    상품 UPDATE는 새 가격의 부호·정밀도·범위를 core에서 먼저 확인하고 새 버전을 준비한 뒤
    이 종료/저장 단계를 시작합니다. 승인 요청은 접수·승인·반영 때 같은 가격 정책을
    검사하며, 생략한 UPDATE 가격은 잠금 후 읽은 현재 버전에서 이어받습니다.
-5. `/apply-due`는 최대500건의 서로 다른 키를 유형/코드 순으로 먼저 잠급니다. 요청별 처리도
-   같은 잠금 순서를 사용하여 키와 요청 잠금의 순서 역전을 피합니다. 한 chunk의 롤백 경계는
-   유지되며, 이 경로가 선택한 키들은 chunk 종료까지 잠깁니다.
+5. `/apply-due`는 최대 500개 후보를 고르되 한 요청의 업무 키와 요청 행만 그 요청의
+   트랜잭션 종료까지 잠급니다. 따라서 뒤 요청의 실패가 앞 성공을 되돌리지 않습니다.
 
 `requestedVersion`은 이력 행 수이지 모든 변경을 세는 revision이 아닙니다. 종료는 행 수를
 늘리지 않으므로, 이전 종료 이후에도 더 이른 종료일로 줄이는 유효한 순차 보정은 허용됩니다.
@@ -298,6 +299,6 @@ flowchart LR
 - Loan dev 원격 참조 검증은 Master Data API에 숫자 거래처 ID·기준일 통화 조회가 없어 실패합니다. 두 모듈의 조회 계약을 맞춘 뒤 원격 어댑터를 완성해야 합니다.
 - `TaxProfile`은 엔티티만 있고 repository/use case/applier/소비 계약이 없습니다. Tax와 소유권을 정해 전체 SCD2 흐름을 구현하거나 중복 모델을 이관·제거해야 합니다.
 - 전체 이력/검색/pending API는 아직 무제한 List 계약입니다. 안정 정렬, 최대 page size와 DB limit가 있는 pagination을 포트부터 HTTP까지 연결해야 합니다.
-- `/apply-due`는 최대 500건을 제한하지만 한 트랜잭션입니다. 요청별 재시작성과 병렬 처리를 위해 `REQUIRES_NEW` 실행기, `SKIP LOCKED`, 성공/실패 실행 이력 포트를 추가해야 합니다.
+- `/apply-due`의 요청별 트랜잭션과 실패 상태 기록은 구현되었습니다. 운영 규모의 병렬 처리를 위해 `SKIP LOCKED` 파티셔닝과 별도 실행 이력/관제 포트는 후속 과제입니다.
 - 계정과목/부서/거래처/상품의 직접 쓰기 API는 `MasterDataDirectWritePolicy`에 의해 관리자 보정 전용(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN` 등)으로 인가 제한이 적용되었습니다. 변경 요청(`/api/master-data/change-requests`)의 접수·승인·반려·반영과 pending 조회도 `PARTNER_MANAGER`, `MASTER_MANAGER`, `ACCOUNTING_ADMIN`, `SYSTEM_ADMIN`, `ADMIN` 역할 중 하나가 있어야 합니다.
 - `master-data:batch`는 독립 Job/Step 실행 모듈이지만 현재 결과를 execution context에만 남깁니다. 운영 장기 보관과 관제를 위해 실행 이력 출력 포트와 메트릭/알림 어댑터를 추가해야 합니다.

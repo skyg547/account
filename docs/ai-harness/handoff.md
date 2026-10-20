@@ -1,3 +1,10 @@
+## 2026-10-20 — GH-918 Draft PR #932 handoff
+
+- [Issue #918](https://github.com/skyg547/account/issues/918) is `status:needs-review`; branch `agent/918-isolate-due-changes`, worktree `/tmp/account-918-isolate-due-changes`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`, implementation `c7fc82d5`; [Draft PR #932](https://github.com/skyg547/account/pull/932) uses `Refs #918`. Scope is 26 `master-data/**` files and four explicitly requested harness/history records.
+- Due `APPROVED` changes run one transaction each; deterministic conflict/invalid cases are durably reported and stop reentering the queue, while infrastructure failures remain retryable. Lock rechecks prevent two workers from applying the same request twice. PostgreSQL V11 and local H2 schema, API status fields, and module guidance are included.
+- Required offline core/API/Batch suite PASS: 619/130/5 total, 29 PostgreSQL-conditioned API skips, no failures/errors. Focused H2 6/6 and synthetic PostgreSQL two-worker 2/2 PASS; PostgreSQL V10→V11 and H2 V5→V8 scoped migration checks, bootJars, local API/Batch JAR startups, diff/marker checks PASS. Live unauthenticated apply-due returned 401 and did not exercise business authorization. Independent read-only review: no unresolved P0–P3; Q1–Q4 PASS with the evidence table in `worklog.md` and the PR.
+- Residual: OS crash, authenticated deployed HTTP, and operating-scale contention are untested. The existing H2 migration-runner V5→full-history test fails at PostgreSQL-only V9 SQL. Rollback is reviewed issue-scoped code revert and reviewed forward schema correction; keep business and audit records. Human reviewer owns current-head CI and Draft review. Implementer, read-only reviewer, and merge authority are separate; Ready, merge, Issue close, branch/worktree removal require separate authorization.
+
 ## 2026-10-20 — GH-922 / Draft PR #936 foundation documentation handoff
 
 - Issue/trace: [#922](https://github.com/skyg547/account/issues/922), [Draft PR #936](https://github.com/skyg547/account/pull/936) (`Refs #922`), `agent/922-foundation-doc-runtime`, `/tmp/account-922-foundation-doc-runtime`, `origin/main@b2912554`.

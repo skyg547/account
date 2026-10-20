@@ -305,8 +305,19 @@ class MasterDataChangeRequestPostgresqlIdempotencyTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @ComponentScan(basePackages = {"com.ho.account.masterdata.core.application",
-            "com.ho.account.masterdata.core.infrastructure"})
+    @ComponentScan(
+            basePackages = {"com.ho.account.masterdata.core.application",
+                    "com.ho.account.masterdata.core.infrastructure"},
+            excludeFilters = {
+                    @ComponentScan.Filter(type = org.springframework.context.annotation.FilterType.CUSTOM,
+                            classes = org.springframework.boot.context.TypeExcludeFilter.class),
+                    @ComponentScan.Filter(type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
+                            classes = {
+                                    MasterDataDueChangeIsolationTest.class,
+                                    MasterDataDueChangeIsolationTest.TestApplication.class,
+                                    MasterDataDueChangeIsolationTest.TestDependencies.class
+                            })
+            })
     @EntityScan(basePackages = {"com.ho.account.masterdata.core.domain.model",
             "com.ho.account.masterdata.core.domain.changerequest",
             "com.ho.account.masterdata.core.infrastructure.persistence"})

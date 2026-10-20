@@ -22,10 +22,13 @@ public class MasterDataChangeRequestDto {
     private final LocalDateTime requestedAt;
     private final LocalDateTime approvedAt;
     private final LocalDateTime appliedAt;
+    private final String failureReason;
+    private final LocalDateTime failedAt;
 
     public MasterDataChangeRequestDto(Long id, MasterDataType targetType, ChangeType changeType,
             ChangeStatus status, LocalDate effectiveDate, Integer requestedVersion,
-            LocalDateTime requestedAt, LocalDateTime approvedAt, LocalDateTime appliedAt) {
+            LocalDateTime requestedAt, LocalDateTime approvedAt, LocalDateTime appliedAt,
+            String failureReason, LocalDateTime failedAt) {
         this.id = id;
         this.targetType = targetType;
         this.changeType = changeType;
@@ -35,13 +38,16 @@ public class MasterDataChangeRequestDto {
         this.requestedAt = requestedAt;
         this.approvedAt = approvedAt;
         this.appliedAt = appliedAt;
+        this.failureReason = failureReason;
+        this.failedAt = failedAt;
     }
 
     public static MasterDataChangeRequestDto fromEntity(MasterDataChangeRequest entity) {
         // Project only fixed metadata; the stored command and its raw payload remain untouched.
         return new MasterDataChangeRequestDto(entity.getId(), entity.getTargetType(),
                 entity.getChangeType(), entity.getStatus(), entity.getEffectiveDate(), entity.getRequestedVersion(),
-                entity.getRequestedAt(), entity.getApprovedAt(), entity.getAppliedAt());
+                entity.getRequestedAt(), entity.getApprovedAt(), entity.getAppliedAt(),
+                entity.getFailureReason(), entity.getFailedAt());
     }
 
     public Long getId() { return id; }
@@ -53,4 +59,6 @@ public class MasterDataChangeRequestDto {
     public LocalDateTime getRequestedAt() { return requestedAt; }
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public LocalDateTime getAppliedAt() { return appliedAt; }
+    public String getFailureReason() { return failureReason; }
+    public LocalDateTime getFailedAt() { return failedAt; }
 }

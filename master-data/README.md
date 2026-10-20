@@ -117,7 +117,7 @@ erDiagram
 .\gradlew :master-data:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29" --console=plain --max-workers=1 --no-daemon
 ```
 
-프로파일을 생략하면 `local`이 선택되어 H2 PostgreSQL mode와 Flyway V1-V8 (H2 target=8, 반려 사유 반복 migration 포함), JPA validate를
+프로파일을 생략하면 `local`이 선택되어 H2 PostgreSQL mode와 Flyway V1-V8 (H2 target=8, 반려 사유 반복 migration 및 H2 전용 실패 상태 migration 포함), JPA validate를
 사용합니다. `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하고 애플리케이션 Flyway와
 SQL/Batch schema 자동 생성을 끕니다. 배포 migration은 별도 `migration-runner`가 수행합니다.
 prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외부 서비스의 SCD2 조회는
@@ -133,7 +133,7 @@ prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외�
 - 승인된 변경 요청은 targetType별 applier가 실제 SCD2 반영을 수행한 뒤에만 `APPLIED`가 됩니다. 현재 `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT` typed applier가 구현되어 있습니다.
 - `requestedVersion`은 CREATE=1, UPDATE=현재 저장 이력 수+1, DEACTIVATE=현재 저장 이력 수입니다. 요청·승인·반영 직전에 반복 검증하므로 대기 중 다른 버전이 먼저 반영되면 오래된 요청은 실패합니다.
 - `DEACTIVATE`는 JSON payload 없이 실행되며 승인된 `effectiveDate`를 SCD2 종료일로 사용합니다. `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 typed applier와 버전 어댑터가 생기기 전까지 접수 단계에서 fail-closed 됩니다.
-- 요청/승인/반영과 네 유형의 직접 쓰기는 `(targetType, targetKey)` 잠금을 트랜잭션 종료까지 공유합니다. 승인/반영은 그 뒤 요청 행을 잠그고 최신 버전을 다시 확인하며 `lockVersion`도 유지합니다. 예약 반영은 `APPROVED` 상태와 `effectiveDate` 조건으로 최대 500건을 조회합니다.
+- 요청/승인/반영과 네 유형의 직접 쓰기는 `(targetType, targetKey)` 잠금을 트랜잭션 종료까지 공유합니다. 승인/반영은 그 뒤 요청 행을 잠그고 최신 버전을 다시 확인하며 `lockVersion`도 유지합니다. 예약 반영은 `APPROVED` 상태와 `effectiveDate` 조건으로 최대 500건을 조회하고 요청별 독립 트랜잭션으로 처리합니다. 실패 건은 안전한 분류·시각과 함께 `FAILED_*`로 격리해 다음 실행에서 다시 선택하지 않습니다.
 - `core` 변경 요청 유즈케이스에 전달된 Governance 승인 ID는 `sourceReference`로 저장합니다. PostgreSQL에서는 동시 최초 접수도 DB의 원자적 생성·기존 행 조회를 거쳐 동일한 요청 ID를 반환하고, 다른 명령의 식별자 재사용은 충돌 예외로 차단합니다. 현재 HTTP 생성 DTO는 `sourceReference`를 받지 않으므로 이 접수 멱등성은 HTTP POST에는 적용되지 않습니다. 검증 실패 시 새 요청 행도 롤백됩니다. 이미 `APPLIED`인 요청 ID의 반영 재시도는 SCD2 이력과 `appliedAt`을 바꾸지 않고 기존 결과를 반환합니다.
 - 계정과목/부서/거래처/상품의 직접 쓰기(POST/PUT/DELETE) API는 서비스의 인증 필터에서 설정한 `AUTH_JWT_AUDIENCE`(기본 `account-api`) audience의 Auth 서명 JWT를 재검증한 뒤 `MasterDataDirectWritePolicy`를 통해 승인된 관리자 역할(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN`, `ROLE_MASTER_MANAGER`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_PARTNER_MANAGER`)로 제한됩니다. 자격증명이 없거나 위조된 요청은 HTTP 401, 검증된 비관리자는 HTTP 403입니다. Gateway의 `X-Auth-*` 전달 값은 JWT claim과 일치해야 합니다.
 - 변경 요청의 조회/승인/반려/반영도 같은 수신 서비스 검증을 거칩니다. 내부 회계기간 변경은 별도 서명키와 `master-data-internal` audience의 Closing assertion을 요구하며, `audit_user`에는 검증된 `closing:<delegated actor>`를 기록합니다. 상세 입력과 통합 제약은 [docs/process-flow.md](docs/process-flow.md)에 있습니다.

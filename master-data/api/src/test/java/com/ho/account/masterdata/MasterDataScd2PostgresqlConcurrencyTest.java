@@ -343,6 +343,77 @@ class MasterDataScd2PostgresqlConcurrencyTest {
     }
 
     @Test
+    void dueApplyCommitsValidNeighborsAndQuarantinesInvalidMiddleRequest() {
+        deferOlderApprovedFixtures();
+        String firstKey = key();
+        String invalidKey = key();
+        String lastKey = key();
+        long firstId = approve(MasterDataType.DEPARTMENT, firstKey, ChangeType.CREATE);
+        long invalidId = approve(MasterDataType.DEPARTMENT, invalidKey, ChangeType.CREATE);
+        long lastId = approve(MasterDataType.DEPARTMENT, lastKey, ChangeType.CREATE);
+        // Approval used valid input. Corrupt only the stored synthetic payload to model a legacy
+        // or externally damaged request becoming invalid before its effective date.
+        jdbc.update("UPDATE master_data_change_requests SET payload_json = ? WHERE id = ?",
+                "{", invalidId);
+
+        List<MasterDataChangeRequest> results = changeRequests.applyDueApprovedChanges();
+
+        assertThat(results).extracting(MasterDataChangeRequest::getId)
+                .containsExactly(firstId, invalidId, lastId);
+        assertRequest(firstId, "APPLIED", true);
+        assertRequest(invalidId, "FAILED_INVALID", false);
+        assertRequest(lastId, "APPLIED", true);
+        assertHistory(MasterDataType.DEPARTMENT, firstKey, 1);
+        assertHistory(MasterDataType.DEPARTMENT, invalidKey, 0);
+        assertHistory(MasterDataType.DEPARTMENT, lastKey, 1);
+        assertThat(jdbc.queryForObject("""
+                SELECT failure_reason FROM master_data_change_requests WHERE id = ?
+                """, String.class, invalidId)).isEqualTo("INVALID_REQUEST");
+        assertThat(jdbc.queryForObject("""
+                SELECT failed_at IS NOT NULL FROM master_data_change_requests WHERE id = ?
+                """, Boolean.class, invalidId)).isTrue();
+        assertThat(changeRequests.applyDueApprovedChanges()).isEmpty();
+        assertHistory(MasterDataType.DEPARTMENT, firstKey, 1);
+        assertHistory(MasterDataType.DEPARTMENT, lastKey, 1);
+    }
+
+    @Test
+    void twoDueWorkersApplyTheSameRequestOnlyOnce() throws Exception {
+        deferOlderApprovedFixtures();
+        String key = key();
+        long id = approve(MasterDataType.DEPARTMENT, key, ChangeType.CREATE);
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<List<MasterDataChangeRequest>> first = workers.submit(() -> {
+                await(start);
+                return changeRequests.applyDueApprovedChanges();
+            });
+            Future<List<MasterDataChangeRequest>> second = workers.submit(() -> {
+                await(start);
+                return changeRequests.applyDueApprovedChanges();
+            });
+            start.countDown();
+            List<MasterDataChangeRequest> combined = new java.util.ArrayList<>();
+            combined.addAll(first.get(15, TimeUnit.SECONDS));
+            combined.addAll(second.get(15, TimeUnit.SECONDS));
+            assertThat(combined).extracting(MasterDataChangeRequest::getId).containsExactly(id);
+        } finally {
+            start.countDown();
+            workers.shutdownNow();
+            assertThat(workers.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+        assertRequest(id, "APPLIED", true);
+        assertHistory(MasterDataType.DEPARTMENT, key, 1);
+    }
+
+    private void deferOlderApprovedFixtures() {
+        // Existing concurrency cases leave intentional APPROVED losers in this isolated schema.
+        jdbc.update("UPDATE master_data_change_requests SET effective_date = ? WHERE status = 'APPROVED'",
+                LocalDate.now().plusDays(1));
+    }
+
+    @Test
     void approvedUpdateRefreshesPreloadedCurrentWindowAfterConcurrentDeactivation() throws Exception {
         String key = key();
         directWrite(MasterDataType.DEPARTMENT, key, ChangeType.CREATE, START);

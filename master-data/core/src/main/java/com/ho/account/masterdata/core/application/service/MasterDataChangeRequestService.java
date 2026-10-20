@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
+import com.ho.account.masterdata.core.application.exception.UnsupportedMasterDataTypeException;
 import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
@@ -14,9 +15,10 @@ import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflict
 import com.ho.account.masterdata.core.domain.policy.MasterDataChangeVersionPolicy;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -38,16 +40,30 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     private final MasterDataVersionQueryPort versionQueryPort;
     private final MasterDataChangeApplierRegistry applierRegistry;
     private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataDueChangeExecutor dueChangeExecutor;
 
+    @Autowired
+    public MasterDataChangeRequestService(
+            MasterDataChangeRequestPersistencePort persistencePort,
+            MasterDataVersionQueryPort versionQueryPort,
+            List<MasterDataChangeApplier> appliers,
+            MasterDataBusinessKeyLockPort businessKeyLockPort,
+            MasterDataDueChangeExecutor dueChangeExecutor) {
+        this.persistencePort = persistencePort;
+        this.versionQueryPort = versionQueryPort;
+        this.applierRegistry = new MasterDataChangeApplierRegistry(appliers);
+        this.businessKeyLockPort = businessKeyLockPort;
+        this.dueChangeExecutor = dueChangeExecutor;
+    }
+
+    /** Direct construction is retained for core unit tests; Spring injects the proxied executor above. */
     public MasterDataChangeRequestService(
             MasterDataChangeRequestPersistencePort persistencePort,
             MasterDataVersionQueryPort versionQueryPort,
             List<MasterDataChangeApplier> appliers,
             MasterDataBusinessKeyLockPort businessKeyLockPort) {
-        this.persistencePort = persistencePort;
-        this.versionQueryPort = versionQueryPort;
-        this.applierRegistry = new MasterDataChangeApplierRegistry(appliers);
-        this.businessKeyLockPort = businessKeyLockPort;
+        this(persistencePort, versionQueryPort, appliers, businessKeyLockPort,
+                new MasterDataDueChangeExecutor(persistencePort, versionQueryPort, appliers, businessKeyLockPort));
     }
 
     @Override
@@ -135,32 +151,33 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<MasterDataChangeRequest> applyDueApprovedChanges() {
         LocalDate today = LocalDate.now();
         List<MasterDataChangeRequest> dueChanges = persistencePort.findReadyToApply(today, APPLY_CHUNK_SIZE);
-        List<MasterDataChangeRequest> applied = new ArrayList<>(dueChanges.size());
+        List<MasterDataChangeRequest> results = new ArrayList<>(dueChanges.size());
 
-        // 전체 chunk가 한 트랜잭션이므로 모든 업무 키를 먼저 같은 순서로 잠급니다.
-        // 요청 행을 먼저 잡으면 단건 반영이나 다른 chunk와 서로의 키/요청 행을 기다릴 수 있습니다.
-        dueChanges.stream()
-                .map(request -> new BusinessKey(request.getTargetType(), request.getTargetKey()))
-                .distinct()
-                .sorted(Comparator.comparing((BusinessKey key) -> key.type().name())
-                        .thenComparing(BusinessKey::key))
-                .forEach(key -> businessKeyLockPort.lock(key.type(), key.key()));
-
-        // 부수효과와 실패 순서가 중요한 승인 반영이므로 stream보다 순서가 드러나는 반복을 사용합니다.
+        // Selection is only a candidate snapshot. Each request rechecks status under its own
+        // business-key then row lock, so concurrent workers never replay a completed request.
         for (MasterDataChangeRequest candidate : dueChanges) {
-            MasterDataChangeRequest locked = findForDecision(candidate.getId());
-            if (locked.isReadyToApply(today)) {
-                applied.add(applyAndSave(locked, today));
+            try {
+                dueChangeExecutor.applyDue(candidate.getId(), today).ifPresent(results::add);
+            } catch (MasterDataVersionConflictException conflict) {
+                // The failed apply transaction has rolled back. Only a deterministic version
+                // conflict is quarantined; SQL/lock failures must remain eligible for retry.
+                dueChangeExecutor.recordFailure(candidate.getId(), today,
+                        ChangeStatus.FAILED_CONFLICT, "VERSION_CONFLICT").ifPresent(results::add);
+            } catch (IllegalArgumentException invalid) {
+                if (invalid instanceof UnsupportedMasterDataTypeException) {
+                    // Missing strategy wiring is a deployment defect, not invalid request data.
+                    throw invalid;
+                }
+                // Store a fixed label rather than exception text that may contain payload data.
+                dueChangeExecutor.recordFailure(candidate.getId(), today,
+                        ChangeStatus.FAILED_INVALID, "INVALID_REQUEST").ifPresent(results::add);
             }
         }
-
-        // @todo 운영 대량 반영은 요청별 REQUIRES_NEW 트랜잭션과 DB SKIP LOCKED 파티셔닝으로
-        // 분리해 한 건의 실패가 같은 chunk 전체를 롤백하지 않도록 고도화해야 한다.
-        return List.copyOf(applied);
+        return List.copyOf(results);
     }
 
     private MasterDataChangeRequest applyAndSave(MasterDataChangeRequest request, LocalDate today) {
@@ -172,7 +189,7 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
         }
 
         MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
-        // 단건/일괄 호출자가 잡은 업무 키 잠금은 applier와 APPLIED 저장까지 유지됩니다.
+        // 단건 반영 호출자가 잡은 업무 키 잠금은 applier와 APPLIED 저장까지 유지됩니다.
         verifyCurrentVersion(request);
         applier.apply(request);
         request.markApplied();
@@ -193,8 +210,6 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     private void lockBusinessKey(MasterDataChangeRequest request) {
         businessKeyLockPort.lock(request.getTargetType(), request.getTargetKey());
     }
-
-    private record BusinessKey(MasterDataChangeRequest.MasterDataType type, String key) { }
 
     private MasterDataChangeRequest findForDecision(Long requestId) {
         if (requestId == null) {
