@@ -1,14 +1,15 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
 import com.ho.account.auth.core.application.port.out.AuthUserRepository;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -21,7 +22,7 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserRepository {
     private final Map<String, AuthUser> usersByUsername;
 
     public InMemoryAuthUserQueryAdapter(AuthModuleProperties properties) {
-        this.usersByUsername = new ConcurrentHashMap<>(
+        this.usersByUsername = new ConcurrentSkipListMap<>(
                 properties.getUsers().stream()
                         .map(this::toDomain)
                         .collect(Collectors.toMap(AuthUser::getUsername, Function.identity(), (first, second) -> second))
@@ -34,10 +35,15 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserRepository {
     }
 
     @Override
-    public List<AuthUser> findAllUsers() {
-        return usersByUsername.values().stream()
-                .sorted(Comparator.comparing(AuthUser::getUsername))
+    public ListPage<AuthUser> findUsers(ListPageRequest pageRequest) {
+        // The sorted map streams only the requested window; no full collection copy is needed.
+        List<AuthUser> rows = usersByUsername.values().stream()
+                .skip((long) pageRequest.page() * pageRequest.size())
+                .limit((long) pageRequest.size() + 1)
                 .toList();
+        boolean hasNext = rows.size() > pageRequest.size();
+        return new ListPage<>(hasNext ? rows.subList(0, pageRequest.size()) : rows,
+                pageRequest.page(), pageRequest.size(), hasNext);
     }
 
     synchronized AuthUser replaceRoleAssignments(String username, List<RoleAssignment> newAssignments) {

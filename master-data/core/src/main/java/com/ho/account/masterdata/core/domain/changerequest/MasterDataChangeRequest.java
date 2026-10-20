@@ -39,7 +39,9 @@ public class MasterDataChangeRequest {
     private String approvedBy;
     private LocalDateTime requestedAt;
     private LocalDateTime approvedAt;
+    /** The immutable submission reason; rejection feedback is stored separately. */
     private String reason;
+    private String rejectionReason;
     private String payloadJson;
 
     /**
@@ -82,9 +84,20 @@ public class MasterDataChangeRequest {
             ChangeStatus status, long lockVersion, LocalDate effectiveDate, Integer requestedVersion,
             String requestedBy, String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt,
             String reason, String payloadJson, String sourceReference, LocalDateTime appliedAt) {
-        return reconstitute(id, targetType, targetKey, changeType, status, lockVersion, effectiveDate,
-                requestedVersion, requestedBy, approvedBy, requestedAt, approvedAt, reason,
-                payloadJson, sourceReference, appliedAt, null, null);
+        return reconstitute(id, targetType, targetKey, changeType, status, lockVersion,
+                effectiveDate, requestedVersion, requestedBy, approvedBy, requestedAt, approvedAt,
+                reason, payloadJson, sourceReference, appliedAt, null, null, null);
+    }
+
+    public static MasterDataChangeRequest reconstitute(
+            Long id, MasterDataType targetType, String targetKey, ChangeType changeType,
+            ChangeStatus status, long lockVersion, LocalDate effectiveDate, Integer requestedVersion,
+            String requestedBy, String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt,
+            String reason, String payloadJson, String sourceReference, LocalDateTime appliedAt,
+            String rejectionReason) {
+        return reconstitute(id, targetType, targetKey, changeType, status, lockVersion,
+                effectiveDate, requestedVersion, requestedBy, approvedBy, requestedAt, approvedAt,
+                reason, payloadJson, sourceReference, appliedAt, rejectionReason, null, null);
     }
 
     public static MasterDataChangeRequest reconstitute(
@@ -93,6 +106,17 @@ public class MasterDataChangeRequest {
             String requestedBy, String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt,
             String reason, String payloadJson, String sourceReference, LocalDateTime appliedAt,
             String failureReason, LocalDateTime failedAt) {
+        return reconstitute(id, targetType, targetKey, changeType, status, lockVersion,
+                effectiveDate, requestedVersion, requestedBy, approvedBy, requestedAt, approvedAt,
+                reason, payloadJson, sourceReference, appliedAt, null, failureReason, failedAt);
+    }
+
+    public static MasterDataChangeRequest reconstitute(
+            Long id, MasterDataType targetType, String targetKey, ChangeType changeType,
+            ChangeStatus status, long lockVersion, LocalDate effectiveDate, Integer requestedVersion,
+            String requestedBy, String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt,
+            String reason, String payloadJson, String sourceReference, LocalDateTime appliedAt,
+            String rejectionReason, String failureReason, LocalDateTime failedAt) {
         MasterDataChangeRequest req = new MasterDataChangeRequest();
         req.id = id;
         req.targetType = targetType;
@@ -107,6 +131,7 @@ public class MasterDataChangeRequest {
         req.requestedAt = requestedAt;
         req.approvedAt = approvedAt;
         req.reason = reason;
+        req.rejectionReason = rejectionReason;
         req.payloadJson = payloadJson;
         req.sourceReference = sourceReference;
         req.appliedAt = appliedAt;
@@ -132,9 +157,10 @@ public class MasterDataChangeRequest {
         if (requestedBy.equals(normalizedApprover)) {
             throw new IllegalStateException("Requester and rejecter must be different users.");
         }
+        String normalizedReason = requireText(rejectReason, 500, "Reject reason is required.");
         this.approvedBy = normalizedApprover;
         this.approvedAt = LocalDateTime.now();
-        this.reason = requireText(rejectReason, 500, "Reject reason is required.");
+        this.rejectionReason = normalizedReason;
         this.status = ChangeStatus.REJECTED;
     }
 
@@ -165,6 +191,8 @@ public class MasterDataChangeRequest {
      */
     public void verifySameChange(MasterDataChangeRequest candidate) {
         if (sourceReference == null || candidate == null
+                // Legacy rejected rows overwrote the original reason, so equality cannot be proven.
+                || (status == ChangeStatus.REJECTED && rejectionReason == null)
                 || !Objects.equals(sourceReference, candidate.sourceReference)
                 || targetType != candidate.targetType
                 || !Objects.equals(targetKey, candidate.targetKey)
@@ -254,7 +282,11 @@ public class MasterDataChangeRequest {
     public String getApprovedBy() { return approvedBy; }
     public LocalDateTime getRequestedAt() { return requestedAt; }
     public LocalDateTime getApprovedAt() { return approvedAt; }
-    public String getReason() { return reason; }
+    public String getReason() {
+        return status == ChangeStatus.REJECTED && rejectionReason != null ? rejectionReason : reason;
+    }
+    public String getRequestReason() { return reason; }
+    public String getRejectionReason() { return rejectionReason; }
     public String getPayloadJson() { return payloadJson; }
     public String getSourceReference() { return sourceReference; }
     public LocalDateTime getAppliedAt() { return appliedAt; }

@@ -1,5 +1,6 @@
 package com.ho.account.auth.core.infrastructure.security;
 
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -14,7 +15,7 @@ import java.time.temporal.ChronoUnit;
 class LoginAttemptJpaEntity {
 
     @Id
-    @Column(name = "username", nullable = false, length = 80)
+    @Column(name = "username", nullable = false, length = AuthIdentityPolicy.MAX_USERNAME_LENGTH)
     private String username;
 
     @Column(name = "failure_count", nullable = false)

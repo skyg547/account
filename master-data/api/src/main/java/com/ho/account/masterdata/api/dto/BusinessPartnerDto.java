@@ -2,6 +2,7 @@ package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.common.Masked;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
 import java.time.LocalDate;
 
 /**
@@ -67,6 +68,14 @@ public class BusinessPartnerDto {
                 domain.getRiskRating(),
                 domain.getValidFrom(),
                 domain.getValidTo());
+    }
+
+    public static BusinessPartnerDto fromSummary(BusinessPartnerSummary summary) {
+        return new BusinessPartnerDto(
+                summary.id(), summary.businessPartnerCode(), summary.businessPartnerName(),
+                summary.registrationNumber(), summary.ceoName(), summary.businessType(),
+                summary.businessItem(), summary.partnerType(), summary.useYn(),
+                summary.kycStatus(), summary.riskRating(), summary.validFrom(), summary.validTo());
     }
 
     public Long getId() { return id; }

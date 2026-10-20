@@ -36,6 +36,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -218,7 +219,10 @@ class MasterDataScd2PostgresqlConcurrencyTest {
         MvcResult result = compete(() -> {
             assertThat(apply(winner).getResponse().getStatus()).isEqualTo(200);
         }, () -> apply(loser));
-        assertThat(result.getResponse().getStatus()).isEqualTo(409);
+        assertThat(result.getResponse().getStatus())
+                .as("resolved exception: %s; response: %s", result.getResolvedException(),
+                        result.getResponse().getContentAsString())
+                .isEqualTo(409);
         assertThat(versionReadBeforeCommit).isFalse();
         assertRequest(winner, "APPLIED", true);
         assertRequest(loser, "APPROVED", false);
@@ -290,11 +294,20 @@ class MasterDataScd2PostgresqlConcurrencyTest {
         String key = key();
         directWrite(MasterDataType.DEPARTMENT, key, ChangeType.CREATE, START);
         long id = approve(MasterDataType.DEPARTMENT, key, ChangeType.UPDATE);
-        MvcResult result = compete(() -> assertThat(apply(id).getResponse().getStatus()).isEqualTo(200), () -> {
+        AtomicReference<LocalDateTime> firstAppliedAt = new AtomicReference<>();
+        MvcResult result = compete(() -> {
+            assertThat(apply(id).getResponse().getStatus()).isEqualTo(200);
+            entityManager.flush();
+            firstAppliedAt.set(jdbc.queryForObject(
+                    "SELECT applied_at FROM master_data_change_requests WHERE id = ?",
+                    LocalDateTime.class, id));
+        }, () -> {
             requestPersistence.findById(id).orElseThrow();
             return apply(id);
         });
-        assertThat(result.getResponse().getStatus()).as("resolved exception: %s", result.getResolvedException()).isEqualTo(409);
+        assertThat(result.getResponse().getStatus()).as("resolved exception: %s", result.getResolvedException()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT applied_at FROM master_data_change_requests WHERE id = ?",
+                LocalDateTime.class, id)).isEqualTo(firstAppliedAt.get());
         assertRequest(id, "APPLIED", true);
         assertHistory(MasterDataType.DEPARTMENT, key, 2);
     }

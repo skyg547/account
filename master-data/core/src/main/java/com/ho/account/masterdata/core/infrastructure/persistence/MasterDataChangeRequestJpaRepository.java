@@ -7,6 +7,7 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -19,7 +20,8 @@ interface MasterDataChangeRequestJpaRepository extends JpaRepository<MasterDataC
 
     Optional<MasterDataChangeRequestEntity> findBySourceReference(String sourceReference);
 
-    List<MasterDataChangeRequestEntity> findByStatusOrderByRequestedAtAsc(ChangeStatus status);
+    Slice<MasterDataChangeRequestEntity> findByStatusOrderByRequestedAtAscIdAsc(
+            ChangeStatus status, Pageable pageable);
 
     List<MasterDataChangeRequestEntity> findByStatusAndEffectiveDateLessThanEqualOrderByEffectiveDateAscRequestedAtAscIdAsc(
             ChangeStatus status,

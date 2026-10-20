@@ -18,9 +18,9 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 
 - `POST /api/auth/login`
 - API의 `LoginRequest`는 core `LoginCommand`로 변환됩니다.
-- 현재 성공을 허용하는 로그인 유형은 대소문자를 구분하지 않는 명시적 `NORMAL`뿐입니다. `AuthService`는 사용자, 비밀번호, 활성/잠금, 부서, 유효 역할을 순서대로 확인합니다.
-- SSO 신뢰 공급자가 연결되어 있지 않으므로 클라이언트가 `SSO`를 지정해도 일반적인 자격 증명 오류로 fail-closed 처리하며 JWT를 발급하지 않습니다. null, 공백, 그 밖의 알 수 없는 로그인 유형도 같은 공개 오류로 거부합니다. 이 요청들은 자격 증명 검증이 시작되지 않으므로 로그인 실패 횟수나 임시 잠금 카운터를 소비하지 않습니다.
-- LDAP 로그인은 실제 OTP 검증 공급자가 연결되어 있지 않으므로 모든 OTP 값을 신뢰하지 않고 일반적인 자격 증명 오류로 fail-closed 처리합니다. 저장소에는 고정 OTP나 기본 OTP가 없습니다.
+- `NORMAL`과 `LDAP`는 등록 사용자·비밀번호를 검사하고, `SSO`는 공급자가 확인한 subject를 요청 username 및 등록 사용자와 대조합니다. 세 유형 모두 대소문자를 구분하지 않으며, 임시 잠금·활성/관리 잠금·부서·OTP·유효 역할 검사를 통과해야 JWT를 발급합니다.
+- 기본값에서는 SSO와 OTP가 비활성화되어 있습니다. `local` 프로파일에서는 `auth.sso.enabled=true`와 런타임 identity 설정으로 SSO를, `auth.otp.enabled=true`와 사용자별 Base32 secret으로 TOTP를 시험할 수 있습니다. `LDAP`는 항상 OTP가 필요하고, `NORMAL`·`SSO`는 해당 사용자에게 OTP가 설정되었거나 요청이 OTP를 제출했을 때 검증합니다. 실패한 SSO/OTP도 로그인 실패로 기록됩니다.
+- 이 설정 기반 SSO와 프로세스 메모리의 TOTP 재사용 방지는 로컬 검증용입니다. 운영 OAuth2/OIDC 공급자와 인스턴스 간 원자적 OTP 재사용 방지 어댑터는 아직 없습니다. 비로컬 환경에서 SSO/OTP를 활성화하려면 해당 포트의 운영 어댑터가 먼저 필요합니다. null, 공백, 알 수 없는 로그인 유형은 잠금 조회·실패 기록 전에 일반 자격 증명 오류로 거부합니다.
 - 로그인 한 시점의 유효 역할을 확정해 같은 목록을 `AuthenticationResult`, JWT `roles`, JWT `roleAssignments`에 사용합니다.
 - JWT 만료 시각은 설정 TTL과 토큰에 포함된 각 역할 할당의 `validTo` 중 가장 빠른 시각입니다. JWT의 초 단위 만료 표현 때문에 초 미만의 종료 시각은 이전 정수 초로 내려가며, 로그인 응답의 `expiresInSeconds`도 실제 서명된 만료 시각을 넘지 않습니다.
 - 발급 시점에 서명된 JWT로 완전한 1초도 표현할 수 없는 역할은 토큰과 응답 역할에서 제외합니다. USER 등 다른 역할이 남으면 그 역할로 로그인하고, 남은 역할이 없으면 `NO_EFFECTIVE_ROLE`로 거부합니다.
@@ -71,7 +71,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 - 로그인 성공/실패는 `LoginAttemptPort`로 기록합니다.
 - 기본 정책은 연속 5회 실패 시 15분 잠금입니다.
 - 단일 인스턴스는 memory, 다중 인스턴스는 `AUTH_LOGIN_SECURITY_STORE=jpa`를 사용합니다.
-- JPA 모드는 정규화한 username별 DB 행을 잠그고 최초 행 생성, 실패 증가, 만료 후 재시작, 성공 시 초기화를 직렬화합니다. 잠금 중 도착한 성공 기록은 갱신된 잠금을 해제하지 않습니다.
+- JPA 모드는 정규화한 username별로 최초 행을 충돌 없이 만들고 기존 행을 쓰기 잠금으로 읽어 실패 증가, 만료 후 재시작, 성공 시 초기화를 직렬화합니다. 임베디드 PostgreSQL 테스트는 동시 최초 삽입과 기존 행의 동시 증가가 모두 실패 횟수를 잃지 않고 5회째 잠그는 것을 확인합니다. 잠금 중 도착한 성공 기록은 갱신된 잠금을 해제하지 않습니다.
 - 이미 잠금 확인을 통과해 처리 중인 요청은 잠금이 생긴 뒤에도 실패를 기록하거나 JWT 발급을 끝낼 수 있습니다. 상세한 순서와 검증 범위는 [process-flow.md](./docs/process-flow.md)를 참조합니다.
 
 ### 📌 Governance 역할 할당 반영과 멱등성
@@ -170,3 +170,11 @@ docker-compose up -d auth
 ## 4. 남은 운영 고도화
 
 - 승인 멱등 이력은 감사 보존기간과 최대 재시도 기간을 고려한 archive/retention 정책이 필요합니다.
+
+### 목록 페이지 계약 (Issue #920)
+
+`GET /api/admin/users`, `GET /api/auth/pat`, `GET /api/auth/admin/pat`는 0부터 시작하는 `page`와 `size` 쿼리 파라미터를 받습니다. 기본값은 `page=0&size=20`, 최대 크기는 100입니다. 음수 페이지, 1 미만 또는 100 초과 크기, SQL offset 정수 범위를 넘는 조합은 HTTP 400입니다. 응답 본문은 기존 소비자와 호환되는 JSON 배열이며 `X-Page`, `X-Page-Size`, `X-Has-Next` 응답 헤더가 페이지 정보를 전달합니다. 전체 목록이 필요한 소비자는 `X-Has-Next: true`인 동안 `page`를 하나씩 올려 재요청해야 합니다. 기존 배열 한 번 조회가 전체 데이터를 준다고 가정한 화면과 스크립트는 이 반복 호출로 이전해야 합니다.
+
+현재 소비자 이전 대상은 `frontend/src/services/adminService.ts`의 `getUsers()`와 이를 호출하는 `frontend/src/app/admin/users/page.tsx`, `frontend/src/app/system/tokens/page.tsx`의 관리자 PAT 목록, `frontend/src/app/profile/pat/page.tsx`의 내 PAT 목록입니다. 이 코드들은 현재 첫 배열 응답을 전체 목록으로 취급하므로, 화면에서 전체 데이터가 필요하면 응답의 `X-Has-Next`를 읽어 같은 인증으로 후속 페이지를 이어 붙여야 합니다. 프런트엔드는 이번 auth 모듈 변경 범위 밖이므로 소비자 이전은 별도 작업으로 추적합니다.
+
+사용자 목록은 `username ASC` (고유 키)로 페이지를 정한 뒤 선택된 사용자들의 역할만 읽습니다. 역할의 현재 효력 판단은 기존처럼 조회 시각에 적용합니다. PAT 목록은 `created_at DESC, id DESC`로 정렬하고 개인 목록은 검증된 토큰 소유자만 조회하며 관리자 목록에는 검증된 시스템 관리자 권한이 필요합니다. 각 목록은 SQL에서 크기를 제한하며 한 행을 추가 조회해 다음 페이지 여부를 정합니다. Offset 페이지는 조회 중 삽입·삭제가 있으면 경계가 이동할 수 있으므로 변경 중인 데이터를 완전한 스냅샷으로 내보내는 용도로 사용하지 마세요.
