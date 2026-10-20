@@ -4,7 +4,7 @@
 
 | 메서드 | 경로 | 역할 |
 | --- | --- | --- |
-| `POST` | `/api/auth/login` | 명시적 `NORMAL` 비밀번호 로그인의 자격 증명을 검증하고 JWT를 발급합니다. SSO/LDAP는 신뢰 공급자가 없어 fail-closed입니다. |
+| `POST` | `/api/auth/login` | `NORMAL`·`LDAP` 비밀번호 또는 `SSO` 공급자 자격을 검증하고 필요한 OTP·계정·역할 확인 뒤 JWT를 발급합니다. 기본 SSO/OTP는 비활성화되어 있습니다. |
 | `POST` | `/api/auth/validate-token-version` | 버전과 현재 계정/유효 역할 상태를 확인합니다. |
 | `POST` | `/api/auth/internal/users/{username}/role-assignments` | Governance 승인 결과로 사용자 역할 목록을 멱등 교체합니다. |
 | `GET` | `/api/admin/users` | 프런트엔드 관리 화면용 사용자 목록을 username 순서로 조회합니다. |
@@ -55,9 +55,17 @@ sequenceDiagram
     participant Token as TokenIssuerPort
 
     API->>Service: LoginCommand
+    Service->>Service: loginType·username 길이 검증
     Service->>Attempt: isLocked(username)
-    Service->>UserPort: findByUsername(username)
-    Service->>Service: password/active/admin-lock/department 검사
+    alt SSO
+        Service->>Service: 공급자 인증·subject와 요청 username 대조
+        Service->>UserPort: findByUsername(subject)
+    else NORMAL 또는 LDAP
+        Service->>Service: 비밀번호 입력 확인
+        Service->>UserPort: findByUsername(username)
+        Service->>Service: 저장 비밀번호 대조
+    end
+    Service->>Service: active/admin-lock/department/필요한 OTP 검사
     Service->>Domain: effectiveRoleAssignmentsAt(authenticatedAt)
     Domain-->>Service: 한 시점의 역할 스냅샷
     Service->>Token: TokenSubject + authenticatedAt
@@ -73,9 +81,9 @@ core는 `api.dto`를 참조하지 않습니다. 역할 유효성 계산 시각�
 
 발급기는 설정된 JWT TTL과 포함된 역할 할당의 `validTo` 중 가장 이른 시각을 `exp`로 서명합니다. `validTo`는 제외 경계이며 JWT는 초 단위이므로 초 미만의 종료 시각은 직전 정수 초에 만료되도록 내립니다. 이 경계에서 완전한 1초를 표현할 수 없는 역할은 발급 전 스냅샷에서 제외합니다. 영구 USER가 남으면 USER만 발급하고, 남은 역할이 없으면 `NO_EFFECTIVE_ROLE`로 로그인을 거부하므로 0초 토큰이나 발급 예외가 공개되지 않습니다. 응답의 `expiresInSeconds`는 서명된 만료 시각 기준의 완전한 초 수입니다. 영구 USER와 임시 ADMIN을 함께 담은 토큰은 ADMIN의 종료 시각을 만료 상한으로 갖고, 재로그인한 새 토큰에는 그 시점의 USER만 담깁니다. 미래에 시작할 역할은 기존 토큰에 추가되지 않으며 시작 이후 재로그인해야 포함됩니다. 별도 refresh API는 없습니다. Gateway가 허용 시계 오차를 적용하면 `exp` 정각 이후에도 토큰을 받아들일 수 있으므로 별도의 엄격한 만료 검사가 필요합니다.
 
-현재 성공 경로는 대소문자를 구분하지 않는 명시적 `NORMAL`뿐입니다. 신뢰할 SSO 공급자가 없으므로 `SSO` 요청은 일반적인 자격 증명 오류로 끝나며 사용자 조회나 JWT 발급으로 진행하지 않습니다. null, 공백, 알 수 없는 로그인 유형도 같은 공개 오류를 반환합니다. 이들은 자격 증명 검증이 시작되지 않은 요청이므로 로그인 실패 저장소를 조회하거나 실패 횟수와 임시 잠금 카운터를 변경하지 않습니다.
+`NORMAL`, `LDAP`, `SSO`는 대소문자 구분 없이 선택됩니다. `NORMAL`·`LDAP`는 등록 사용자의 비밀번호를 검사하고, `SSO`는 공급자가 확인한 subject를 요청 username과 대조한 뒤 같은 이름의 등록 사용자를 조회합니다. 공급자가 보낸 역할은 발급 권한에 사용하지 않고 Auth에 저장된 유효 역할만 사용합니다. null, 공백, 알 수 없는 유형은 잠금 조회나 실패 기록 전에 일반 자격 증명 오류로 거부합니다.
 
-LDAP 요청은 사용자와 비밀번호 및 임시 잠금 정책을 확인한 뒤에도 OTP 검증 공급자가 없으면 항상 일반적인 자격 증명 오류로 끝납니다. 고정값 또는 기본값 OTP를 성공 조건으로 사용하지 않으며 JWT를 발급하지 않습니다.
+`LDAP`는 항상 OTP를 요구합니다. `NORMAL`·`SSO`는 사용자별 OTP 설정이 있거나 요청에 OTP가 있으면 검증하고, 필요 없는 경우에만 생략합니다. 누락·오류·재사용 OTP와 SSO 인증/subject 오류는 실패로 기록합니다. 기본 설정에서 SSO와 OTP는 비활성화되어 해당 경로가 fail-closed됩니다. `local` 프로파일의 설정 기반 SSO 및 사용자별 TOTP 어댑터는 명시적 활성화와 런타임 자격 입력 시 성공할 수 있습니다. 이 어댑터들은 운영 신뢰 공급자나 다중 인스턴스 OTP 재사용 방지 기능이 아닙니다(`ConfiguredSsoAuthenticationAdapter`, `TotpVerificationAdapter`).
 
 `AuthService`는 사용자 조회, master-data 원격 확인, 로그인 실패 저장 전체를 하나의 DB 트랜잭션으로 묶지 않습니다. JPA 조회/실패 기록 어댑터가 각각 짧은 read/write 트랜잭션을 소유해 외부 호출 중 DB 연결을 오래 잡거나 실패 기록이 readOnly 경계에 묻히는 일을 막습니다.
 
@@ -83,7 +91,7 @@ LDAP 요청은 사용자와 비밀번호 및 임시 잠금 정책을 확인한 �
 
 `auth.login-security.store=jpa`에서는 `username`의 앞뒤 일반 공백을 `trim()`으로 제거하고 `Locale.ROOT` 소문자로 바꾼 값을 잠금 키로 사용합니다. `ADMIN`과 ` admin `은 같은 실패 횟수를 공유합니다. null은 `<blank>` 키로 바뀌지만 API는 빈 username을 그 전에 거부합니다. 키는 `auth_login_attempts.username`의 80자 제한을 따릅니다.
 
-실패 기록은 기존 행을 DB 쓰기 잠금으로 읽습니다. 첫 실패처럼 행이 없으면 같은 트랜잭션에서 0회 행을 충돌 없이 만든 뒤 잠금 상태에서 1회 증가시킵니다. 삽입과 잠금 조회 사이에 성공 처리가 행을 삭제한 경우에는 최대 3회 다시 찾고, 계속 사라지면 예외로 기록 트랜잭션을 되돌립니다. 여러 서버가 동시에 실패해도 커밋된 실패마다 횟수가 한 번씩 증가하며 설정된 `max-failures`번째에 잠깁니다. 잠금 만료 시 `isLocked`는 행을 지우지 않고 잠금 해제만 보고합니다. 다음 실패가 잠긴 행을 잡고 새로운 1회부터 시작하므로 만료 정리와 새 실패가 서로의 상태를 덮지 않습니다. 잠금 중 추가로 완료된 실패는 잠금 시간을 갱신할 수 있습니다.
+실패 기록은 기존 행을 DB 쓰기 잠금으로 읽습니다. 첫 실패처럼 행이 없으면 같은 트랜잭션에서 0회 행을 `ON CONFLICT DO NOTHING`으로 만든 뒤 잠금 상태에서 1회 증가시킵니다. 삽입과 잠금 조회 사이에 성공 처리가 행을 삭제한 경우에는 최대 3회 다시 찾고, 계속 사라지면 예외로 기록 트랜잭션을 되돌립니다. 임베디드 PostgreSQL의 `JpaLoginAttemptPostgresConcurrencyTest`는 동시 최초 삽입 8건이 8회로 남는 경우와 기존 1회 행에 동시 3건을 더해 4회가 되고 다음 5회째 잠기는 경우를 별도로 검증합니다. 이는 기존 행의 lost update도 막는다는 근거입니다. 잠금 만료 시 `isLocked`는 행을 지우지 않고 잠금 해제만 보고합니다. 다음 실패가 잠긴 행을 잡고 새로운 1회부터 시작하므로 만료 정리와 새 실패가 서로의 상태를 덮지 않습니다. 잠금 중 추가로 완료된 실패는 잠금 시간을 갱신할 수 있습니다.
 
 성공 기록도 같은 행을 잠급니다. 현재 잠금이 없으면 이전 실패 행을 지우고, 다른 요청이 방금 활성 잠금을 만든 경우에는 그 잠금을 유지합니다. 성공과 잠금 전 실패가 겹치면 DB 행 잠금을 획득한 순서로 처리되며, 성공 뒤에 처리된 실패는 새 횟수로 남습니다. 로그인 전체는 장기 DB 트랜잭션이 아니므로 이미 `isLocked`를 통과한 요청은 그 뒤 잠금이 생겨도 비밀번호 검증이나 JWT 발급을 마칠 수 있습니다. 잠금은 다음에 들어오는 요청을 막는 기준이며, 동시에 진행 중인 요청 수의 상한을 보장하지 않습니다.
 
@@ -119,7 +127,7 @@ LDAP 요청은 사용자와 비밀번호 및 임시 잠금 정책을 확인한 �
 초보자 관점에서는 부서 명부 담당자가 정확한 소속을 확인해 줘야 출입증을 발급하는 절차입니다.
 명부를 읽지 못했거나 다른 부서의 답을 받았다면 확인될 때까지 발급을 멈춥니다.
 404라면 잘못된 소속을 바로잡아야 하고, 503이라면 명부 조회가 가능해진 뒤 재시도해야 합니다.
-연결·응답 대기시간 상한 설정은 #801에서 다룹니다.
+연결·응답 대기 설정과 실제 요청 시간의 한계는 [local-run.md](./local-run.md#원격-부서-조회-대기-시간)에 설명합니다.
 현재 timeout 테스트는 예외를 모의한 것이며 실제 대기시간 상한을 검증하지 않습니다.
 
 JDK 17과 캐시된 Gradle 의존성이 있는 저장소 루트에서 다음 회귀 검증을 실행합니다.
