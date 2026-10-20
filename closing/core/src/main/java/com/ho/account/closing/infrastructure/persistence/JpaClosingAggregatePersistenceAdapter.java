@@ -80,6 +80,24 @@ public class JpaClosingAggregatePersistenceAdapter implements ClosingAggregatePe
         return gates;
     }
 
+    @Override
+    public List<ClosingTask> refreshActiveTasks(ClosingCalendar calendar) {
+        List<ClosingTask> tasks = entityManager.createQuery(
+                "select t from ClosingTask t where t.closingCalendar = :calendar and t.cycleNumber = :cycle", ClosingTask.class)
+                .setParameter("calendar", calendar).setParameter("cycle", calendar.getCycleNumber()).getResultList();
+        tasks.forEach(entityManager::refresh);
+        return tasks;
+    }
+
+    @Override
+    public List<ClosingGate> refreshActiveGates(ClosingCalendar calendar) {
+        List<ClosingGate> gates = entityManager.createQuery(
+                "select g from ClosingGate g where g.closingCalendar = :calendar and g.cycleNumber = :cycle", ClosingGate.class)
+                .setParameter("calendar", calendar).setParameter("cycle", calendar.getCycleNumber()).getResultList();
+        gates.forEach(entityManager::refresh);
+        return gates;
+    }
+
     private Optional<ClosingCalendar> lock(TypedQuery<ClosingCalendar> query) {
         Optional<ClosingCalendar> result = query.setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultStream().findFirst();

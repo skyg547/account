@@ -45,7 +45,7 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
             JournalSummary summary = existing.get();
             List<JournalDetailSummary> details = journalQueryPort.getJournalDetails(summary.getId());
             requireSameClosingRequest(command, summary, details);
-            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo());
+            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo(), summary.getStatus());
         }
 
         JournalEntryCommand journalCommand = new JournalEntryCommand(

@@ -134,9 +134,17 @@ sequenceDiagram
 
 마감 완료 판정은 단순히 상태값만 바꾸지 않습니다. 필수 태스크와 게이트를 조회한 뒤 도메인 메서드가 마감 가능 여부를 검증합니다. 이 구조 덕분에 API, Batch, 테스트가 같은 도메인 규칙을 공유할 수 있습니다.
 
-화면은 `GET /api/closing/calendars/{calendarId}/tasks`로 한 캘린더의 태스크를 조회합니다. 예를 들어 `GET /api/closing/calendars/10/tasks`는 해당 캘린더에 속한 태스크를 `ClosingTaskDto` 배열로 반환하고, 태스크가 없으면 빈 배열을 반환합니다. `calendarId`는 양수여야 하며 이 조회는 상태를 변경하거나 감사 로그를 만들지 않습니다.
+화면은 `GET /api/closing/calendars/{calendarId}/tasks`로 현재 마감 회차의 태스크를 조회합니다. 예를 들어 `GET /api/closing/calendars/10/tasks`는 해당 캘린더의 현재 회차 태스크를 `ClosingTaskDto` 배열로 반환하고, 태스크가 없으면 빈 배열을 반환합니다. `calendarId`는 양수여야 하며 이 조회는 상태를 변경하거나 감사 로그를 만들지 않습니다. 이전 회차의 행은 DB에 이력으로 남지만 현재 체크리스트 응답에는 포함되지 않습니다.
 
 캘린더는 `OPEN -> IN_PROGRESS -> CLOSED -> OPEN(승인된 재오픈)` 순서만 허용합니다. 필수 태스크와 게이트가 최소 한 개씩 있어야 하며, JSON 조건 문자열이 설정된 태스크/게이트는 아직 typed evidence evaluator가 없으므로 fail-closed 처리합니다.
+
+### 재오픈 후 새 마감 회차 (GH-885)
+
+첫 마감 회차는 `cycleNumber=1`입니다. 승인된 재오픈이 Master와 Closing 양쪽에서 완료될 때 회차를 하나 올리고, 직전 회차의 태스크·게이트 **정의**를 새 행으로 복제합니다. 새 태스크와 게이트는 모두 `PENDING`이고 이전 완료자·통과자 및 시각은 이월하지 않습니다. 이전 행은 회차 번호와 함께 이력으로 보존되며 이전 ID로 상태를 변경하거나 게이트를 다시 통과시킬 수 없습니다. 재오픈 준비·전송 실패 또는 반려에서는 새 회차를 만들지 않습니다.
+
+원천 거래가 달라졌든 그대로든 증빙 자동 이월은 허용하지 않습니다. 현재 회차의 필수 태스크를 다시 완료하고 모든 게이트를 다시 통과시켜야 합니다. 마감 시작 뒤 새로 관측한 최종 마감 증빙도 별도로 필요합니다. 현재 회차만 화면 조회·게이트 선행조건·마감 준비 판정에 사용하므로 과거 `COMPLETED`/`PASSED` 행으로 재마감할 수 없습니다. 외부 원장의 권위 있는 변경 워터마크는 현재 Closing 계약에 없으므로, 공급자 증빙 이후 외부 전기까지 자동 검출했다고 해석해서는 안 됩니다.
+V54 이전에 이미 재오픈된 캘린더는 과거 자식 행의 회차를 신뢰할 수 없어 새 회차를 비워 둡니다. 이 경우 새 체크리스트 정의부터 다시 등록해야 합니다. 기존 재오픈 시각의 시간대도 신뢰할 수 없어 신규 태스크·게이트 등록 또는 조정 등록으로 UTC 증빙 경계를 만든 뒤, 그 이후 관측한 최종 증빙만 사용합니다.
+Closing이 승인된 조정 전표를 등록할 때도 원천 변경 시각을 기록합니다. 현재 회차에서 태스크가 시작되었거나 게이트가 진행됐다면 그 회차 행을 보존하고 다시 새 `PENDING` 회차를 만듭니다. 아직 모두 `PENDING`이면 같은 회차를 유지합니다. 어느 쪽이든 최종 마감 증빙의 관측 시각은 조정 전표 등록 이후여야 합니다. 이 로컬 경로는 직접 원장에 전기된 모든 변경을 감지하는 전역 워터마크가 아닙니다.
 
 ## 최종 마감 증빙 (GH-778)
 
@@ -247,6 +255,14 @@ flowchart LR
 ```
 
 `PeriodLock`은 `FiscalPeriod` 엔티티를 직접 참조하지 않고 ID 값을 저장합니다. 이는 `closing` 도메인이 `master-data`의 JPA 모델에 묶이지 않도록 하기 위한 경계입니다.
+
+잠금·해제·재오픈 요청은 같은 기간의 캘린더 행을 잠그고 최신 상태를 확인합니다. 생성 시
+영속 삽입을 트랜잭션 안에서 즉시 확인하며, V54의 고유 제약이 다른 writer까지 포함해
+기간당 활성 잠금 한 건과 `PENDING` 요청 한 건만 허용합니다. 중복 생성 또는 잠금 충돌은
+HTTP 409로 반환하고 두 번째 잠금/요청과 감사 기록은 커밋하지 않습니다. 잠금 해제는
+기존 행의 `active`를 해제하고 해제자·시각을 남겨 다음 잠금의 새 행을 허용합니다. 승인 또는
+반려는 원 요청 행을 남긴 채 `PENDING` 슬롯만 비웁니다. 과거 행은 허용 판정의 활성 잠금
+조회에서 제외됩니다. V54 적용 전 중복 대사는 [데이터 모델](schema.md#기간-잠금과-재오픈-고유성-gh-887)에 설명합니다.
 
 ## 월말 동시 결정과 복구 (GH-774)
 
@@ -538,10 +554,11 @@ Data가 목적지를 정확한 `EQUITY`/`CREDIT` 계정으로 확인한 뒤에�
 flowchart TD
     A[API 본문의 year] --> B[단일 법인·정확한 연도 설정 규칙]
     B --> C[12월 31일 Master의 정확한 EQUITY/CREDIT 검증]
-    C --> D[연도 내 Journal summary 조회]
-    D --> E[POSTED 비연차 원천의 헤더와 상세 검증]
-    E --> F[원천 및 설정 통제 identity의 source snapshot]
-    F --> G[기존 연차 DRAFT와 POSTED의 헤더·상세 검증]
+    C --> D[Journal MVCC cutoff에서 두 번 JDBC cursor 조회]
+    D --> E[POSTED 비연차 원천 검증 및 공급자 합계 대사]
+    E --> F[모든 라인의 기준일 Master 분류와 원천 완전성 대사]
+    F --> F1[원천 및 설정 통제 identity의 source snapshot]
+    F1 --> G[기존 연차 DRAFT와 POSTED의 헤더·상세 검증]
     G --> H[필요 대체액 - 누적 POSTED 결산액]
     H -->|잔여 0| I[새 전표 없이 성공]
     H -->|같은 snapshot의 정확한 DRAFT| J[기존 초안 재사용]
@@ -560,11 +577,16 @@ flowchart TD
 
 ### Source snapshot 입력과 식별
 
+- #888부터 `AnnualJournalReadPort`의 Journal 읽기 전용 PostgreSQL 연결을 사용합니다. 하나의 `REPEATABLE READ READ ONLY` 트랜잭션 안에서 동일한 정렬 cursor를 두 번 순차 조회합니다. 첫 번째는 유효성·계정별 기준통화 잔액·정규화 문자열 길이를 계산하고, 두 번째는 기존 V2 SHA-256을 스트리밍합니다. 별도 SQL `COUNT(DISTINCT 전표 ID)`, 상세 건수, 차변·대변 `base_amount` 합계, 최댓값 ID를 같은 MVCC snapshot에서 구해 애플리케이션 계산과 대사합니다. Journal SQL 요청은 3회로 고정되고 전체 연도 Java 목록이나 전표별 HTTP 요청이 없습니다. 단, JDBC cursor는 fetch size 1,000에 따라 원천 행 수에 비례한 네트워크 패킷을 전송하므로 대역폭과 전체 수행 시간은 원천 규모에 비례합니다. 이후 커밋된 원천은 다음 실행의 delta 대상입니다.
+- JDBC fetch size는 1,000행, 각 SQL timeout은 60초입니다. 한 전표의 상세는 최대 10,000행, 기준일·계정 분류 키는 최대 10,000개, 기존 연차 전표는 최대 1,000개/상세 100,000행입니다. 한도를 넘으면 일부만 마감하지 않고 실패합니다. 분류가 Journal 행에 없으면 계정·회계일별 Master 조회를 1회만 하고 캐시에 보관하므로 원천 전표 건수와 무관하게 외부 Master 호출도 유한합니다. Journal과 Master는 별도 DB이므로 두 시스템의 동시 원자적 동결은 제공하지 않으며 승인된 기준일 분류 변경 통제가 필요합니다.
+- `dev`/`local` 이외의 내장 모놀리스는 같은 primary PostgreSQL에 Journal 읽기·쓰기를 묶습니다. `closing.sources.enabled` 값과 무관하게 연차 cursor도 primary DB를 사용해 다른 DB의 원천을 읽고 primary DB에 초안을 쓰는 오류를 막습니다. `dev`는 `closing.sources.enabled=true`일 때만 별도 읽기 전용 source(`closing.sources.journal.*`)를 열며 Journal/ECL/Master source 설정이 함께 필요합니다. `dev`에서 source가 꺼지거나 `local` H2이면 연차 실행은 fail-closed 합니다. 초안 쓰기에는 승인된 `JournalPostingPort`가 필요합니다. 합성 PostgreSQL 실행계획, 시간 제한, 재시작 증거와 100M 미검증 한계는 [검증 기록](annual-close-postgresql-evidence.md)에 있습니다.
+- 내장 모놀리스의 연차 유즈케이스는 primary DB 트랜잭션 안에서 별도 읽기 전용 cursor 연결을 엽니다. primary connection pool은 동시에 최소 2개 연결을 제공해야 하며, 단일 연결 풀은 대기/timeout을 일으킬 수 있습니다. 실행 중 장시간 cursor가 보유하는 연결과 Journal 쓰기·다른 업무 연결의 여유도 용량 산정에 포함합니다.
+
 - 대상은 1월 1일부터 12월 31일까지의 `POSTED`이면서 연차 결산이 아닌 전표입니다. `DRAFT` 원천은 금액과 identity에서 제외합니다.
 - 전표 헤더의 ID, 전표번호, 전표일·회계일, 설명, 상태, 유형, 통화, lineage 쌍과 각 상세의 ID, 계정, 유효 분류, 차대변, 금액·기준통화금액, 회계일, 헤더 연결 값, 상세 설명과 부서·거래처·계좌 차원을 정규화합니다.
-- 상세와 전표 순서를 정렬하고 연도·이익잉여금 계정·정규화한 설정 통제 identity와 함께 SHA-256으로 식별합니다. 설정 identity는 `legalEntityCode`, 연도, 계정 코드, `postable`, `approvedBy`, `changeReference`를 포함합니다. 공급자의 반환 순서만 바뀌면 identity는 같지만, 원천 금액·계정·분류·헤더/lineage나 이 설정 증빙이 바뀌면 다른 snapshot입니다.
-- 상세가 비어 있지 않은 지원 `accountCategory`를 제공하면 그 값을 사용합니다. 값이 없으면 상세의 계정 코드와 회계일자로 `MasterDataQueryPort.findAccountSubjectAt`을 호출하며, 같은 실행의 동일 계정·일자는 캐시합니다. dev에서 remote Master Data 설정을 활성화한 경우의 구현은 `HttpClosingMasterDataQueryAdapter`입니다.
-- 지원 분류는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`, `NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 기준일 계정 조회 누락, 다른 계정 코드 반환, 빈 분류, 미지원 분류와 연차 라인의 현재 원천 분류 불일치는 실패합니다. `REVENUE`와 `EXPENSES`만 대체 금액에 포함되며, 한 계정이 두 손익 분류로 나타나거나 이익잉여금 계정이 손익 계정이면 실패합니다.
+- 상세와 전표 순서를 기존 V2 canonical 문자열 순서로 정렬하고 연도·이익잉여금 계정·정규화한 설정 통제 identity와 함께 SHA-256으로 식별합니다. 설정 identity는 `legalEntityCode`, 연도, 계정 코드, `postable`, `approvedBy`, `changeReference`를 포함합니다. 이미 생성된 V2 초안/전기분의 lineage와 같은 원천이라면 동일한 해시가 나오므로 재실행과 잔여 판정 규칙이 유지됩니다. 원천 금액·계정·분류·헤더/lineage나 설정 증빙이 바뀌면 다른 snapshot입니다.
+- 모든 `POSTED` 상세는 Journal의 `accountCategory`가 있어도 상세 계정 코드와 회계일자로 `MasterDataQueryPort.findAccountSubjectAt`을 호출합니다. Journal 분류가 있으면 기준일 Master 분류와 정확히 일치해야 하며, 값이 없으면 Master 분류를 사용합니다. 같은 실행의 동일 계정·일자는 캐시합니다. dev에서 remote Master Data 설정을 활성화한 경우의 구현은 `HttpClosingMasterDataQueryAdapter`입니다.
+- 지원 분류는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`, `NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 기준일 계정 조회 누락, 다른 계정 코드 반환, 빈 분류, 미지원 분류와 Journal 분류 불일치는 분류 완전성 오류로 실패합니다. 손익과 명시적 비손익 분류 각각의 라인 수·기준통화 금액 절대값 합계가 Journal이 반환한 전체 원천과 같아야만 다음 단계로 갑니다. Journal 공급자가 반환하지 않은 라인은 이 검사로 감지하지 못합니다. `REVENUE`와 `EXPENSES`만 대체 금액에 포함하며 다른 지원 분류는 검증·snapshot에 포함한 뒤 대체에서 명시적으로 제외합니다. 한 계정이 두 손익 분류로 나타나거나 이익잉여금 계정이 손익 계정이면 실패합니다.
 
 새 연차 전표는 `ANNUAL_CLOSING` lineage에 `연도|이익잉여금 계정 식별자|source snapshot identity`를
 보존하고, snapshot을 포함한 결정적 `ACL` 전표번호를 사용합니다. 생성자와 감사 사용자는 기존 계약대로
@@ -618,12 +640,12 @@ loopback 테스트도 이 인증 통합을 증명하지 않습니다.
 
 - 기준일과 양수 batch ID는 필수이며, 동일 입력은 결정적 전표번호와 lineage를 생성합니다.
 - ECL summary가 없으면 정상 무처리로 간주하지 않고 실패합니다. 0건 포트폴리오를 성공 처리하려면 향후 명시적인 zero-portfolio 완료 마커가 필요합니다.
-- API 평가/충당 실행 이력은 전표 트랜잭션과 분리해 `RUNNING -> COMPLETED`, `PENDING_APPROVAL`, 또는 `FAILED`를 보존합니다. DRAFT 전표 생성만으로 `COMPLETED`가 되지 않습니다.
-- API 결과가 0건이거나 지원되는 어댑터에서 실제 자동 전기이면 `COMPLETED`, DRAFT 전표가 하나 이상이면 `PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표는 scalar history ID로 표현할 수 없어 ID를 `null`로 둡니다.
-- remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 여러 전표 중 일부만 작성된 뒤 `FAILED`가 기록되면, 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태 및 Closing 이력을 대사합니다. 원격 DRAFT를 자동 삭제하거나 요청을 맹목적으로 재전송하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
-- 같은 slip을 재실행할 때는 현재 공유 조회 계약이 제공하는 헤더 항목·lineage·모든 라인이 일치하고 상태가 `DRAFT`, `REQUESTED`, `APPROVED`, `POSTED` 중 하나인 전표만 재사용합니다. 이 계약은 환율을 전달하지 않아 외화 ECL의 환율 차이를 별도로 비교하지 못합니다. 차이가 반올림된 라인 금액에 드러나지 않을 수 있으므로 원격 전표의 환율도 담당자가 확인해야 합니다. `REJECTED`, `REVERSED`, 누락되거나 알 수 없는 상태는 명시적으로 실패하며 원격 쓰기를 보내지 않습니다. 이 재사용 판정은 원격 자동 승인을 허용한다는 뜻이 아닙니다.
-- API 요청 멱등 key와 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경도 별도 검증/운영 통제가 필요합니다.
-- 이 흐름은 새 테이블·컬럼·migration 없이 기존 이력과 원천 스키마를 사용합니다.
+- API 평가/충당 요청에는 필수 `executionKey`를 넣습니다. 키 범위는 평가와 충당 각각의 API이며, 같은 API에서 기간·유형·인증된 실행자가 달라지면 409입니다. DB 고유 제약이 동시 최초 요청을 직렬화합니다. 진행 중 중복 요청은 같은 키의 DB 잠금이 풀릴 때까지 대기하고, 원래 배치 ID로 결과를 재확인합니다.
+- 완료된 키는 원래 실행 ID와 DRAFT 결과를 반환합니다. 첫 Journal 쓰기 전에 확정 명령 전체를 별도 트랜잭션에 저장합니다. 명령 목록 저장 전 검증 실패는 `FAILED`/`journalCount=0`이고, 저장 후 전표 생성 또는 실행 이력 완료 중 예외가 발생하면 `RECONCILIATION_REQUIRED`로 기록합니다. `journalCount=null`은 건수 불명, 양수는 확인된 건수입니다. 같은 키로 다시 호출하면 **같은 배치 ID와 저장된 명령 목록**으로 Journal의 결정적 slip 조회와 전체 내용 검증을 수행합니다. 원천이 바뀌어도 일부 생성된 전표의 명령을 누락하지 않습니다. 같은 slip을 재실행할 때는 현재 공유 조회 계약이 제공하는 헤더 항목·lineage·모든 라인이 일치하고 상태가 `DRAFT`, `REQUESTED`, `APPROVED`, `POSTED` 중 하나인 전표만 재사용합니다. 저장된 전표 내용이 명령과 다르면 충돌로 막고 복구 필요 상태를 유지합니다. `generatedJournalEntryId`는 여러 전표를 담지 못하므로 건수가 둘 이상이면 null입니다.
+- 프로세스가 예고 없이 종료되어 `RUNNING`에 남으면 DB가 실행 키 잠금을 해제합니다. 같은 키의 다음 요청은 잠금을 획득하고 원래 배치 ID와 영속 명령 목록으로 Journal 결과를 다시 확인합니다. `RUNNING`과 복구 필요 상태는 모두 `financialEffectsPending=true`로 노출합니다. 명령 내용이 저장된 전표와 다르면 자동 성공으로 바꾸지 않고 대사를 요구합니다.
+- remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 부분 전표 뒤 `RECONCILIATION_REQUIRED`이면 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태를 대사합니다. 원격 DRAFT를 자동 삭제하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
+- 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경은 별도 검증/운영 통제가 필요합니다.
+- V55가 기존 실행 이력에 실행 키와 전표 건수 컬럼을 추가합니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.
 - 결산 조정 등록은 전표 상세의 차변/대변 합계가 같은지 검증합니다.
 - `dev`의 원격 Journal HTTP 어댑터는 `account.closing.accounting.auto-post-adjustments=true`를 첫 전표 쓰기 전에 거부합니다. maker 승인 요청→별도 checker 승인→poster 전기와 불확실한 응답 후 상태 확인을 위한 신뢰된 서비스 주체 계약이 없기 때문입니다. 기본 `false`의 DRAFT는 Journal 담당자가 별도 승인·전기합니다.

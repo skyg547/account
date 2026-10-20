@@ -47,7 +47,7 @@ public class ClosingExceptionHandler {
     @ExceptionHandler(PessimisticLockingFailureException.class)
     public ResponseEntity<ClosingErrorResponse> handleConcurrentMutation(PessimisticLockingFailureException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ClosingErrorResponse("WORKFLOW_STATE_CONFLICT", "Another monthly closing mutation holds the calendar lock."));
+                .body(new ClosingErrorResponse("WORKFLOW_STATE_CONFLICT", "Another closing operation holds the required database lock."));
     }
 
     @ExceptionHandler(ClosingTransitionPendingException.class)
