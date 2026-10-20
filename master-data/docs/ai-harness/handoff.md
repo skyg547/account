@@ -1,5 +1,15 @@
 # Master Data AI Handoff
 
+## Issue #911 / Draft PR #927 — 2026-10-20
+
+- Branch/worktree/base: `agent/911-bp-bulk-fail-closed`; `/tmp/account-911-bp-bulk-fail-closed`; `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.
+- PR: https://github.com/skyg547/account/pull/927, Draft, `Refs #911`; functional commit `49a8263c`. Issue remains open for human review.
+- Changed scope: five functional files under `master-data/**`, these three module-local harness records, and `docs/history/CODEX_WORKLOG.md` as the required Codex history. Other modules, shared harness documents, shared contracts, repository SQL, migration, and production data are untouched.
+- Acceptance: same-code active versions fail with a typed exception and no partial Map; equal/unequal start dates, repeated requested codes, distinct keys, empty input, and H2 query/cardinality are covered. Existing Tax error propagation was inspected; its actual HTTP round trip was not exercised.
+- Verification: focused RED 2/5 as expected, then GREEN 12/12. Requested full suite BUILD SUCCESSFUL: core 523, API 84, Batch 5 passed; API 24 PostgreSQL-only tests skipped, failures/errors 0. Scoped whitespace/marker gates passed. Independent read-only reviewer found no remaining findings; Q1–Q4 PASS evidence is in `worklog.md` and PR body.
+- Remaining gate: current-head remote CI and human review before Ready/merge. H2 does not prove PostgreSQL V9 behavior; run synthetic PostgreSQL concurrency/migration tests before claiming that guarantee. Tax HTTP integration was not run under this module-only allowlist.
+- Rollback: reviewed revert of this issue's functional code, tests, and module document; preserve historical/business data. Implementer and reviewer were separate; parent Integrator owns publication and records. Ready, merge, Issue close, and branch/worktree removal require separate human authority.
+
 ## Issue #754 / Draft PR #821 — 2026-10-01
 
 - Branch/worktree/base: `agent/754-future-create-intervals`; `/tmp/account-754-future-create-intervals`; `origin/main@b06e7de3a2e26c1e14a15d73486c02fa7216e8b8`.
