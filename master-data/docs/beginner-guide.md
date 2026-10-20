@@ -164,3 +164,14 @@ PostgreSQL 환경변수가 없으면 실제 DB 동시성 테스트는 skip됩니
 반올림이 필요해 거부됩니다. 음수와 `999999999999999.9999`를 넘는 값도 거부됩니다.
 직접 API와 승인 변경 모두 같은 core 규칙을 사용하며, 실제 PostgreSQL 저장·재조회는
 [상품 가격 회귀 검증](local-run.md#postgresql-상품-가격-회귀-검증)으로 확인합니다.
+# 거래처·변경 요청 목록 페이지 조회 (Issue #920)
+
+전제: master-data API를 실행하고 기존 조회 권한을 갖춘 요청을 보냅니다. 변경 요청 pending 조회에는 승인 역할이 필요합니다.
+
+`GET /api/basic/businesspartners?page=0&size=20`은 모든 SCD2 거래처 버전의 첫 페이지를 반환합니다. 현재 유효한 거래처만 필요하면 `/api/basic/businesspartners/active?page=0&size=20`, 이름으로 찾으려면 `/api/basic/businesspartners/search?name=검색어&page=0&size=20`을 사용합니다. Pending 변경 요청은 `GET /api/master-data/change-requests/pending?page=0&size=20`입니다.
+
+응답 본문은 계속 JSON 배열입니다. `X-Page: 0`, `X-Page-Size: 20`, `X-Has-Next: true|false` 헤더를 읽습니다. `true`라면 같은 검색어와 크기로 `page=1`, `page=2`를 순서대로 요청하고, `false`에서 멈춥니다. 기존 소비자가 첫 응답 배열만 전체 목록으로 간주했다면 이 반복을 추가해야 합니다. `size` 기본값은 20, 허용 범위는 1–100이며 음수 페이지, 지나치게 큰 페이지 번호와 크기는 HTTP 400입니다.
+
+현재 `frontend/src/services/masterDataService.ts`의 거래처와 pending 변경 요청 호출은 한 번의 배열 응답만 읽습니다. 프런트엔드 전환 시 두 호출에서 `X-Has-Next`를 확인해 다음 페이지를 이어 붙이거나, 화면에서 명시적인 페이지 이동을 제공해야 합니다. 이 파일은 이번 모듈 변경 범위에 포함되지 않습니다.
+
+거래처 정렬은 코드, 유효 시작일, ID 순서이며 pending 요청은 요청시각, ID 순서입니다. 같은 값이 겹쳐도 ID가 순서를 확정합니다. 활성/검색은 요청 시점의 오늘 날짜가 유효기간의 시작일과 종료일을 **포함**하는 버전만 반환합니다. 이력 목록은 날짜로 거르지 않습니다. 페이지를 읽는 동안 쓰기나 날짜 변경이 발생하면 offset 방식의 결과 집합이 이동할 수 있으므로 완전한 스냅샷이 필요한 소비자는 쓰기가 없는 시점에 수집하거나 별도 스냅샷 계약을 사용해야 합니다. 목록의 계좌 자료는 반환되지 않으며 계좌가 필요한 흐름은 거래처 단건 조회를 사용합니다.

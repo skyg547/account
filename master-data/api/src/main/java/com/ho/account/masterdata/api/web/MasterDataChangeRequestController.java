@@ -4,6 +4,7 @@ import com.ho.account.masterdata.api.dto.MasterDataChangeDecisionDto;
 import com.ho.account.masterdata.api.dto.MasterDataChangeRequestCreateDto;
 import com.ho.account.masterdata.api.dto.MasterDataChangeRequestDto;
 import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import jakarta.validation.Valid;
 import java.util.Arrays;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -29,9 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
  * <p>서비스 입구의 인증 필터가 JWT 서명과 claim을 재검증하고 만든
  * {@code X-Auth-User}/{@code X-Auth-Roles}를 actor와 권한으로 사용합니다.</p>
  *
- * <p>@todo pending 목록도 요청이 누적되면 무제한 List가 됩니다. 완료 조건은 status/requestedAt/id
- * 기반 pagination과 최대 page size를 포트부터 HTTP 계약까지 연결하고, 실제 DB query limit를
- * 통합 테스트로 검증하는 것입니다.</p>
+ * <p>Pending 목록은 요청시각과 ID 순의 0 기반 페이지로 반환합니다.</p>
  */
 @RestController
 @RequestMapping("/api/master-data/change-requests")
@@ -59,12 +59,14 @@ public class MasterDataChangeRequestController {
     }
 
     @GetMapping("/pending")
-    public List<MasterDataChangeRequestDto> findPendingRequests(
-            @RequestHeader(AUTH_ROLES_HEADER) String authenticatedRoles) {
+    public ResponseEntity<List<MasterDataChangeRequestDto>> findPendingRequests(
+            @RequestHeader(AUTH_ROLES_HEADER) String authenticatedRoles,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         requireApprovalRole(authenticatedRoles);
-        return useCase.findPendingRequests().stream()
-                .map(MasterDataChangeRequestDto::fromEntity)
-                .toList();
+        PageWindow window = ListPageResponses.window(page, size);
+        return ListPageResponses.respond(useCase.findPendingRequests(window),
+                window, MasterDataChangeRequestDto::fromEntity);
     }
 
     @PostMapping("/{requestId}/approve")

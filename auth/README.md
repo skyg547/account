@@ -170,3 +170,11 @@ docker-compose up -d auth
 ## 4. 남은 운영 고도화
 
 - 승인 멱등 이력은 감사 보존기간과 최대 재시도 기간을 고려한 archive/retention 정책이 필요합니다.
+
+### 목록 페이지 계약 (Issue #920)
+
+`GET /api/admin/users`, `GET /api/auth/pat`, `GET /api/auth/admin/pat`는 0부터 시작하는 `page`와 `size` 쿼리 파라미터를 받습니다. 기본값은 `page=0&size=20`, 최대 크기는 100입니다. 음수 페이지, 1 미만 또는 100 초과 크기, SQL offset 정수 범위를 넘는 조합은 HTTP 400입니다. 응답 본문은 기존 소비자와 호환되는 JSON 배열이며 `X-Page`, `X-Page-Size`, `X-Has-Next` 응답 헤더가 페이지 정보를 전달합니다. 전체 목록이 필요한 소비자는 `X-Has-Next: true`인 동안 `page`를 하나씩 올려 재요청해야 합니다. 기존 배열 한 번 조회가 전체 데이터를 준다고 가정한 화면과 스크립트는 이 반복 호출로 이전해야 합니다.
+
+현재 소비자 이전 대상은 `frontend/src/services/adminService.ts`의 `getUsers()`와 이를 호출하는 `frontend/src/app/admin/users/page.tsx`, `frontend/src/app/system/tokens/page.tsx`의 관리자 PAT 목록, `frontend/src/app/profile/pat/page.tsx`의 내 PAT 목록입니다. 이 코드들은 현재 첫 배열 응답을 전체 목록으로 취급하므로, 화면에서 전체 데이터가 필요하면 응답의 `X-Has-Next`를 읽어 같은 인증으로 후속 페이지를 이어 붙여야 합니다. 프런트엔드는 이번 auth 모듈 변경 범위 밖이므로 소비자 이전은 별도 작업으로 추적합니다.
+
+사용자 목록은 `username ASC` (고유 키)로 페이지를 정한 뒤 선택된 사용자들의 역할만 읽습니다. 역할의 현재 효력 판단은 기존처럼 조회 시각에 적용합니다. PAT 목록은 `created_at DESC, id DESC`로 정렬하고 개인 목록은 검증된 토큰 소유자만 조회하며 관리자 목록에는 검증된 시스템 관리자 권한이 필요합니다. 각 목록은 SQL에서 크기를 제한하며 한 행을 추가 조회해 다음 페이지 여부를 정합니다. Offset 페이지는 조회 중 삽입·삭제가 있으면 경계가 이동할 수 있으므로 변경 중인 데이터를 완전한 스냅샷으로 내보내는 용도로 사용하지 마세요.

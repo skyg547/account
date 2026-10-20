@@ -2,6 +2,8 @@ package com.ho.account.auth.core.application.service;
 
 import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
 import com.ho.account.auth.core.application.model.PatActor;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenCreateResponse;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenDto;
 import com.ho.account.auth.core.application.port.in.PersonalAccessTokenUseCase;
@@ -15,7 +17,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -71,20 +72,18 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PersonalAccessTokenDto> getUserTokens(String authorizationHeader) {
+    public ListPage<PersonalAccessTokenDto> getUserTokens(String authorizationHeader, int page, int size) {
         PatActor actor = credentialVerifier.verify(authorizationHeader);
-        return patPort.findByUsername(actor.username()).stream()
-                .map(this::toDto)
-                .toList();
+        ListPageRequest pageRequest = new ListPageRequest(page, size);
+        return toDtoPage(patPort.findByUsername(actor.username(), pageRequest));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<PersonalAccessTokenDto> getAllTokensForAdmin(String authorizationHeader) {
+    public ListPage<PersonalAccessTokenDto> getAllTokensForAdmin(String authorizationHeader, int page, int size) {
         requireAdministrator(credentialVerifier.verify(authorizationHeader));
-        return patPort.findAll().stream()
-                .map(this::toDto)
-                .toList();
+        ListPageRequest pageRequest = new ListPageRequest(page, size);
+        return toDtoPage(patPort.findAll(pageRequest));
     }
 
     @Override
@@ -120,6 +119,11 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
         if (!actor.systemAdmin()) {
             throw new PatAccessDeniedException();
         }
+    }
+
+    private ListPage<PersonalAccessTokenDto> toDtoPage(ListPage<PersonalAccessToken> tokens) {
+        return new ListPage<>(tokens.content().stream().map(this::toDto).toList(),
+                tokens.page(), tokens.size(), tokens.hasNext());
     }
 
     private PersonalAccessTokenDto toDto(PersonalAccessToken token) {
