@@ -18,12 +18,15 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Coordinates PAT lifecycle changes after resolving the actor from a verified credential. */
 @Service
 @RequiredArgsConstructor
+// The PAT port has a JPA adapter only, so memory mode omits this use case.
+@ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
 
     private final PersonalAccessTokenPort patPort;

@@ -1,3 +1,10 @@
+## 2026-10-20 — GH-917 Auth memory-mode PAT handoff
+
+- [Issue #917](https://github.com/skyg547/account/issues/917); `agent/917-auth-memory-pat` in `/tmp/account-917-auth-memory-pat`; base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`. Draft PR publication pending; body will use `Refs #917`.
+- In memory mode the PAT service/controller are absent, and PAT URLs return safe 404. JPA/default mode retains the persistence adapter, controller, and existing CRUD/audit behavior. The new mode-specific full-context tests use runtime-generated unprinted credentials; local-run, README, and beginner guidance state availability and execution.
+- Requested `./gradlew :auth:core:test :auth:api:test :gateway:test --offline --no-daemon --console=plain --max-workers=2` PASS: 336 tests, no failure/error/skip. Both local `bootRun` modes started with safe ephemeral credentials and port. H2 PAT CRUD/audit integration, `git diff --check`, changed-file marker scan, and harness quality 32/32 PASS. Independent read-only review: no findings, Q1–Q4 PASS.
+- Rollback: reviewed Issue-scoped code revert; no schema or production data change. PostgreSQL and deployed HTTP are untested. Next owner: human PR reviewer for current-head CI and contract review; Ready, merge, Issue close and resource deletion need separate authorization. Only these three requested shared harness files are updated; history remains untouched per user scope.
+
 ## 2026-10-09 — GH-892 Draft PR #907 handoff
 
 - [Issue #892](https://github.com/skyg547/account/issues/892) is `status:needs-review`; `agent/892-ecl-snapshot-lineage` in `/tmp/account-892-ecl-snapshot-lineage` is based on `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. [Draft PR #907](https://github.com/skyg547/account/pull/907) uses `Refs #892`; implementation commit `108f4605`.

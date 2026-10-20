@@ -7,6 +7,7 @@ import com.ho.account.auth.core.application.exception.PatAuthenticationException
 import com.ho.account.auth.core.application.port.in.PersonalAccessTokenUseCase;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+// PAT routes require the JPA-backed token store; memory mode deliberately exposes none.
+@ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class PersonalAccessTokenController {
 
     private final PersonalAccessTokenUseCase patUseCase;

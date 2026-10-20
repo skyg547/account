@@ -1,3 +1,10 @@
+## 2026-10-20 — GH-917 Auth memory-mode PAT startup / Draft PR pending
+
+- State: Issue #917; `agent/917-auth-memory-pat` in `/tmp/account-917-auth-memory-pat`, base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`. Draft PR uses `Refs #917`; publication is pending the commit/push gate.
+- Scope: `auth/**` PAT service/controller conditional wiring, safe absent-route 404, full-context startup tests, module docs, plus the three explicitly requested AI harness status records. No other module or shared contract changed; `docs/history/CODEX_WORKLOG.md` is excluded by the user's restriction on other shared documentation.
+- Verification: requested offline core/API/gateway command PASS, 195/67/74 = 336 tests with zero failures/errors/skips; focused startup tests 2/2 PASS after initial memory missing-port RED; actual local JPA and memory `bootRun` startup PASS with generated unprinted credentials and ephemeral ports. Diff/marker and harness quality 32/32 checks PASS. Independent read-only reviewer found no defects and Q1–Q4 PASS.
+- Residual/next owner: H2/MockMvc and local bootRun are not PostgreSQL evidence; no production data or deployment touched. Human reviewer owns current-head CI and Draft review. Ready, merge, Issue close, and branch/worktree cleanup remain separate gates.
+
 ## 2026-10-09 — GH-892 ECL lineage / Draft PR #907
 
 - State: Issue `status:needs-review`; branch `agent/892-ecl-snapshot-lineage` in `/tmp/account-892-ecl-snapshot-lineage`; base `origin/main@9348966a`; [Draft PR #907](https://github.com/skyg547/account/pull/907), `Refs #892`.
