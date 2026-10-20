@@ -9,8 +9,12 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
+import com.ho.account.closing.application.port.out.EclProvisionSnapshotPort;
 import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +49,8 @@ class EclProvisionServiceTest {
 
     @Mock
     private FxExchangeRateLookupPort rates;
+    @Mock
+    private EclProvisionSnapshotPort snapshots;
 
     private ClosingAccountingProperties accountingProperties;
     private EclProvisionService service;
@@ -59,7 +65,9 @@ class EclProvisionServiceTest {
                 allowanceBalanceLookupPort,
                 closingJournalEntryPort,
                 accountingProperties,
-                eclAllowanceResultPort, rates);
+                eclAllowanceResultPort, rates, snapshots);
+        org.mockito.Mockito.lenient().when(closingJournalEntryPort.preflightEclLineage(any()))
+                .thenReturn(Map.of());
     }
 
     @Test
@@ -90,7 +98,7 @@ class EclProvisionServiceTest {
         assertThat(command.currencyCode()).isEqualTo("USD");
         assertThat(command.slipDate()).isEqualTo(closingDate);
         assertThat(command.accountingDate()).isEqualTo(closingDate);
-        assertThat(command.lineageSourceId()).isEqualTo("44|129100|USD");
+        assertThat(command.lineageSourceId()).startsWith("ECLSNAP:");
         assertThat(command.slipNo()).startsWith("ECL20260531").hasSize(20);
         assertThat(command.lines()).hasSize(2);
         assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00", "260000.00");
@@ -127,6 +135,22 @@ class EclProvisionServiceTest {
     }
 
     @Test
+    void nullLineagePreflightFailsBeforeSnapshotReservationOrJournalWrite() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
+                date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", "100.00")));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0.00", "0.00"));
+        when(closingJournalEntryPort.preflightEclLineage(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 781L))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("preflight result must not be null");
+        verifyNoInteractions(snapshots);
+        verify(closingJournalEntryPort, org.mockito.Mockito.never()).createDraftAdjustment(any());
+    }
+
+    @Test
     void processEclProvisionFailsWhenNoAllowanceSummaryExists() {
         LocalDate closingDate = LocalDate.of(2026, 5, 31);
         when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of());
@@ -136,6 +160,97 @@ class EclProvisionServiceTest {
                 .hasMessageContaining("zero-portfolio completion marker");
 
         verifyNoInteractions(allowanceBalanceLookupPort, closingJournalEntryPort);
+    }
+
+    @Test
+    void explicitZeroExposureAndZeroStagesRequireNoJournalWhenBalanceIsZero() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "RUN-ZERO", "MODEL-ZERO", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        assertThat(service.processEclProvision(date, 47L)).isEmpty();
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
+    @Test
+    void oversizedSnapshotIdentityFailsBeforeAnyJournalWrite() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "R".repeat(180), "MODEL", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", new BigDecimal("100"), new BigDecimal("1000"),
+                new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.ZERO)));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 47L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("line description exceeds reversible limit");
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
+    @Test
+    void oversizedExactSourceTotalsFailBeforeAnyJournalWrite() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "RUN", "MODEL", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", new BigDecimal("100"), new BigDecimal("9".repeat(210)),
+                new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.ZERO)));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 47L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("line description exceeds reversible limit");
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
+    @Test
+    void largeValidGroupedTotalsStillAllowActualJournalReversal() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        String target = "99999999999999999.9003";
+        String stage = "33333333333333333.3001";
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
+                date, "RUN", "MODEL", "ENTITY", "KRW", "12000", "129100",
+                "550100", "480100", new BigDecimal(target), new BigDecimal(target),
+                new BigDecimal(stage), new BigDecimal(stage), new BigDecimal(stage))));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "0", "0"));
+
+        ClosingJournalEntryCommand command = service.prepareEclProvision(date, 47L).get(0);
+        JournalEntry posted = new JournalEntry();
+        posted.setId(741L);
+        posted.setSlipNo(command.slipNo());
+        posted.setSlipDate(date);
+        posted.setAccountingDate(date);
+        posted.setDescription(command.description());
+        posted.setEntryType(command.entryType());
+        posted.setCurrencyCode(command.currencyCode());
+        posted.setExchangeRate(command.exchangeRate());
+        posted.setCreatedBy("maker");
+        posted.setLineageSourceType(command.lineageSourceType());
+        posted.setLineageSourceId(command.lineageSourceId());
+        for (ClosingJournalLineCommand line : command.lines()) {
+            JournalDetail detail = new JournalDetail();
+            detail.setSide(JournalSide.valueOf(line.side().name()));
+            detail.setAccountCode(line.accountCode());
+            detail.setAmount(line.amount());
+            detail.setBaseAmount(line.baseAmount());
+            detail.setDetailDescription(line.description());
+            posted.addDetail(detail);
+        }
+        posted.initializeDraft();
+        posted.requestApproval("maker");
+        posted.approve("checker");
+        posted.post("poster");
+
+        JournalEntry reversal = posted.createReversal("maker", date, "correction");
+        assertThat(reversal.getDescription()).hasSizeLessThanOrEqualTo(200);
+        assertThat(reversal.getDetails()).hasSize(2).allSatisfy(detail ->
+                assertThat(detail.getDetailDescription()).hasSizeLessThanOrEqualTo(200));
     }
 
     @Test
@@ -247,7 +362,7 @@ class EclProvisionServiceTest {
 
         service.processEclProvision(date, 690L);
 
-        verifyNoInteractions(closingJournalEntryPort);
+        verify(closingJournalEntryPort, org.mockito.Mockito.never()).createDraftAdjustment(any());
     }
 
     @Test
@@ -307,9 +422,9 @@ class EclProvisionServiceTest {
                 reversalIncomeAccountCode,
                 new BigDecimal(targetAllowanceAmount),
                 new BigDecimal("100000.00"),
-                new BigDecimal("300.00"),
-                new BigDecimal("400.00"),
-                new BigDecimal("300.00"));
+                new BigDecimal(targetAllowanceAmount),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO);
     }
 
     private static ClosingAccountingProperties.EclAccountMapping rule(

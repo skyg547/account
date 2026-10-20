@@ -142,9 +142,9 @@ class ClosingControllerTest {
                 .thenReturn(mock(ReopenApproval.class));
         when(closingUseCase.updateReopenApprovalStatus(13L, ReopenApproval.ReopenApprovalStatus.APPROVED,
                 TRUSTED_ACTOR)).thenReturn(mock(ReopenApproval.class));
-        when(closingUseCase.runValuationBatch(12L, ValuationBatch.ValuationType.FX_RATE, TRUSTED_ACTOR))
+        when(closingUseCase.runValuationBatch(12L, ValuationBatch.ValuationType.FX_RATE, TRUSTED_ACTOR, "valuation-key"))
                 .thenReturn(mock(ValuationBatch.class));
-        when(closingUseCase.runProvisionBatch(12L, ProvisionBatch.ProvisionType.ECL, TRUSTED_ACTOR))
+        when(closingUseCase.runProvisionBatch(12L, ProvisionBatch.ProvisionType.ECL, TRUSTED_ACTOR, "provision-key"))
                 .thenReturn(mock(ProvisionBatch.class));
         when(closingUseCase.createClosingAdjustment(12L, 14L, ClosingAdjustment.AdjustmentType.ACCRUAL,
                 "closing accrual", TRUSTED_ACTOR)).thenReturn(mock(ClosingAdjustment.class));
@@ -176,12 +176,12 @@ class ClosingControllerTest {
                 .andExpect(status().isOk());
         mockMvc.perform(authorized(post("/api/closing/valuation-batches/run"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(actorJson("{\"fiscalPeriodId\":12,\"valuationType\":\"FX_RATE\",\"runBy\":\"%s\"}")))
-                .andExpect(status().isCreated());
+                        .content(actorJson("{\"fiscalPeriodId\":12,\"valuationType\":\"FX_RATE\",\"executionKey\":\"valuation-key\",\"runBy\":\"%s\"}")))
+                .andExpect(status().isOk());
         mockMvc.perform(authorized(post("/api/closing/provision-batches/run"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(actorJson("{\"fiscalPeriodId\":12,\"provisionType\":\"ECL\",\"runBy\":\"%s\"}")))
-                .andExpect(status().isCreated());
+                        .content(actorJson("{\"fiscalPeriodId\":12,\"provisionType\":\"ECL\",\"executionKey\":\"provision-key\",\"runBy\":\"%s\"}")))
+                .andExpect(status().isOk());
         mockMvc.perform(authorized(post("/api/closing/adjustments"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(actorJson("{\"fiscalPeriodId\":12,\"journalEntryId\":14,\"adjustmentType\":\"ACCRUAL\",\"description\":\"closing accrual\",\"approvedBy\":\"%s\"}")))
@@ -201,11 +201,44 @@ class ClosingControllerTest {
         verify(closingUseCase).requestPeriodReopen(12L, TRUSTED_ACTOR, "material correction");
         verify(closingUseCase).updateReopenApprovalStatus(
                 13L, ReopenApproval.ReopenApprovalStatus.APPROVED, TRUSTED_ACTOR);
-        verify(closingUseCase).runValuationBatch(12L, ValuationBatch.ValuationType.FX_RATE, TRUSTED_ACTOR);
-        verify(closingUseCase).runProvisionBatch(12L, ProvisionBatch.ProvisionType.ECL, TRUSTED_ACTOR);
+        verify(closingUseCase).runValuationBatch(12L, ValuationBatch.ValuationType.FX_RATE, TRUSTED_ACTOR, "valuation-key");
+        verify(closingUseCase).runProvisionBatch(12L, ProvisionBatch.ProvisionType.ECL, TRUSTED_ACTOR, "provision-key");
         verify(closingUseCase).createClosingAdjustment(
                 12L, 14L, ClosingAdjustment.AdjustmentType.ACCRUAL, "closing accrual", TRUSTED_ACTOR);
         verify(closingUseCase).determineClosingStatus(9L, TRUSTED_ACTOR);
+    }
+
+    @Test
+    void repeatedHttpRunUsesSameExecutionKeyAndReturnsOriginalDraft() throws Exception {
+        ValuationBatch original = new ValuationBatch();
+        original.setId(77L);
+        original.setExecutionKey("request-77");
+        original.setStatus(ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
+        original.setGeneratedJournalEntryId(900L);
+        original.setJournalCount(1);
+        when(closingUseCase.runValuationBatch(12L, ValuationBatch.ValuationType.FX_RATE,
+                TRUSTED_ACTOR, "request-77")).thenReturn(original);
+        String body = "{\"fiscalPeriodId\":12,\"valuationType\":\"FX_RATE\",\"executionKey\":\"request-77\"}";
+
+        for (int request = 0; request < 2; request++) {
+            mockMvc.perform(authorized(post("/api/closing/valuation-batches/run"))
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(77))
+                    .andExpect(jsonPath("$.generatedJournalEntryId").value(900))
+                    .andExpect(jsonPath("$.journalCount").value(1));
+        }
+        org.mockito.Mockito.verify(closingUseCase, org.mockito.Mockito.times(2)).runValuationBatch(
+                12L, ValuationBatch.ValuationType.FX_RATE, TRUSTED_ACTOR, "request-77");
+    }
+
+    @Test
+    void runWithoutExecutionKeyFailsValidationBeforeUseCase() throws Exception {
+        mockMvc.perform(authorized(post("/api/closing/provision-batches/run"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fiscalPeriodId\":12,\"provisionType\":\"ECL\"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(closingUseCase);
     }
 
     @ParameterizedTest
@@ -331,9 +364,9 @@ class ClosingControllerTest {
                 Arguments.of("decide reopen", new MutationRequest("PUT", "/api/closing/reopen-approvals/13/status",
                         "{\"status\":\"APPROVED\",\"approvedBy\":\"forged\"}")),
                 Arguments.of("run valuation", new MutationRequest("POST", "/api/closing/valuation-batches/run",
-                        "{\"fiscalPeriodId\":12,\"valuationType\":\"FX_RATE\",\"runBy\":\"forged\"}")),
+                        "{\"fiscalPeriodId\":12,\"valuationType\":\"FX_RATE\",\"executionKey\":\"valuation-key\",\"runBy\":\"forged\"}")),
                 Arguments.of("run provision", new MutationRequest("POST", "/api/closing/provision-batches/run",
-                        "{\"fiscalPeriodId\":12,\"provisionType\":\"ECL\",\"runBy\":\"forged\"}")),
+                        "{\"fiscalPeriodId\":12,\"provisionType\":\"ECL\",\"executionKey\":\"provision-key\",\"runBy\":\"forged\"}")),
                 Arguments.of("create adjustment", new MutationRequest("POST", "/api/closing/adjustments",
                         "{\"fiscalPeriodId\":12,\"journalEntryId\":14,\"adjustmentType\":\"ACCRUAL\",\"approvedBy\":\"forged\"}")),
                 Arguments.of("determine status", new MutationRequest("POST", "/api/closing/calendars/determine-status",

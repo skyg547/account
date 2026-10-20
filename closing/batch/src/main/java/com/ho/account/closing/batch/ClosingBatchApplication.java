@@ -1,6 +1,7 @@
 package com.ho.account.closing.batch;
 
 import com.ho.account.closing.application.pipeline.FxValuationPipeline;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunManifestPort;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
 import com.ho.account.closing.application.service.FinancialClosingCalculationService;
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "com.ho.account.closing.batch", excludeFilters = {
@@ -37,6 +39,24 @@ import org.springframework.context.ConfigurableApplicationContext;
         EclProvisionService.class, FinancialClosingCalculationService.class,
         ClosingLocalExternalPortConfiguration.class})
 public class ClosingBatchApplication {
+    /** Batch validates sources but never invokes the synchronous API manifest/posting path. */
+    @Bean
+    ClosingFinancialRunManifestPort apiRunManifestUnavailableInBatch() {
+        return new ClosingFinancialRunManifestPort() {
+            @Override
+            public boolean exists(String scope, Long batchId) {
+                throw new IllegalStateException("Synchronous API run manifest is unavailable in Batch context");
+            }
+
+            @Override
+            public java.util.List<com.ho.account.closing.application.port.out.ClosingJournalEntryCommand> loadOrCreate(
+                    String scope, Long batchId,
+                    java.util.function.Supplier<java.util.List<com.ho.account.closing.application.port.out.ClosingJournalEntryCommand>> prepare) {
+                throw new IllegalStateException("Synchronous API run manifest is unavailable in Batch context");
+            }
+        };
+    }
+
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(ClosingBatchApplication.class);
         application.setWebApplicationType(WebApplicationType.NONE);

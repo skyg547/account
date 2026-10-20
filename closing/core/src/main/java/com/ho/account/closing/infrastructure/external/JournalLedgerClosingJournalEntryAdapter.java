@@ -3,6 +3,7 @@ package com.ho.account.closing.infrastructure.external;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryPort;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
+import com.ho.account.closing.application.port.out.ClosingJournalLineage;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.contracts.journal.JournalDetailSummary;
@@ -17,6 +18,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Batch-neutral adapter for deterministic Closing journal creation and safe retry reconciliation.
@@ -38,6 +41,44 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
     }
 
     @Override
+    public Map<String, String> preflightEclLineage(List<ClosingJournalLineage> expected) {
+        Objects.requireNonNull(expected, "expected must not be null");
+        Map<String, String> postedNoopReferences = new HashMap<>();
+        for (ClosingJournalLineage lineage : expected) {
+            journalQueryPort.findBySlipNo(lineage.slipNo()).ifPresent(existing -> {
+                if (!lineage.slipNo().equals(existing.getSlipNo())
+                        || !lineage.accountingDate().equals(existing.getSlipDate())
+                        || !lineage.accountingDate().equals(existing.getAccountingDate())
+                        || !lineage.currencyCode().equals(existing.getCurrencyCode())
+                        || !"CLOSING_ADJUSTMENT".equals(existing.getEntryType())) {
+                    throw new IllegalStateException("ECL slip has incompatible header: " + lineage.slipNo());
+                }
+                if (!"ECL_PROVISION".equals(existing.getLineageSourceType())
+                        || existing.getLineageSourceId() == null
+                        || !existing.getLineageSourceId().startsWith("ECLSNAP:")) {
+                    throw new IllegalStateException("ECL slip has legacy or different snapshot lineage: "
+                            + lineage.slipNo());
+                }
+                if (lineage.noAdjustment()
+                        && lineage.snapshotReference().equals(existing.getLineageSourceId())) {
+                    throw new IllegalStateException("ECL zero-delta operation has an unexpected existing slip: "
+                            + lineage.slipNo());
+                }
+                if (!lineage.snapshotReference().equals(existing.getLineageSourceId())) {
+                    // A posted adjustment can make a retry's calculated delta zero. Only its
+                    // original immutable binding may authorize that no-op in the snapshot adapter.
+                    if (!lineage.noAdjustment() || !"POSTED".equals(existing.getStatus())) {
+                        throw new IllegalStateException("ECL slip has different snapshot lineage: "
+                                + lineage.slipNo());
+                    }
+                    postedNoopReferences.put(lineage.operationKey(), existing.getLineageSourceId());
+                }
+            });
+        }
+        return Map.copyOf(postedNoopReferences);
+    }
+
+    @Override
     public ClosingJournalEntryResult createDraftAdjustment(ClosingJournalEntryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         Optional<JournalSummary> existing = journalQueryPort.findBySlipNo(command.slipNo());
@@ -45,7 +86,7 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
             JournalSummary summary = existing.get();
             List<JournalDetailSummary> details = journalQueryPort.getJournalDetails(summary.getId());
             requireSameClosingRequest(command, summary, details);
-            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo());
+            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo(), summary.getStatus());
         }
 
         JournalEntryCommand journalCommand = new JournalEntryCommand(
@@ -105,9 +146,13 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
             throw new IllegalStateException(
                     "Closing slip already exists with different business content: " + command.slipNo());
         }
-        if ("REJECTED".equals(persisted.getStatus()) || "REVERSED".equals(persisted.getStatus())) {
+        String status = persisted.getStatus();
+        // Only known Journal workflow states can represent the same adjustment on a rerun.
+        // An unknown state must not be treated as a reusable financial result.
+        if (!("DRAFT".equals(status) || "REQUESTED".equals(status)
+                || "APPROVED".equals(status) || "POSTED".equals(status))) {
             throw new IllegalStateException(
-                    "Closing slip exists in a non-reusable status " + persisted.getStatus()
+                    "Closing slip exists in a non-reusable status " + status
                             + ": " + command.slipNo());
         }
     }

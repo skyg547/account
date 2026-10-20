@@ -51,6 +51,13 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 태스크 상태 변경 | `PUT /api/closing/tasks/{id}/status` |
 | 게이트 생성 | `POST /api/closing/gates` |
 | 게이트 검사·통과 | `PUT /api/closing/gates/{id}/check` |
+| FX 평가 실행 | `POST /api/closing/valuation-batches/run` |
+| ECL 충당 실행 | `POST /api/closing/provision-batches/run` |
+
+FX 요청 예: `{"fiscalPeriodId":12,"valuationType":"FX_RATE","executionKey":"fx-2026-01-run-1"}`.
+ECL은 `provisionType":"ECL"`과 별도의 고정 실행 키를 사용합니다. 재전송에는 원래 키를
+그대로 보내고, 새로운 업무 실행에만 새 키를 부여합니다. 응답의 `journalCount`와
+`financialEffectsPending`을 함께 확인합니다.
 | 기간 잠금 | `POST /api/closing/period-locks` |
 | 기간 잠금 해제 | `DELETE /api/closing/period-locks/{fiscalPeriodId}` |
 | 재오픈 요청 | `POST /api/closing/reopen-approvals` |
@@ -122,7 +129,7 @@ EOD 변경 명령에는 기존과 같이 Gateway가 JWT에서 만든 `X-Auth-Use
 필요합니다. 허용 역할과 직접 API 호출의 한계는 일반 변경 API와 같지만, Issue #771은 EOD 상태
 규칙이나 조회 계약을 변경하지 않습니다.
 
-Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스, V52 월말 전이 기록을 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
+Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline부터 V57 ECL 불변 스냅샷까지 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다. 새 ECL 조정 실행 전 V57 적용이 필요하며 기존 ECL 전표에는 자동 역채움이 없습니다.
 
 Closing API 조합 루트는 실제로 사용하는 Master Data의 `FiscalPeriodControlPort`와 `MasterDataQueryPort` 어댑터, 그리고 이들이 요구하는 최소 persistence adapter/mapper를 함께 명시 import합니다. 이는 Closing의 회계기간 제어와 평가 조회 포트를 완성하는 조합 책임이며, Master Data 전체 infrastructure 패키지를 scan하거나 local 전용 fallback으로 production 어댑터를 가리지 않습니다.
 
@@ -196,7 +203,7 @@ account:
 증거가 아닙니다.
 
 1. 2026년 설정 규칙과 2026-12-31 기준으로 정확한 코드·`EQUITY`·`CREDIT`인 Master 계정을 준비합니다. 설정 누락/중복, `postable` 미승인, 증빙 누락, Master 조회 누락/코드 불일치, 자산·부채·수익·비용·알 수 없는 분류, 차변 정상잔액은 Journal 조회 전에 실패해야 합니다.
-2. 2026년 `POSTED` 매출 1,000을 준비하고, 상세에 지원 `accountCategory`를 넣거나 같은 계정·회계일자의 Master Data 분류를 준비합니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
+2. 2026년 `POSTED` 매출 1,000을 준비하고, 상세 계정·회계일자에 유효한 Master Data `REVENUE` 분류를 준비합니다. Journal 상세에 `accountCategory`가 있으면 Master 분류와 일치해야 합니다. 매출 계정 차변 1,000, 이익잉여금 계정 대변 1,000의 `DRAFT` 하나가 기대 결과입니다.
 3. 원천과 설정을 바꾸지 않고 다시 호출합니다. 헤더·lineage·모든 라인이 같은 초안이면 HTTP 200이고 두 번째 초안은 생기지 않습니다.
 4. pending 초안 상태에서 원천 금액·계정·분류, 설정의 법인·계정·`postable`·승인자·변경 참조, 또는 초안 헤더/라인을 바꾸면 HTTP 409와 `WORKFLOW_STATE_CONFLICT`가 기대 결과입니다. 설정 identity도 #775 source snapshot에 들어가므로 오래된 초안은 자동 교체하지 않습니다.
 5. 최초 초안을 승인·전기하고 기존 승인 흐름으로 연도를 재오픈한 뒤 `POSTED` 매출 500을 추가해 다시 호출합니다. 기존 1,000이 아니라 매출 차변 500, 이익잉여금 대변 500의 별도 delta `DRAFT`가 기대 결과입니다. 연차 서비스가 `ReopenApproval`을 직접 조회·검증하지는 않습니다.
@@ -204,12 +211,15 @@ account:
 7. 순손실과 순액 0 케이스도 같은 설정·연말 Master 검증을 먼저 합니다. 순액 0이면 검증을 통과한 후 새 전표만 만들지 않습니다.
 
 지원 `accountCategory`는 `ASSETS`, `LIABILITIES`, `EQUITY`, `REVENUE`, `EXPENSES`,
-`NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 상세가 이 값을 제공하면 우선 사용하고, 없으면
-계정 코드와 상세 회계일자로 Master Data의 유효 계정을 조회합니다. dev에서는
+`NON_OPERATING_INCOME`, `NON_OPERATING_EXPENSES`입니다. 모든 `POSTED` 상세는 Journal 분류 유무와
+관계없이 계정 코드와 상세 회계일자로 Master Data의 유효 계정을 조회하며 동일 키는 실행 중 캐시합니다. 상세 분류가 있으면
+Master 분류와 일치해야 하고, 없으면 Master 분류를 사용합니다. dev에서는
 `closing.master-data.remote.enabled=true`일 때 `HttpClosingMasterDataQueryAdapter`가
 `closing.master-data.base-url`의 날짜 지정 조회를 사용합니다. 계정 조회 누락·다른 계정 반환·빈 값·
-미지원 분류와 연차 라인의 원천 분류 불일치는 실패합니다. 실제 손익 대체 금액에는
-`REVENUE`/`EXPENSES`만 포함됩니다. legacy `lineageSourceId=2026` 연차 전표는 헤더·라인이 모두
+미지원 분류와 연차 라인의 원천 분류 불일치는 실패합니다. 분류한 손익/명시적 비손익 라인의 수와
+기준통화 금액 절대값 합계를 반환된 원천 전체와 대사하지만, Journal 공급자가 누락한 라인은 이 검사만으로
+발견할 수 없습니다. 실제 손익 대체 금액에는 `REVENUE`/`EXPENSES`만 포함됩니다.
+legacy `lineageSourceId=2026` 연차 전표는 헤더·라인이 모두
 유효한 `POSTED`일 때만 누계로 인정됩니다. 연차 후보가 `APPROVED`, `REJECTED`, `REVERSED` 또는
 알 수 없는 상태이면 실패합니다.
 
@@ -286,6 +296,19 @@ Master가 원 상태에 남았으면 계속 차단합니다. 해당 경우는 �
 저장합니다. 복구 테스트는 응답 유실과 로컬 완료 실패를 주입합니다. H2 검증은 실제 PostgreSQL 잠금·운영 부하나
 배포된 Master의 네트워크 장애 증거를 대신하지 않습니다. 실행 결과는 [모듈 worklog](ai-harness/worklog.md)에 기록합니다.
 
+### 재오픈 뒤 체크리스트 재실행 (GH-885)
+
+승인된 재오픈이 완료되면 캘린더의 `cycleNumber`가 증가합니다. `GET /api/closing/calendars/{calendarId}/tasks`는 새 회차의 `PENDING` 행을 반환합니다. 이전 태스크·게이트 ID는 이력이며 상태 변경에 사용할 수 없습니다. 원천 변경이 없더라도 예전 `COMPLETED`/`PASSED`는 이월하지 않습니다. 새 태스크를 다시 완료하고 새 게이트를 통과시킨 뒤 마감을 시작한 시각보다 늦게 관측한 최종 마감 증빙을 제출해야 합니다. 새 활동이 있으면 공급자 실행 ID와 합계가 그 활동을 반영하는지도 대사합니다.
+통제 진행 후 `POST /api/closing/adjustments`로 조정 전표를 등록하면 현재 회차가 다시 증가하고 체크리스트가 `PENDING`으로 돌아갑니다. 조정 전에 제출한 최종 마감 증빙도 사용할 수 없습니다. 통제를 시작하기 전 조정이면 회차 증가는 없지만 증빙 관측 시각은 조정 이후여야 합니다. 이 동작은 Closing이 등록한 조정에 한정되므로 직접 원장 전기를 허용하는 운영 환경에서는 원천 동결과 별도 대사가 필요합니다.
+
+```bash
+./gradlew :closing:core:test --tests '*ClosingDomainTransitionTest' --tests '*ClosingServiceTest'
+./gradlew :closing:api:test --tests '*ClosingTransitionRecoveryIntegrationTest'
+./gradlew :closing:test
+```
+
+이 명령은 로컬 회차·트랜잭션 회귀를 확인합니다. 실제 PostgreSQL 마이그레이션·원격 원장 변경 워터마크·분산 장애 검증은 별도 운영 게이트입니다.
+
 ## Batch 컨텍스트만 실행
 
 Batch 실행 모듈의 애플리케이션 이름은 `closing-batch`입니다.
@@ -316,9 +339,9 @@ maker 승인 요청, 별도 checker 승인, poster 전기를 거쳐야 하지만
 조회에서 404만 전표 없음으로 처리하며 302를 전표 없음이나 성공으로 바꾸지 않습니다.
 초안 생성은 수신 Journal 계약에 맞춰 `X-Auth-User`와 `ROLE_JOURNAL_MAKER`를 전달하고,
 기존 actor·lineage도 유지합니다. HTTP timeout이나 응답 유실, 부분 전표 생성 뒤 Closing
-이력이 `FAILED`이면 전표번호·lineage로 원격 상태와 상세를 확인하고 담당자가 대사한 뒤
-재실행 또는 승인·정정 절차를 결정합니다. 이미 생긴 DRAFT를 자동 삭제하거나 맹목적으로
-재전송하지 않습니다.
+이력이 `RECONCILIATION_REQUIRED`이면 같은 실행 키로 재요청하고 전표번호·lineage로
+원격 상태와 상세를 대사합니다. 내용 충돌은 담당자가 승인·정정 절차를 결정합니다.
+이미 생긴 DRAFT를 자동 삭제하지 않습니다.
 본문 actor는 인증된 서비스 주체를 대신하지 않습니다.
 
 ```bash
@@ -365,6 +388,52 @@ bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --conso
 .\gradlew :closing:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=fxValuationJob valuationDate=2026-04-30 valuationBatchId=20260430 --spring.batch.jdbc.initialize-schema=always" --console=plain
 ```
 
+### FX 커서와 Journal 연결 예산 (GH-893)
+
+`dev`에서 외부 읽기 전용 원천을 사용하려면 승인된 source 설정과
+`closing.sources.enabled=true`가 필요합니다. 아래는 비밀값을 제외한 병렬성 설정 예입니다.
+
+```yaml
+account:
+  closing:
+    batch:
+      fx:
+        grid-size: 2
+        chunk-size: 1000
+closing:
+  sources:
+    journal:
+      maximum-pool-size: 2
+```
+
+기본값은 `grid-size=1`, Journal source pool=1입니다. 두 값은 각각 1 이상이어야 하고
+Journal pool은 최대 8개입니다. `grid-size`가 pool 크기보다 크면 Job parameter 검증에서
+첫 evidence scan과 posting 전에 실패합니다. 커서 파티션마다 연결 하나를 끝날 때까지
+점유하므로, 풀 크기를 2로 두면 동시 커서는 최대 2개입니다. 이 외에 ECL·Master Data
+읽기 전용 풀은 각각 1개라 외부 source 연결 예산은 인스턴스당 최대 `Journal pool + 2`개이며
+Closing 기본 DataSource 연결은 별도입니다. 실제 DB 허용 연결 수와 다른 workload를 먼저
+확인한 후 값을 승인해야 합니다.
+
+FX Reader의 JDBC fetch size는 `chunk-size` 값(기본 1000)을 사용하며, chunk 크기는
+checkpoint/쓰기 트랜잭션 단위이기도 합니다. PostgreSQL에서 서버 커서로 행을 나눠 받으려면
+양수 fetch size와 auto-commit=false가 함께 필요합니다. 파티션 Reader는 둘 다 설정하지만
+서버는 각 커서의 트랜잭션·연결을 닫힐 때까지 유지합니다. 첫 전체 evidence scan은
+`JdbcTemplate`에 fetch size 1000을 요청하나 원천 연결에 별도의 transaction을 열지
+않으므로 PostgreSQL 서버 커서 스트리밍은 보장되지 않습니다. 파티션 생성의 계정 목록
+조회도 이 fetch size 계약 밖입니다. 대량 원장에서는 이 단계의 메모리·실행계획을 별도로
+검증해야 합니다.
+
+Hikari 연결 획득 대기는 5초, 연결 검증 제한은 2초, PostgreSQL 드라이버의 연결 시도는
+5초, socket read timeout은 60초입니다. 획득 대기는 SQL 실행 제한이 아니며, socket
+timeout도 Job 전체 수행시간 제한이 아닙니다. 느린 원장·네트워크에서 60초 제한과
+재시작 동작을 실제 PostgreSQL로 검증해야 합니다. 아래 회귀 테스트는 H2를 통한 실제
+Hikari 풀에서 첫 커서를 5.5초 유지하고 두 파티션이 완료되는 것을 확인합니다. 실제
+PostgreSQL의 서버 커서·운영 부하를 입증하는 테스트는 아닙니다.
+
+```bash
+./gradlew :closing:batch:test --tests '*FxValuationSourcePoolConcurrencyTest' --tests '*FxValuationUnsupportedPoolBudgetTest'
+```
+
 ### FX 평가 적격성 설정 (GH-780)
 
 아래는 합성 현금/수익 두 계정의 설정 형태입니다. 실제 계정 코드와 적용 기간은 승인된
@@ -399,12 +468,15 @@ account:
 
 선행 조건:
 
+- Closing 소유 V54 migration을 먼저 적용해야 합니다. 배치 재시도는 이 테이블의 원래 run/model·대사 증빙 결합을 확인합니다.
 - `account-mart`가 `allowance_exposure_snapshots`를 생성해야 합니다.
 - `ecl`의 `allowanceEclJob`이 완료되어 `allowance_summary`가 생성되어야 합니다.
 - `journal-ledger`의 기준일까지 전기된 충당금 전표에서 거래통화·기능통화 금액을 함께 조회할 수 있어야 합니다. 신규 충당금의 두 잔액은 0입니다.
 - 외화는 기준일 이하 최신 양수 환율이 필요합니다. `fx-valuation-reporting-currency-code`는 원장의 기능통화와 일치해야 합니다.
 - 환율이 바뀌었다면 해당 계정의 유효 FX 정책을 확인하고 FX 평가를 승인·전기한 뒤 ECL을 실행합니다. DRAFT 평가만으로는 선행 조건을 충족하지 않습니다.
 - `allowance_summary`의 계정 매핑 컬럼이 비어 있지 않아야 합니다.
+- 각 `allowance_summary` 원천 행의 Stage 1+2+3 합계가 목표 충당금과 원래 정밀도로 일치하고, 0 exposure 행의 목표가 0인지 확인합니다. 불일치는 그룹 합산으로 상쇄되지 않으며 Journal 쓰기 전에 실패합니다.
+- 기존 ECL 초안이 있으면 Journal 상세 설명에 저장된 정확한 목표·exposure·Stage별 합계 및 run/model 식별자와 현재 원천을 대사합니다. 헤더에는 통화쌍·환율이 남습니다. 원천 재생성으로 내용이 달라지면 같은 전표번호라도 자동 재사용하지 않습니다. 역분개 공간을 남긴 헤더 120자·상세 194자 한도를 넘는 입력도 전표 쓰기 전에 실패합니다.
 
 외부 서버 없이 합성 H2 원장과 실제 Closing 조회·환율·전표 어댑터 계약을 검증합니다.
 환율 변경 전 차단/평가 후 성공, 외화 증액·환입·동일 목표, 환율 누락과 양 통화 대사는
@@ -461,11 +533,15 @@ API FX는 posted-journal evidence를 한 번 스트리밍하면서 기본 10,000
 Journal에 게시합니다. ECL source query는 최대 1,001개 그룹과 60초 timeout으로 제한되며,
 1,000개를 넘으면 그룹별 원장/환율 조회 전에 실패합니다. 통과한 전체 command만 게시합니다.
 전표 0건 또는 지원되는 어댑터에서 실제 자동 전기되면 history는 `COMPLETED`, DRAFT가 하나 이상이면
-`PENDING_APPROVAL`, 예외이면 `FAILED`입니다. 여러 전표의 단일 history ID는 `null`입니다.
+`PENDING_APPROVAL`, 결과가 불확실한 예외이면 `RECONCILIATION_REQUIRED`입니다. 여러 전표의 단일
+history ID는 `null`이며 `journalCount`가 건수를 보존합니다.
 
 `dev` profile은 `closing.sources.enabled`가 없거나 `false`이면 외부 source와 Journal 접근을
-fail-closed합니다. 실제 연결 검증 때만 승인된 별도 source 설정과 함께 `true`를 명시합니다.
-자격증명이나 완성된 URL은 문서/명령행에 기록하지 않습니다.
+fail-closed합니다. `dev`/`local` 이외의 내장 모놀리스는 플래그와 무관하게 쓰기와 동일한
+primary PostgreSQL의 Journal을 연차 cursor로 읽습니다. `local` H2는 snapshot 포트 부재로
+실패합니다. `dev`의 명시적 `true`는 별도 읽기 전용 source를 선택하며 Journal/ECL/Master
+연결 설정이 모두 필요합니다. 실제 연결 검증 때만 승인된
+source 설정을 사용하고 자격증명이나 완성된 URL은 문서/명령행에 기록하지 않습니다.
 
 두 Job의 날짜와 batch ID는 생략할 수 없습니다. 누락·잘못된 ISO 날짜·0 이하 ID는 Job 시작 전에 실패하며, 시스템 날짜나 날짜 기반 임시 ID로 대체하지 않습니다. ECL summary가 비어 있는 경우도 성공으로 처리하지 않습니다.
 

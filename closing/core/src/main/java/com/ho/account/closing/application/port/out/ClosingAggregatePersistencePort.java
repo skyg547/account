@@ -19,4 +19,6 @@ public interface ClosingAggregatePersistencePort {
     Optional<ReopenApproval> refreshApproval(Long approvalId);
     List<ClosingTask> refreshTasks(ClosingCalendar calendar);
     List<ClosingGate> refreshGates(ClosingCalendar calendar);
+    List<ClosingTask> refreshActiveTasks(ClosingCalendar calendar);
+    List<ClosingGate> refreshActiveGates(ClosingCalendar calendar);
 }

@@ -40,7 +40,10 @@ class EclProvisionValidationTest {
         rule.setDebitAccountCode("550100");
         rule.setCreditAccountCode("129100");
         properties.getProvisionRules().put(ProvisionBatch.ProvisionType.ECL, rule);
-        service = new EclProvisionService(balances, journals, properties, summaries, rates);
+        service = new EclProvisionService(balances, journals, properties, summaries, rates,
+                mock(com.ho.account.closing.application.port.out.EclProvisionSnapshotPort.class));
+        org.mockito.Mockito.lenient().when(journals.preflightEclLineage(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.Map.of());
         when(summaries.loadSummaries(DATE)).thenReturn(List.of(summary("USD", "100", "480100")));
         when(balances.findCreditBalance("129100", "USD", "KRW", DATE))
                 .thenReturn(balance("USD", "KRW", "80", "104000"));

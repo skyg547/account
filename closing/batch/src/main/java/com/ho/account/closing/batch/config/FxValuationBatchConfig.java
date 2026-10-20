@@ -6,6 +6,7 @@ import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.FxValuationBalance;
 import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
 import com.ho.account.closing.batch.support.ClosingJobParameters;
+import com.ho.account.closing.infrastructure.source.ClosingReadOnlySources;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -47,8 +48,8 @@ import java.time.LocalDate;
  *
  * <p>The validation tasklet and each posting chunk have separate local transaction boundaries.
  * Remote Journal effects cannot be rolled back with Batch metadata; deterministic slips reconcile
- * retries. Grid size bounds concurrent cursors, while the validation scan remains streaming and
- * does not materialize the complete source.</p>
+ * retries. Grid size bounds concurrent cursors. Validation handles rows one at a time in Java,
+ * but PostgreSQL may buffer its result because the source JdbcTemplate uses auto-commit.</p>
  */
 @Slf4j
 @Configuration
@@ -73,9 +74,24 @@ public class FxValuationBatchConfig {
     @Value("${account.closing.batch.fx.grid-size:1}")
     private int gridSize;
 
+    @Value("${closing.sources.journal.maximum-pool-size:1}")
+    private int journalMaximumPoolSize;
+
     @Bean
     public JobParametersValidator fxValuationJobParametersValidator() {
-        return ClosingJobParameters.requiredDateAndPositiveId("valuationDate", "valuationBatchId");
+        JobParametersValidator requiredParameters =
+                ClosingJobParameters.requiredDateAndPositiveId("valuationDate", "valuationBatchId");
+        return parameters -> {
+            requiredParameters.validate(parameters);
+            // Reject before the validation scan or posting starts; an open cursor holds its lease.
+            if (journalMaximumPoolSize < 1
+                    || journalMaximumPoolSize > ClosingReadOnlySources.MAX_JOURNAL_POOL_SIZE
+                    || gridSize < 1 || gridSize > journalMaximumPoolSize) {
+                throw new JobParametersInvalidException("FX grid-size must be between 1 and the configured "
+                        + "closing.sources.journal.maximum-pool-size (1.."
+                        + ClosingReadOnlySources.MAX_JOURNAL_POOL_SIZE + ")");
+            }
+        };
     }
 
     @Bean
