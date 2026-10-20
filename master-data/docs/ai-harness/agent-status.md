@@ -1,5 +1,13 @@
 # Master Data Agent Status
 
+## 2026-10-20 — Issue #915 / Draft PR #931
+
+- State: Draft handoff for human review. Branch `agent/915-master-data-http-errors`; worktree `/tmp/account-915-master-data-http-errors`; integrated base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; PR https://github.com/skyg547/account/pull/931 (`Refs #915`).
+- Scope: master-data API advice and two HTTP tests, module process-flow document, and these three module-local harness records only. No other module, shared-kernel, shared harness, global Codex history, schema, or production data was changed.
+- Result: signed role and service identity failures retain 403/401; malformed input is 400, absent change request 404, known version/state conflicts 409, unexpected failure 500. Rejected unauthorized/malformed requests never enter mocked mutation use cases in full-context HTTP tests.
+- Verification: RED 2 expected status failures before fix; targeted #913 compatibility and ingress cases 23/23 PASS; current-main full suite 723 PASS (core 613, API 105, batch 5), 27 PostgreSQL-only API skips, zero failures/errors. Diff and marker checks passed. Independent read-only reviewer found no issue and judged Q1–Q4 PASS.
+- Next owner: human reviewer for current-head CI, Draft review, Ready/merge/Issue-close decision. Remaining risk: prefix coupling to core exception messages, mocked service-to-HTTP errors, and unrun PostgreSQL-only checks. No branch/worktree cleanup yet.
+
 ## 2026-10-20 — Issue #911 / Draft PR #927
 
 - State: Draft handoff for human review. Branch `agent/911-bp-bulk-fail-closed`; worktree `/tmp/account-911-bp-bulk-fail-closed`; base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.

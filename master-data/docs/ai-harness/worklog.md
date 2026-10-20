@@ -1,5 +1,22 @@
 # Master Data AI Worklog
 
+## 2026-10-20 — GH-915 expected HTTP errors through assembled advice
+
+- Issue #915; Draft PR [#931](https://github.com/skyg547/account/pull/931) (`Refs #915`). Branch `agent/915-master-data-http-errors`, worktree `/tmp/account-915-master-data-http-errors`, integrated base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`. Functional commit `37ffba7b` before this module-local record update.
+- Scope: `MasterDataExceptionHandler.java`, two `master-data/api` HTTP tests, and `master-data/docs/process-flow.md`. A test-role writer owned only `MasterDataIngressHttpTest.java`; the parent implemented the API mapping and documentation; an independent reviewer was read-only. No cross-module worker or shared contract change was needed because #915 targets one module. Other modules, `shared-kernel`, shared AI harness documents, and global Codex history were not edited under the user's module-only restriction.
+- RED: actual filter/controller/advice HTTP test had two expected failures: missing change request returned 400 instead of 404; invalid apply state returned 500 instead of 409. Existing signed-user role 403 and missing/wrong Closing assertion 401 stayed blocked before use-case calls.
+- GREEN: added narrow 400 handling for MVC header/type errors, sanitized 404 for missing change request, 409 for known state/version/idempotency conflicts, and retained generic unexpected 500. Trusted fixed field-validation descriptions from #913 keep their prior 400 contract. Full-context tests check rejected requests have no use-case interaction and document response bodies. HTTP contract and local command are in `docs/process-flow.md`.
+- After rebasing on current main, `./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2` was BUILD SUCCESSFUL: core 613, API 105, batch 5 passed, zero failures/errors; 27 PostgreSQL-only API tests skipped. The #913 validation compatibility fix was verified by 23/23 targeted API tests before this full run. `git diff --check` and changed-file conflict-marker scan passed.
+
+| Quality | Result | File/test evidence | N/A reason | Risk/next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `api/web/MasterDataExceptionHandler.java`; full-context `MasterDataIngressHttpTest.java` 15/15 | Not applicable: assessed | Core message-prefix coupling | Read-only reviewer PASS |
+| Q2 | PASS | `docs/process-flow.md` HTTP flow and status table; handler classification comments | Not applicable: assessed | Service-to-HTTP round trip uses mocked use case | Read-only reviewer PASS |
+| Q3 | PASS | `docs/process-flow.md` local command, status contract, H2/PostgreSQL limit | Not applicable: assessed | PostgreSQL-only tests skipped | Read-only reviewer PASS |
+| Q4 | PASS | Handler comments for trusted field messages and narrow missing/state mappings | Not applicable: assessed | Update adapter if core exception wording changes | Read-only reviewer PASS |
+
+- Rollback: reviewed revert of the issue-scoped API code, tests, and module feature document. No schema or business data changed. Full-context idempotency and real PostgreSQL SCD2 409 are not established by these tests; current-head CI and human review remain the next gates. Reviewer changed no code; parent Integrator alone committed and published the Draft PR. Ready, merge, Issue closure, and cleanup remain human-controlled.
+
 ## 2026-10-20 — GH-911 duplicate business-partner bulk references
 
 - Contract: a requested code with two current active SCD2 versions is a data integrity error, regardless of equal or unequal start dates. The Monolith bulk adapter throws a typed `DuplicateBusinessPartnerReferenceException` and cannot return a success Map containing other valid keys. Repeating an input code with one stored version remains valid; distinct keys and null/empty input retain normal behavior.
