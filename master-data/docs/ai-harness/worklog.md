@@ -1,5 +1,18 @@
 # Master Data AI Worklog
 
+## 2026-10-20 — GH-914 sensitive change-response masking
+
+- Issue #914, branch `agent/914-mask-change-responses`, isolated worktree `/tmp/account-914-mask-change-responses`, base `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`.
+- Current projection returns nine fixed metadata fields on create/pending/approve/reject/apply/apply-due, never the payload or free-text fields. A separate raw-detail GET returns 403 after verified JWT and emits a WARN audit event with only verified actor and numeric request ID; unauthenticated requests return 401.
+- Frontend compatibility: `frontend/src/services/masterDataService.ts` and `frontend/src/app/master-data/partner/page.tsx` treat omitted `payloadJson` in masked summary responses as valid summary metadata so the approval action remains enabled.
+
+| Item | Result | File and test evidence | N/A reason | Risk and next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 readable code and responsibility | PASS | `api/dto/MasterDataChangeRequestDto.java:16`, frontend `partner/page.tsx` | Not applicable: assessed | None | PASS |
+| Q2 input, flow, output, exception | PASS | `docs/process-flow.md:119`, DTO projection and 401/403 HTTP test | Not applicable: assessed | Audit retention depends on collector | PASS |
+| Q3 feature document and beginner guide | PASS | `docs/process-flow.md:119`, `docs/beginner-guide.md:78`, frontend approval usage | Not applicable: assessed | None | PASS |
+| Q4 nearby intent comments | PASS | DTO projection, Controller audit comment, `MasterDataChangeRequestControllerTest.java:218` | Not applicable: assessed | No further comment gate | PASS |
+
 ## 2026-10-20 — GH-920 bounded foundation lists
 
 - Contract and isolation: `agent/920-bound-foundation-lists` in `/tmp/account-920-bound-foundation-lists`, fetched `origin/main@b29125549504d245aa10b3d275923e407bff8d56`. Disjoint master-data and auth writers owned only their module API/core/tests/docs. Parent owned these module-local records and Git/GitHub; separate reviewers made no code edits. No shared contract, common harness, frontend, Gateway source, or other module was edited.

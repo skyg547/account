@@ -1,5 +1,12 @@
 # Master Data AI Handoff
 
+## Issue #914 / Draft PR #938 — 2026-10-20
+
+- Issue/branch/worktree/base: `#914`; `agent/914-mask-change-responses`; `/tmp/account-914-mask-change-responses`; original `origin/main@ff5466f1`, integrated `origin/main@4d0273fe`.
+- Changed files include `master-data/api` response DTO/Controller/authentication filter and two API tests, `master-data/docs/process-flow.md`, `local-run.md`, `beginner-guide.md`, `frontend/src/services/masterDataService.ts`, `frontend/src/app/master-data/partner/page.tsx`, and these three module-local records.
+- Acceptance evidence: six endpoint response JSON bodies exclude synthetic registration text, including escaped strings; real JWT HTTP test shows unauthenticated 401 and authenticated 403 plus WARN audit event without payload; frontend approval UI supports masked summary responses.
+- Rollback: reviewed revert of this issue's API/frontend/tests/module docs. No schema or production data changes; preserve existing business/audit records.
+
 ## Issue #920 / Draft PR #934 — 2026-10-20
 
 - Branch/worktree/base: `agent/920-bound-foundation-lists`; `/tmp/account-920-bound-foundation-lists`; `origin/main@b29125549504d245aa10b3d275923e407bff8d56`.

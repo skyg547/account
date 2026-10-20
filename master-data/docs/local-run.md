@@ -181,10 +181,18 @@ PostgreSQL과 `initialize-schema=never`를 사용하므로 Batch metadata도 rel
 - `GET /api/basic/fiscal-periods/{fiscalYear}/{fiscalPeriod}`
 - `POST /api/master-data/change-requests`
 - `GET /api/master-data/change-requests/pending`
+- `GET /api/master-data/change-requests/{requestId}/raw-detail` (JWT 검증 후에도 403, 원문 조회 비활성)
 - `POST /api/master-data/change-requests/{requestId}/approve`
 - `POST /api/master-data/change-requests/{requestId}/reject`
 - `POST /api/master-data/change-requests/{requestId}/apply`
 - `POST /api/master-data/change-requests/apply-due`
+
+변경 요청 응답은 정형 상태·일자·버전·ID만 반환합니다. 합성 등록번호가 들어 있는
+`payloadJson`, 사유, 대상 키와 actor/sourceReference는 반환하지 않습니다.
+로컬 검증은 `./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2`를 사용합니다.
+요약 JSON의 원문 누출과 인증된 상세 거부는 API HTTP 회귀 테스트에서 확인합니다.
+기존 프런트 거래처 승인 화면은 `payloadJson` 부재 시 승인 버튼을 비활성화합니다.
+API 테스트 성공은 해당 화면의 호환성 검증을 대신하지 않습니다.
 
 `requestedVersion` 예시는 다음과 같습니다.
 

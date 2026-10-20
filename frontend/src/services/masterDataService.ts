@@ -37,18 +37,18 @@ export type ChangeRequestStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'APPLI
 export interface MasterDataChangeRequestDto {
   id: number;
   targetType: 'BUSINESS_PARTNER' | string;
-  targetKey: string;
+  targetKey?: string;
   changeType: 'CREATE' | 'UPDATE' | 'DEACTIVATE';
   status: ChangeRequestStatus;
   effectiveDate: string;
   requestedVersion: number;
-  requestedBy: string;
-  approvedBy: string | null;
+  requestedBy?: string;
+  approvedBy?: string | null;
   requestedAt: string;
   approvedAt: string | null;
-  reason: string | null;
-  payloadJson: string | null;
-  sourceReference: string | null;
+  reason?: string | null;
+  payloadJson?: string | null;
+  sourceReference?: string | null;
   appliedAt: string | null;
 }
 
@@ -132,9 +132,10 @@ class MasterDataService {
 
   async getPendingBusinessPartnerChangeRequests(): Promise<MasterDataChangeRequestDto[]> {
     try {
-      const requests = await requestJson<MasterDataChangeRequestDto[]>(
-        '/api/master-data/change-requests/pending',
-      );
+      const response = await requestJson<
+        MasterDataChangeRequestDto[] | { content?: MasterDataChangeRequestDto[] }
+      >('/api/master-data/change-requests/pending');
+      const requests = Array.isArray(response) ? response : (response.content ?? []);
       return requests.filter((request) => request.targetType === 'BUSINESS_PARTNER');
     } catch {
       return [];

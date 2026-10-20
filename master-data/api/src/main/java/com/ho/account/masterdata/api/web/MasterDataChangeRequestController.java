@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/master-data/change-requests")
 public class MasterDataChangeRequestController {
 
+    private static final Logger log = LoggerFactory.getLogger(MasterDataChangeRequestController.class);
     private static final String AUTH_USER_HEADER = "X-Auth-User";
     private static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
     private static final Set<String> APPROVAL_ROLES =
@@ -67,6 +70,15 @@ public class MasterDataChangeRequestController {
         PageWindow window = ListPageResponses.window(page, size);
         return ListPageResponses.respond(useCase.findPendingRequests(window),
                 window, MasterDataChangeRequestDto::fromEntity);
+    }
+
+    @GetMapping("/{requestId}/raw-detail")
+    public ResponseEntity<Void> denyRawDetail(@PathVariable Long requestId,
+            @RequestHeader(AUTH_USER_HEADER) String authenticatedUser,
+            @RequestHeader(AUTH_ROLES_HEADER) String authenticatedRoles) {
+        // The ingress filter verifies the JWT and supplies these headers before this denial is audited.
+        log.warn("master_data_raw_detail_denied actor={} requestId={}", authenticatedUser, requestId);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 
     @PostMapping("/{requestId}/approve")

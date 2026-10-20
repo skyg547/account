@@ -1,5 +1,11 @@
 # Master Data Agent Status
 
+## 2026-10-20 — Issue #914 / Draft PR #938
+
+- Branch `agent/914-mask-change-responses`; worktree `/tmp/account-914-mask-change-responses`; base `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`.
+- API-only security projection and audited denial are implemented in the worktree, and `frontend/src/app/master-data/partner/page.tsx` + `frontend/src/services/masterDataService.ts` are updated to accept masked summary responses without disabling the approval button.
+- Raw-detail denial audit is a WARN event; durable collection and live PostgreSQL were not verified.
+
 ## 2026-10-20 — Issue #920 / Draft PR #934
 
 - State: module implementation and local verification complete; Draft PR [#934](https://github.com/skyg547/account/pull/934) published with `Refs #920`. Branch `agent/920-bound-foundation-lists`; worktree `/tmp/account-920-bound-foundation-lists`; base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`.
