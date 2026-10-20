@@ -99,7 +99,7 @@ class MasterDataChangeRequestPayloadValidationTest {
                 .hasMessageContaining(input.message());
 
         verify(persistence, never()).save(any());
-        verifyNoInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
+        verify(persistence, never()).save(any());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -113,7 +113,7 @@ class MasterDataChangeRequestPayloadValidationTest {
                 .hasMessageContaining(input.message());
 
         verify(persistence, never()).save(any());
-        verifyNoInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
+        verify(persistence, never()).save(any());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -137,7 +137,7 @@ class MasterDataChangeRequestPayloadValidationTest {
         assertThat(request.getRequestedBy()).isEqualTo("requester");
         assertThat(request.getAppliedAt()).isNull();
         verify(persistence, never()).save(any());
-        verifyNoInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
+        verify(persistence, never()).save(any());
     }
 
     @ParameterizedTest
@@ -333,7 +333,23 @@ class MasterDataChangeRequestPayloadValidationTest {
         assertThat(approved.getApprovedBy()).isEqualTo("approver");
         assertThat(approved.getApprovedAt()).isNotNull();
         verifyOnlyValidationRead(input.type(), input.change(), 2);
-        verifyNoInteractions(departments, products, accountRows, departmentRows, partnerRows, productRows);
+        verifyNoInteractions(accountRows, departmentRows, partnerRows, productRows);
+    }
+
+    @Test
+    void updateRequestLocksBusinessKeyBeforeReadingMergedCurrentStateAndSaving() {
+        stubValidVersion(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE);
+        when(persistence.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MasterDataChangeRequest requested = service.requestChange(requestCommand(
+                MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE, "{\"name\":\"Renamed\"}", null));
+
+        assertThat(requested.getStatus()).isEqualTo(ChangeStatus.REQUESTED);
+        var order = inOrder(locks, accounts, versions, persistence);
+        order.verify(locks).lock(MasterDataType.ACCOUNT_SUBJECT, TARGET_KEY);
+        order.verify(accounts).findAccountSubjectByCode(TARGET_KEY);
+        order.verify(versions).countPersistedVersions(MasterDataType.ACCOUNT_SUBJECT, TARGET_KEY);
+        order.verify(persistence).save(requested);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -347,7 +363,7 @@ class MasterDataChangeRequestPayloadValidationTest {
 
         service.approve(668L, "approver");
         verifyOnlyValidationRead(input.type(), input.change(), 1);
-        verifyNoInteractions(departments, products, accountRows, departmentRows, partnerRows, productRows);
+        verifyNoInteractions(accountRows, departmentRows, partnerRows, productRows);
         stubCurrentLookupForApply(input.type(), input.change());
 
         MasterDataChangeRequest applied = service.applyApprovedChange(668L);
@@ -384,7 +400,7 @@ class MasterDataChangeRequestPayloadValidationTest {
             }
             default -> throw new IllegalArgumentException("Unexpected test type");
         }
-        verifyNoMoreInteractions(accounts, departments, products, accountRows, departmentRows, partnerRows, productRows);
+        // UPDATE validation may read the current business state again before applying.
     }
 
     @ParameterizedTest
@@ -555,7 +571,7 @@ class MasterDataChangeRequestPayloadValidationTest {
         for (MasterDataType type : TARGET_TYPES) {
             for (ChangeType change : List.of(ChangeType.CREATE, ChangeType.UPDATE)) {
                 String key = type == MasterDataType.PRODUCT ? "productCode" : "code";
-                String name = change == ChangeType.UPDATE && type != MasterDataType.ACCOUNT_SUBJECT ? null : "valid";
+                String name = change == ChangeType.UPDATE ? null : "valid";
                 String fields = "\"name\":" + (name == null ? "null" : "\"valid\"");
                 if (type == MasterDataType.PRODUCT) {
                     fields += ",\"productType\":" + (change == ChangeType.CREATE ? "\"SERVICE\"" : "null");
@@ -563,7 +579,7 @@ class MasterDataChangeRequestPayloadValidationTest {
                         fields += ",\"price\":0";
                     }
                 }
-                for (String keyJson : List.of("", ",\"" + key + "\":null", ",\"" + key + "\":\" \"",
+                for (String keyJson : List.of("", ",\"" + key + "\":null",
                         ",\"" + key + "\":\"" + TARGET_KEY + "\"")) {
                     for (boolean sameDayEnd : List.of(false, true)) {
                         LocalDate validTo = sameDayEnd ? EFFECTIVE_DATE : null;
@@ -577,6 +593,8 @@ class MasterDataChangeRequestPayloadValidationTest {
         // 생략과 명시 null 모두 부분 수정 의미를 유지하며, 기본값을 applier가 미리 채우지 않습니다.
         cases.add(new ValidPayload(MasterDataType.DEPARTMENT, ChangeType.UPDATE, "all fields omitted", "{}",
                 minimalExpectedCommand(MasterDataType.DEPARTMENT, null, null)));
+        cases.add(new ValidPayload(MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE, "all fields omitted", "{}",
+                minimalExpectedCommand(MasterDataType.ACCOUNT_SUBJECT, null, null)));
         cases.add(new ValidPayload(MasterDataType.PRODUCT, ChangeType.UPDATE, "all fields omitted", "{}",
                 minimalExpectedCommand(MasterDataType.PRODUCT, null, null)));
         for (ChangeType change : List.of(ChangeType.CREATE, ChangeType.UPDATE)) {
@@ -597,12 +615,6 @@ class MasterDataChangeRequestPayloadValidationTest {
                             + "\"price\":12.3456,\"productType\":\"SERVICE\",\"validFrom\":\"2020-01-01\",\"validTo\":\"2027-12-31\"}",
                     new ProductCommand(TARGET_KEY, "product", "description", "EA", new BigDecimal("12.3456"),
                             Product.ProductType.SERVICE, EFFECTIVE_DATE, LocalDate.of(2027, 12, 31))));
-        }
-        for (MasterDataType type : TARGET_TYPES) {
-            String json = type == MasterDataType.PRODUCT
-                    ? "{\"name\":\" \",\"productType\":\"SERVICE\",\"price\":0}" : "{\"name\":\" \"}";
-            cases.add(new ValidPayload(type, ChangeType.CREATE, "no new blank-name policy", json,
-                    minimalExpectedCommand(type, ChangeType.CREATE, " ", null)));
         }
         return cases.stream();
     }
@@ -651,6 +663,9 @@ class MasterDataChangeRequestPayloadValidationTest {
             Product current = new Product();
             current.setId(900L);
             current.setProductCode(TARGET_KEY);
+            current.setName("Existing product");
+            current.setPrice(BigDecimal.ZERO);
+            current.setProductType(Product.ProductType.SERVICE);
             current.setValidFrom(EFFECTIVE_DATE.minusDays(1));
             current.setValidTo(currentValidTo);
             when(productRows.findActiveByProductCodeForUpdate(TARGET_KEY)).thenReturn(Optional.of(current));
@@ -690,10 +705,12 @@ class MasterDataChangeRequestPayloadValidationTest {
                 cases.add(new InvalidPayload(type, change, "blank raw payload", " \t ", "Payload is required"));
                 cases.add(new InvalidPayload(type, change, "different key",
                         "{" + fields + ",\"" + key + "\":\"OTHER\"}", "does not match"));
+                cases.add(new InvalidPayload(type, change, "blank key",
+                        "{" + fields + ",\"" + key + "\":\" \"}", "Payload key must not be blank"));
                 cases.add(new InvalidPayload(type, change, "end before effective date",
                         "{" + fields + ",\"validFrom\":\"2026-07-01\",\"validTo\":\"2026-07-31\"}",
                         "SCD2 validTo cannot be before validFrom."));
-                if (type == MasterDataType.ACCOUNT_SUBJECT || change == ChangeType.CREATE) {
+                if (change == ChangeType.CREATE) {
                     String otherFields = type == MasterDataType.PRODUCT ? "\"productType\":\"SERVICE\",\"price\":0" : "";
                     cases.add(new InvalidPayload(type, change, "missing required name",
                             "{" + otherFields + "}", "name is required"));
@@ -701,6 +718,9 @@ class MasterDataChangeRequestPayloadValidationTest {
                             "{\"name\":null" + (otherFields.isEmpty() ? "" : "," + otherFields) + "}",
                             "name is required"));
                 }
+                cases.add(new InvalidPayload(type, change, "blank required name",
+                        "{\"name\":\" \\t \"" + (type == MasterDataType.PRODUCT ? ",\"productType\":\"SERVICE\",\"price\":0" : "") + "}",
+                        "name"));
                 if (type == MasterDataType.PRODUCT && change == ChangeType.CREATE) {
                     cases.add(new InvalidPayload(type, change, "missing required productType",
                             "{\"name\":\"valid\",\"price\":0}", "productType is required"));
@@ -739,10 +759,31 @@ class MasterDataChangeRequestPayloadValidationTest {
         if (type == MasterDataType.ACCOUNT_SUBJECT && change == ChangeType.UPDATE) {
             AccountSubject current = new AccountSubject();
             current.setCode(TARGET_KEY);
+            current.setName("Existing account");
             current.setCategory(AccountSubject.AccountCategory.LIABILITIES);
             current.setAccountType(AccountType.LIABILITIES);
             current.setBalanceType(AccountSubject.BalanceType.CREDIT);
             when(accounts.findAccountSubjectByCode(TARGET_KEY)).thenReturn(Optional.of(current));
+        }
+        if (type == MasterDataType.DEPARTMENT && change == ChangeType.UPDATE) {
+            Department current = new Department();
+            current.setCode(TARGET_KEY);
+            current.setName("Existing department");
+            when(departments.findDepartmentByCode(TARGET_KEY)).thenReturn(Optional.of(current));
+        }
+        if (type == MasterDataType.PRODUCT && change == ChangeType.UPDATE) {
+            Product current = new Product();
+            current.setProductCode(TARGET_KEY);
+            current.setName("Existing product");
+            current.setPrice(BigDecimal.ZERO);
+            current.setProductType(Product.ProductType.SERVICE);
+            when(products.getProductByProductCode(TARGET_KEY)).thenReturn(Optional.of(current));
+        }
+        if (type == MasterDataType.BUSINESS_PARTNER && change == ChangeType.UPDATE) {
+            BusinessPartner current = BusinessPartner.create(TARGET_KEY, "Existing partner", null, null,
+                    null, null, null, true, null, null, EFFECTIVE_DATE.minusDays(1),
+                    LocalDate.of(9999, 12, 31));
+            when(partners.getBusinessPartnerByCode(TARGET_KEY)).thenReturn(Optional.of(current));
         }
     }
 

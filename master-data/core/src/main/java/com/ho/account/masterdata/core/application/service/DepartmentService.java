@@ -8,6 +8,7 @@ import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKey
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,13 +30,17 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department createDepartment(DepartmentCommand command) {
-        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, command.code());
+        Department department = command.toEntity();
+        department.validateBusinessFields();
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Department parentCode", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
+        }
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, department.getCode());
         // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
-        if (departmentPersistencePort.existsByCode(command.code())) {
+        if (departmentPersistencePort.existsByCode(department.getCode())) {
             throw new MasterDataVersionConflictException("이미 이력이 존재하는 부서 코드입니다: " + command.code());
         }
 
-        Department department = command.toEntity();
         
         if (command.hasParentCode()) {
             Department parent = departmentPersistencePort.findActiveByCode(command.parentCode())
@@ -76,14 +81,18 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department updateDepartment(String code, DepartmentCommand command) {
-        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, code);
-        Department currentActive = departmentPersistencePort.findActiveByCodeForUpdate(code)
-                .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
-        if (!MasterDataValidityPolicy.isActiveAt(LocalDate.now(), currentActive.getValidFrom(), currentActive.getValidTo())) {
-            throw new IllegalArgumentException("활성 부서 버전만 수정할 수 있습니다: " + code);
+        String canonicalCode = MasterDataFieldRules.code(code, "Department code", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Department parentCode", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
         }
-        if (command.code() != null && !command.code().equals(code)) {
-            throw new IllegalArgumentException("부서 코드는 SCD2 버전 수정에서 변경할 수 없습니다: " + code);
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, canonicalCode);
+        Department currentActive = departmentPersistencePort.findActiveByCodeForUpdate(canonicalCode)
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + canonicalCode));
+        if (!MasterDataValidityPolicy.isActiveAt(LocalDate.now(), currentActive.getValidFrom(), currentActive.getValidTo())) {
+            throw new IllegalArgumentException("활성 부서 버전만 수정할 수 있습니다: " + canonicalCode);
+        }
+        if (command.code() != null && !MasterDataFieldRules.code(command.code(), "Department code", MasterDataFieldRules.DEPARTMENT_CODE_MAX).equals(canonicalCode)) {
+            throw new MasterDataFieldRules.FieldValidationException("Department code cannot change during update.");
         }
 
         // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
@@ -97,7 +106,7 @@ public class DepartmentService implements DepartmentUseCase {
         
         // 참조 검증과 신규 버전 조립을 먼저 끝내야 잘못된 parentCode가 현재 버전을 건드리지 않습니다.
         Department newVersion = new Department();
-        newVersion.setCode(code);
+        newVersion.setCode(canonicalCode);
         newVersion.setName(command.name() != null ? command.name() : currentActive.getName());
         newVersion.setType(command.type() != null ? command.type() : currentActive.getType());
         
@@ -111,6 +120,7 @@ public class DepartmentService implements DepartmentUseCase {
         
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
+        newVersion.validateBusinessFields();
 
         currentActive.terminate(oldValidTo);
         departmentPersistencePort.save(currentActive);

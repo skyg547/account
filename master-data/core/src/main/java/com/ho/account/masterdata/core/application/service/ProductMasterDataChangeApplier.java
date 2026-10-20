@@ -38,25 +38,36 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
 
     private ProductCommand validatedCommand(MasterDataChangeRequest request) {
         ProductCommand command = command(request);
-        // 현재 버전 조회는 apply에만 둡니다. 부분 UPDATE의 생략 단가는 core가 상속해 검증합니다.
-        if (command.price() != null || request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+        if (command.price() != null) {
             Product.requireValidPrice(command.price());
-        }
-        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
-            if (command.name() == null) {
-                throw new IllegalArgumentException("Product name is required.");
-            }
-            if (command.productType() == null) {
-                throw new IllegalArgumentException("Product productType is required.");
-            }
         }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        Product candidate;
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+            candidate = command.toEntity();
+        } else {
+            Product current = productUseCase.getProductByProductCode(request.getTargetKey())
+                    .orElseThrow(() -> new MasterDataVersionConflictException("Active product no longer exists."));
+            candidate = new Product();
+            candidate.setProductCode(current.getProductCode());
+            candidate.setName(command.name() != null ? command.name() : current.getName());
+            candidate.setDescription(command.description() != null ? command.description() : current.getDescription());
+            candidate.setUnitOfMeasure(command.unitOfMeasure() != null ? command.unitOfMeasure() : current.getUnitOfMeasure());
+            if (command.price() != null) {
+                candidate.setPrice(command.price());
+            } else if (current.getPrice() != null) {
+                candidate.setPrice(current.getPrice());
+            }
+            candidate.setProductType(command.productType() != null ? command.productType() : current.getProductType());
+        }
+        candidate.validateBusinessFields();
         return command;
     }
 
     @Override
     public void apply(MasterDataChangeRequest request) {
+        validate(request);
         switch (request.getChangeType()) {
             case CREATE -> productUseCase.createProduct(validatedCommand(request));
             case UPDATE -> {

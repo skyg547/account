@@ -3,6 +3,7 @@ package com.ho.account.masterdata.api.web;
 import com.ho.account.masterdata.api.dto.AccountSubjectDto;
 import com.ho.account.masterdata.api.dto.AccountSubjectRequestDto;
 import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +28,8 @@ public class AccountSubjectController {
         try {
             return ResponseEntity.ok(AccountSubjectDto.fromEntity(
                     accountSubjectUseCase.createAccountSubject(requestDto.toCommand())));
+        } catch (FieldValidationException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
@@ -55,6 +58,8 @@ public class AccountSubjectController {
         try {
             return ResponseEntity.ok(
                     AccountSubjectDto.fromEntity(accountSubjectUseCase.updateAccountSubject(code, requestDto.toCommand())));
+        } catch (FieldValidationException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }

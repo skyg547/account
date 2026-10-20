@@ -9,6 +9,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,17 +43,16 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
                 && command.clearRegulatoryMappingCode()) {
             throw new IllegalArgumentException("Cannot clear regulatory mapping code when creating an account subject.");
         }
-        // Both requests need a name; other omitted business fields inherit the current UPDATE version.
-        if (command.name() == null) {
-            throw new IllegalArgumentException("Account subject name is required.");
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Account subject parentCode", MasterDataFieldRules.ACCOUNT_CODE_MAX);
         }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
-        validateProspectiveClassification(request, command);
+        validateProspectiveState(request, command);
         return command;
     }
 
-    private void validateProspectiveClassification(MasterDataChangeRequest request, AccountSubjectCommand command) {
+    private void validateProspectiveState(MasterDataChangeRequest request, AccountSubjectCommand command) {
         AccountSubject candidate;
         if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
             candidate = command.toEntity();
@@ -60,8 +60,19 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
             // Resolve omitted fields against the live version before approval; apply rechecks its own snapshot.
             AccountSubject current = accountSubjectUseCase.findAccountSubjectByCode(request.getTargetKey())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "Active account subject not found: " + request.getTargetKey()));
+                            "Active account subject not found."));
             candidate = current.successor();
+            if (command.name() != null) {
+                candidate.setName(command.name());
+            }
+            if (command.reportLine() != null) {
+                candidate.setReportLine(command.reportLine());
+            }
+            if (command.clearRegulatoryMappingCode()) {
+                candidate.setRegulatoryMappingCode(null);
+            } else if (command.regulatoryMappingCode() != null) {
+                candidate.setRegulatoryMappingCode(command.regulatoryMappingCode());
+            }
             if (command.category() != null) {
                 candidate.setCategory(command.category());
             }
@@ -69,11 +80,13 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
                 candidate.setAccountType(command.accountType());
             }
         }
+        candidate.validateBusinessFields();
         candidate.normalizeAndValidateClassification();
     }
 
     @Override
     public void apply(MasterDataChangeRequest request) {
+        validate(request);
         switch (request.getChangeType()) {
             case CREATE -> accountSubjectUseCase.createAccountSubject(command(request));
             case UPDATE -> {

@@ -11,10 +11,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,7 +32,9 @@ class AccountSubjectClassificationRequestTest {
     @BeforeEach
     void setUp() {
         useCase = mock(AccountSubjectUseCase.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new AccountSubjectController(useCase)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new AccountSubjectController(useCase))
+                .setControllerAdvice(new MasterDataExceptionHandler())
+                .build();
     }
 
     @Test
@@ -68,5 +72,18 @@ class AccountSubjectClassificationRequestTest {
         assertNull(command.getValue().accountType());
         assertNull(command.getValue().regulatoryMappingCode());
         assertFalse(command.getValue().clearRegulatoryMappingCode());
+    }
+
+    @Test
+    void invalidUpdateNameReturnsSanitizedValidationError() throws Exception {
+        when(useCase.updateAccountSubject(eq("1100"), any(AccountSubjectCommand.class)))
+                .thenThrow(new FieldValidationException("Account name is required."));
+
+        mockMvc.perform(put("/api/basic/account-subjects/{code}", "1100")
+                        .header("X-Auth-Roles", "ROLE_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Account name is required."));
     }
 }

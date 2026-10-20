@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.command;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import java.time.LocalDate;
 
 public record AccountSubjectCommand(
@@ -20,17 +21,17 @@ public record AccountSubjectCommand(
 
     public AccountSubjectCommand {
         if (regulatoryMappingCode != null && regulatoryMappingCode.isBlank()) {
-            throw new IllegalArgumentException("Regulatory mapping code must not be blank.");
+            throw new MasterDataFieldRules.FieldValidationException("Regulatory mapping code must not be blank.");
         }
         // Preserve the supplied identifier exactly; reject ambiguous whitespace and values the column cannot hold.
         if (regulatoryMappingCode != null && !regulatoryMappingCode.equals(regulatoryMappingCode.strip())) {
-            throw new IllegalArgumentException("Regulatory mapping code must not have surrounding whitespace.");
+            throw new MasterDataFieldRules.FieldValidationException("Regulatory mapping code must not have surrounding whitespace.");
         }
         if (regulatoryMappingCode != null && regulatoryMappingCode.length() > 100) {
-            throw new IllegalArgumentException("Regulatory mapping code must be at most 100 characters.");
+            throw new MasterDataFieldRules.FieldValidationException("Regulatory mapping code must be at most 100 characters.");
         }
         if (clearRegulatoryMappingCode && regulatoryMappingCode != null) {
-            throw new IllegalArgumentException("Regulatory mapping code cannot be changed and cleared together.");
+            throw new MasterDataFieldRules.FieldValidationException("Regulatory mapping code cannot be changed and cleared together.");
         }
     }
 

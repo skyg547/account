@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -57,6 +59,15 @@ public class AccountSubject {
 
     public enum BalanceType {
         DEBIT, CREDIT
+    }
+
+    /** Validate the complete row after partial UPDATE fields have been merged. */
+    public void validateBusinessFields() {
+        code = MasterDataFieldRules.code(code, "Account subject code", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        name = MasterDataFieldRules.requiredText(name, "Account subject name", MasterDataFieldRules.ACCOUNT_NAME_MAX);
+        reportLine = MasterDataFieldRules.optionalText(reportLine, "Account subject reportLine", MasterDataFieldRules.ACCOUNT_REPORT_LINE_MAX);
+        regulatoryMappingCode = MasterDataFieldRules.optionalText(regulatoryMappingCode,
+                "Regulatory mapping code", MasterDataFieldRules.ACCOUNT_REGULATORY_MAPPING_CODE_MAX);
     }
 
     /** Copies business values into a new SCD2 row without reusing identity or row audit metadata. */
