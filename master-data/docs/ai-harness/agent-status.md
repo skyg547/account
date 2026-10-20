@@ -1,14 +1,27 @@
 # Master Data Agent Status
 
-## 2026-10-20 — Issue #914 review blocked
+## 2026-10-20 — Issue #914 / Draft PR #938
 
 - Branch `agent/914-mask-change-responses`; worktree `/tmp/account-914-mask-change-responses`; base `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`.
-- API-only security projection and audited denial are implemented in the worktree. Focused RED 7/18 expected failures, GREEN 18/18 pass. Requested core/API/batch suites passed 651 tests with 27 PostgreSQL-only skips and no failures/errors.
-- Independent read-only review found P1 frontend approval regression: the pending screen requires `payloadJson`, while the response now omits it. Q1/Q3 FAIL; Q2/Q4 PASS. Explicit user prohibition prevents editing the frontend. Scope/compatibility decision is pending; implementation `38a0aa84`, latest-main merge `d391680a`, and fixture/record commit `b3ea56ff` were published to Draft PR [#938](https://github.com/skyg547/account/pull/938). No Ready, merge, or Issue closure is claimed.
-- Raw-detail denial audit is a WARN event; durable collection and live PostgreSQL were not verified. Next owner is the user for the scope decision, then the implementation owner and independent reviewer.
-- Follow-up: unauthenticated numeric raw-detail requests now emit an `actor=unverified` denial audit; focused HTTP test passed. This does not resolve the frontend P1 or verify operational audit retention.
-- Latest `origin/main@b2912554` merged with no conflict; integrated required command passed core 613, API 103, batch 5 (721 passed, 27 PostgreSQL-only skipped, zero failures/errors). The #913 field-limit interaction was resolved in the synthetic test fixture. Independent final review confirmed the frontend P1 and Q1/Q3 FAIL; Draft #938 is open and remote CI was queued at publication.
-- Current-head follow-up: local required Gradle command returned BUILD SUCCESSFUL (all tasks up-to-date); independent focused HTTP tests passed and `git diff --check origin/main...HEAD` passed. Remote `master-data`, Module Validation, and Harness Validation checks passed. Agent Merge Guard failed because its trust policy is unconfigured and the PR remains Draft; this is a repository gate, not evidence of a code test failure. The frontend P1 still blocks Ready.
+- API-only security projection and audited denial are implemented in the worktree, and `frontend/src/app/master-data/partner/page.tsx` + `frontend/src/services/masterDataService.ts` are updated to accept masked summary responses without disabling the approval button.
+- Raw-detail denial audit is a WARN event; durable collection and live PostgreSQL were not verified.
+
+## 2026-10-20 — Issue #920 / Draft PR #934
+
+- State: module implementation and local verification complete; Draft PR [#934](https://github.com/skyg547/account/pull/934) published with `Refs #920`. Branch `agent/920-bound-foundation-lists`; worktree `/tmp/account-920-bound-foundation-lists`; base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`.
+- Scope: `master-data/**` and `auth/**` list ports, HTTP adapters, JPA queries, tests, module docs, auth PAT index migration, and these master-data module-local harness records. Shared harness, frontend, Gateway source, contracts and other modules are untouched.
+- Result: zero-based pages default to 20 and cap at 100; array bodies retain shape, page headers expose continuation. Partner list scalar projections omit child accounts. Auth user keys are paged before role loading; PAT pages use creation time and ID. H2 SQL and synthetic history tests verify bounded reads and stable pages.
+- Verification: requested five-project offline command passed; XML has 1,069 passing tests, zero failures/errors, and 27 environment-skipped master-data PostgreSQL API tests. A post-edit auth core rerun and exact PAT JPA test passed. Independent module reviews judged Q1–Q4 PASS after the PAT test gap was filled.
+- Gate: existing frontend list consumers fetch only page 0 and can hide rows beyond 20. Their migration is outside the user-approved module scope; document and resolve deployment order before Ready/merge. PostgreSQL plans and production load were not measured. Draft PR remains under human review; no Ready/merge/Issue close/cleanup is authorized.
+
+## 2026-10-20 — Issue #915 / Draft PR #931
+
+- State: Draft handoff for human review. Branch `agent/915-master-data-http-errors`; worktree `/tmp/account-915-master-data-http-errors`; integrated base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; PR https://github.com/skyg547/account/pull/931 (`Refs #915`).
+- Scope: master-data API advice and two HTTP tests, module process-flow document, and these three module-local harness records only. No other module, shared-kernel, shared harness, global Codex history, schema, or production data was changed.
+- Result: signed role and service identity failures retain 403/401; malformed input is 400, absent change request 404, known version/state conflicts 409, unexpected failure 500. Rejected unauthorized/malformed requests never enter mocked mutation use cases in full-context HTTP tests.
+- Verification: RED 2 expected status failures before fix; targeted #913 compatibility and ingress cases 23/23 PASS; current-main full suite 723 PASS (core 613, API 105, batch 5), 27 PostgreSQL-only API skips, zero failures/errors. Diff and marker checks passed. Independent read-only reviewer found no issue and judged Q1–Q4 PASS.
+- Remote gate: Harness Validation passed on Draft PR #931. Agent Merge Guard failed because its current workflow supplies no trusted policy (`TRUST_POLICY_UNCONFIGURED`) and also requires implementation owner, verification, merge authority, and non-Draft readiness. This policy/human gate is outside the module-only allowlist; the PR remains Draft.
+- Next owner: repository policy owner and human reviewer for the trust configuration, Draft review, current-head CI, Ready/merge/Issue-close decision. Remaining risk: prefix coupling to core exception messages, mocked service-to-HTTP errors, and unrun PostgreSQL-only checks. No branch/worktree cleanup yet.
 
 ## 2026-10-20 — Issue #911 / Draft PR #927
 

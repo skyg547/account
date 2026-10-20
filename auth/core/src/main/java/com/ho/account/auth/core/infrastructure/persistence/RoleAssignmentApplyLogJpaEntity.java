@@ -1,6 +1,7 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
 import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersistencePort;
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,7 +25,7 @@ class RoleAssignmentApplyLogJpaEntity {
     @Column(name = "approval_trace_id", nullable = false, length = 160)
     private String approvalTraceId;
 
-    @Column(name = "username", nullable = false, length = 80)
+    @Column(name = "username", nullable = false, length = AuthIdentityPolicy.MAX_USERNAME_LENGTH)
     private String username;
 
     @Column(name = "request_fingerprint", nullable = false, length = 64)

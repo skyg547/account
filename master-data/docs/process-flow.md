@@ -10,6 +10,21 @@ Closing의 회계기간 상태 변경은 `X-Service-Assertion`에 별도 HS256 J
 
 현재 Closing HTTP 호출자는 이 assertion을 발급하지 않으므로 해당 호출은 401로 차단됩니다. Closing 클라이언트가 별도 키를 안전하게 주입받아 위 claim을 생성하도록 연동 변경이 필요합니다. 또한 Master Data는 서명된 `roleVersion`을 형식 검증하지만 현재 Auth 상태를 다시 조회하지 않습니다. Gateway 경로는 별도로 Auth의 현재 버전을 확인하며, Master Data에 직접 도달한 유효기간 내 토큰은 역할 변경 직후에도 과거 역할을 유지할 수 있습니다. 직접 서비스 접근 제한 또는 수신 서비스의 bounded Auth 조회를 별도 통합 게이트로 검토해야 합니다.
 
+### HTTP 오류 계약
+
+요청은 인증 필터 → Controller 입력 검증 → core 유즈케이스 순서로 처리됩니다. 필터가 거부한 요청은 Controller와 변경 유즈케이스에 도달하지 않습니다. `MasterDataIngressHttpTest`는 실제 필터 및 `MasterDataExceptionHandler`를 조립해 인증, 일반 입력, 변경 요청의 조회·상태·버전 충돌을 검증합니다. 멱등성·SCD2 기간 충돌은 기존 별도 테스트로 검증하며 전체 HTTP 조립 검증 범위에는 포함되지 않습니다.
+
+| 상태 | 조건 | 응답 |
+| --- | --- | --- |
+| 400 | 필수 쿼리/헤더 누락, 잘못된 경로 ID·JSON·타입, DTO 또는 필드 규칙 검증 실패 | `ApiResponse.success=false`; 일반 입력 형식 오류는 `Bad request`, 필드 규칙 오류는 고정된 안전한 규칙 설명 |
+| 401 | 사용자 토큰 또는 Closing assertion 누락·불일치·만료, 잘못된 서비스 identity | 빈 본문 |
+| 403 | 검증된 사용자에게 승인 또는 직접 쓰기 역할이 없음 | 빈 본문 |
+| 404 | 변경 요청 ID가 존재하지 않음 | `ApiResponse.success=false`, `Change request not found` |
+| 409 | 변경 요청 버전·멱등성·적용 상태·SCD2 기간 충돌 | `ApiResponse.success=false`; 각각 `Master-data version conflict`, `Master-data idempotency conflict`, `Change request state conflict`, `Master-data validity period conflict.` |
+| 500 | 위 사례로 분류되지 않는 서버 오류 | `ApiResponse.success=false`, `Internal server error` |
+
+예를 들어 유효한 관리자 JWT로 `POST /api/master-data/change-requests/42/approve`를 호출했을 때 ID 42가 없으면 404입니다. 인증이 없으면 먼저 401로 끝나며 해당 ID를 조회하거나 변경하지 않습니다. 로컬에서 회귀를 확인하려면 저장소 루트에서 `./gradlew :master-data:api:test --tests com.ho.account.masterdata.api.web.MasterDataIngressHttpTest --offline --no-daemon --console=plain --max-workers=2`를 실행합니다. 이 테스트는 H2와 가짜 포트를 사용하므로 실제 PostgreSQL 및 서비스 간 호출의 증거는 아닙니다.
+
 | 컨트롤러 | 경로 | 역할 |
 | --- | --- | --- |
 | `AccountSubjectController` | `/api/basic/account-subjects` | 계정과목 생성, 조회, SCD2 수정, 종료 |
@@ -82,7 +97,7 @@ sequenceDiagram
 승인 경로는 요청자·승인자·사유·원문 payload와 `appliedAt`을 변경 요청 이력에 남깁니다.
 
 거래처에서는 `closeVersion()`과 `terminate()`를 구분합니다. 수정은 이전 SCD2 버전의 기간만
-닫고 `useYn`을 유지하지만, 비활성화도 종료일을 닫고 과거 조회를 위해 `useYn`을 유지합니다. 저장소 조회는
+닫고 `useYn`을 유지하며, 비활성화도 종료일만 닫아 과거 조회를 위해 `useYn`을 유지합니다. 종료일 다음 날부터는 기간 조건으로 제외됩니다. 저장소 조회는
 `BusinessPartnerJpaEntity`와 계좌를 한 aggregate로 읽은 뒤 포트 밖으로 순수 도메인만 반환합니다.
 다음 버전의 계좌는 업무 값만 복제하고 자식 ID를 비워 새 FK 행으로 저장하므로 과거 계좌가
 새 부모로 이동하지 않습니다.
@@ -156,15 +171,19 @@ CREATE/UPDATE payload의 업무 코드는 승인 대상 `targetKey`와 같아야
 
 ```mermaid
 flowchart LR
-    A[업무 모듈] --> B[contracts MasterDataQueryPort]
-    B --> C[master-data adapter]
+    A[업무 모듈] --> B[소비 모듈 조회 포트]
+    B --> C[Master Data 계약 또는 어댑터]
     C --> D[(Master Data DB)]
     D --> E[AccountSubjectRef/DepartmentRef/BusinessPartnerRef]
 ```
 
 목표 구조에서 업무 모듈은 `master-data` JPA 엔티티를 직접 참조하지 않고 코드나 ID만 저장하며,
-상세 이름/속성은 contracts 포트 또는 API로 조회합니다. 현재 Loan core의 거래처/통화 엔티티 연관과
-Closing Batch의 `ExchangeRateRepository` 직접 참조는 아직 이 원칙의 예외이므로 다음 순차 리팩터링 대상입니다.
+상세 이름/속성은 소비 모듈 소유 포트 뒤의 contracts 포트 또는 API로 조회합니다. Loan은
+거래처 ID·통화 코드를 저장하고 `LoanReferenceDataPort`를 사용합니다. 모놀리스 어댑터는
+Master Data 영속성 포트를 사용하지만 dev 원격 어댑터의 숫자 거래처 ID·기준일 통화 검증은
+제공 API가 없어 실패합니다. Closing 환율 조회는 `FxExchangeRateLookupPort` 뒤의 contracts
+어댑터(모놀리스) 또는 JDBC 어댑터(dev)를 사용합니다.
+
 거래처 현재 조회는 `useYn=true`와 오늘의 유효기간을 함께 보지만, 과거 기준일 조회는 종료된
 SCD2 행도 유효기간으로 찾습니다. 따라서 거래처가 나중에 변경·종료돼도 과거 전표의 당시
 거래처명을 복원할 수 있습니다. 단건 조회는 `Optional` 반환으로 겹치는 기간이 두 행이면
@@ -199,7 +218,8 @@ JDK 17과 캐시된 Gradle 의존성이 있는 저장소 루트에서 다음 명
 기존 계약 회귀를 확인합니다. 성공하면 두 명령 모두 `BUILD SUCCESSFUL`로 끝납니다.
 
 SCD2 교체용 `closeVersion`과 업무 종료용 `terminate`는 과거 조회를 위해 `useYn`을
-보존합니다. 서비스의 중복 종료 요청은 같은 종료일을 다시 적용할 때409로 거부합니다.
+보존합니다. 현재 활성 조회의 기간·`useYn` 조건은 KYC·위험 등급 심사 적격성을 검사하지
+않습니다. 서비스의 중복 종료 요청은 같은 종료일을 다시 적용할 때 409로 거부합니다.
 
 ### 같은 업무 키의 쓰기 순서
 
@@ -250,9 +270,9 @@ API 활성 계정과목/상품 목록도 같은 원칙으로 `validFrom <= 기�
 
 ```mermaid
 flowchart LR
-    A[Closing 기준일 환율 요청] --> B[ExchangeRateRepository]
-    B --> C[effectiveDate <= 요청일]
-    C --> D[effectiveDate DESC 첫 1건]
+    A[Closing 기준일 환율 요청] --> B[FxExchangeRateLookupPort]
+    B --> C[contracts 또는 JDBC 어댑터]
+    C --> D[요청일 이하 최신 환율 1건]
     E[Closing 상태 변경] --> F[FiscalPeriodControlPort]
     F --> G[Master Data Adapter]
     G --> H[FiscalPeriodPersistencePort]
@@ -268,7 +288,7 @@ flowchart LR
 
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 도메인 서비스, 영속성 포트, 버전 조회, typed applier를 함께 구현하기 전까지 요청 접수부터 fail-closed 됩니다.
 - 같은 sourceReference의 동시 최초 저장은 DB unique index가 중복 행을 막지만 한 요청이 충돌 예외를 받을 수 있습니다. 충돌 후 기존 요청을 재조회·검증하는 원자적 멱등 저장 포트가 필요합니다.
-- Loan core의 Master Data 엔티티 연관과 Closing Batch의 Repository 직접 의존을 소비 모듈 소유 포트/contracts DTO로 교체해야 합니다.
+- Loan dev 원격 참조 검증은 Master Data API에 숫자 거래처 ID·기준일 통화 조회가 없어 실패합니다. 두 모듈의 조회 계약을 맞춘 뒤 원격 어댑터를 완성해야 합니다.
 - `TaxProfile`은 엔티티만 있고 repository/use case/applier/소비 계약이 없습니다. Tax와 소유권을 정해 전체 SCD2 흐름을 구현하거나 중복 모델을 이관·제거해야 합니다.
 - 전체 이력/검색/pending API는 아직 무제한 List 계약입니다. 안정 정렬, 최대 page size와 DB limit가 있는 pagination을 포트부터 HTTP까지 연결해야 합니다.
 - `/apply-due`는 최대 500건을 제한하지만 한 트랜잭션입니다. 요청별 재시작성과 병렬 처리를 위해 `REQUIRES_NEW` 실행기, `SKIP LOCKED`, 성공/실패 실행 이력 포트를 추가해야 합니다.

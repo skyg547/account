@@ -65,6 +65,7 @@ Spring Data 타입이 domain package로 역류하지 않습니다.
 - `Master Data bootRun` IntelliJ 설정은 Config/Discovery/Vault 없이 `local` H2 API를 단독 기동하도록 표준화되어 있습니다.
 - `Master Data Batch Validity` 설정은 필수 `asOfDate`를 받는 `masterDataValidityJob`을 실행하고, Job/Step은 집계 규칙을 재구현하지 않고 core pipeline에 위임합니다.
 - 활성 계정과목/상품 목록과 거래처 이름 검색도 DB 기준일 query를 사용하며, 환율은 요청일 이하 최신 한 건을 선택합니다.
+- 거래처 이력/활성/검색과 pending 변경 요청 목록은 `page=0&size=20`을 기본으로 하며 최대 `size=100`입니다. 본문은 기존 JSON 배열, 연속 여부는 `X-Has-Next` 헤더입니다. 모든 결과가 필요하면 다음 페이지를 반복 요청합니다. 자세한 호출 예와 소비자 전환 절차는 [beginner-guide.md](beginner-guide.md)를 참조합니다.
 - 회계기간 변경은 비관적 행 잠금과 `FiscalPeriod.changeClosingStatus` 불변식을 거칩니다.
 - 거래처 JPA 왕복, 자식 계좌 FK/역참조, 현재·과거 SCD2 조회는 Core의 H2 영속성 테스트로 검증하고, API 사업자등록번호 마스킹은 API의 ObjectMapper 직렬화 테스트로 검증합니다.
-- PostgreSQL V8/V9 잠금·기간 제약과 합성 DB 회귀 절차는 schema/local-run을 참조합니다. API pagination, TaxProfile 소유권, Loan/Closing의 Master Data 직접 의존은 후속 과제입니다.
+- PostgreSQL V8/V9 잠금·기간 제약과 합성 DB 회귀 절차는 schema/local-run을 참조합니다. 거래처의 현재 활성 조회는 기간과 `useYn`을 확인하며 KYC·위험 등급 심사를 대신하지 않습니다. TaxProfile 소유권은 후속 과제입니다. Loan dev 원격 어댑터는 숫자 거래처 ID·기준일 통화 조회 API가 없어 해당 검증에 실패합니다.

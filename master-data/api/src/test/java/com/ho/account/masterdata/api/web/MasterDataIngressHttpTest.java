@@ -4,12 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
@@ -22,6 +25,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -365,6 +369,105 @@ class MasterDataIngressHttpTest {
                         .content("{\"closingStatus\":\"CLOSED\"}"))
                 .andExpect(status().isOk());
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "closing:alice");
+    }
+
+    @Test
+    void rejectedCredentialsAndRoleNeverEnterChangeRequestUseCase() throws Exception {
+        String manager = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_MASTER_MANAGER");
+        String viewer = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_VIEWER");
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + manager)
+                        .header("X-Auth-User", "forged-actor"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + viewer))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(changeRequestUseCase);
+    }
+
+    @Test
+    void malformedRequestsReturnBadRequestBeforeMutation() throws Exception {
+        String manager = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_MASTER_MANAGER");
+
+        mockMvc.perform(get("/api/basic/businesspartners/search"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Bad request"));
+        mockMvc.perform(post(CHANGE_PATH + "/not-a-number/approve")
+                        .header("Authorization", "Bearer " + manager))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Bad request"));
+        mockMvc.perform(post(CHANGE_PATH)
+                        .header("Authorization", "Bearer " + manager)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetType\":\"UNKNOWN_TYPE\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(CHANGE_PATH)
+                        .header("Authorization", "Bearer " + manager)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(CHANGE_PATH)
+                        .header("Authorization", "Bearer " + manager)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(businessPartnerUseCase, changeRequestUseCase);
+    }
+
+    @Test
+    void missingChangeRequestReturnsNotFound() throws Exception {
+        when(changeRequestUseCase.approve(42L, "alice"))
+                .thenThrow(new IllegalArgumentException("Change request not found. ID: 42"));
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Change request not found"));
+        verify(changeRequestUseCase).approve(42L, "alice");
+    }
+
+    @Test
+    void versionAndInvalidStateConflictsReturnConflict() throws Exception {
+        when(changeRequestUseCase.approve(42L, "alice"))
+                .thenThrow(new MasterDataVersionConflictException("Version conflict"));
+        when(changeRequestUseCase.applyApprovedChange(42L))
+                .thenThrow(new IllegalStateException("Change request is not ready to apply. ID: 42"));
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Master-data version conflict"));
+        mockMvc.perform(post(CHANGE_PATH + "/42/apply")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Change request state conflict"));
+        verify(changeRequestUseCase).approve(42L, "alice");
+        verify(changeRequestUseCase).applyApprovedChange(42L);
+    }
+
+    @Test
+    void unexpectedUseCaseFailureReturnsSanitizedServerError() throws Exception {
+        String internalDetail = "synthetic-private-failure-detail";
+        when(changeRequestUseCase.approve(42L, "alice"))
+                .thenThrow(new RuntimeException(internalDetail));
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Internal server error"))
+                .andExpect(jsonPath("$.message", not(containsString(internalDetail))));
+        verify(changeRequestUseCase).approve(42L, "alice");
+    }
+
+    private static String managerToken() {
+        return userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_MASTER_MANAGER");
     }
 
     private static String userToken(String secret, String issuer, String audience, long ttlSeconds,

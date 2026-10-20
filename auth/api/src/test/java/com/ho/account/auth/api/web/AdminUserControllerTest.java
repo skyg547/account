@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ho.account.auth.AuthApplication;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.model.AdminUserView;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.application.port.in.AdminUserQueryUseCase;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import io.jsonwebtoken.Jwts;
@@ -62,8 +64,8 @@ class AdminUserControllerTest {
 
     @Test
     void signedAdminTokenPassesRealFilterAndController() throws Exception {
-        when(adminUserQueryUseCase.findAllUsers("admin")).thenReturn(List.of(new AdminUserView(
-                281_474_976_710_656L, "alpha", "alpha", "ACCOUNTING_ADMIN", "ACTIVE", "", "FIN")));
+        when(adminUserQueryUseCase.findUsers("admin", new ListPageRequest(0, 20))).thenReturn(new ListPage<>(List.of(new AdminUserView(
+                281_474_976_710_656L, "alpha", "alpha", "ACCOUNTING_ADMIN", "ACTIVE", "", "FIN")), 0, 20, false));
         when(authUseCase.validateTokenVersion("admin", 1L)).thenReturn(true);
         String token = token("auth-service", "account-api", List.of("ROLE_SYSTEM_ADMIN"),
                 Instant.now().minusSeconds(5), Instant.now().plusSeconds(600), SIGNING_KEY);
@@ -76,13 +78,36 @@ class AdminUserControllerTest {
                         .header("X-Auth-Department", "FIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(281_474_976_710_656L))
-                .andExpect(jsonPath("$[0].role").value("ACCOUNTING_ADMIN"));
-        verify(adminUserQueryUseCase).findAllUsers("admin");
+                .andExpect(jsonPath("$[0].role").value("ACCOUNTING_ADMIN"))
+                .andExpect(header().string("X-Page", "0"))
+                .andExpect(header().string("X-Page-Size", "20"))
+                .andExpect(header().string("X-Has-Next", "false"));
+        verify(adminUserQueryUseCase).findUsers("admin", new ListPageRequest(0, 20));
+    }
+
+    @Test
+    void adminUserPageAcceptsMaximumAndRejectsOutOfRangeValues() throws Exception {
+        when(authUseCase.validateTokenVersion("admin", 1L)).thenReturn(true);
+        when(adminUserQueryUseCase.findUsers("admin", new ListPageRequest(1, 100)))
+                .thenReturn(new ListPage<>(List.of(), 1, 100, false));
+        String token = token("auth-service", "account-api", List.of("ROLE_SYSTEM_ADMIN"),
+                Instant.now().minusSeconds(5), Instant.now().plusSeconds(600), SIGNING_KEY);
+        mockMvc.perform(get("/api/admin/users").header("Authorization", "Bearer " + token)
+                        .param("page", "1").param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Page", "1"))
+                .andExpect(header().string("X-Page-Size", "100"));
+        for (String[] values : List.of(new String[]{"-1", "20"}, new String[]{"0", "101"},
+                new String[]{"0", "0"}, new String[]{"2147483647", "100"}, new String[]{"oops", "20"})) {
+            mockMvc.perform(get("/api/admin/users").header("Authorization", "Bearer " + token)
+                            .param("page", values[0]).param("size", values[1]))
+                    .andExpect(status().isBadRequest());
+        }
     }
 
     @Test
     void signedAdminTokenRejectsCallerWithoutStoredGlobalSystemAdminAssignment() throws Exception {
-        when(adminUserQueryUseCase.findAllUsers("admin"))
+        when(adminUserQueryUseCase.findUsers("admin", new ListPageRequest(0, 20)))
                 .thenThrow(new UserAccessDeniedException("System administrator role is required."));
         when(authUseCase.validateTokenVersion("admin", 1L)).thenReturn(true);
         String token = token("auth-service", "account-api", List.of("ROLE_SYSTEM_ADMIN"),
@@ -97,12 +122,13 @@ class AdminUserControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("USER_ACCESS_DENIED"));
 
-        verify(adminUserQueryUseCase).findAllUsers("admin");
+        verify(adminUserQueryUseCase).findUsers("admin", new ListPageRequest(0, 20));
     }
 
     @Test
     void rawAdminHeaderWithoutBearerCannotReachUseCase() throws Exception {
-        mockMvc.perform(get("/api/admin/users").header("X-Auth-Roles", "ROLE_SYSTEM_ADMIN"))
+        mockMvc.perform(get("/api/admin/users").header("X-Auth-Roles", "ROLE_SYSTEM_ADMIN")
+                        .param("size", "101"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("X-Auth-Error", "ACCESS_TOKEN_INVALID"));
         verifyNoInteractions(adminUserQueryUseCase);

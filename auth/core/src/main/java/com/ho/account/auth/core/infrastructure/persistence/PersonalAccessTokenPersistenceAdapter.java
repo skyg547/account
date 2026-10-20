@@ -1,9 +1,13 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.application.port.out.PersonalAccessTokenPort;
 import com.ho.account.auth.core.domain.model.PersonalAccessToken;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -46,18 +50,22 @@ public class PersonalAccessTokenPersistenceAdapter implements PersonalAccessToke
 
     @Override
     @Transactional(readOnly = true)
-    public List<PersonalAccessToken> findByUsername(String username) {
-        return repository.findByUsernameOrderByCreatedAtDesc(username).stream()
-                .map(PersonalAccessTokenJpaEntity::toDomain)
-                .toList();
+    public ListPage<PersonalAccessToken> findByUsername(String username, ListPageRequest pageRequest) {
+        return toPage(repository.findByUsernameOrderByCreatedAtDescIdDesc(username,
+                PageRequest.of(pageRequest.page(), pageRequest.size())), pageRequest);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<PersonalAccessToken> findAll() {
-        return repository.findAllByOrderByCreatedAtDesc().stream()
-                .map(PersonalAccessTokenJpaEntity::toDomain)
-                .toList();
+    public ListPage<PersonalAccessToken> findAll(ListPageRequest pageRequest) {
+        return toPage(repository.findAllByOrderByCreatedAtDescIdDesc(
+                PageRequest.of(pageRequest.page(), pageRequest.size())), pageRequest);
+    }
+
+    private ListPage<PersonalAccessToken> toPage(
+            Slice<PersonalAccessTokenJpaEntity> rows, ListPageRequest pageRequest) {
+        return new ListPage<>(rows.getContent().stream().map(PersonalAccessTokenJpaEntity::toDomain).toList(),
+                pageRequest.page(), pageRequest.size(), rows.hasNext());
     }
 
     @Override

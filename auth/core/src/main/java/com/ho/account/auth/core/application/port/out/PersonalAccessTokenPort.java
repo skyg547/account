@@ -1,7 +1,8 @@
 package com.ho.account.auth.core.application.port.out;
 
 import com.ho.account.auth.core.domain.model.PersonalAccessToken;
-import java.util.List;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import java.util.Optional;
 
 /**
@@ -30,19 +31,19 @@ public interface PersonalAccessTokenPort {
     PersonalAccessToken save(PersonalAccessToken token);
 
     /**
-     * 특정 사용자(username)의 모든 PAT 목록을 생성일시 역순으로 조회합니다.
+     * 특정 사용자(username)의 PAT 페이지를 생성일시·ID 역순으로 조회합니다.
      *
      * @param username 사용자명
      * @return PAT 도메인 목록
      */
-    List<PersonalAccessToken> findByUsername(String username);
+    ListPage<PersonalAccessToken> findByUsername(String username, ListPageRequest pageRequest);
 
     /**
-     * 전사 모든 PAT 목록을 생성일시 역순으로 조회합니다 (관리자용).
+     * 전사 PAT 페이지를 생성일시·ID 역순으로 조회합니다 (관리자용).
      *
      * @return PAT 도메인 목록
      */
-    List<PersonalAccessToken> findAll();
+    ListPage<PersonalAccessToken> findAll(ListPageRequest pageRequest);
 
     /**
      * 식별자(ID)로 PAT 도메인 객체를 조회합니다.
