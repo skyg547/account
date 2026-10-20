@@ -23,12 +23,14 @@ final class MasterDataChangeApplierSupport {
 
     static String targetKey(MasterDataChangeRequest request, String payloadKey) {
         String targetKey = request.getTargetKey();
-        if (payloadKey == null || payloadKey.isBlank()) {
+        if (payloadKey == null) {
             return targetKey;
         }
+        if (payloadKey.isBlank()) {
+            throw new IllegalArgumentException("Payload key must not be blank.");
+        }
         if (!targetKey.equals(payloadKey)) {
-            throw new IllegalArgumentException(
-                    "Payload key " + payloadKey + " does not match change-request targetKey " + targetKey);
+            throw new IllegalArgumentException("Payload key does not match change-request targetKey.");
         }
         return targetKey;
     }

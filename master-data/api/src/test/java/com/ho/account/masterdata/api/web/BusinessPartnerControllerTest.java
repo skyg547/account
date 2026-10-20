@@ -3,7 +3,10 @@ package com.ho.account.masterdata.api.web;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,7 +14,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
+import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,6 +24,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -34,6 +40,7 @@ class BusinessPartnerControllerTest {
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         mockMvc = MockMvcBuilders.standaloneSetup(new BusinessPartnerController(useCase))
+                .setControllerAdvice(new MasterDataExceptionHandler())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
     }
@@ -113,5 +120,19 @@ class BusinessPartnerControllerTest {
                 .andExpect(jsonPath("$[0].riskRating").value("LOW"));
 
         verify(useCase).getAllBusinessPartners();
+    }
+
+    @Test
+    void invalidUpdateTextReturnsSanitizedValidationError() throws Exception {
+        when(useCase.updateBusinessPartner(eq(42L), any(BusinessPartnerCommand.class)))
+                .thenThrow(new FieldValidationException("Business partner name must be at most 100 characters."));
+
+        mockMvc.perform(put("/api/basic/businesspartners/{id}", 42L)
+                        .header("X-Auth-Roles", "ROLE_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"businessPartnerName\":\"" + "x".repeat(101) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message")
+                        .value("Business partner name must be at most 100 characters."));
     }
 }

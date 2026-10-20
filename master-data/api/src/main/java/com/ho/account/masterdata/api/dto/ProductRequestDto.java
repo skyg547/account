@@ -2,38 +2,31 @@ package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * 상품 등록/수정 요청 DTO
+ * 상품 등록/수정 요청 DTO.
+ *
+ * <p>수정 요청에서는 생략한 필드를 현재 버전에서 상속합니다. 생성 필수값과 저장 한도는
+ * core 도메인이 유효 상태 전체에 대해 검증합니다.</p>
  */
 public class ProductRequestDto {
 
-    @NotBlank(message = "상품 코드는 필수입니다.")
     private String productCode;
 
-    @NotBlank(message = "상품 명칭은 필수입니다.")
     private String name;
 
     private String description;
 
     private String unitOfMeasure;
 
-    @NotNull(message = "가격은 필수입니다.")
-    @PositiveOrZero(message = "가격은 0원 이상이어야 합니다.")
     private BigDecimal price;
 
-    @NotNull(message = "상품 유형은 필수입니다.")
     private Product.ProductType productType;
 
-    @NotNull(message = "유효 시작일은 필수입니다.")
     private LocalDate validFrom;
 
-    @NotNull(message = "유효 종료일은 필수입니다.")
     private LocalDate validTo;
 
     // Getter & Setter

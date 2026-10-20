@@ -9,6 +9,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -41,17 +42,28 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
 
     private DepartmentCommand validatedCommand(MasterDataChangeRequest request) {
         DepartmentCommand command = command(request);
-        // UPDATE의 null 필드는 서비스가 기존 값으로 채웁니다. 검증을 위해 기존 부서를 조회하지 않습니다.
-        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE && command.name() == null) {
-            throw new IllegalArgumentException("Department name is required.");
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Department parentCode", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
         }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        Department candidate;
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+            candidate = command.toEntity();
+        } else {
+            Department current = departmentUseCase.findDepartmentByCode(request.getTargetKey())
+                    .orElseThrow(() -> new MasterDataVersionConflictException("Active department no longer exists."));
+            candidate = new Department();
+            candidate.setCode(current.getCode());
+            candidate.setName(command.name() != null ? command.name() : current.getName());
+        }
+        candidate.validateBusinessFields();
         return command;
     }
 
     @Override
     public void apply(MasterDataChangeRequest request) {
+        validate(request);
         switch (request.getChangeType()) {
             case CREATE -> departmentUseCase.createDepartment(validatedCommand(request));
             case UPDATE -> {

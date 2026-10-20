@@ -3,6 +3,7 @@ package com.ho.account.masterdata.api.web;
 import com.ho.account.masterdata.api.dto.ProductDto;
 import com.ho.account.masterdata.api.dto.ProductRequestDto;
 import com.ho.account.masterdata.core.application.port.in.ProductUseCase;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,8 @@ public class ProductController {
         MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(ProductDto.fromEntity(productUseCase.createProduct(requestDto.toCommand())));
+        } catch (FieldValidationException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -54,6 +57,8 @@ public class ProductController {
         MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(ProductDto.fromEntity(productUseCase.updateProduct(id, requestDto.toCommand())));
+        } catch (FieldValidationException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }

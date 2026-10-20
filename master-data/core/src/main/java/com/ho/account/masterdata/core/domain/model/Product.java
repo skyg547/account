@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -76,6 +78,18 @@ public class Product {
         PHYSICAL, SERVICE, DIGITAL, LOAN, DEPOSIT
     }
 
+    /** Validate the effective row before SCD2 history is changed. */
+    public void validateBusinessFields() {
+        productCode = MasterDataFieldRules.code(productCode, "Product code", MasterDataFieldRules.PRODUCT_CODE_MAX);
+        name = MasterDataFieldRules.requiredText(name, "Product name", MasterDataFieldRules.PRODUCT_NAME_MAX);
+        description = MasterDataFieldRules.optionalText(description, "Product description", MasterDataFieldRules.PRODUCT_DESCRIPTION_MAX);
+        unitOfMeasure = MasterDataFieldRules.optionalText(unitOfMeasure, "Product unitOfMeasure", MasterDataFieldRules.PRODUCT_UNIT_MAX);
+        price = MasterDataFieldRules.productPrice(price);
+        if (productType == null) {
+            throw new MasterDataFieldRules.FieldValidationException("Product productType is required.");
+        }
+    }
+
     /**
      * 특정 시점에 유효한지 확인
      */
@@ -91,4 +105,3 @@ public class Product {
         this.updatedAt = LocalDateTime.now();
     }
 }
-

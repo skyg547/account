@@ -3,6 +3,7 @@ package com.ho.account.masterdata.api.web;
 import com.ho.account.masterdata.api.dto.BusinessPartnerDto;
 import com.ho.account.masterdata.api.dto.BusinessPartnerRequestDto;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +37,8 @@ public class BusinessPartnerController {
         try {
             return ResponseEntity.ok(BusinessPartnerDto.fromDomain(
                     businessPartnerUseCase.createBusinessPartner(requestDto.toCommand())));
+        } catch (FieldValidationException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -93,6 +96,8 @@ public class BusinessPartnerController {
         try {
             return ResponseEntity.ok(BusinessPartnerDto.fromDomain(
                     businessPartnerUseCase.updateBusinessPartner(id, requestDto.toCommand())));
+        } catch (FieldValidationException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
