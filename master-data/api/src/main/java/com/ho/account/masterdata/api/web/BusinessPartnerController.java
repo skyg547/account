@@ -96,12 +96,15 @@ public class BusinessPartnerController {
     }
 
     /**
-     * Accept screening evidence using the JWT-verified actor. The body cannot choose its requester.
+     * Accept screening evidence from an authorized partner administrator using the JWT-verified actor.
+     * The body cannot choose its requester.
      */
     @PostMapping("/{businessPartnerCode}/screening-submission")
     public ResponseEntity<Void> submitScreening(@PathVariable String businessPartnerCode,
             @RequestHeader("X-Auth-User") String authenticatedUser,
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
             @Valid @RequestBody BusinessPartnerScreeningSubmissionDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             screeningUseCase.submitScreening(requestDto.toCommand(businessPartnerCode, authenticatedUser));
             return ResponseEntity.noContent().build();

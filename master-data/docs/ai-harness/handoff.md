@@ -2,6 +2,7 @@
 
 ## Issue #923 / Draft PR #939 — 2026-10-20
 
+- Latest reviewed follow-up: submission now requires an existing master-data administrator role; arbitrary authenticated `ROLE_USER` requests return 403 before screening mutation. Core retries compare normalized data and preserve exact pending no-op behavior across evidence expiry; changed expired evidence is rejected. Full current-source command for core/API/Batch tests and API/Batch bootJars passed: XML core 643, API 108 passed/30 PostgreSQL opt-in skipped, Batch 5, zero failures/errors. Focused 11 core service, 7 controller, and 11 JWT ingress tests passed. Independent read-only review found no P0–P3 finding and Q1–Q4 PASS; Q evidence is in `worklog.md`. Earlier synthetic PostgreSQL/H2 HTTP checks were not repeated after this follow-up. Human policy decision, selected consumer integration and tests, and current-head remote CI remain the next gates; PR stays Draft with `Refs #923`.
 - Branch/worktree/base: `agent/923-screening-eligibility`; `/tmp/account-923-screening-eligibility`; `origin/main@b2912554`. Only `master-data/**` was edited, including these three module-local records.
 - PR: https://github.com/skyg547/account/pull/939, Draft, `Refs #923`; implementation commit `7b7410d6`. Issue remains open for human review.
 - Delivered: separate operational-active and evidence-backed screening eligibility; dedicated reviewer role and separation from submitter; explicit as-of eligibility endpoint; append-only reviewer/evidence/time audit; V11 PostgreSQL migration and local H2 support; module documentation.

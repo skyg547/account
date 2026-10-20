@@ -44,15 +44,18 @@ public class BusinessPartnerScreeningService implements BusinessPartnerScreening
         businessKeyLock.lock(MasterDataType.BUSINESS_PARTNER, code);
         BusinessPartner partner = currentPartnerForUpdate(code);
         requireSupportedPartnerType(partner);
-        requireMatchingIdentifier(submission.identifier(), partner);
         BusinessPartnerScreening current = screenings.findByBusinessPartnerCodeForUpdate(code).orElse(null);
-        if (current != null && current.status() == BusinessPartner.KycStatus.PENDING
-                && sameSubmission(current, submission)) {
-            return current;
+        if (current != null && current.status() == BusinessPartner.KycStatus.PENDING) {
+            // Validate a replay against its original submission time so later expiry does not create another audit.
+            BusinessPartnerScreening replay = candidate(code, submission, current.submittedAt());
+            requireMatchingIdentifier(replay.identifier(), partner);
+            if (sameSubmission(current, replay)) {
+                return current;
+            }
         }
-        BusinessPartnerScreening next = BusinessPartnerScreening.submit(code, submission.jurisdiction(),
-                submission.identifierType(), submission.identifier(), submission.evidenceReference(),
-                submission.evidenceExpiresOn(), submission.submittedBy(), LocalDateTime.now());
+        // A changed payload is a new submission and must have evidence valid today.
+        BusinessPartnerScreening next = candidate(code, submission, LocalDateTime.now());
+        requireMatchingIdentifier(next.identifier(), partner);
         // A failed current-row write or audit append rolls both back; retries of the same pending payload are no-ops.
         BusinessPartnerScreening saved = screenings.save(next);
         screenings.appendAudit(saved);
@@ -141,8 +144,15 @@ public class BusinessPartnerScreeningService implements BusinessPartnerScreening
         return code.trim();
     }
 
+    private static BusinessPartnerScreening candidate(String code,
+            BusinessPartnerScreeningSubmission submission, LocalDateTime submittedAt) {
+        return BusinessPartnerScreening.submit(code, submission.jurisdiction(), submission.identifierType(),
+                submission.identifier(), submission.evidenceReference(), submission.evidenceExpiresOn(),
+                submission.submittedBy(), submittedAt);
+    }
+
     private static boolean sameSubmission(BusinessPartnerScreening current,
-            BusinessPartnerScreeningSubmission requested) {
+            BusinessPartnerScreening requested) {
         return Objects.equals(current.jurisdiction(), requested.jurisdiction())
                 && Objects.equals(current.identifierType(), requested.identifierType())
                 && Objects.equals(current.identifier(), requested.identifier())

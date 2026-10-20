@@ -2,6 +2,7 @@
 
 ## 2026-10-20 — Issue #923 / Draft PR #939
 
+- Follow-up fix verified: an existing master-data administrator role is now required to submit evidence, so authenticated `ROLE_USER` cannot reset an approval; reviewer decisions still require `SCREENING_REVIEWER`. Normalized pending retries append no duplicate audit, including exact retries after evidence expiry, while changed expired evidence fails. Final-source core/API/Batch tests and both bootJars passed (core 643, API 108 passed/30 PostgreSQL opt-in skipped, Batch 5; failures/errors 0). Separate read-only re-review found no P0–P3 issue and Q1–Q4 PASS. Consumer enforcement and business policy approval are still open; keep PR Draft.
 - State: [Draft PR #939](https://github.com/skyg547/account/pull/939) (`Refs #923`) published for human policy/consumer review. Branch `agent/923-screening-eligibility`; isolated worktree `/tmp/account-923-screening-eligibility`; base `origin/main@b2912554`; implementation commit `7b7410d6`.
 - Scope: `master-data/**` only, including module-local harness records. No shared contract, payable/receivable, other module, or common harness document was edited.
 - Result: evidence-backed partner screening lifecycle, separate reviewer command and append-only audit, explicit as-of eligibility API, fail-closed identifier/expiry/risk policy, and guards against generic KYC/risk edits. Legacy labels do not grant eligibility.

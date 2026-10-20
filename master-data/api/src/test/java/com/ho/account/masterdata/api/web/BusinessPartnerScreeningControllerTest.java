@@ -56,6 +56,7 @@ class BusinessPartnerScreeningControllerTest {
     void submissionUsesVerifiedActorAndReturnsNoContent() throws Exception {
         mockMvc.perform(post("/api/basic/businesspartners/BP-923/screening-submission")
                         .header("X-Auth-User", "verified-submitter")
+                        .header("X-Auth-Roles", "ROLE_PARTNER_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"jurisdiction":"KR","identifierType":"BUSINESS_REGISTRATION",
@@ -70,6 +71,20 @@ class BusinessPartnerScreeningControllerTest {
         assertThat(command.getValue().businessPartnerCode()).isEqualTo("BP-923");
         assertThat(command.getValue().submittedBy()).isEqualTo("verified-submitter");
         assertThat(command.getValue().identifier()).isEqualTo("1234567890");
+    }
+
+    @Test
+    void authenticatedNonAdminCannotSubmitScreeningEvidence() throws Exception {
+        mockMvc.perform(post("/api/basic/businesspartners/BP-923/screening-submission")
+                        .header("X-Auth-User", "verified-user")
+                        .header("X-Auth-Roles", "ROLE_USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"jurisdiction":"KR","identifierType":"BUSINESS_REGISTRATION",
+                                 "identifier":"1234567890","evidenceReference":"synthetic-evidence-923"}
+                                """))
+                .andExpect(status().isForbidden());
+        verify(screeningUseCase, never()).submitScreening(any());
     }
 
     @Test
@@ -154,6 +169,7 @@ class BusinessPartnerScreeningControllerTest {
         when(screeningUseCase.submitScreening(any())).thenThrow(new NoSuchElementException("missing"));
         mockMvc.perform(post("/api/basic/businesspartners/MISSING/screening-submission")
                         .header("X-Auth-User", "verified-submitter")
+                        .header("X-Auth-Roles", "ROLE_PARTNER_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"jurisdiction":"KR","identifierType":"BUSINESS_REGISTRATION",

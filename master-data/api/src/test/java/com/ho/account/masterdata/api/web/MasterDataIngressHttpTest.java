@@ -239,6 +239,8 @@ class MasterDataIngressHttpTest {
                 """;
         String submitter = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
                 "alice", "ROLE_PARTNER_MANAGER");
+        String nonAdmin = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_USER");
         String reviewer = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
                 "bob", "ROLE_SCREENING_REVIEWER");
 
@@ -249,6 +251,9 @@ class MasterDataIngressHttpTest {
                         .header("X-Auth-User", "mallory")
                         .contentType(MediaType.APPLICATION_JSON).content(submission))
                 .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(submissionPath).header("Authorization", "Bearer " + nonAdmin)
+                        .contentType(MediaType.APPLICATION_JSON).content(submission))
+                .andExpect(status().isForbidden());
         verifyNoInteractions(screeningUseCase);
 
         mockMvc.perform(post(submissionPath).header("Authorization", "Bearer " + submitter)

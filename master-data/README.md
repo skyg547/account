@@ -96,7 +96,7 @@ erDiagram
 
 ## 거래처 screening과 사용 가능 여부 (Issue #923)
 
-`CUSTOMER`와 `VENDOR`의 거래처 screening은 [입력·결정·eligibility 흐름](docs/process-flow.md#거래처-screening과-eligibility-issue-923)을 따릅니다. 증빙 제출자는 인증된 사용자이고 결정은 별도의 `SCREENING_REVIEWER`가 합니다. `GET /api/basic/businesspartners/{businessPartnerCode}/eligibility?asOfDate=yyyy-MM-dd`는 해당 날짜까지의 마지막 screening 감사 상태와 그날 유효한 거래처 버전으로 판단하고, 식별번호나 증빙을 노출하지 않고 `eligible`만 반환합니다. 일반 거래처 DTO의 기존 KYC/risk 표시는 이 결과가 아닙니다.
+`CUSTOMER`와 `VENDOR`의 거래처 screening은 [입력·결정·eligibility 흐름](docs/process-flow.md#거래처-screening과-eligibility-issue-923)을 따릅니다. 증빙 제출에는 인증된 기존 기준정보 관리자 역할(`ROLE_PARTNER_MANAGER` 등)이 필요하고, 결정은 제출자와 다른 인증된 `SCREENING_REVIEWER`가 합니다. 관리자 역할이 없는 `ROLE_USER`의 재제출은 403으로 거부되어 기존 `APPROVED` 상태를 `PENDING`으로 바꿀 수 없습니다. `GET /api/basic/businesspartners/{businessPartnerCode}/eligibility?asOfDate=yyyy-MM-dd`는 해당 날짜까지의 마지막 screening 감사 상태와 그날 유효한 거래처 버전으로 판단하고, 식별번호나 증빙을 노출하지 않고 `eligible`만 반환합니다. 일반 거래처 DTO의 기존 KYC/risk 표시는 이 결과가 아닙니다.
 
 현재 정책은 KR 사업자등록번호 10자리의 **형식**과 거래처 등록번호 일치만 검사합니다. 발급 사실을 증명하지 않으며, 다른 관할권·식별자 유형의 승인된 정책은 제공되지 않았습니다. DB 경계와 H2 차이는 [schema](docs/schema.md#거래처-screening-저장-issue-923), 요청 예시와 검증 명령은 [local-run](docs/local-run.md#거래처-screening-확인-issue-923)을 참조하세요. 공용 계약 및 실제 payable/receivable 소비자 연동은 이번 범위 밖입니다.
 

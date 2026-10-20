@@ -82,6 +82,55 @@ class BusinessPartnerScreeningServiceTest {
     }
 
     @Test
+    void paddedPendingSubmissionRetryUsesNormalizedFieldsWithoutAnotherAudit() {
+        when(partners.findByBusinessPartnerCodeForUpdate("BP-923"))
+                .thenReturn(Optional.of(partner(BusinessPartner.PartnerType.VENDOR, true)));
+        BusinessPartnerScreening pending = pending();
+        when(screenings.findByBusinessPartnerCodeForUpdate("BP-923"))
+                .thenReturn(Optional.empty(), Optional.of(pending));
+        when(screenings.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        BusinessPartnerScreeningSubmission padded = new BusinessPartnerScreeningSubmission(
+                " BP-923 ", "KR", " BUSINESS_REGISTRATION ", " 1234567890 ",
+                " synthetic-evidence-923 ", LocalDate.now().plusDays(30), " submitter ");
+
+        BusinessPartnerScreening first = service.submitScreening(padded);
+        BusinessPartnerScreening retried = service.submitScreening(padded);
+
+        assertThat(first.jurisdiction()).isEqualTo("KR");
+        assertThat(first.identifierType()).isEqualTo("BUSINESS_REGISTRATION");
+        assertThat(first.identifier()).isEqualTo("1234567890");
+        assertThat(first.evidenceReference()).isEqualTo("synthetic-evidence-923");
+        assertThat(first.submittedBy()).isEqualTo("submitter");
+        assertThat(retried).isSameAs(pending);
+        verify(screenings, times(1)).save(any());
+        verify(screenings, times(1)).appendAudit(any());
+    }
+
+    @Test
+    void expiredPendingExactRetryIsNoOpButChangedExpiredEvidenceIsRejected() {
+        when(partners.findByBusinessPartnerCodeForUpdate("BP-923"))
+                .thenReturn(Optional.of(partner(BusinessPartner.PartnerType.VENDOR, true)));
+        LocalDate expiredOn = LocalDate.now().minusDays(1);
+        BusinessPartnerScreening pending = BusinessPartnerScreening.submit("BP-923", "KR",
+                "BUSINESS_REGISTRATION", "1234567890", "synthetic-evidence-923",
+                expiredOn, "submitter", expiredOn.minusDays(1).atTime(9, 0));
+        when(screenings.findByBusinessPartnerCodeForUpdate("BP-923"))
+                .thenReturn(Optional.of(pending));
+        BusinessPartnerScreeningSubmission retry = new BusinessPartnerScreeningSubmission(
+                " BP-923 ", "KR", " BUSINESS_REGISTRATION ", " 1234567890 ",
+                " synthetic-evidence-923 ", expiredOn, " submitter ");
+        BusinessPartnerScreeningSubmission changed = new BusinessPartnerScreeningSubmission(
+                "BP-923", "KR", "BUSINESS_REGISTRATION", "1234567890",
+                "synthetic-changed-evidence", expiredOn, "submitter");
+
+        assertThat(service.submitScreening(retry)).isSameAs(pending);
+        assertThatIllegalArgumentException().isThrownBy(() -> service.submitScreening(changed))
+                .withMessageContaining("Evidence must not already be expired");
+        verify(screenings, never()).save(any());
+        verify(screenings, never()).appendAudit(any());
+    }
+
+    @Test
     void changedDecisionNeedsNewSubmissionAndSelfReviewIsRejectedWithoutWrite() {
         when(partners.findByBusinessPartnerCodeForUpdate("BP-923"))
                 .thenReturn(Optional.of(partner(BusinessPartner.PartnerType.VENDOR, true)));
