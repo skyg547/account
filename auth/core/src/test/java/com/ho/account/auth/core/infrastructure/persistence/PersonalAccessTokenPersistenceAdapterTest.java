@@ -102,7 +102,7 @@ class PersonalAccessTokenPersistenceAdapterTest {
     }
 }
 
-/** Verifies the conditional SQL write against H2 rather than a repository mock. */
+/** Verifies PAT owner persistence and conditional revoke writes against H2. */
 @DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"})
 @ContextConfiguration(classes = PersonalAccessTokenConditionalRevokeJpaTest.JpaTestConfiguration.class)
 class PersonalAccessTokenConditionalRevokeJpaTest {
@@ -110,6 +110,25 @@ class PersonalAccessTokenConditionalRevokeJpaTest {
     @Autowired private PersonalAccessTokenPersistenceAdapter adapter;
     @Autowired private PersonalAccessTokenJpaRepository repository;
     @Autowired private EntityManager entityManager;
+
+    @Test
+    void ownerIdentityLengthsFiftyFiftyOneAndEightyPersistAndReload() {
+        LocalDateTime now = LocalDateTime.now();
+        for (int length : List.of(50, 51, 80)) {
+            String id = "owner-length-" + length;
+            String owner = "u".repeat(length);
+            adapter.save(PersonalAccessToken.create(
+                    id, owner, "Key", "pat_live_123...", "hash-" + length,
+                    now.plusDays(1), now));
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(adapter.findById(id)).isPresent().get()
+                    .extracting(PersonalAccessToken::getUsername).isEqualTo(owner);
+            assertThat(adapter.findByUsername(owner)).extracting(PersonalAccessToken::getId)
+                    .containsExactly(id);
+        }
+    }
 
     @Test
     void activeTokenHasOnlyOneSuccessfulConditionalRevoke() {

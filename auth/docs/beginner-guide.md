@@ -36,7 +36,7 @@
 
 잘못된 JSON이나 값의 자료형이 틀리면 400과 `Malformed request body`가 오며, 입력한 비밀번호나 토큰 이름을 오류에 다시 표시하지 않습니다. 사용자 이름은 최대 80자입니다. 81자부터는 조회·로그인 실패 기록 전에 400으로 거부합니다. 일부 Unicode 문자는 소문자 변환 뒤 길이가 늘어나므로 실패 기록 키가 80자를 넘는 경우에도 400입니다. 유효한 길이에서 자격 증명이 틀리면 기존 401을 반환합니다. 예상치 못한 서버 오류의 500 응답에 있는 참조 ID는 담당자가 안전한 서버 진단 기록을 찾는 데 사용합니다.
 
-PAT 생성의 `tokenName`은 최대 100자이며 `expireDays`는 생략 시 90일, 명시 시 1~3650일입니다. 이전 클라이언트가 보내는 `username`은 최대 80자로 검증하지만 PAT 소유자는 항상 확인된 JWT 사용자입니다. 입력 상한을 넘기면 생성 전에 400을 반환하므로 PAT나 감사 이벤트가 저장되지 않습니다.
+PAT 생성의 `tokenName`은 최대 100자이며 `expireDays`는 생략 시 90일, 명시 시 1~3650일입니다. 이전 클라이언트가 보내는 `username`은 최대 80자로 검증하지만 PAT 소유자는 항상 확인된 JWT 사용자입니다. 확인된 소유자 이름 50·51·80자와 토큰 이름 100자, 기간 3650일은 허용 범위입니다. 요청 본문의 레거시 `username` 81자, 토큰 이름 101자, 기간 0·음수·3651일은 생성 전에 HTTP 400으로 거부하므로 PAT나 감사 이벤트가 저장되지 않습니다. core는 확인된 소유자 이름이 81자 이상이어도 저장 전에 거부합니다. V73에 이미 저장된 50자 이하 소유자의 PAT는 V74의 열 확장 후에도 유지됩니다.
 
 ## Governance 역할 승인 데이터 흐름
 
@@ -60,6 +60,7 @@ curl -i -X POST http://localhost:8081/api/auth/pat \
 ```
 
 정상 응답은 HTTP 200이며 현재 사용자의 정식 `username`과 한 번만 볼 수 있는 `rawToken`이 포함됩니다. 같은 JWT로 `GET /api/auth/pat`을 호출하면 목록에는 `rawToken`이 없습니다. Gateway에는 이 경로가 아직 없으므로 예시는 Auth 로컬 포트에 직접 요청합니다.
+
 - 비활성·관리 잠금·유효 역할 없음 계정은 token-version 검증도 실패합니다.
 - `roleVersion`은 시간이 흐른다는 이유만으로 증가하지 않습니다. 임시 관리자 권한 만료 후에도 USER가 유효하면 버전 검증은 성공할 수 있으므로 Gateway가 JWT의 서명된 만료를 매 요청 엄격하게 확인해야 합니다. 버전 검증 캐시는 개별 역할 종료를 알아내지 못합니다.
 - memory 모드는 단일 프로세스용이며, 운영 다중 인스턴스는 JPA 로그인 실패 저장소를 사용합니다.
@@ -67,3 +68,13 @@ curl -i -X POST http://localhost:8081/api/auth/pat \
 - 기본 `NORMAL`은 OTP 설정이나 제출이 없으면 두 번째 인자가 필요하지 않습니다. `LDAP`는 항상 OTP가 필요하며, `SSO`는 공급자 subject가 요청/등록 사용자와 일치해야 합니다. 로컬 SSO/TOTP는 실행 시 명시적으로 활성화하는 검증용 구성이고 운영 공급자는 아직 없습니다.
 - 접두사 없는 레거시 비밀번호는 현재 거부됩니다. 기존 데이터의 승인된 이관 절차와 멱등 이력 보존 정책은 별도 후속 과제입니다.
 - Auth의 `AUTH_INTERNAL_API_TOKEN`과 Governance의 `GOVERNANCE_AUTH_INTERNAL_TOKEN`은 같은 값을 사용해야 합니다.
+
+## PAT 회귀 검증
+
+JDK 17과 캐시된 Gradle 의존성이 있는 저장소 루트에서 실행합니다. 임베디드 PostgreSQL 테스트에는 로컬에서 PostgreSQL 실행 파일을 시작할 수 있는 환경도 필요합니다.
+
+```bash
+./gradlew :auth:core:test :auth:api:test :gateway:test --offline --no-daemon --console=plain --max-workers=2
+```
+
+기대 결과는 실패·오류·skip 0입니다. `PersonalAccessTokenMigrationTest`는 V73 토큰을 넣고 V74 적용 뒤 기존 행 보존과 80자 열 확장을 확인합니다. PAT 서비스·HTTP 테스트는 이름과 기간 경계, 잘못된 요청의 저장 전 HTTP 400을 확인합니다. H2 PostgreSQL 호환 모드만 통과했다면 실제 PostgreSQL 마이그레이션의 근거로 사용하지 않습니다.

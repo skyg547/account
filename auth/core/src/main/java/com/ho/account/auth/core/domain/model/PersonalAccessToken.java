@@ -20,6 +20,10 @@ import java.util.Objects;
  */
 public class PersonalAccessToken {
 
+    public static final int MAX_TOKEN_NAME_LENGTH = 100;
+    public static final int MIN_EXPIRE_DAYS = 1;
+    public static final int MAX_EXPIRE_DAYS = 3650;
+
     private final String id;
     private final String username;
     private final String tokenName;
@@ -62,8 +66,23 @@ public class PersonalAccessToken {
             String tokenHash,
             LocalDateTime expiresAt,
             LocalDateTime createdAt) {
+        // Validate only issuance; hydration must still read tokens created before these limits.
+        validateNewTokenIdentityAndName(username, tokenName);
         return new PersonalAccessToken(
                 id, username, tokenName, tokenPrefix, tokenHash, "ACTIVE", expiresAt, null, createdAt);
+    }
+
+    public static void validateNewTokenIdentityAndName(String username, String tokenName) {
+        Objects.requireNonNull(username, "username must not be null");
+        if (username.length() > AuthIdentityPolicy.MAX_USERNAME_LENGTH) {
+            throw new IllegalArgumentException("username is too long");
+        }
+        if (tokenName == null || tokenName.isBlank()) {
+            throw new IllegalArgumentException("tokenName is required");
+        }
+        if (tokenName.length() > MAX_TOKEN_NAME_LENGTH) {
+            throw new IllegalArgumentException("tokenName is too long");
+        }
     }
 
     /**
