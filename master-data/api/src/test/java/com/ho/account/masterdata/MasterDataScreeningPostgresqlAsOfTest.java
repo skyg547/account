@@ -24,7 +24,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Real PostgreSQL as-of replay against V11 audit rows in a fresh synthetic schema. */
+/** Real PostgreSQL as-of replay against V13 audit rows in a fresh synthetic schema. */
 @EnabledIfEnvironmentVariable(named = "MASTER_DATA_TEST_POSTGRES_URL", matches = "jdbc:postgresql:.*")
 @SpringBootTest(classes = MasterDataScreeningPostgresqlAsOfTest.TestApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
@@ -66,7 +66,7 @@ class MasterDataScreeningPostgresqlAsOfTest {
 
     @Test
     void replaysDecisionAndResubmissionAtDateEndWithDeterministicSameTimeTieBreak() {
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version='11' AND success",
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version='13' AND success",
                 Integer.class)).isOne();
 
         LocalDateTime firstSubmissionAt = FIRST_DAY.atTime(9, 0);

@@ -16,11 +16,11 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class MasterDataScreeningPostgresqlMigrationTest {
 
     @Test
-    void cleanV11CreatesScreeningTablesAndRejectsAuditMutation() {
+    void cleanV13CreatesScreeningTablesAndRejectsAuditMutation() {
         String schema = schema();
-        migrate(schema, "11");
+        migrate(schema, "13");
         JdbcTemplate jdbc = jdbc(schema);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version='11' AND success",
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version='13' AND success",
                 Integer.class)).isOne();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM business_partner_screenings", Integer.class)).isZero();
 
@@ -44,9 +44,9 @@ class MasterDataScreeningPostgresqlMigrationTest {
     }
 
     @Test
-    void v10UpgradeKeepsLegacyPartnerButDoesNotGrantEligibility() {
+    void v12UpgradeKeepsLegacyPartnerButDoesNotGrantEligibility() {
         String schema = schema();
-        migrate(schema, "10");
+        migrate(schema, "12");
         JdbcTemplate jdbc = jdbc(schema);
         jdbc.update("""
                 INSERT INTO business_partners
@@ -56,13 +56,13 @@ class MasterDataScreeningPostgresqlMigrationTest {
                         '1234567890', 'LOW', 'APPROVED', DATE '2026-01-01', DATE '9999-12-31')
                 """);
 
-        migrate(schema, "11");
+        migrate(schema, "13");
         assertThat(jdbc.queryForObject("SELECT kyc_status FROM business_partners WHERE business_partner_code='BP-923'",
                 String.class)).isEqualTo("APPROVED");
         // A legacy label has no evidence or reviewer, so migration never invents an approval record.
         assertThat(jdbc.queryForObject("SELECT count(*) FROM business_partner_screenings", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM business_partner_screening_audit", Integer.class)).isZero();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version='11' AND success",
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version='13' AND success",
                 Integer.class)).isOne();
     }
 
