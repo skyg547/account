@@ -4,10 +4,10 @@
 
 - Branch `agent/914-mask-change-responses`; worktree `/tmp/account-914-mask-change-responses`; base `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`.
 - API-only security projection and audited denial are implemented in the worktree. Focused RED 7/18 expected failures, GREEN 18/18 pass. Requested core/API/batch suites passed 651 tests with 27 PostgreSQL-only skips and no failures/errors.
-- Independent read-only review found P1 frontend approval regression: the pending screen requires `payloadJson`, while the response now omits it. Q1/Q3 FAIL; Q2/Q4 PASS. Explicit user prohibition prevents editing the frontend. Scope/compatibility decision is pending; implementation `38a0aa84` and latest-main merge `d391680a` are local only. No push, Draft PR, Ready, merge, or Issue closure is claimed.
+- Independent read-only review found P1 frontend approval regression: the pending screen requires `payloadJson`, while the response now omits it. Q1/Q3 FAIL; Q2/Q4 PASS. Explicit user prohibition prevents editing the frontend. Scope/compatibility decision is pending; implementation `38a0aa84`, latest-main merge `d391680a`, and fixture/record commit `b3ea56ff` were published to Draft PR [#938](https://github.com/skyg547/account/pull/938). No Ready, merge, or Issue closure is claimed.
 - Raw-detail denial audit is a WARN event; durable collection and live PostgreSQL were not verified. Next owner is the user for the scope decision, then the implementation owner and independent reviewer.
 - Follow-up: unauthenticated numeric raw-detail requests now emit an `actor=unverified` denial audit; focused HTTP test passed. This does not resolve the frontend P1 or verify operational audit retention.
-- Latest `origin/main@b2912554` merged with no conflict; integrated required command passed core 613, API 103, batch 5 (721 passed, 27 PostgreSQL-only skipped, zero failures/errors). The #913 field-limit interaction was resolved in the synthetic test fixture. Independent final review and Draft handoff remain; Q1/Q3 are blocked by the frontend P1.
+- Latest `origin/main@b2912554` merged with no conflict; integrated required command passed core 613, API 103, batch 5 (721 passed, 27 PostgreSQL-only skipped, zero failures/errors). The #913 field-limit interaction was resolved in the synthetic test fixture. Independent final review confirmed the frontend P1 and Q1/Q3 FAIL; Draft #938 is open and remote CI was queued at publication.
 
 ## 2026-10-20 — Issue #911 / Draft PR #927
 
