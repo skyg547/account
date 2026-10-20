@@ -9,6 +9,8 @@ import static org.mockito.Mockito.*;
 import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
 import com.ho.account.auth.core.application.exception.PatAuthenticationException;
 import com.ho.account.auth.core.application.model.PatActor;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenCreateResponse;
 import com.ho.account.auth.core.application.port.out.PatCredentialVerifierPort;
 import com.ho.account.auth.core.application.port.out.PatLifecycleEventPort;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class PersonalAccessTokenServiceTest {
+    private static final ListPageRequest PAGE = new ListPageRequest(0, 20);
     private static final String ALICE_BEARER = "Bearer alice-verified";
     private static final String CASE_BEARER = "Bearer Alice-verified";
     private static final String BOB_BEARER = "Bearer bob-verified";
@@ -71,28 +74,66 @@ class PersonalAccessTokenServiceTest {
     }
 
     @Test
+    void verifiedOwnerLengthUsesTheEightyCharacterAuthIdentityLimit() {
+        when(patPort.save(any(PersonalAccessToken.class))).thenAnswer(call -> call.getArgument(0));
+        for (int length : List.of(50, 51, 80)) {
+            String username = "u".repeat(length);
+            String credential = "Bearer owner-" + length;
+            when(verifier.verify(credential)).thenReturn(new PatActor(username, false));
+
+            assertThat(service.createToken(credential, "Key", 30).username()).isEqualTo(username);
+        }
+        verify(patPort, times(3)).save(any(PersonalAccessToken.class));
+
+        String tooLongCredential = "Bearer owner-81";
+        when(verifier.verify(tooLongCredential)).thenReturn(new PatActor("u".repeat(81), false));
+        assertThatThrownBy(() -> service.createToken(tooLongCredential, "Key", 30))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("username is too long");
+        verify(patPort, times(3)).save(any(PersonalAccessToken.class));
+        verify(events, times(3)).recordCreated(any(), any(), any(), any());
+    }
+
+    @Test
+    void tokenNameAndLifetimeBoundariesAreCheckedBeforePersistence() {
+        when(patPort.save(any(PersonalAccessToken.class))).thenAnswer(call -> call.getArgument(0));
+        assertThat(service.createToken(ALICE_BEARER, "n".repeat(100), 3650).tokenName())
+                .hasSize(100);
+        verify(patPort, times(1)).save(any(PersonalAccessToken.class));
+
+        assertThatThrownBy(() -> service.createToken(ALICE_BEARER, "n".repeat(101), 30))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("tokenName is too long");
+        for (int days : List.of(-1, 0, 3651)) {
+            assertThatThrownBy(() -> service.createToken(ALICE_BEARER, "Key", days))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("expireDays is out of range");
+        }
+        verify(patPort, times(1)).save(any(PersonalAccessToken.class));
+        verify(events, times(1)).recordCreated(any(), any(), any(), any());
+    }
+
+    @Test
     void userListingUsesOnlyVerifiedPrincipalAndExactOwnerKey() {
         PersonalAccessToken aliceToken = activeToken("alice");
-        when(patPort.findByUsername("alice")).thenReturn(List.of(aliceToken));
+        when(patPort.findByUsername("alice", PAGE)).thenReturn(new ListPage<>(List.of(aliceToken), 0, 20, false));
 
-        var listed = service.getUserTokens(ALICE_BEARER);
+        var listed = service.getUserTokens(ALICE_BEARER, 0, 20);
 
-        assertThat(listed).hasSize(1);
-        assertThat(listed.get(0).id()).isEqualTo(aliceToken.getId());
-        assertThat(listed.get(0).username()).isEqualTo("alice");
-        verify(patPort).findByUsername("alice");
-        verify(patPort, never()).findByUsername("bob");
+        assertThat(listed.content()).hasSize(1);
+        assertThat(listed.content().get(0).id()).isEqualTo(aliceToken.getId());
+        assertThat(listed.content().get(0).username()).isEqualTo("alice");
+        verify(patPort).findByUsername("alice", PAGE);
+        verify(patPort, never()).findByUsername("bob", PAGE);
         verify(verifier).verify(ALICE_BEARER);
     }
 
     @Test
     void ordinaryUserCannotListAllOrForceRevokeEvenWithKnownTokenId() {
-        assertThatThrownBy(() -> service.getAllTokensForAdmin(ALICE_BEARER))
+        assertThatThrownBy(() -> service.getAllTokensForAdmin(ALICE_BEARER, 0, 20))
                 .isInstanceOf(PatAccessDeniedException.class);
-        assertThatThrownBy(() -> service.revokeTokenForAdmin(ALICE_BEARER, "id-1"))
+        assertThatThrownBy(() -> service.revokeTokenForAdmin(ALICE_BEARER, "id-1", "ADMIN_SECURITY"))
                 .isInstanceOf(PatAccessDeniedException.class);
 
-        verify(patPort, never()).findAll();
+        verify(patPort, never()).findAll(PAGE);
         verify(patPort, never()).findById(any());
         verifyNoInteractions(events);
     }
@@ -100,15 +141,26 @@ class PersonalAccessTokenServiceTest {
     @Test
     void verifiedAdministratorCanListAndForceRevokeWithActorAttribution() {
         PersonalAccessToken bobToken = activeToken("bob");
-        when(patPort.findAll()).thenReturn(List.of(bobToken));
+        when(patPort.findAll(PAGE)).thenReturn(new ListPage<>(List.of(bobToken), 0, 20, false));
         when(patPort.findById("id-1")).thenReturn(Optional.of(bobToken));
         when(patPort.markRevokedIfActive("id-1")).thenReturn(true);
 
-        assertThat(service.getAllTokensForAdmin(ADMIN_BEARER)).hasSize(1);
-        assertThat(service.revokeTokenForAdmin(ADMIN_BEARER, "id-1")).isTrue();
+        assertThat(service.getAllTokensForAdmin(ADMIN_BEARER, 0, 20).content()).hasSize(1);
+        assertThat(service.revokeTokenForAdmin(ADMIN_BEARER, "id-1", "ADMIN_SECURITY")).isTrue();
 
         verify(patPort).markRevokedIfActive("id-1");
-        verify(events).recordRevoked(eq("administrator"), eq("id-1"), eq("bob"), any(LocalDateTime.class));
+        verify(events).recordRevoked(eq("administrator"), eq("id-1"), eq("bob"),
+                eq("ADMIN_SECURITY"), eq("ACTIVE"), eq("REVOKED"), any(LocalDateTime.class));
+    }
+
+    @Test
+    void administratorMustSupplySubstantiveReasonBeforeTokenLookup() {
+        for (String reason : new String[]{null, "", "ADMIN_FORCE_REVOKE", "credential=synthetic"}) {
+            assertThatThrownBy(() -> service.revokeTokenForAdmin(ADMIN_BEARER, "id-1", reason))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Invalid audit reason code");
+        }
+        verifyNoInteractions(patPort, events);
     }
 
     @Test
@@ -134,7 +186,8 @@ class PersonalAccessTokenServiceTest {
         assertThat(service.revokeOwnToken(ALICE_BEARER, "id-1")).isTrue();
 
         verify(patPort, times(2)).markRevokedIfActive("id-1");
-        verify(events).recordRevoked(eq("alice"), eq("id-1"), eq("alice"), any(LocalDateTime.class));
+        verify(events).recordRevoked(eq("alice"), eq("id-1"), eq("alice"),
+                eq("OWNER_REQUEST"), eq("ACTIVE"), eq("REVOKED"), any(LocalDateTime.class));
     }
 
     @Test
@@ -143,13 +196,13 @@ class PersonalAccessTokenServiceTest {
 
         assertThatThrownBy(() -> service.createToken(null, "Key", 30))
                 .isInstanceOf(PatAuthenticationException.class);
-        assertThatThrownBy(() -> service.getUserTokens(null))
+        assertThatThrownBy(() -> service.getUserTokens(null, 0, 20))
                 .isInstanceOf(PatAuthenticationException.class);
-        assertThatThrownBy(() -> service.getAllTokensForAdmin(null))
+        assertThatThrownBy(() -> service.getAllTokensForAdmin(null, 0, 20))
                 .isInstanceOf(PatAuthenticationException.class);
         assertThatThrownBy(() -> service.revokeOwnToken(null, "id-1"))
                 .isInstanceOf(PatAuthenticationException.class);
-        assertThatThrownBy(() -> service.revokeTokenForAdmin(null, "id-1"))
+        assertThatThrownBy(() -> service.revokeTokenForAdmin(null, "id-1", "ADMIN_SECURITY"))
                 .isInstanceOf(PatAuthenticationException.class);
         verifyNoInteractions(patPort, events);
     }

@@ -27,6 +27,7 @@ import org.springframework.test.context.ContextConfiguration;
 })
 @ContextConfiguration(classes = JpaAccountSubjectClassificationIntegrationTest.TestApplication.class)
 @Import({JpaAccountSubjectPersistenceAdapter.class, AccountSubjectMapper.class, AccountSubjectService.class,
+        JpaMasterDataAuditAdapter.class,
         JpaMasterDataBusinessKeyLockAdapter.class})
 class JpaAccountSubjectClassificationIntegrationTest {
 

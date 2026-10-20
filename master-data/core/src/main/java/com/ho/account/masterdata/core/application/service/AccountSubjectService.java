@@ -4,12 +4,14 @@ import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -33,11 +35,19 @@ public class AccountSubjectService implements AccountSubjectUseCase {
 
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
     private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
 
-    public AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort,
+    AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort,
             MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(accountSubjectPersistencePort, businessKeyLockPort, event -> { });
+    }
+
+    @Autowired
+    public AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort, MasterDataAuditPort auditPort) {
         this.accountSubjectPersistencePort = accountSubjectPersistencePort;
         this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort;
     }
 
     /**
@@ -72,7 +82,11 @@ public class AccountSubjectService implements AccountSubjectUseCase {
 
         MasterDataValidityPolicy.applyDefaultWindow(accountSubject::getValidFrom, accountSubject::setValidFrom,
                 accountSubject::getValidTo, accountSubject::setValidTo);
-        return accountSubjectPersistencePort.save(accountSubject);
+        accountSubject.setAuditUser(MasterDataActorContext.auditUser());
+        AccountSubject saved = accountSubjectPersistencePort.save(accountSubject);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_CREATE", MasterDataType.ACCOUNT_SUBJECT,
+                saved.getCode(), null, saved.getId());
+        return saved;
     }
 
     /**
@@ -165,13 +179,17 @@ public class AccountSubjectService implements AccountSubjectUseCase {
         }
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
+        newVersion.setAuditUser(MasterDataActorContext.auditUser());
         newVersion.validateBusinessFields();
         newVersion.normalizeAndValidateClassification();
 
         currentActive.terminate(oldValidTo);
         accountSubjectPersistencePort.save(currentActive);
 
-        return accountSubjectPersistencePort.save(newVersion);
+        AccountSubject saved = accountSubjectPersistencePort.save(newVersion);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_UPDATE", MasterDataType.ACCOUNT_SUBJECT,
+                saved.getCode(), currentActive.getId(), saved.getId());
+        return saved;
     }
 
     /**
@@ -192,7 +210,10 @@ public class AccountSubjectService implements AccountSubjectUseCase {
         LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, account.getValidFrom(), account.getValidTo());
         account.terminate(terminationDate);
+        account.setAuditUser(MasterDataActorContext.auditUser());
         accountSubjectPersistencePort.save(account);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_DEACTIVATE", MasterDataType.ACCOUNT_SUBJECT,
+                account.getCode(), account.getId(), account.getId());
     }
 
     @Override

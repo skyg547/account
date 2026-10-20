@@ -1,5 +1,10 @@
 # master-data schema
 
+V12 adds `master_data_change_requests.decision_reason` and the append-only
+`master_data_audit_events` ledger. Its `request_id`/`source_reference` and
+`before_version_id`/`after_version_id` link an approved request to resulting
+SCD2 rows. See [audit-evidence.md](audit-evidence.md) for retention and export.
+
 ## 핵심 모델
 
 ```mermaid
@@ -21,8 +26,11 @@ erDiagram
         String approved_by
         String reason
         String payload_json
+        String rejection_reason
         String source_reference UK
         LocalDateTime applied_at
+        String failure_reason
+        LocalDateTime failed_at
     }
 ```
 
@@ -33,13 +41,15 @@ erDiagram
 | `id` | 각 이력 행을 구분하는 기술 기본키. 업무 코드는 SCD2 때문에 unique가 아닙니다. |
 | `validFrom` | 해당 버전이 유효해지는 시작일. |
 | `validTo` | 해당 버전이 끝나는 일자. 종료되지 않은 행은 보통 `9999-12-31`입니다. |
-| `auditUser` | 마지막 변경자. 현재 일부 엔티티는 기본값을 사용하므로 사용자 전파 고도화가 필요합니다. |
+| `auditUser` | 마지막 변경자. 인증된 HTTP 직접 변경은 검증된 actor를 저장합니다. 승인 반영은 실제 실행 actor를 저장하며 감사 이벤트가 요청·승인자 계보를 연결합니다. |
 | 활성 여부 | 별도 `isCurrent` 컬럼이 아니라 `validFrom <= 기준일 <= validTo`로 계산합니다. |
 
 SCD2 테이블은 업무 식별 코드와 유효 기간이 함께 중요합니다. `account_subjects`, `business_partners`, `departments`, `products`에는 업무 코드와 유효 기간을 앞부분으로 하는 인덱스가 있어 기준일 조회와 버전 개수 집계를 지원합니다. 단순히 업무 코드만 unique로 묶으면 과거 버전을 보존할 수 없습니다.
 
 활성 계정과목/상품 목록과 거래처 검색은 이 기간 조건을 DB query에서 처리합니다. 거래처는
-legacy `useYn=true`도 함께 확인합니다. 단건 통화/거래처 조회는 중복 기간이 있으면 한 행을
+`useYn=true`도 함께 확인합니다. 과거 기준일 조회는 기간으로 당시 버전을 찾으며 종료된
+버전의 `useYn`은 변경하지 않습니다. `useYn`과 기간은 KYC·위험 등급 심사 적격성의 판정이
+아닙니다. 단건 통화/거래처 조회는 중복 기간이 있으면 한 행을
 임의 선택하지 않고 실패합니다. PostgreSQL V9는 네 지원 유형의 저장 단계에서도 모든 이력의 기간 중첩을 거부합니다.
 
 ## 거래처 도메인과 JPA 스키마 매핑
@@ -59,11 +69,11 @@ SCD2 새 거래처 버전은 계좌의 은행·번호·예금주·SWIFT·대표 
 
 ## 거래처 screening 저장 (Issue #923)
 
-PostgreSQL release migration `V11__business_partner_screening_upgrade.sql`은 업무 코드가 PK인 `business_partner_screenings` 현재 snapshot과, 별도 ID를 가진 `business_partner_screening_audit` snapshot 이력을 만듭니다. 둘 다 관할권·식별자 유형/값, 증빙 참조/만료일, 상태·위험도, 제출자/시각과 선택적 결정자/사유/시각을 저장합니다. 상태는 `PENDING`, `APPROVED`, `REJECTED`, `REVIEW_REQUIRED`; 위험도는 `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`로 제한합니다. 결정 필드는 `PENDING`일 때 비어 있고 결정 상태에서는 필수입니다. audit는 PostgreSQL trigger가 UPDATE/DELETE를 거부합니다. 업무 코드 기준 잠금 뒤 현재 행 저장과 audit append가 같은 트랜잭션입니다.
+PostgreSQL release migration `V13__business_partner_screening_upgrade.sql`은 업무 코드가 PK인 `business_partner_screenings` 현재 snapshot과, 별도 ID를 가진 `business_partner_screening_audit` snapshot 이력을 만듭니다. 둘 다 관할권·식별자 유형/값, 증빙 참조/만료일, 상태·위험도, 제출자/시각과 선택적 결정자/사유/시각을 저장합니다. 상태는 `PENDING`, `APPROVED`, `REJECTED`, `REVIEW_REQUIRED`; 위험도는 `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`로 제한합니다. 결정 필드는 `PENDING`일 때 비어 있고 결정 상태에서는 필수입니다. audit는 PostgreSQL trigger가 UPDATE/DELETE를 거부합니다. 업무 코드 기준 잠금 뒤 현재 행 저장과 audit append가 같은 트랜잭션입니다.
 
 두 테이블은 SCD2 `business_partners.id`에 FK를 두지 않습니다. 새 거래처 버전이 생겨도 screening 이력을 지우지 않기 위해서입니다. eligibility 조회는 기준일이 끝나기 전의 마지막 audit snapshot을 DB에서 한 건 선택하고, 그날 유효한 거래처 버전의 등록번호와 비교합니다. audit의 결정 시각(미결정은 제출 시각) 내림차순, 동일 시각이면 audit ID 내림차순으로 선택하므로 이후 재제출이 이전 날짜의 결과를 덮지 않습니다. 식별번호와 증빙 참조는 조회 DTO에 포함하지 않습니다.
 
-로컬 H2는 PostgreSQL 전용 V9 이후를 실행할 수 없어 Flyway target 8에서 멈추고 `db/local/schema-business-partner-screening.sql`로 두 테이블·CHECK·index를 초기화합니다. 이 H2 schema에는 PostgreSQL audit 불변 trigger가 없습니다. H2 성공은 V11 migration 적용, PostgreSQL trigger, 운영 데이터 upgrade의 증거가 아닙니다. V11은 승인된 migration-runner 경로에서 적용하고 실제 PostgreSQL 검증이 별도로 필요합니다.
+로컬 H2는 PostgreSQL 전용 V9 이후를 실행할 수 없어 Flyway target 8.1에서 멈추고 `db/local/schema-business-partner-screening.sql`로 두 테이블·CHECK·index를 초기화합니다. 이 H2 schema에는 PostgreSQL audit 불변 trigger가 없습니다. H2 성공은 V13 migration 적용, PostgreSQL trigger, 운영 데이터 upgrade의 증거가 아닙니다. V13은 승인된 migration-runner 경로에서 적용하고 실제 PostgreSQL 검증이 별도로 필요합니다.
 
 ## 환율과 회계기간
 
@@ -84,15 +94,27 @@ PostgreSQL release migration `V11__business_partner_screening_upgrade.sql`은 �
 | `APPROVED` | 분리된 승인자가 결정했고 `effectiveDate` 도래 후 반영 가능함. |
 | `REJECTED` | 승인자가 사유와 함께 반려함. 작성자는 자기 요청을 승인하거나 반려할 수 없음. |
 | `APPLIED` | typed applier의 실제 SCD2 변경과 요청 상태 저장이 같은 트랜잭션에서 성공함. |
+| `FAILED_CONFLICT` | 시행 시점의 SCD2 버전이 달라져 요청별 반영을 롤백하고 격리함. |
+| `FAILED_INVALID` | 저장된 요청의 입력이 현재 규칙을 통과하지 못해 격리함. |
+
+실패 상태는 자동 재선택하지 않습니다. `failure_reason`에는 예외·SQL·payload 원문 대신
+`VERSION_CONFLICT`, `INVALID_REQUEST` 같은 안전한 분류 코드만 저장하고,
+`failed_at`은 격리 시각입니다. 원래 `reason`, 요청자·승인자·승인 시각은 유지하며
+실패 건의 `applied_at`은 비어 있습니다.
 
 ## 외부 승인 멱등성과 계보
 
-`sourceReference`는 Governance 승인 ID처럼 재시도해도 바뀌지 않는 외부 업무 식별자입니다. 같은
-식별자와 같은 명령이 다시 오면 기존 요청을 반환하고, 같은 식별자를 다른 target/payload에 재사용하면
-409 충돌로 차단합니다. `appliedAt`은 typed applier가 성공한 뒤 `APPLIED`로 전환된 시각을 보존합니다.
+`sourceReference`는 Governance 승인 ID처럼 재시도해도 바뀌지 않는 외부 업무 식별자입니다. `core`
+유즈케이스에 같은 식별자와 같은 명령이 다시 오면 기존 요청을 반환하고, 같은 식별자를 다른
+target/payload에 재사용하면 충돌로 차단합니다. 현재 HTTP 생성 DTO에는 이 필드가 없습니다.
+`appliedAt`은 typed applier가 성공한 뒤 `APPLIED`로 전환된 시각을 보존합니다.
 
-DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요청을 넣는 경우 한쪽 unique 충돌을 기존
-요청 조회로 복구하는 원자적 저장 포트는 아직 TODO입니다.
+DB unique index와 PostgreSQL `INSERT ... ON CONFLICT DO NOTHING`이 동시 최초 요청을 한 행으로
+수렴시킵니다. 충돌한 트랜잭션은 `READ COMMITTED`의 다음 문장에서 커밋된 행을 읽고, 서비스가 원래
+명령을 비교합니다. 예외를 잡고 실패 상태의 트랜잭션에서 재조회하지 않습니다.
+반려 시 기존 `reason`은 원래 요청 사유로 남기고 별도 `rejection_reason`에 반려 사유를 기록합니다.
+API의 `reason` 응답은 반려 상태에서 반려 사유를 보여줍니다. 추가 열 이전의 반려 행은 원래
+요청 사유가 남아 있지 않아 같은 식별자 재사용을 안전하게 충돌로 처리합니다.
 ## 두 종류의 버전
 
 `requestedVersion`과 `lockVersion`은 목적이 다릅니다.
@@ -113,15 +135,21 @@ DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요�
 테이블을 잠그므로 동시 쓰기가 검사 결과를 무효화할 수 없습니다. 음수 이력이 있으면
 migration은 행 값을 출력하거나 수정하지 않고 실패합니다. 데이터 소유자가 가격과 승인
 계보를 검토해 별도 보정안을 승인한 뒤 다시 적용해야 합니다. 과거 Flyway 파일을 바꾸거나
-이력 행을 삭제하지 않습니다. H2 local은 V8까지만 적용하므로 이 제약의 증거가 아닙니다.
+이력 행을 삭제하지 않습니다. H2 local은 공통 V8과 감사 전용 V8.1만 적용하므로 PostgreSQL V9 기간 제약의 증거가 아닙니다.
 
 - `V2__master_data_change_requests.sql`: 변경 요청 테이블과 상태/업무 키 조회 인덱스를 만듭니다.
 - `V3__master_data_change_request_lock_version.sql`: 기존 요청 데이터에 기본값 0을 적용하며 `lock_version`을 추가합니다.
-- `V4__master_data_change_request_payload_text.sql`: 적용 이력이 있는 V2를 수정하지 않고 `payload_json`을 `TEXT`로 보정합니다. 현재 V2의 실제 SQL은 `TEXT`이며 이 작업은 V1–V7을 수정하지 않습니다. PostgreSQL clean/upgrade 경로는 합성 DB 회귀로 검증합니다.
+- `V4__master_data_change_request_payload_text.sql`: 예전 V2의 `CLOB`으로 이미 생성된 컬럼을 `TEXT`로 전환하기 위한 forward migration입니다. 현재 저장소의 V2 SQL은 `payload_json TEXT`를 선언하므로 새 설치에서는 V2부터 `TEXT`입니다. 이미 적용된 Flyway 이력의 체크섬·실제 컬럼 상태가 다를 수 있으므로 기존 환경은 migration 이력과 컬럼을 확인해야 합니다. 아래 기존 PostgreSQL SCD2 회귀는 현재 `TEXT` V2와 V7→V8/V8→V9 이행을 사용하며, 예전 `CLOB` V2의 체크섬·V4 이행은 검증하지 않습니다. 이 경로에는 해당 이력을 재현한 별도 합성 PostgreSQL fixture와 migration/validate 게이트가 필요합니다.
 - `V5__master_data_change_request_lineage.sql`: Governance 재시도 멱등 키 `source_reference`, 실제 반영 시각 `applied_at`, source reference unique index를 추가합니다.
+- `R__master_data_change_request_rejection_reason.sql`: H2의 V8 target과 PostgreSQL 최신 version 모두에 반려 사유 열을 추가합니다. 기존 반려 행의 원래 요청 사유는 추정하거나 덮어쓰지 않습니다.
 - `V6__master_data_postgresql_baseline.sql`: 적용 이력이 있는 V1-V5를 수정하지 않고 나머지
   9개 JPA 소유 테이블과 변경 요청 제약, 정밀도, FK, unique/check/index를 forward-only로
   완성합니다. clean H2 PostgreSQL mode와 V5→V6 upgrade 경로를 모두 검증합니다.
+- `V11__master_data_due_failure_status.sql`: PostgreSQL 변경 요청에 실패 분류·시각,
+  격리 상태 CHECK와 예약 선택 인덱스를 추가합니다. 로컬 H2는 V8까지만 실행하므로
+  별도 `db/local-migration/R__master_data_due_failure_status_h2.sql`이 같은 스키마를
+  제공합니다. H2 전용 파일은 배포 migration-runner가 복사하지 않습니다. 적용된 V1–V10을
+  수정하지 않으며, 롤백은 이력을 지우지 않는 검토된 forward correction으로 수행합니다.
 - 운영 완료 판정은 승인된 PostgreSQL에서 clean/upgrade migrate+validate, API/Batch JPA
   validate 부팅, runtime role의 DDL 거부를 확인하는 것입니다. 적용된 migration은 수정하거나
   `repair`하지 않고 새 forward migration으로 보정합니다.

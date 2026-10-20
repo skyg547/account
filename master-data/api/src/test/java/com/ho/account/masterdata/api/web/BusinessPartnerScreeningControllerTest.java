@@ -21,6 +21,9 @@ import com.ho.account.masterdata.core.application.command.BusinessPartnerScreeni
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerScreeningUseCase;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.exception.ScreeningMutationForbiddenException;
 import java.time.LocalDate;
@@ -128,13 +131,12 @@ class BusinessPartnerScreeningControllerTest {
 
     @Test
     void operationallyActivePartnerCanHaveFalseScreeningEligibility() throws Exception {
-        when(partnerUseCase.getActiveBusinessPartners()).thenReturn(java.util.List.of(
-                BusinessPartner.reconstitute(923L, "BP-923", "Synthetic partner", "123-45-67890",
-                        "Synthetic CEO", "Trade", "Materials", BusinessPartner.PartnerType.VENDOR,
-                        true, BusinessPartner.KycStatus.APPROVED, BusinessPartner.RiskRating.LOW,
-                        LocalDate.of(2026, 1, 1), BusinessPartner.OPEN_ENDED_VALID_TO,
-                        java.time.LocalDateTime.of(2026, 1, 1, 9, 0),
-                        java.time.LocalDateTime.of(2026, 1, 1, 9, 0), "fixture", java.util.List.of())));
+        when(partnerUseCase.getActiveBusinessPartners(any(PageWindow.class))).thenReturn(
+                new PageSlice<>(java.util.List.of(
+                        new BusinessPartnerSummary(923L, "BP-923", "Synthetic partner", "123-45-67890",
+                                "Synthetic CEO", "Trade", "Materials", BusinessPartner.PartnerType.VENDOR,
+                                true, BusinessPartner.KycStatus.APPROVED, BusinessPartner.RiskRating.LOW,
+                                LocalDate.of(2026, 1, 1), BusinessPartner.OPEN_ENDED_VALID_TO)), false));
 
         mockMvc.perform(get("/api/basic/businesspartners/active"))
                 .andExpect(status().isOk())

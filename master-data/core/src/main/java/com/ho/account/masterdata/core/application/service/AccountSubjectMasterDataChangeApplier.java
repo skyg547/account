@@ -58,9 +58,10 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
             candidate = command.toEntity();
         } else {
             // Resolve omitted fields against the live version before approval; apply rechecks its own snapshot.
+            // A prior deactivation can remove that version while we wait for the key lock: classify it as a version conflict.
             AccountSubject current = accountSubjectUseCase.findAccountSubjectByCode(request.getTargetKey())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Active account subject not found."));
+                    .orElseThrow(() -> new MasterDataVersionConflictException(
+                            "Active account subject no longer exists. Code: " + request.getTargetKey()));
             candidate = current.successor();
             if (command.name() != null) {
                 candidate.setName(command.name());
@@ -85,10 +86,13 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
     }
 
     @Override
-    public void apply(MasterDataChangeRequest request) {
+    public AppliedVersion apply(MasterDataChangeRequest request) {
         validate(request);
-        switch (request.getChangeType()) {
-            case CREATE -> accountSubjectUseCase.createAccountSubject(command(request));
+        return switch (request.getChangeType()) {
+            case CREATE -> {
+                AccountSubject next = accountSubjectUseCase.createAccountSubject(command(request));
+                yield new AppliedVersion(null, next == null ? null : next.getId());
+            }
             case UPDATE -> {
                 AccountSubjectCommand command = command(request);
                 MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
@@ -96,13 +100,15 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
                 AccountSubject current = current(request);
                 MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
                         current.getValidTo(), command.validFrom(), command.validTo());
-                accountSubjectUseCase.updateAccountSubject(request.getTargetKey(), command);
+                AccountSubject next = accountSubjectUseCase.updateAccountSubject(request.getTargetKey(), command);
+                yield new AppliedVersion(current.getId(), next == null ? null : next.getId());
             }
             case DEACTIVATE -> {
-                current(request);
+                Long id = current(request).getId();
                 accountSubjectUseCase.deactivateAccountSubject(request.getTargetKey(), request.getEffectiveDate());
+                yield new AppliedVersion(id, id);
             }
-        }
+        };
     }
 
     private AccountSubject current(MasterDataChangeRequest request) {

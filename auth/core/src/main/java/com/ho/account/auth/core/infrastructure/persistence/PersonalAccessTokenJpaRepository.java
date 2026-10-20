@@ -1,6 +1,8 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
 import java.util.List;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -8,8 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PersonalAccessTokenJpaRepository extends JpaRepository<PersonalAccessTokenJpaEntity, String> {
-    List<PersonalAccessTokenJpaEntity> findByUsernameOrderByCreatedAtDesc(String username);
-    List<PersonalAccessTokenJpaEntity> findAllByOrderByCreatedAtDesc();
+    Slice<PersonalAccessTokenJpaEntity> findByUsernameOrderByCreatedAtDescIdDesc(String username, Pageable pageable);
+    Slice<PersonalAccessTokenJpaEntity> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
     Optional<PersonalAccessTokenJpaEntity> findByTokenHash(String tokenHash);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)

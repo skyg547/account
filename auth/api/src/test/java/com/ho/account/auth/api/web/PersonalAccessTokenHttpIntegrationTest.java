@@ -1,6 +1,7 @@
 package com.ho.account.auth.api.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -11,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.auth.AuthApplication;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
+import com.ho.account.auth.core.application.port.in.PersonalAccessTokenUseCase;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import com.ho.account.auth.core.infrastructure.security.JwtTokenIssuer;
@@ -32,6 +34,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Exercises the real HTTP, JWT verification, use case, and JPA boundaries together. */
 @SpringBootTest(
@@ -62,12 +65,15 @@ class PersonalAccessTokenHttpIntegrationTest {
     private static final String CASE_VARIANT = "PatAlice";
     private static final String BOB = "patBob";
     private static final String ADMIN = "patAdmin";
+    private static final String FIFTY_ONE_USER = "p".repeat(51);
     private static final String LONG_USER = "p".repeat(80);
 
     @Autowired private MockMvc mockMvc;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private TokenIssuerPort tokenIssuer;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private PersonalAccessTokenUseCase patUseCase;
+    @Autowired private TransactionTemplate transactions;
 
     @DynamicPropertySource
     static void securityProperties(DynamicPropertyRegistry registry) {
@@ -79,14 +85,15 @@ class PersonalAccessTokenHttpIntegrationTest {
     void resetUsersAndTokens() {
         jdbc.update("delete from auth_pat_lifecycle_events");
         jdbc.update("delete from auth_personal_access_tokens");
-        jdbc.update("delete from auth_role_assignments where username in (?, ?, ?, ?, ?)",
-                ALICE, CASE_VARIANT, BOB, ADMIN, LONG_USER);
-        jdbc.update("delete from auth_users where username in (?, ?, ?, ?, ?)",
-                ALICE, CASE_VARIANT, BOB, ADMIN, LONG_USER);
+        jdbc.update("delete from auth_role_assignments where username in (?, ?, ?, ?, ?, ?)",
+                ALICE, CASE_VARIANT, BOB, ADMIN, FIFTY_ONE_USER, LONG_USER);
+        jdbc.update("delete from auth_users where username in (?, ?, ?, ?, ?, ?)",
+                ALICE, CASE_VARIANT, BOB, ADMIN, FIFTY_ONE_USER, LONG_USER);
         insertUser(ALICE, "ROLE_USER");
         insertUser(CASE_VARIANT, "ROLE_USER");
         insertUser(BOB, "ROLE_USER");
         insertUser(ADMIN, "ROLE_SYSTEM_ADMIN");
+        insertUser(FIFTY_ONE_USER, "ROLE_USER");
         insertUser(LONG_USER, "ROLE_USER");
     }
 
@@ -144,8 +151,34 @@ class PersonalAccessTokenHttpIntegrationTest {
         assertThat(eventsFor(id)).allSatisfy(row -> {
             assertThat(row.get("actor_username")).isEqualTo(ALICE);
             assertThat(row.get("owner_username")).isEqualTo(ALICE);
+            assertThat(row.get("reason_code")).isIn("OWNER_CREATED", "OWNER_REQUEST");
+            assertThat(row.get("after_status")).isIn("ACTIVE", "REVOKED");
+            assertThat(row.get("before_status")).isIn("ABSENT", "ACTIVE");
             assertThat(row).doesNotContainKeys("raw_token", "token_hash");
         });
+    }
+
+    @Test
+    void patListDefaultsAndMaximumAreVisibleAndInvalidSizesReturnBadRequest() throws Exception {
+        String bearer = bearer(ALICE, "ROLE_USER");
+        create(bearer, "{\"tokenName\":\"key\"}");
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page", "0"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page-Size", "20"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Has-Next", "false"));
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer)
+                        .param("page", "0").param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page-Size", "100"));
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer)
+                        .param("page", "0").param("size", "101"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/auth/pat").param("size", "101"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/auth/admin/pat").header("Authorization", bearer)
+                        .param("size", "101"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -205,12 +238,64 @@ class PersonalAccessTokenHttpIntegrationTest {
                     assertThat(listed.get(0).get("id").asText()).isEqualTo(bobId);
                 });
         mockMvc.perform(delete("/api/auth/admin/pat/{id}", bobId)
-                        .header("Authorization", adminBearer))
+                        .header("Authorization", adminBearer)
+                        .header("X-Audit-Reason", "ADMIN_ROTATION"))
                 .andExpect(status().isNoContent());
         assertThat(eventsFor(bobId)).extracting(row -> row.get("actor_username"))
                 .containsExactlyInAnyOrder(BOB, ADMIN);
         assertThat(eventsFor(bobId)).extracting(row -> row.get("owner_username"))
                 .containsExactly(BOB, BOB);
+        assertThat(eventsFor(bobId)).extracting(row -> row.get("reason_code"))
+                .containsExactlyInAnyOrder("OWNER_CREATED", "ADMIN_ROTATION");
+    }
+
+    @Test
+    void rolledBackRevokeLeavesActiveTokenAndNoSuccessAudit() throws Exception {
+        String bearer = bearer(ALICE, "ROLE_USER");
+        String id = create(bearer, "{\"tokenName\":\"rollback key\"}").get("id").asText();
+
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status -> {
+            assertThat(patUseCase.revokeOwnToken(bearer, id)).isTrue();
+            throw new IllegalStateException("synthetic rollback");
+        })).isInstanceOf(IllegalStateException.class);
+
+        assertThat(jdbc.queryForObject(
+                "select status from auth_personal_access_tokens where id = ?", String.class, id))
+                .isEqualTo("ACTIVE");
+        assertThat(eventsFor(id)).extracting(row -> row.get("action")).containsExactly("CREATED");
+    }
+
+    @Test
+    void invalidAdminReasonCannotChangeTokenOrRecordEvent() throws Exception {
+        String id = create(bearer(BOB, "ROLE_USER"), "{\"tokenName\":\"protected key\"}")
+                .get("id").asText();
+        String adminBearer = bearer(ADMIN, "ROLE_SYSTEM_ADMIN");
+        mockMvc.perform(delete("/api/auth/admin/pat/{id}", id)
+                        .header("Authorization", adminBearer))
+                .andExpect(status().isBadRequest());
+        for (String invalid : List.of("", "ADMIN_FORCE_REVOKE", "credential=synthetic-secret")) {
+            mockMvc.perform(delete("/api/auth/admin/pat/{id}", id)
+                            .header("Authorization", adminBearer)
+                            .header("X-Audit-Reason", invalid))
+                    .andExpect(status().isBadRequest());
+        }
+        assertThat(jdbc.queryForObject(
+                "select status from auth_personal_access_tokens where id = ?", String.class, id))
+                .isEqualTo("ACTIVE");
+        assertThat(eventsFor(id)).hasSize(1);
+    }
+
+    @Test
+    void auditTableRejectsAnUnknownPatAction() {
+        assertThatThrownBy(() -> jdbc.update("insert into auth_pat_lifecycle_events "
+                        + "(event_id, token_id, action, actor_username, owner_username, occurred_at, "
+                        + "reason_code, before_status, after_status) "
+                        + "values (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)",
+                UUID.randomUUID().toString(), "synthetic-id", "INVALID", ALICE, ALICE,
+                "OWNER_REQUEST", "ACTIVE", "REVOKED"))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(jdbc.queryForObject("select count(*) from auth_pat_lifecycle_events", Integer.class))
+                .isZero();
     }
 
     @Test
@@ -233,12 +318,19 @@ class PersonalAccessTokenHttpIntegrationTest {
 
     @Test
     void maximumLengthCanonicalAuthUserCanOwnAPat() throws Exception {
-        JsonNode created = create(bearer(LONG_USER, "ROLE_USER"),
-                "{\"tokenName\":\"long owner key\"}");
-        assertThat(created.get("username").asText()).isEqualTo(LONG_USER);
-        assertThat(jdbc.queryForObject(
-                "select username from auth_personal_access_tokens where id = ?", String.class,
-                created.get("id").asText())).isEqualTo(LONG_USER);
+        for (String owner : List.of(FIFTY_ONE_USER, LONG_USER)) {
+            JsonNode created = create(bearer(owner, "ROLE_USER"),
+                    "{\"tokenName\":\"long owner key\"}");
+            assertThat(created.get("username").asText()).isEqualTo(owner);
+            assertThat(jdbc.queryForObject(
+                    "select username from auth_personal_access_tokens where id = ?", String.class,
+                    created.get("id").asText())).isEqualTo(owner);
+            mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer(owner, "ROLE_USER")))
+                    .andExpect(status().isOk())
+                    .andExpect(result -> assertThat(objectMapper.readTree(
+                            result.getResponse().getContentAsString()).get(0).get("id").asText())
+                            .isEqualTo(created.get("id").asText()));
+        }
     }
 
     @Test
@@ -348,7 +440,7 @@ class PersonalAccessTokenHttpIntegrationTest {
         assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
                 .isEqualTo(2);
 
-        for (int invalidDays : List.of(0, 3651)) {
+        for (int invalidDays : List.of(-1, 0, 3651)) {
             mockMvc.perform(post("/api/auth/pat")
                             .header("Authorization", authorization)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -430,7 +522,9 @@ class PersonalAccessTokenHttpIntegrationTest {
     }
 
     private List<Map<String, Object>> eventsFor(String id) {
-        return jdbc.queryForList("select action, actor_username, owner_username from auth_pat_lifecycle_events "
+        return jdbc.queryForList("select action, actor_username, owner_username, reason_code, "
+                + "before_status, after_status "
+                + "from auth_pat_lifecycle_events "
                 + "where token_id = ?", id);
     }
 

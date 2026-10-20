@@ -58,10 +58,12 @@ local profile은 다음을 적용합니다.
 - H2 PostgreSQL 호환 모드
 - `auth.persistence.mode=jpa`
 - `auth.login-security.store=jpa`
-- Flyway V70~V74 활성화
+- Flyway V70~V76 활성화
 - Hibernate `ddl-auto=validate`
 - `spring.sql.init.mode=never`
 - 보안 입력과 데모 사용자 기본값 없음
+
+SSO/OTP도 기본 비활성화입니다. `local`에서만 `auth.sso.enabled=true`와 공급자별 identity를 런타임에 주입하면 설정 기반 SSO를, `auth.otp.enabled=true`와 사용자별 Base32 secret을 주입하면 TOTP를 시험할 수 있습니다. `NORMAL`은 해당 사용자 OTP 설정이나 제출이 없으면 OTP 없이 진행하고, `LDAP`는 항상 OTP가 필요합니다. `SSO`는 공급자 subject가 요청 username 및 등록 사용자와 일치해야 합니다. 테스트용 자격·secret 값은 저장소와 명령줄에 남기지 않습니다. 이 local 어댑터는 운영 OAuth2/OIDC 연동과 인스턴스 간 OTP 재사용 방지 기능을 제공하지 않습니다.
 
 ### memory 사용자 저장소로 실행
 
@@ -118,7 +120,7 @@ $jar = Get-ChildItem auth/api/build/libs -Filter '*.jar' |
 java -jar $jar.FullName --spring.profiles.active=local --server.port=8081
 ```
 
-테스트 범위에는 local resource 정책, H2/Flyway 컨텍스트, 로그인 실패 JPA commit, API/core 경계와 Boot JAR 패키징이 포함됩니다. `:auth:core:test`는 테스트 프로세스에서 임시 PostgreSQL 서버를 띄워 서로 다른 트랜잭션의 최초 실패, 기존 행 증가, 만료 및 성공 경합을 확인합니다. 이 테스트는 PostgreSQL 실행 파일을 시작할 수 있는 로컬 환경이 필요하며 운영 DB 계정은 사용하지 않습니다.
+테스트 범위에는 local resource 정책, H2/Flyway 컨텍스트, 로그인 실패 JPA commit, API/core 경계와 Boot JAR 패키징이 포함됩니다. `:auth:api:test`의 `EnterpriseSsoOtpHttpIntegrationTest`는 local 설정 기반 SSO/TOTP의 JWT 발급과 실패·잠금을 H2에서 확인합니다. `:auth:core:test`의 `JpaLoginAttemptPostgresConcurrencyTest`는 테스트 프로세스의 임시 PostgreSQL에서 별도 트랜잭션의 동시 최초 삽입, 기존 행 증가, 만료 및 성공 경합을 확인합니다. 이 테스트는 PostgreSQL 실행 파일을 시작할 수 있는 로컬 환경이 필요하며 운영 DB 계정은 사용하지 않습니다.
 
 `AuthJpaModeStartupTest`와 `AuthMemoryModeStartupTest`는 임시 자격증명을 테스트 실행 중 생성해 전체 `AuthApplication` 빈 그래프를 각각 시작하고 PAT HTTP 경로의 존재 여부를 확인합니다. JPA PAT의 실제 생성·조회·폐기 및 감사 동작은 `PersonalAccessTokenHttpIntegrationTest`가 H2에서 검사합니다. H2 검증은 PostgreSQL 검증을 대신하지 않습니다.
 

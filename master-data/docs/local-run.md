@@ -20,7 +20,7 @@ pipeline에 두어 batch가 업무 규칙을 중복 구현하지 않습니다.
 
 1. Gradle 창에서 프로젝트를 새로고침합니다.
 2. 상단 Run Configuration에서 `Master Data bootRun`을 선택합니다.
-3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8 (target=8), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
+3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8과 H2 전용 V8.1 (target=8.1, 반려 사유 반복 migration 및 H2 전용 실패 상태 migration 포함), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
 4. 로그에서 `Started MasterDataApplication`을 확인합니다.
 5. 테스트가 끝나면 IntelliJ의 Stop 버튼으로 프로세스를 종료합니다.
 
@@ -98,7 +98,7 @@ Config Server 설정을 확인하는 통합 모드에서는 다음 순서로 실
 API 마스킹, API/Batch composition root와 실행 JAR을 포함합니다. 두 번째와 세 번째 명령은
 소비 모듈이 JPA Repository 대신
 `BusinessPartnerPersistencePort` 또는 contracts 경계를 계속 사용하는지 확인합니다.
-H2는 V8까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 합성 PostgreSQL 회귀로 검증합니다. 운영 데이터 크기의 인덱스/잠금 성능은 별도 배포 검증 대상입니다.
+H2는 공통 V8 뒤 H2 전용 감사 V8.1까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 합성 PostgreSQL 회귀로 검증합니다. 운영 데이터 크기의 인덱스/잠금 성능은 별도 배포 검증 대상입니다.
 
 ```powershell
 .\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon
@@ -108,6 +108,13 @@ H2는 V8까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 �
 서비스 버전/잠금 순서, H2 JPA 왕복·API/Batch 구성과 일일 집계 회귀가 포함됩니다.
 PostgreSQL 환경변수가 없으면 PostgreSQL 전용 테스트는 skip되며 동시성 검증 통과로
 판단할 수 없습니다. 최신 실행 수와 결과는 모듈 [worklog](ai-harness/worklog.md)에 기록합니다.
+
+현재 V2 SQL은 `payload_json TEXT`로 테이블을 만들고 V4는 과거 `CLOB` 컬럼을 `TEXT`로
+전환하는 이행 파일입니다. H2의 Flyway/JPA 검증과 아래 합성 PostgreSQL SCD2 명령은 모두
+예전 `CLOB` V2의 체크섬·V4 이행을 검증하지 않습니다. 기존 환경은 적용된 Flyway 이력과
+실제 컬럼 타입을 확인해야 하며, 이 이행의 완료 판정에는 해당 이력을 재현한 별도 합성
+PostgreSQL fixture에서 migration/validate를 실행하는 게이트가 필요합니다. 현재 문서에는
+그 fixture를 실행하는 검증 명령이 없습니다.
 
 ### PostgreSQL SCD2 회귀 검증
 
@@ -126,10 +133,28 @@ UPDATE/DEACTIVATE, 롤백과 재시도, 다른 키의 독립 진행, 실제 DB �
 검증합니다. PostgreSQL 테스트는 실제 서비스·JPA·Flyway·JDBC를 사용하며 HTTP 응답은
 MockMvc로 검증합니다. 배포나 실제 사용자 데이터 보정은 수행하지 않습니다.
 
-H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8`입니다. V9는
-PostgreSQL 전용 SQL이며 release migration-runner의 기존 SQL 복사 경로에 포함됩니다.
-새 H2 구성도 target8을 명시해야 합니다. PostgreSQL 검증/배포에는 이 target을 적용하지
-마세요. 이후 공통 migration을 추가할 때는 이 H2 경계를 함께 검토해야 합니다.
+### PostgreSQL 변경 요청 멱등성 회귀 검증
+
+전제: 위와 같은 로컬 합성 PostgreSQL 16 데이터베이스와 `MASTER_DATA_TEST_POSTGRES_URL`.
+기존 테이블을 지우지 않고 매 실행마다 새 schema를 생성합니다. 예를 들어 합성 DB 주소를
+환경변수로 설정한 뒤 다음 대상 테스트를 실행합니다.
+
+```bash
+./gradlew :master-data:core:test --tests '*MasterDataChangeRequestPostgresqlIdempotencyTest' \
+  --offline --no-daemon --console=plain --max-workers=2
+```
+
+같은 `sourceReference` 동시 최초 접수의 단일 행·동일 ID, 다른 명령의 충돌,
+`APPLIED` 응답 유실 후 재시도의 SCD2 행 수·`appliedAt` 보존을 확인합니다.
+또한 일반 unique 위반이 PostgreSQL 트랜잭션을 실패 상태로 만드는 반례와
+`ON CONFLICT DO NOTHING`의 별도 트랜잭션 복구를 확인합니다. 환경변수가 없으면 테스트가
+skip되므로 그 결과를 PostgreSQL 통과로 해석하면 안 됩니다.
+
+H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8.1`과
+`classpath:db/migration,classpath:db/local-migration,classpath:db/migration-h2`를 함께 사용합니다.
+`db/local-migration`은 예약 반영 실패 상태의 H2 전용 스키마를, `db/migration-h2`는 V8.1 로컬 감사 스키마를 적용합니다.
+V9–V12는 PostgreSQL 배포 migration-runner의 공통 SQL 경로에 포함됩니다. 새 H2 구성도 target 8.1과 세 위치를 명시해야 합니다.
+PostgreSQL 검증/배포에는 H2 target과 local-migration/migration-h2 위치를 적용하지 마세요.
 
 ### PostgreSQL 상품 가격 회귀 검증
 
@@ -166,7 +191,7 @@ curl -i 'http://localhost:8082/api/basic/businesspartners/BP-923/eligibility'
 
 정상 제출·결정은 각각 HTTP 204 빈 본문입니다. 마지막 조회는 HTTP 200과 `{"businessPartnerCode":"BP-923","asOfDate":"<서버의 오늘 날짜>","eligible":true}` 형태로 반환합니다. 이는 거래처가 오늘 활성 상태이고 등록번호가 예시와 일치할 때만 성립합니다. 결정 전, `HIGH`/`CRITICAL`, 만료 이후, 누락·변경된 등록번호, 비활성 거래처라면 `eligible:false`입니다. 조회에서 `asOfDate`를 생략하면 서버의 오늘 날짜를 씁니다. 과거 확인은 `?asOfDate=yyyy-MM-dd`로 요청하며, 해당 날짜 종료 전 마지막 audit 상태와 당시 거래처 버전으로 판단합니다. 오늘 권한 있는 제출자가 재제출하여 현재 상태가 `PENDING`이 되어도 이전 승인 날짜의 결과는 재현됩니다. 조회 응답에 식별번호·증빙은 없습니다. 제출자의 자기 결정은 400, 제출에 관리자 역할이 없거나 결정에 심사자 역할이 없으면 403, 없는 거래처 제출은 404입니다. 인증된 `ROLE_USER`의 재제출은 403이며 기존 `APPROVED` 상태를 바꾸지 않습니다.
 
-로컬 API/Batch는 Flyway V8까지만 적용하고 별도 H2 screening schema를 초기화합니다. PostgreSQL V11과 audit 변경 금지 trigger는 이 실행으로 검증되지 않습니다. 집중 단위·MVC 회귀는 저장소 루트에서 다음 명령으로 실행합니다(성공 여부는 실제 실행 결과로 판단합니다).
+로컬 API/Batch는 Flyway V8.1까지만 적용하고 별도 H2 screening schema를 초기화합니다. PostgreSQL V13과 audit 변경 금지 trigger는 이 실행으로 검증되지 않습니다. 집중 단위·MVC 회귀는 저장소 루트에서 다음 명령으로 실행합니다(성공 여부는 실제 실행 결과로 판단합니다).
 
 ```bash
 ./gradlew :master-data:core:test --tests '*BusinessPartnerScreeningPolicyTest' \
@@ -177,7 +202,7 @@ curl -i 'http://localhost:8082/api/basic/businesspartners/BP-923/eligibility'
 
 이 명령은 정책, 서비스의 audit/멱등성, MVC의 상태·actor 매핑을 확인합니다. HTTP 서버 종단, PostgreSQL migration·trigger, 공용 계약 및 실제 payable/receivable 소비자는 별도 검증 범위입니다.
 
-V11 실제 PostgreSQL as-of 재현은 위에서 설명한 **합성 테스트 전용** 로컬 PostgreSQL 16 fixture가 준비된 경우에만 다음 opt-in 명령으로 검증합니다. 테스트는 매 실행마다 새 임의 schema를 만들고 기존 schema를 삭제하지 않습니다. 감사 이력의 제출→승인→재제출, 같은 시각의 audit ID 순서, 증빙 만료를 확인합니다. 환경변수가 없으면 JUnit이 이 테스트를 skip합니다.
+V13 실제 PostgreSQL as-of 재현은 위에서 설명한 **합성 테스트 전용** 로컬 PostgreSQL 16 fixture가 준비된 경우에만 다음 opt-in 명령으로 검증합니다. 테스트는 매 실행마다 새 임의 schema를 만들고 기존 schema를 삭제하지 않습니다. 감사 이력의 제출→승인→재제출, 같은 시각의 audit ID 순서, 증빙 만료를 확인합니다. 환경변수가 없으면 JUnit이 이 테스트를 skip합니다.
 
 ```bash
 MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:17533/master_data_753 \
@@ -212,10 +237,18 @@ PostgreSQL과 `initialize-schema=never`를 사용하므로 Batch metadata도 rel
 - `GET /api/basic/fiscal-periods/{fiscalYear}/{fiscalPeriod}`
 - `POST /api/master-data/change-requests`
 - `GET /api/master-data/change-requests/pending`
+- `GET /api/master-data/change-requests/{requestId}/raw-detail` (JWT 검증 후에도 403, 원문 조회 비활성)
 - `POST /api/master-data/change-requests/{requestId}/approve`
 - `POST /api/master-data/change-requests/{requestId}/reject`
 - `POST /api/master-data/change-requests/{requestId}/apply`
 - `POST /api/master-data/change-requests/apply-due`
+
+변경 요청 응답은 정형 상태·일자·버전·ID만 반환합니다. 합성 등록번호가 들어 있는
+`payloadJson`, 사유, 대상 키와 actor/sourceReference는 반환하지 않습니다.
+로컬 검증은 `./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2`를 사용합니다.
+요약 JSON의 원문 누출과 인증된 상세 거부는 API HTTP 회귀 테스트에서 확인합니다.
+기존 프런트 거래처 승인 화면은 `payloadJson` 부재 시 승인 버튼을 비활성화합니다.
+API 테스트 성공은 해당 화면의 호환성 검증을 대신하지 않습니다.
 
 `requestedVersion` 예시는 다음과 같습니다.
 
@@ -233,4 +266,4 @@ PostgreSQL과 `initialize-schema=never`를 사용하므로 Batch metadata도 rel
 - 일일 유효성 집계는 전체 행을 Java 메모리에 올리지 않고 JPA `COUNT` 쿼리 네 번으로 처리합니다.
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD` 변경 요청은 typed applier와 버전 조회 어댑터가 함께 추가되기 전까지 접수 단계에서 fail-closed 됩니다.
 - 직접 CRUD 쓰기 엔드포인트는 유효한 Bearer JWT가 필요하며 `MasterDataDirectWritePolicy`에 의해 관리자 보정 권한(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN` 등)으로 제한됩니다. 자격증명이 없거나 무효이거나 전달된 `X-Auth-Roles`가 JWT claim과 다르면 HTTP 401, 검증된 JWT에 관리자 역할이 없으면 HTTP 403입니다.
-- `apply-due`는 현재 최대 500건을 한 트랜잭션으로 처리합니다. 운영 대량 실행 전 요청별 재시작 경계와 `SKIP LOCKED` 파티셔닝이 필요합니다.
+- `apply-due`는 최대 500건을 선택해 요청별 트랜잭션으로 처리합니다. 응답 배열에는 성공 `APPLIED`와 확정적 실패 `FAILED_CONFLICT`/`FAILED_INVALID`가 선택 순서로 나타나며, 실패 건에는 안전한 `failureReason`과 `failedAt`이 있습니다. 같은 호출을 다시 실행하면 처리 완료 건은 제외됩니다. SQL 연결·잠금 등 인프라 오류는 호출을 실패시키고 해당 건을 `APPROVED`로 남겨 재시도할 수 있게 합니다. 로컬 H2와 합성 PostgreSQL 두 작업자 테스트가 있으며 운영 규모의 잠금 대기·처리량은 검증하지 않았습니다. `SKIP LOCKED` 파티셔닝은 아직 없습니다.

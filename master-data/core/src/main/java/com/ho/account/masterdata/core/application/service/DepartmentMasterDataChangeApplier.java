@@ -62,22 +62,27 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
     }
 
     @Override
-    public void apply(MasterDataChangeRequest request) {
+    public AppliedVersion apply(MasterDataChangeRequest request) {
         validate(request);
-        switch (request.getChangeType()) {
-            case CREATE -> departmentUseCase.createDepartment(validatedCommand(request));
+        return switch (request.getChangeType()) {
+            case CREATE -> {
+                Department next = departmentUseCase.createDepartment(validatedCommand(request));
+                yield new AppliedVersion(null, next == null ? null : next.getId());
+            }
             case UPDATE -> {
                 DepartmentCommand command = validatedCommand(request);
                 Department current = current(request);
                 MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
                         current.getValidTo(), command.validFrom(), command.validTo());
-                departmentUseCase.updateDepartment(request.getTargetKey(), command);
+                Department next = departmentUseCase.updateDepartment(request.getTargetKey(), command);
+                yield new AppliedVersion(current.getId(), next == null ? null : next.getId());
             }
             case DEACTIVATE -> {
-                current(request);
+                Long id = current(request).getId();
                 departmentUseCase.deactivateDepartment(request.getTargetKey(), request.getEffectiveDate());
+                yield new AppliedVersion(id, id);
             }
-        }
+        };
     }
 
     private Department current(MasterDataChangeRequest request) {

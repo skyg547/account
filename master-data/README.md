@@ -6,7 +6,7 @@
 
 - `BusinessPartner`와 `BusinessPartnerAccount`는 JPA를 모르는 순수 도메인 객체입니다. 생성 팩터리가 필수 코드·이름, 유효기간, 계좌의 대표 여부 같은 업무 불변식을 먼저 검사합니다.
 - `BusinessPartnerJpaEntity`와 `BusinessPartnerAccountJpaEntity`만 테이블·컬럼·연관관계를 알고, `JpaBusinessPartnerPersistenceAdapter`가 두 모델을 명시적으로 변환합니다. 따라서 도메인 규칙을 DB 프록시 생명주기와 분리해 단위 테스트할 수 있습니다.
-- SCD2 수정에서 `closeVersion()`은 과거 버전의 종료일만 닫고, 업무 비활성화인 `terminate()`도 종료일을 닫으며 과거 조회를 위해 `useYn`을 유지합니다. 두 의미를 섞지 않아 미래 시행 버전을 만들 때 현재 사용 가능 상태가 일찍 사라지지 않습니다.
+- SCD2 수정의 `closeVersion()`과 업무 종료의 `terminate()`는 모두 종료일만 닫고, 당시의 `useYn`은 과거 조회를 위해 보존합니다. 종료일 다음 날부터는 기간 조건으로 조회되지 않습니다. 현재 활성 조회는 기간과 `useYn=true`를 확인하지만 KYC 상태·위험 등급에 따른 심사 적격성까지 판단하지는 않습니다.
 - 새 SCD2 버전은 기존 계좌 값을 새 자식 행으로 복제합니다. 자식 ID는 재사용하지 않아 과거 버전의 FK와 현재 지급 계좌를 모두 보존합니다.
 - HTTP 응답은 `BusinessPartnerDto`가 조립하며 사업자등록번호 마스킹도 API 경계에서 수행합니다. 영속성 엔티티나 민감한 원문을 Controller가 직접 반환하지 않습니다.
 - 기존 `business_partners`, `business_partner_accounts` 테이블·컬럼과 API 경로는 유지되므로 이번 분리만을 위한 DB migration은 없습니다.
@@ -53,13 +53,13 @@ sequenceDiagram
     Master-->>Requester: 최종 반영 완료
 ```
 
-### 📌 타 모듈과의 연동 (ID 기반 참조)
-다른 모듈은 `master-data`의 복잡한 엔티티를 직접 가져가지 않고, **코드(String ID)**만 저장한 뒤 필요할 때 API(Port)로 조회합니다.
+### 📌 타 모듈과의 연동 (코드·ID 참조)
+소비 모듈은 필요한 코드 또는 ID를 저장하고 자신의 조회 포트를 통해 기준일의 속성을 확인합니다. 예를 들어 Loan은 거래처 ID와 통화 코드를 저장합니다.
 
 ```mermaid
 flowchart LR
-    A[Voucher / Loan / Tax] -- "String Code 저장" --> B{MasterDataQueryPort}
-    B -- "SCD2 시점 조회" --> C[Master Data Service]
+    A[업무 모듈] -- "코드 또는 ID 보관" --> B{소비 모듈 조회 포트}
+    B -- "지원되는 계약으로 기준일 조회" --> C[Master Data]
     C -- "Name, Attribute 반환" --> A
 ```
 
@@ -123,7 +123,7 @@ erDiagram
 .\gradlew :master-data:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29" --console=plain --max-workers=1 --no-daemon
 ```
 
-프로파일을 생략하면 `local`이 선택되어 H2 PostgreSQL mode와 Flyway V1-V8 (H2 target=8), JPA validate를
+프로파일을 생략하면 `local`이 선택되어 H2 PostgreSQL mode와 Flyway V1-V8 (H2 target=8, 반려 사유 반복 migration 및 H2 전용 실패 상태 migration 포함), JPA validate를
 사용합니다. `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하고 애플리케이션 Flyway와
 SQL/Batch schema 자동 생성을 끕니다. 배포 migration은 별도 `migration-runner`가 수행합니다.
 prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외부 서비스의 SCD2 조회는
@@ -139,16 +139,17 @@ prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외�
 - 승인된 변경 요청은 targetType별 applier가 실제 SCD2 반영을 수행한 뒤에만 `APPLIED`가 됩니다. 현재 `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT` typed applier가 구현되어 있습니다.
 - `requestedVersion`은 CREATE=1, UPDATE=현재 저장 이력 수+1, DEACTIVATE=현재 저장 이력 수입니다. 요청·승인·반영 직전에 반복 검증하므로 대기 중 다른 버전이 먼저 반영되면 오래된 요청은 실패합니다.
 - `DEACTIVATE`는 JSON payload 없이 실행되며 승인된 `effectiveDate`를 SCD2 종료일로 사용합니다. `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 typed applier와 버전 어댑터가 생기기 전까지 접수 단계에서 fail-closed 됩니다.
-- 요청/승인/반영과 네 유형의 직접 쓰기는 `(targetType, targetKey)` 잠금을 트랜잭션 종료까지 공유합니다. 승인/반영은 그 뒤 요청 행을 잠그고 최신 버전을 다시 확인하며 `lockVersion`도 유지합니다. 예약 반영은 `APPROVED` 상태와 `effectiveDate` 조건으로 최대 500건을 조회합니다.
-- Governance 승인 ID는 `sourceReference`로 저장해 동일 명령 재시도는 기존 요청을 반환하고 다른 명령 재사용은 충돌로 차단합니다. 실제 반영 완료 시각은 `appliedAt`에 기록합니다.
+- 요청/승인/반영과 네 유형의 직접 쓰기는 `(targetType, targetKey)` 잠금을 트랜잭션 종료까지 공유합니다. 승인/반영은 그 뒤 요청 행을 잠그고 최신 버전을 다시 확인하며 `lockVersion`도 유지합니다. 예약 반영은 `APPROVED` 상태와 `effectiveDate` 조건으로 최대 500건을 조회하고 요청별 독립 트랜잭션으로 처리합니다. 실패 건은 안전한 분류·시각과 함께 `FAILED_*`로 격리해 다음 실행에서 다시 선택하지 않습니다.
+- `core` 변경 요청 유즈케이스에 전달된 Governance 승인 ID는 `sourceReference`로 저장합니다. PostgreSQL에서는 동시 최초 접수도 DB의 원자적 생성·기존 행 조회를 거쳐 동일한 요청 ID를 반환하고, 다른 명령의 식별자 재사용은 충돌 예외로 차단합니다. 현재 HTTP 생성 DTO는 `sourceReference`를 받지 않으므로 이 접수 멱등성은 HTTP POST에는 적용되지 않습니다. 검증 실패 시 새 요청 행도 롤백됩니다. 이미 `APPLIED`인 요청 ID의 반영 재시도는 SCD2 이력과 `appliedAt`을 바꾸지 않고 기존 결과를 반환합니다.
 - 계정과목/부서/거래처/상품의 직접 쓰기(POST/PUT/DELETE) API는 서비스의 인증 필터에서 설정한 `AUTH_JWT_AUDIENCE`(기본 `account-api`) audience의 Auth 서명 JWT를 재검증한 뒤 `MasterDataDirectWritePolicy`를 통해 승인된 관리자 역할(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN`, `ROLE_MASTER_MANAGER`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_PARTNER_MANAGER`)로 제한됩니다. 자격증명이 없거나 위조된 요청은 HTTP 401, 검증된 비관리자는 HTTP 403입니다. Gateway의 `X-Auth-*` 전달 값은 JWT claim과 일치해야 합니다.
 - 변경 요청의 조회/승인/반려/반영도 같은 수신 서비스 검증을 거칩니다. 내부 회계기간 변경은 별도 서명키와 `master-data-internal` audience의 Closing assertion을 요구하며, `audit_user`에는 검증된 `closing:<delegated actor>`를 기록합니다. 상세 입력과 통합 제약은 [docs/process-flow.md](docs/process-flow.md)에 있습니다.
 - 일일 유효성 보고서는 core pipeline이 기준일을 필수로 받고, JPA 통계 어댑터가 네 테이블의 활성 건수를 DB `COUNT`로 계산합니다.
 - 계정과목/상품 활성 목록과 거래처 이름 검색도 전체 행을 Java에서 필터링하지 않고 기준일 조건을 DB query에 전달합니다. 거래처 검색은 빈 검색어를 거부하고 현재 활성 버전만 반환합니다.
+- 거래처 `GET /api/basic/businesspartners`, `/active`, `/search?name=...`와 변경 요청 `GET /api/master-data/change-requests/pending`은 0부터 시작하는 `page`와 `size`를 받습니다. 기본 크기는 20, 최대 크기는 100이며 잘못된 범위는 HTTP 400입니다. JSON 본문은 기존 배열 형식을 유지하고 응답 헤더 `X-Page`, `X-Page-Size`, `X-Has-Next`가 다음 페이지 여부를 알려줍니다. 전체 결과가 필요한 소비자는 `X-Has-Next=true`인 동안 `page`를 1씩 올려 조회해야 합니다. 거래처 목록은 계좌를 포함하지 않는 scalar 요약만 DB에서 조회합니다.
 - 환율 조회는 요청일 이하의 데이터 중 가장 최근 `effectiveDate` 1건을 DB에서 선택합니다. 환율은 양수이고 통화 코드는 3자리 ISO 형식이어야 합니다.
 - Closing이 회계기간 상태를 바꿀 때는 `FiscalPeriodPersistencePort` 뒤에서 대상 행을 잠그고, 영구 마감 불변식과 감사 사용자를 `FiscalPeriod` 도메인 메서드가 검증합니다.
 - 운영에서는 애플리케이션 `ddl-auto`를 `validate`로 유지하고 migration-runner가 검증한 Flyway 기준만 사용합니다.
-- 현재 Loan core의 거래처/통화 엔티티 연관과 Closing Batch의 환율 Repository 직접 참조는 위 contracts 원칙의 예외입니다. 다음 순차 리팩터링에서 코드/ID 저장과 소비 모듈 소유 포트 + contracts 조회로 분리해야 합니다.
+- Loan은 거래처 ID·통화 코드를 저장하고 `LoanReferenceDataPort`로 참조를 확인합니다. 모놀리스 어댑터는 Master Data 영속성 포트를 사용하며, dev 원격 어댑터의 숫자 거래처 ID·기준일 통화 조회는 제공 API가 없어 현재 실패합니다. Closing 환율 조회는 `FxExchangeRateLookupPort` 뒤의 contracts 어댑터(모놀리스) 또는 JDBC 어댑터(dev)를 사용합니다.
 
 ### 업무 키별 동시 쓰기와 DB 기간 제약 (GH-753)
 

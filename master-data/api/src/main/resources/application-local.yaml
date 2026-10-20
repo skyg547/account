@@ -14,7 +14,8 @@ spring:
   flyway:
     enabled: true
     # V9 and later migrations use PostgreSQL-only SQL; the local screening schema is initialized below.
-    target: "8"
+    target: "8.1"
+    locations: classpath:db/migration,classpath:db/local-migration,classpath:db/migration-h2
   jpa:
     hibernate:
       ddl-auto: validate

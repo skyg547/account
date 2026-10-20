@@ -7,5 +7,6 @@ public interface PatLifecycleEventPort {
 
     void recordCreated(String actorUsername, String tokenId, String ownerUsername, LocalDateTime occurredAt);
 
-    void recordRevoked(String actorUsername, String tokenId, String ownerUsername, LocalDateTime occurredAt);
+    void recordRevoked(String actorUsername, String tokenId, String ownerUsername,
+            String reasonCode, String beforeStatus, String afterStatus, LocalDateTime occurredAt);
 }

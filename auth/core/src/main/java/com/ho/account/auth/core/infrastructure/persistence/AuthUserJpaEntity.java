@@ -1,5 +1,6 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
@@ -22,7 +23,7 @@ import java.util.Objects;
 class AuthUserJpaEntity {
 
     @Id
-    @Column(name = "username", nullable = false, length = 80)
+    @Column(name = "username", nullable = false, length = AuthIdentityPolicy.MAX_USERNAME_LENGTH)
     private String username;
 
     @Column(name = "stored_password", nullable = false, length = 255)

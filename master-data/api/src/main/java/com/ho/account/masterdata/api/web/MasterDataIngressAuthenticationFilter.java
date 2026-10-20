@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.api.web;
 
+import com.ho.account.masterdata.core.application.service.MasterDataActorContext;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -22,6 +24,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -32,6 +38,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public final class MasterDataIngressAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(MasterDataIngressAuthenticationFilter.class);
+    private static final Pattern RAW_DETAIL_PATH = Pattern.compile(
+            "^/api/master-data/change-requests/(-?[0-9]{1,19})/raw-detail$");
     public static final String VERIFIED_SERVICE = MasterDataIngressAuthenticationFilter.class.getName() + ".service";
     public static final String VERIFIED_ACTOR = MasterDataIngressAuthenticationFilter.class.getName() + ".actor";
     public static final String VERIFIED_PERIOD_ID = MasterDataIngressAuthenticationFilter.class.getName() + ".periodId";
@@ -78,10 +87,21 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
         try {
             verifiedRequest = internal ? verifyInternal(request) : verifyUser(request);
         } catch (RuntimeException exception) {
+            Matcher rawDetail = RAW_DETAIL_PATH.matcher(path);
+            if (rawDetail.matches()) {
+                // Never log an unverified claim or arbitrary URI as an audit actor or request ID.
+                log.warn("master_data_raw_detail_denied actor=unverified requestId={}", rawDetail.group(1));
+            }
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Verified credential required");
             return;
         }
-        chain.doFilter(verifiedRequest, response);
+        String serviceActor = internal ? "closing" : null;
+        String businessActor = internal ? (String) verifiedRequest.getAttribute(VERIFIED_ACTOR)
+                : verifiedRequest.getHeader("X-Auth-User");
+        // Always clear thread identity after this synchronous servlet invocation, including exceptions.
+        try (MasterDataActorContext.Scope ignored = MasterDataActorContext.enter(serviceActor, businessActor)) {
+            chain.doFilter(verifiedRequest, response);
+        }
     }
 
     private HttpServletRequest verifyUser(HttpServletRequest request) {
@@ -90,7 +110,8 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
             throw new IllegalArgumentException("service headers are not user credentials");
         }
         Claims claims = parse(bearer(request), userSecret, userIssuer, userAudience);
-        String actor = safeHeaderValue(claims.getSubject(), 80);
+        // Master-row audit_user is VARCHAR(50); reject identities that cannot be recorded losslessly.
+        String actor = safeHeaderValue(claims.getSubject(), 50);
         List<String> roles = roles(claims.get("roles"));
         if (roles.isEmpty()) {
             throw new IllegalArgumentException("roles required");

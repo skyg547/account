@@ -7,6 +7,7 @@ import com.ho.account.masterdata.api.dto.BusinessPartnerScreeningDecisionDto;
 import com.ho.account.masterdata.api.dto.BusinessPartnerScreeningSubmissionDto;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerScreeningUseCase;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.domain.exception.ScreeningMutationForbiddenException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import jakarta.validation.Valid;
@@ -23,9 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 /**
  * 거래처 관리 컨트롤러
  *
- * <p>@todo 전체 이력/이름 검색 응답은 아직 List를 한 번에 반환합니다. 완료 조건은 최대 page size,
- * 안정적인 {@code businessPartnerCode, validFrom, id} 정렬과 cursor/page 계약을 추가하고 대량 API
- * 통합 테스트에서 제한 없는 조회가 발생하지 않음을 검증하는 것입니다.</p>
+ * <p>목록은 기본 20건, 최대 100건의 0 기반 페이지와 연속 여부 헤더를 반환합니다.</p>
  */
 @RestController
 @RequestMapping("/api/basic/businesspartners")
@@ -68,20 +67,24 @@ public class BusinessPartnerController {
      * 전체 거래처 조회
      */
     @GetMapping
-    public List<BusinessPartnerDto> getAllBusinessPartners() {
-        return businessPartnerUseCase.getAllBusinessPartners().stream()
-                .map(BusinessPartnerDto::fromDomain)
-                .toList();
+    public ResponseEntity<List<BusinessPartnerDto>> getAllBusinessPartners(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageWindow window = ListPageResponses.window(page, size);
+        return ListPageResponses.respond(businessPartnerUseCase.getAllBusinessPartners(window),
+                window, BusinessPartnerDto::fromSummary);
     }
 
     /**
      * 활성 상태의 거래처만 조회
      */
     @GetMapping("/active")
-    public List<BusinessPartnerDto> getActiveBusinessPartners() {
-        return businessPartnerUseCase.getActiveBusinessPartners().stream()
-                .map(BusinessPartnerDto::fromDomain)
-                .toList();
+    public ResponseEntity<List<BusinessPartnerDto>> getActiveBusinessPartners(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageWindow window = ListPageResponses.window(page, size);
+        return ListPageResponses.respond(businessPartnerUseCase.getActiveBusinessPartners(window),
+                window, BusinessPartnerDto::fromSummary);
     }
 
     /**
@@ -149,10 +152,12 @@ public class BusinessPartnerController {
      * 거래처 검색 (이름 기반)
      */
     @GetMapping("/search")
-    public List<BusinessPartnerDto> searchBusinessPartners(@RequestParam String name) {
-        return businessPartnerUseCase.searchBusinessPartnersByName(name).stream()
-                .map(BusinessPartnerDto::fromDomain)
-                .toList();
+    public ResponseEntity<List<BusinessPartnerDto>> searchBusinessPartners(@RequestParam String name,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageWindow window = ListPageResponses.window(page, size);
+        return ListPageResponses.respond(businessPartnerUseCase.searchBusinessPartnersByName(name, window),
+                window, BusinessPartnerDto::fromSummary);
     }
 
     /**
