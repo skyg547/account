@@ -184,13 +184,25 @@ class DepartmentValidationLoginIntegrationTest {
     }
 
     @Test
-    void unrelatedFailureRetainsGenericServerErrorMapping() throws Exception {
-        when(attempts.isLocked(USERNAME)).thenThrow(new IllegalStateException("synthetic generic failure"));
+    void unrelatedFailureUsesOpaqueReferenceWithoutReflectingInternalMessage() throws Exception {
+        String sentinel = "synthetic-private-exception-sentinel";
+        when(attempts.isLocked(USERNAME)).thenThrow(new IllegalStateException(sentinel));
 
-        login().andExpect(status().isInternalServerError())
+        MvcResult result = login().andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
-                .andExpect(jsonPath("$.message").value("Unexpected server error: synthetic generic failure"))
-                .andExpect(jsonPath("$.token").doesNotExist());
+                .andExpect(jsonPath("$.message").value(
+                        org.hamcrest.Matchers.matchesPattern("Unexpected server error\\. Reference ID: [0-9a-fA-F-]{36}")))
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andReturn();
+
+        String publicMessage = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(result.getResponse().getContentAsString()).get("message").asText();
+        String referenceId = publicMessage.substring(publicMessage.lastIndexOf(' ') + 1);
+        assertThat(result.getResponse().getContentAsString()).doesNotContain(sentinel);
+
+        assertThat(logs.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> assertThat(message).contains(referenceId))
+                .allSatisfy(message -> assertThat(message).doesNotContain(sentinel, password));
 
         verifyNoInteractions(tokenIssuer);
     }

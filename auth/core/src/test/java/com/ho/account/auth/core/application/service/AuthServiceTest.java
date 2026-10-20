@@ -52,6 +52,20 @@ class AuthServiceTest {
     private final String validSsoToken = UUID.randomUUID().toString();
 
     @Test
+    void oversizedUsernameIsRejectedBeforeAuthenticationAttemptTracking() {
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService service = service(standardUsers(), code -> true, validPasswordVerifier(),
+                noOtp(), rejectingSso(), tokenIssuer(), attempts);
+
+        assertThatThrownBy(() -> service.login(normal("u".repeat(81), null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("username is too long");
+        assertThat(attempts.isLockedCalls).isZero();
+        assertThat(attempts.failures).isEmpty();
+        assertThat(attempts.successes).isEmpty();
+    }
+
+    @Test
     void normalLoginWithoutOtpUsesOneInternalRoleSnapshot() {
         RoleAssignment effective = new RoleAssignment(
                 "ROLE_ADMIN", "GLOBAL", AUTHENTICATED_AT.minusSeconds(1), AUTHENTICATED_AT.plusSeconds(1), true);

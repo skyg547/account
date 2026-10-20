@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +38,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AuthService implements AuthUseCase {
+
+    private static final int MAX_USERNAME_LENGTH = 80;
 
     private final AuthUserQueryPort authUserQueryPort;
     private final DepartmentValidationPort departmentValidationPort;
@@ -84,6 +87,11 @@ public class AuthService implements AuthUseCase {
         }
 
         String username = command.username().trim();
+        // Lowercasing can expand Unicode, so check the exact key shape stored by login-attempt tracking too.
+        if (username.length() > MAX_USERNAME_LENGTH
+                || username.toLowerCase(Locale.ROOT).length() > MAX_USERNAME_LENGTH) {
+            throw new IllegalArgumentException("username is too long");
+        }
 
         // 먼저 임시 잠금을 확인하여 반복 대입 공격이 사용자 조회/비밀번호 검증까지 도달하지 않게 합니다.
         if (loginAttemptPort.isLocked(username)) {

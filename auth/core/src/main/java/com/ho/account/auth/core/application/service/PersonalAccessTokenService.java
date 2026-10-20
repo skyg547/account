@@ -26,6 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
 
+    private static final int MAX_USERNAME_LENGTH = 80;
+    private static final int MAX_TOKEN_NAME_LENGTH = 100;
+    private static final int MAX_EXPIRE_DAYS = 3650;
+
     private final PersonalAccessTokenPort patPort;
     private final PatCredentialVerifierPort credentialVerifier;
     private final PatLifecycleEventPort lifecycleEvents;
@@ -35,6 +39,19 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
     @Transactional
     public PersonalAccessTokenCreateResponse createToken(String authorizationHeader, String tokenName, int expireDays) {
         PatActor actor = credentialVerifier.verify(authorizationHeader);
+        // Validate the verified owner and request before generating or persisting a credential.
+        if (actor.username().length() > MAX_USERNAME_LENGTH) {
+            throw new IllegalArgumentException("username is too long");
+        }
+        if (tokenName == null || tokenName.isBlank()) {
+            throw new IllegalArgumentException("tokenName is required");
+        }
+        if (tokenName.length() > MAX_TOKEN_NAME_LENGTH) {
+            throw new IllegalArgumentException("tokenName is too long");
+        }
+        if (expireDays < 1 || expireDays > MAX_EXPIRE_DAYS) {
+            throw new IllegalArgumentException("expireDays is out of range");
+        }
         String id = UUID.randomUUID().toString();
 
         // 1. 보안 랜덤 16바이트 헥사 문자열 생성 (pat_live_...)
@@ -47,8 +64,7 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
         String tokenHash = hashToken(rawToken);
 
         LocalDateTime now = LocalDateTime.now();
-        int days = (expireDays <= 0) ? 90 : expireDays;
-        LocalDateTime expiresAt = now.plusDays(days);
+        LocalDateTime expiresAt = now.plusDays(expireDays);
 
         // 2. Pure POJO 도메인 객체 생성 및 포트를 통한 저장
         PersonalAccessToken token = PersonalAccessToken.create(
