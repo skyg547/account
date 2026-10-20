@@ -4,6 +4,7 @@ import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
 import com.ho.account.closing.application.port.in.FinancialClosingCalculationResult;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunManifestPort;
 import com.ho.account.closing.application.port.out.FxValuationEvidencePort;
 import lombok.RequiredArgsConstructor;
 
@@ -29,18 +30,18 @@ public class FinancialClosingCalculationService implements FinancialClosingCalcu
     private final FxValuationService fxValuationService;
     private final EclProvisionService eclProvisionService;
     private final ClosingAccountingProperties accountingProperties;
+    private final ClosingFinancialRunManifestPort commandManifest;
 
     @Override
     public FinancialClosingCalculationResult runFxValuation(
             LocalDate valuationDate,
             Long valuationBatchId) {
-        List<ClosingJournalEntryCommand> commands = new ArrayList<>();
-        forEachPreparedFxCommand(
-                valuationDate,
-                valuationBatchId,
-                true,
-                commands::add);
-        List<ClosingJournalEntryCommand> immutableCommands = List.copyOf(commands);
+        List<ClosingJournalEntryCommand> immutableCommands = commandManifest.loadOrCreate(
+                "VALUATION", valuationBatchId, () -> {
+                    List<ClosingJournalEntryCommand> commands = new ArrayList<>();
+                    forEachPreparedFxCommand(valuationDate, valuationBatchId, true, commands::add);
+                    return commands;
+                });
         List<ClosingJournalEntryResult> results = immutableCommands.stream()
                 .map(fxValuationService::postPreparedFxValuation)
                 .toList();
@@ -52,9 +53,12 @@ public class FinancialClosingCalculationService implements FinancialClosingCalcu
             LocalDate closingDate,
             Long provisionBatchId) {
         requireDateAndPositiveId(closingDate, provisionBatchId, "closingDate", "provisionBatchId");
-        List<ClosingJournalEntryCommand> commands = List.copyOf(
-                eclProvisionService.prepareEclProvision(closingDate, provisionBatchId));
-        requireWithinCommandCap(commands.size());
+        List<ClosingJournalEntryCommand> commands = commandManifest.loadOrCreate("PROVISION", provisionBatchId, () -> {
+            List<ClosingJournalEntryCommand> prepared = List.copyOf(
+                    eclProvisionService.prepareEclProvision(closingDate, provisionBatchId));
+            requireWithinCommandCap(prepared.size());
+            return prepared;
+        });
         return toCalculationResult(eclProvisionService.postPreparedEclProvision(commands));
     }
 
@@ -122,7 +126,14 @@ public class FinancialClosingCalculationService implements FinancialClosingCalcu
         for (ClosingJournalEntryResult result : immutableResults) {
             journalEntryIds.add(Objects.requireNonNull(result, "journal result must not be null").journalEntryId());
         }
-        return FinancialClosingCalculationResult.fromJournalEntryIds(journalEntryIds);
+        boolean anyPosted = immutableResults.stream().anyMatch(result -> "POSTED".equals(result.status()));
+        boolean allPosted = !immutableResults.isEmpty()
+                && immutableResults.stream().allMatch(result -> "POSTED".equals(result.status()));
+        if (anyPosted && !allPosted && !accountingProperties.isAutoPostAdjustments()) {
+            throw new IllegalStateException("Closing run contains mixed posted and draft financial effects");
+        }
+        FinancialClosingCalculationResult result = FinancialClosingCalculationResult.fromJournalEntryIds(journalEntryIds);
+        return new FinancialClosingCalculationResult(result.journalCount(), result.singleJournalEntryId(), allPosted);
     }
 
     private void requireDateAndPositiveId(
