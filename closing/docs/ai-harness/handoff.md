@@ -1,5 +1,15 @@
 # Closing handoff
 
+## GH-888 — Draft review handoff
+
+- Issue [#888](https://github.com/skyg547/account/issues/888); [Draft PR #903](https://github.com/skyg547/account/pull/903), `Refs #888`; branch `agent/888-annual-close-aggregate`; worktree `/tmp/account-888-annual-close-aggregate`; base `9348966a26a1bf279d03c5ac982fc9c13c928d4c`; implementation commit `56ac870aab70b3ac262e9b65d1ce52586f7894f1`. Scope is `closing/**` only.
+- Changed application annual service/port, PostgreSQL cursor/control adapter, non-dev API wiring, regression/PostgreSQL tests, build file and module guides/evidence. Annual source now uses fixed query count and bounded memory with two cursor passes; V2 lineage, prior POSTED delta, DRAFT retry and base-currency controls remain.
+- Verification: audited RED1, current full module suite 645 total/644 executed/1 opt-in PG skipped/0 failures or errors; separate PG integration 1/1 PASS, 250k/500k EXPLAIN and timeout/restart evidence, API/Batch bootJar PASS, diff/marker checks PASS. Evidence: [PostgreSQL plan](../annual-close-postgresql-evidence.md) and [sanitized JUnit](../annual-close-postgres-junit.xml).
+- Independent read-only reviewer found and returned V2 sort, monolith wiring, local stub and split-source risks; writer corrected them. Final review: no remaining P0–P3; Q1–Q4 PASS. Detailed evidence table is in [worklog](worklog.md).
+- Rollback: review and revert the Closing-only commit. Preserve posted annual entries and reconcile any pending draft/lineage before retry. No data cleanup or schema down migration.
+- Remaining: 100M-row plan/load, production PostgreSQL, remote service latency, peak JVM heap and distributed fault tests are unverified. Cursor fetch batches still scale with rows; 60s statement timeout and observed external sort need workload-specific approval. Implementation-head hosted Closing Module Validation and Harness Validation passed; Agent Merge Guard failed with `TRUST_POLICY_UNCONFIGURED` plus authority evidence requirements. Human reviewer/repository policy owner owns current-head CI/trust setup, capacity and rollout review before Ready/merge/Issue close.
+- Authority separation: the implementation agent edits only approved Closing files, the independent reviewer is read-only, and the parent Integrator alone updates these records, commits, pushes and opens the authorized Draft PR. Ready, merge, Issue close, deployment and worktree deletion remain separate human gates.
+
 ## GH-772 historical handoff
 
 This is a **Closing-side implementation, not a completed system-wide journal admission fix**. The Issue must remain open and the PR must remain Draft until the outstanding integration is explicitly scoped, implemented and verified.

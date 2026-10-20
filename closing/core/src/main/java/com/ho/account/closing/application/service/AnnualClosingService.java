@@ -1,13 +1,13 @@
 package com.ho.account.closing.application.service;
 
 import com.ho.account.closing.application.port.in.AnnualClosingUseCase;
+import com.ho.account.closing.application.port.out.AnnualJournalReadPort;
 import com.ho.account.closing.application.port.out.RetainedEarningsMappingPort;
 import com.ho.account.closing.domain.ApprovedRetainedEarningsMapping;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
-import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,24 +53,36 @@ public class AnnualClosingService implements AnnualClosingUseCase {
             "ASSETS", "LIABILITIES", EQUITY, REVENUE, EXPENSES,
             "NON_OPERATING_INCOME", "NON_OPERATING_EXPENSES");
     private static final Pattern SNAPSHOT_HASH = Pattern.compile("[0-9A-F]{64}");
+    private static final int MAX_CLASSIFICATION_KEYS = 10_000;
+    private static final int MAX_ANNUAL_ENTRIES = 1_000;
+    private static final int MAX_ANNUAL_DETAILS = 100_000;
 
-    private final JournalQueryPort journalQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final RetainedEarningsMappingPort retainedEarningsMappingPort;
+    private final AnnualJournalReadPort annualJournalReadPort;
 
     @Autowired
     public AnnualClosingService(
-            JournalQueryPort journalQueryPort,
             JournalPostingPort journalPostingPort,
             MasterDataQueryPort masterDataQueryPort,
-            RetainedEarningsMappingPort retainedEarningsMappingPort) {
-        this.journalQueryPort = Objects.requireNonNull(journalQueryPort, "journalQueryPort must not be null");
+            RetainedEarningsMappingPort retainedEarningsMappingPort,
+            ObjectProvider<AnnualJournalReadPort> annualJournalReadPort) {
+        this(journalPostingPort, masterDataQueryPort, retainedEarningsMappingPort,
+                annualJournalReadPort.getIfAvailable());
+    }
+
+    public AnnualClosingService(
+            JournalPostingPort journalPostingPort,
+            MasterDataQueryPort masterDataQueryPort,
+            RetainedEarningsMappingPort retainedEarningsMappingPort,
+            AnnualJournalReadPort annualJournalReadPort) {
         this.journalPostingPort = Objects.requireNonNull(journalPostingPort, "journalPostingPort must not be null");
         this.masterDataQueryPort = Objects.requireNonNull(
                 masterDataQueryPort, "masterDataQueryPort must not be null");
         this.retainedEarningsMappingPort = Objects.requireNonNull(
                 retainedEarningsMappingPort, "retainedEarningsMappingPort must not be null");
+        this.annualJournalReadPort = annualJournalReadPort;
     }
 
     /**
@@ -86,29 +99,13 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         LocalDate endDate = LocalDate.of(year, 12, 31);
         validateRetainedEarningsDestination(mapping, endDate);
 
-        List<JournalSummary> summaries = journalQueryPort.getJournalSummaries(startDate, endDate);
-        if (summaries == null) {
-            throw invalid("journal summaries must not be null");
+        if (annualJournalReadPort == null) {
+            throw invalid("a stable annual journal snapshot provider is required");
         }
-        summaries.forEach(this::validateSummaryIdentity);
-        List<JournalSummary> annualSummaries = summaries.stream()
-                .filter(this::isAnnualCandidate)
-                .toList();
-        List<JournalSummary> sourceSummaries = summaries.stream()
-                .filter(summary -> !isAnnualCandidate(summary))
-                .filter(summary -> POSTED.equals(summary == null ? null : summary.getStatus()))
-                .toList();
-        Map<AccountLookupKey, String> accountCategoryCache = new HashMap<>();
-
-        // @todo Replace the per-entry N+1 query with a posted base-currency aggregate/snapshot port.
-        // Completion requires provider-side stable pagination, source identity projection, prior annual
-        // exclusion, and a 100M-row PostgreSQL plan/load test without weakening this fail-closed check.
-        SourceSnapshot source = loadSourceSnapshot(
-                sourceSummaries, startDate, endDate, year, retainedAccount,
-                mapping.controlIdentity(), accountCategoryCache);
-        List<AnnualEntry> annualEntries = loadAnnualEntries(
-                annualSummaries, endDate, year, retainedAccount, source.incomeCategories(),
-                accountCategoryCache);
+        StreamedAnnualSnapshot streamed = loadStreamedSnapshot(
+                startDate, endDate, year, retainedAccount, mapping.controlIdentity());
+        SourceSnapshot source = streamed.source();
+        List<AnnualEntry> annualEntries = streamed.annualEntries();
 
         Map<String, BigDecimal> postedSignedBalances = aggregatePostedBalances(annualEntries);
         Map<String, BigDecimal> residual = subtract(
@@ -146,109 +143,138 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         List<JournalLineCommand> lines = createResidualLines(
                 residual, source.incomeCategories(), retainedAccount, year);
         JournalEntryCommand command = new JournalEntryCommand(
-                endDate,
-                endDate,
-                annualDescription(year),
-                ENTRY_TYPE,
-                CURRENCY_CODE,
-                BigDecimal.ONE,
-                "SYSTEM",
-                "SYSTEM",
-                ANNUAL_LINEAGE_TYPE,
-                currentLineageId,
-                currentSlipNo,
-                lines);
+                endDate, endDate, annualDescription(year), ENTRY_TYPE, CURRENCY_CODE,
+                BigDecimal.ONE, "SYSTEM", "SYSTEM", ANNUAL_LINEAGE_TYPE,
+                currentLineageId, currentSlipNo, lines);
         journalPostingPort.createDraftEntry(command);
     }
 
-    private SourceSnapshot loadSourceSnapshot(
-            List<JournalSummary> summaries,
-            LocalDate startDate,
-            LocalDate endDate,
-            int year,
-            String retainedAccount,
-            String mappingControlIdentity,
-            Map<AccountLookupKey, String> accountCategoryCache) {
-        Set<Long> summaryIds = new HashSet<>();
-        Set<String> slipNumbers = new HashSet<>();
-        List<String> canonicalEntries = new ArrayList<>();
-        Map<String, BigDecimal> sourceSignedBalances = new HashMap<>();
+    private StreamedAnnualSnapshot loadStreamedSnapshot(LocalDate startDate, LocalDate endDate,
+            int year, String retainedAccount, String mappingControlIdentity) {
+        Map<AccountLookupKey, String> categories = new HashMap<>();
         Map<String, String> incomeCategories = new HashMap<>();
-
-        for (JournalSummary summary : summaries) {
-            validatePostedSourceSummary(summary, startDate, endDate);
-            if (!summaryIds.add(summary.getId()) || !slipNumbers.add(summary.getSlipNo())) {
-                throw invalid("duplicate posted source journal identity");
-            }
-            List<JournalDetailSummary> details = requireDetails(summary);
-            Set<Long> detailIds = new HashSet<>();
-            List<String> canonicalDetails = new ArrayList<>();
-            for (JournalDetailSummary detail : details) {
-                validateSourceDetail(summary, detail, detailIds);
-                String category = resolveAccountCategory(detail, accountCategoryCache);
-                if (REVENUE.equals(category) || EXPENSES.equals(category)) {
-                    String accountCode = detail.getAccountCode().trim();
-                    incomeCategories.merge(accountCode, category, (left, right) -> {
-                        if (!left.equals(right)) {
-                            throw invalid("an income statement account has conflicting classifications: "
-                                    + accountCode);
-                        }
-                        return left;
-                    });
-                    sourceSignedBalances.merge(
-                            accountCode, signed(detail.getSide(), detail.getBaseAmount()), BigDecimal::add);
-                }
-                canonicalDetails.add(canonicalSourceDetail(detail, category));
-            }
-            canonicalDetails.sort(Comparator.naturalOrder());
-            canonicalEntries.add(canonicalSourceEntry(summary, canonicalDetails));
+        Map<String, BigDecimal> sourceBalances = new HashMap<>();
+        List<AnnualRaw> annualRaw = new ArrayList<>();
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
-
+        long[] observed = new long[3]; // source headers, details, maximum source ID
+        long[] canonicalLength = { 0 };
+        boolean[] digestStarted = { false };
+        BigDecimal[] baseTotals = { BigDecimal.ZERO, BigDecimal.ZERO }; // debit, credit
+        int[] annualDetailCount = { 0 };
+        AnnualJournalReadPort.SourceControl control = annualJournalReadPort.scan(startDate, endDate,
+                (summary, details) -> {
+                    validateSummaryIdentity(summary);
+                    if (isAnnualCandidate(summary)) {
+                        if (annualRaw.size() == MAX_ANNUAL_ENTRIES
+                                || annualDetailCount[0] + details.size() > MAX_ANNUAL_DETAILS) {
+                            throw invalid("annual closing lineage exceeds bounded review limit");
+                        }
+                        annualRaw.add(new AnnualRaw(summary, details));
+                        annualDetailCount[0] += details.size();
+                        return;
+                    }
+                    validatePostedSourceSummary(summary, startDate, endDate);
+                    if (details.isEmpty()) {
+                        throw invalid("journal has no detail lines: " + summary.getSlipNo());
+                    }
+                    observed[0]++;
+                    observed[2] = Math.max(observed[2], summary.getId());
+                    Set<Long> detailIds = new HashSet<>();
+                    List<String> canonicalDetails = new ArrayList<>(details.size());
+                    for (JournalDetailSummary detail : details) {
+                        validateSourceDetail(summary, detail, detailIds);
+                        observed[1]++;
+                        int side = detail.getSide() == JournalSide.DEBIT ? 0 : 1;
+                        baseTotals[side] = baseTotals[side].add(detail.getBaseAmount());
+                        String category = resolveAccountCategory(detail, categories);
+                        if (REVENUE.equals(category) || EXPENSES.equals(category)) {
+                            String accountCode = detail.getAccountCode().trim();
+                            incomeCategories.merge(accountCode, category, (left, right) -> {
+                                if (!left.equals(right)) {
+                                    throw invalid("an income statement account has conflicting classifications: "
+                                            + accountCode);
+                                }
+                                return left;
+                            });
+                            sourceBalances.merge(accountCode,
+                                    signed(detail.getSide(), detail.getBaseAmount()), BigDecimal::add);
+                        }
+                        canonicalDetails.add(canonicalSourceDetail(detail, category));
+                    }
+                    canonicalDetails.sort(Comparator.naturalOrder());
+                    // V2 sorts complete entries and prefixes their joined character length.
+                    // The second cursor pass computes its exact digest after this length is known.
+                    canonicalLength[0] += canonicalSourceEntry(summary, canonicalDetails).length();
+                }, (summary, details) -> {
+                    if (isAnnualCandidate(summary)) {
+                        return;
+                    }
+                    if (!digestStarted[0]) {
+                        startV2Digest(digest, year, retainedAccount,
+                                mappingControlIdentity, canonicalLength[0]);
+                        digestStarted[0] = true;
+                    }
+                    List<String> canonicalDetails = new ArrayList<>(details.size());
+                    for (JournalDetailSummary detail : details) {
+                        canonicalDetails.add(canonicalSourceDetail(
+                                detail, resolveAccountCategory(detail, categories)));
+                    }
+                    canonicalDetails.sort(Comparator.naturalOrder());
+                    digest.update(canonicalSourceEntry(summary, canonicalDetails)
+                            .getBytes(StandardCharsets.UTF_8));
+                });
+        if (!digestStarted[0]) {
+            startV2Digest(digest, year, retainedAccount, mappingControlIdentity,
+                    canonicalLength[0]);
+        }
+        if (control == null || control.journalCount() != observed[0]
+                || control.detailCount() != observed[1]
+                || control.cutoffJournalId() != observed[2]
+                || control.debitBase() == null || control.creditBase() == null
+                || control.debitBase().compareTo(baseTotals[0]) != 0
+                || control.creditBase().compareTo(baseTotals[1]) != 0) {
+            throw invalid("posted source rows do not reconcile with provider control totals");
+        }
         if (incomeCategories.containsKey(retainedAccount)) {
             throw invalid("retained earnings account must not be an income statement account");
         }
-        canonicalEntries.sort(Comparator.naturalOrder());
-        // Approved control evidence is fingerprinted with source journals so a configuration/audit
-        // change makes a pending draft stale without changing cumulative posted-balance no-op rules.
-        String identity = sha256(canonical(
-                "ANNUAL_SOURCE_SNAPSHOT_V2",
-                Integer.toString(year),
-                retainedAccount,
-                mappingControlIdentity,
-                String.join("", canonicalEntries)));
-        return new SourceSnapshot(
-                identity,
-                requiredAnnualBalances(sourceSignedBalances, retainedAccount),
-                Map.copyOf(incomeCategories));
-    }
-
-    private List<AnnualEntry> loadAnnualEntries(
-            List<JournalSummary> summaries,
-            LocalDate endDate,
-            int year,
-            String retainedAccount,
-            Map<String, String> incomeCategories,
-            Map<AccountLookupKey, String> accountCategoryCache) {
-        Set<Long> ids = new HashSet<>();
-        Set<String> slipNumbers = new HashSet<>();
-        Set<String> lineageIds = new HashSet<>();
-        List<AnnualEntry> entries = new ArrayList<>();
-        for (JournalSummary summary : summaries) {
+        Set<String> annualSlips = new HashSet<>();
+        Set<String> annualLineages = new HashSet<>();
+        List<AnnualEntry> annualEntries = new ArrayList<>(annualRaw.size());
+        for (AnnualRaw raw : annualRaw) {
+            JournalSummary summary = raw.summary();
             validateAnnualHeader(summary, endDate, year, retainedAccount);
-            if (!ids.add(summary.getId()) || !slipNumbers.add(summary.getSlipNo())
-                    || !lineageIds.add(summary.getLineageSourceId())) {
+            if (!annualSlips.add(summary.getSlipNo())
+                    || !annualLineages.add(summary.getLineageSourceId())) {
                 throw invalid("duplicate annual closing identity");
             }
             if (!(DRAFT.equals(summary.getStatus()) || POSTED.equals(summary.getStatus()))) {
                 throw invalid("annual closing status is not reusable: " + summary.getStatus());
             }
-            List<JournalDetailSummary> details = requireDetails(summary);
-            Map<String, BigDecimal> signedBalances = validateAnnualDetails(
-                    summary, details, endDate, year, retainedAccount, incomeCategories,
-                    accountCategoryCache);
-            entries.add(new AnnualEntry(summary, Map.copyOf(signedBalances)));
+            if (raw.details().isEmpty()) {
+                throw invalid("annual closing has no detail lines");
+            }
+            annualEntries.add(new AnnualEntry(summary, Map.copyOf(validateAnnualDetails(
+                    summary, raw.details(), endDate, year, retainedAccount,
+                    incomeCategories, categories))));
         }
-        return List.copyOf(entries);
+        String identity = HexFormat.of().formatHex(digest.digest()).toUpperCase(Locale.ROOT);
+        SourceSnapshot source = new SourceSnapshot(identity,
+                requiredAnnualBalances(sourceBalances, retainedAccount),
+                Map.copyOf(incomeCategories));
+        return new StreamedAnnualSnapshot(source, List.copyOf(annualEntries));
+    }
+
+    private void startV2Digest(MessageDigest digest, int year, String retainedAccount,
+            String mappingControlIdentity, long joinedLength) {
+        digest.update((canonical("ANNUAL_SOURCE_SNAPSHOT_V2", Integer.toString(year),
+                retainedAccount, mappingControlIdentity) + joinedLength + ":")
+                .getBytes(StandardCharsets.UTF_8));
     }
 
     private Map<String, BigDecimal> validateAnnualDetails(
@@ -411,14 +437,6 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         requireText(summary.getStatus(), "journal summary status");
     }
 
-    private List<JournalDetailSummary> requireDetails(JournalSummary summary) {
-        List<JournalDetailSummary> details = journalQueryPort.getJournalDetails(summary.getId());
-        if (details == null || details.isEmpty()) {
-            throw invalid("journal has no detail lines: " + summary.getSlipNo());
-        }
-        return details;
-    }
-
     private Map<String, BigDecimal> aggregatePostedBalances(List<AnnualEntry> entries) {
         Map<String, BigDecimal> result = new HashMap<>();
         entries.stream()
@@ -555,13 +573,21 @@ public class AnnualClosingService implements AnnualClosingUseCase {
     private String resolveAccountCategory(
             JournalDetailSummary detail,
             Map<AccountLookupKey, String> accountCategoryCache) {
+        String accountCode = detail.getAccountCode().trim();
+        AccountLookupKey key = new AccountLookupKey(accountCode, detail.getAccountingDate());
+        if (!accountCategoryCache.containsKey(key)
+                && accountCategoryCache.size() >= MAX_CLASSIFICATION_KEYS) {
+            throw invalid("annual dated classifications exceed bounded review limit");
+        }
         String suppliedCategory = detail.getAccountCategory();
         String category;
         if (suppliedCategory != null && !suppliedCategory.isBlank()) {
             category = suppliedCategory.trim();
+            String previous = accountCategoryCache.putIfAbsent(key, category);
+            if (previous != null && !previous.equals(category)) {
+                throw invalid("inconsistent dated journal account classification: " + accountCode);
+            }
         } else {
-            String accountCode = detail.getAccountCode().trim();
-            AccountLookupKey key = new AccountLookupKey(accountCode, detail.getAccountingDate());
             category = accountCategoryCache.computeIfAbsent(
                     key, ignored -> lookupAccountCategory(accountCode, detail.getAccountingDate()));
         }
@@ -711,6 +737,12 @@ public class AnnualClosingService implements AnnualClosingUseCase {
     private record AnnualEntry(
             JournalSummary summary,
             Map<String, BigDecimal> signedBalances) {
+    }
+
+    private record AnnualRaw(JournalSummary summary, List<JournalDetailSummary> details) {
+    }
+
+    private record StreamedAnnualSnapshot(SourceSnapshot source, List<AnnualEntry> annualEntries) {
     }
 
     private record AccountLookupKey(String accountCode, LocalDate accountingDate) {
