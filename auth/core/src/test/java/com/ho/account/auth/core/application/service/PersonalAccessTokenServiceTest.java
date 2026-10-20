@@ -130,7 +130,7 @@ class PersonalAccessTokenServiceTest {
     void ordinaryUserCannotListAllOrForceRevokeEvenWithKnownTokenId() {
         assertThatThrownBy(() -> service.getAllTokensForAdmin(ALICE_BEARER, 0, 20))
                 .isInstanceOf(PatAccessDeniedException.class);
-        assertThatThrownBy(() -> service.revokeTokenForAdmin(ALICE_BEARER, "id-1"))
+        assertThatThrownBy(() -> service.revokeTokenForAdmin(ALICE_BEARER, "id-1", "ADMIN_SECURITY"))
                 .isInstanceOf(PatAccessDeniedException.class);
 
         verify(patPort, never()).findAll(PAGE);
@@ -146,10 +146,21 @@ class PersonalAccessTokenServiceTest {
         when(patPort.markRevokedIfActive("id-1")).thenReturn(true);
 
         assertThat(service.getAllTokensForAdmin(ADMIN_BEARER, 0, 20).content()).hasSize(1);
-        assertThat(service.revokeTokenForAdmin(ADMIN_BEARER, "id-1")).isTrue();
+        assertThat(service.revokeTokenForAdmin(ADMIN_BEARER, "id-1", "ADMIN_SECURITY")).isTrue();
 
         verify(patPort).markRevokedIfActive("id-1");
-        verify(events).recordRevoked(eq("administrator"), eq("id-1"), eq("bob"), any(LocalDateTime.class));
+        verify(events).recordRevoked(eq("administrator"), eq("id-1"), eq("bob"),
+                eq("ADMIN_SECURITY"), eq("ACTIVE"), eq("REVOKED"), any(LocalDateTime.class));
+    }
+
+    @Test
+    void administratorMustSupplySubstantiveReasonBeforeTokenLookup() {
+        for (String reason : new String[]{null, "", "ADMIN_FORCE_REVOKE", "credential=synthetic"}) {
+            assertThatThrownBy(() -> service.revokeTokenForAdmin(ADMIN_BEARER, "id-1", reason))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Invalid audit reason code");
+        }
+        verifyNoInteractions(patPort, events);
     }
 
     @Test
@@ -175,7 +186,8 @@ class PersonalAccessTokenServiceTest {
         assertThat(service.revokeOwnToken(ALICE_BEARER, "id-1")).isTrue();
 
         verify(patPort, times(2)).markRevokedIfActive("id-1");
-        verify(events).recordRevoked(eq("alice"), eq("id-1"), eq("alice"), any(LocalDateTime.class));
+        verify(events).recordRevoked(eq("alice"), eq("id-1"), eq("alice"),
+                eq("OWNER_REQUEST"), eq("ACTIVE"), eq("REVOKED"), any(LocalDateTime.class));
     }
 
     @Test
@@ -190,7 +202,7 @@ class PersonalAccessTokenServiceTest {
                 .isInstanceOf(PatAuthenticationException.class);
         assertThatThrownBy(() -> service.revokeOwnToken(null, "id-1"))
                 .isInstanceOf(PatAuthenticationException.class);
-        assertThatThrownBy(() -> service.revokeTokenForAdmin(null, "id-1"))
+        assertThatThrownBy(() -> service.revokeTokenForAdmin(null, "id-1", "ADMIN_SECURITY"))
                 .isInstanceOf(PatAuthenticationException.class);
         verifyNoInteractions(patPort, events);
     }

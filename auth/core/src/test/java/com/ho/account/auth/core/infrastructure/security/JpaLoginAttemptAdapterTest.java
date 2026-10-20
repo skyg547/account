@@ -27,11 +27,14 @@ class JpaLoginAttemptAdapterTest {
     @Autowired
     private LoginAttemptJpaRepository repository;
 
+    @Autowired
+    private LoginSecurityEventJpaRepository events;
+
     @Test
     void locksAfterConfiguredFailuresUsingSharedRepositoryAndPreservesActiveLockOnSuccess() {
         Clock clock = Clock.fixed(Instant.parse("2026-06-18T00:00:00Z"), ZoneOffset.UTC);
-        JpaLoginAttemptAdapter firstNode = new JpaLoginAttemptAdapter(repository, 2, 15, clock);
-        JpaLoginAttemptAdapter secondNode = new JpaLoginAttemptAdapter(repository, 2, 15, clock);
+        JpaLoginAttemptAdapter firstNode = new JpaLoginAttemptAdapter(repository, events, 2, 15, clock);
+        JpaLoginAttemptAdapter secondNode = new JpaLoginAttemptAdapter(repository, events, 2, 15, clock);
 
         firstNode.recordFailure("ADMIN", "INVALID_PASSWORD");
         assertThat(secondNode.isLocked("admin")).isFalse();
@@ -42,6 +45,43 @@ class JpaLoginAttemptAdapterTest {
         secondNode.recordSuccess("admin");
         assertThat(firstNode.isLocked("admin")).isTrue();
         assertThat(repository.findById("admin")).isPresent();
+        assertThat(events.findAll()).extracting(LoginSecurityEventJpaEntity::getEventType)
+                .containsExactlyInAnyOrder("FAILURE", "FAILURE", "SUCCESS");
+        assertThat(events.findAll()).allSatisfy(event -> {
+            assertThat(event.getClaimedUsername()).isEqualTo("admin");
+            assertThat(event.getOccurredAt()).isEqualTo(clock.instant());
+            assertThat(event.getReasonCode()).isNotBlank();
+        });
+    }
+
+    @Test
+    void successDeletesTransientCounterButKeepsExportableTransitionEvidence() {
+        Clock clock = Clock.fixed(Instant.parse("2026-06-18T00:00:00Z"), ZoneOffset.UTC);
+        JpaLoginAttemptAdapter adapter = new JpaLoginAttemptAdapter(repository, events, 3, 15, clock);
+
+        adapter.recordFailure("Synthetic_User", "INVALID_PASSWORD");
+        adapter.recordSuccess("Synthetic_User");
+
+        assertThat(repository.findById("synthetic_user")).isEmpty();
+        assertThat(events.findAll()).hasSize(2)
+                .extracting(LoginSecurityEventJpaEntity::getEventType)
+                .containsExactlyInAnyOrder("FAILURE", "SUCCESS");
+        assertThat(events.findAll()).allSatisfy(event -> {
+            assertThat(event.getClaimedUsername()).isEqualTo("synthetic_user");
+            assertThat(event.getBeforeFailureCount()).isBetween(0, 1);
+            assertThat(event.getAfterFailureCount()).isBetween(0, 1);
+        });
+    }
+
+    @Test
+    void arbitraryFailureTextIsNeverPersistedAsAnAuditReason() {
+        Clock clock = Clock.fixed(Instant.parse("2026-06-18T00:00:00Z"), ZoneOffset.UTC);
+        JpaLoginAttemptAdapter adapter = new JpaLoginAttemptAdapter(repository, events, 3, 15, clock);
+
+        adapter.recordFailure("synthetic_user", "synthetic-credential-payload");
+
+        assertThat(events.findAll()).singleElement()
+                .extracting(LoginSecurityEventJpaEntity::getReasonCode).isEqualTo("UNKNOWN");
     }
 
     @SpringBootConfiguration

@@ -66,22 +66,28 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
     }
 
     @Override
-    public void apply(MasterDataChangeRequest request) {
+    public AppliedVersion apply(MasterDataChangeRequest request) {
         validate(request);
-        switch (request.getChangeType()) {
-            case CREATE -> productUseCase.createProduct(validatedCommand(request));
+        return switch (request.getChangeType()) {
+            case CREATE -> {
+                Product next = productUseCase.createProduct(validatedCommand(request));
+                yield new AppliedVersion(null, next == null ? null : next.getId());
+            }
             case UPDATE -> {
                 ProductCommand command = validatedCommand(request);
                 Product current = current(request);
                 MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
                         current.getValidTo(), command.validFrom(), command.validTo());
-                productUseCase.updateProduct(
+                Product next = productUseCase.updateProduct(
                         MasterDataChangeApplierSupport.requirePersistentId(current.getId(), request), command);
+                yield new AppliedVersion(current.getId(), next == null ? null : next.getId());
             }
-            case DEACTIVATE -> productUseCase.deactivateProduct(
-                    MasterDataChangeApplierSupport.requirePersistentId(current(request).getId(), request),
-                    request.getEffectiveDate());
-        }
+            case DEACTIVATE -> {
+                Long id = MasterDataChangeApplierSupport.requirePersistentId(current(request).getId(), request);
+                productUseCase.deactivateProduct(id, request.getEffectiveDate());
+                yield new AppliedVersion(id, id);
+            }
+        };
     }
 
     private ProductCommand command(MasterDataChangeRequest request) {

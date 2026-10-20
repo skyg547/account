@@ -1,5 +1,8 @@
 # master-data process flow
 
+감사 주체 전파, 요청/결정 사유 분리, APPLIED 행 ID 연결과 이벤트 내보내기 절차는
+[audit-evidence.md](audit-evidence.md)를 참조합니다.
+
 ## API 입구
 
 ### 수신 서비스 인증

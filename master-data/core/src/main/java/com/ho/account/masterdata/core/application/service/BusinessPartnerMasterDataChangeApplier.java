@@ -62,22 +62,28 @@ public class BusinessPartnerMasterDataChangeApplier implements MasterDataChangeA
     }
 
     @Override
-    public void apply(MasterDataChangeRequest request) {
+    public AppliedVersion apply(MasterDataChangeRequest request) {
         validate(request);
-        switch (request.getChangeType()) {
-            case CREATE -> businessPartnerUseCase.createBusinessPartner(validatedCommand(request));
+        return switch (request.getChangeType()) {
+            case CREATE -> {
+                BusinessPartner next = businessPartnerUseCase.createBusinessPartner(validatedCommand(request));
+                yield new AppliedVersion(null, next == null ? null : next.getId());
+            }
             case UPDATE -> {
                 BusinessPartnerCommand command = validatedCommand(request);
                 BusinessPartner current = current(request);
                 MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
                         current.getValidTo(), command.validFrom(), command.validTo());
-                businessPartnerUseCase.updateBusinessPartner(
+                BusinessPartner next = businessPartnerUseCase.updateBusinessPartner(
                         MasterDataChangeApplierSupport.requirePersistentId(current.getId(), request), command);
+                yield new AppliedVersion(current.getId(), next == null ? null : next.getId());
             }
-            case DEACTIVATE -> businessPartnerUseCase.deleteBusinessPartner(
-                    MasterDataChangeApplierSupport.requirePersistentId(current(request).getId(), request),
-                    request.getEffectiveDate());
-        }
+            case DEACTIVATE -> {
+                Long id = MasterDataChangeApplierSupport.requirePersistentId(current(request).getId(), request);
+                businessPartnerUseCase.deleteBusinessPartner(id, request.getEffectiveDate());
+                yield new AppliedVersion(id, id);
+            }
+        };
     }
 
     private BusinessPartnerCommand command(MasterDataChangeRequest request) {

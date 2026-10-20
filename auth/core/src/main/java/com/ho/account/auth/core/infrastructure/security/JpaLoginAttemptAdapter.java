@@ -18,12 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
  * 이 구현은 같은 테이블을 보게 하여 어느 Auth 서버로 요청이 들어와도 같은 잠금 상태를 판단합니다.</p>
  */
 @Component
-@ConditionalOnProperty(prefix = "auth.login-security", name = "store", havingValue = "jpa")
+@ConditionalOnProperty(prefix = "auth.login-security", name = "store", havingValue = "jpa", matchIfMissing = true)
 public class JpaLoginAttemptAdapter implements LoginAttemptPort {
 
     private static final Logger log = LoggerFactory.getLogger(JpaLoginAttemptAdapter.class);
 
     private final LoginAttemptJpaRepository repository;
+    private final LoginSecurityEventJpaRepository events;
     private final int maxFailures;
     private final long lockDurationMinutes;
     private final Clock clock;
@@ -32,8 +33,9 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
     public JpaLoginAttemptAdapter(
             AuthModuleProperties properties,
             LoginAttemptJpaRepository repository,
+            LoginSecurityEventJpaRepository events,
             Clock clock) {
-        this(repository,
+        this(repository, events,
                 properties.getLoginSecurity().getMaxFailures(),
                 properties.getLoginSecurity().getLockDurationMinutes(),
                 clock);
@@ -41,6 +43,7 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
 
     JpaLoginAttemptAdapter(
             LoginAttemptJpaRepository repository,
+            LoginSecurityEventJpaRepository events,
             int maxFailures,
             long lockDurationMinutes,
             Clock clock) {
@@ -51,6 +54,7 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
             throw new IllegalArgumentException("auth.login-security.lock-duration-minutes must be at least 1");
         }
         this.repository = repository;
+        this.events = events;
         this.maxFailures = maxFailures;
         this.lockDurationMinutes = lockDurationMinutes;
         this.clock = clock;
@@ -81,9 +85,14 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
         if (state == null) {
             throw new IllegalStateException("Login attempt row changed during failure recording");
         }
+        int beforeCount = state.getFailureCount();
+        var beforeLock = state.getLockedUntil();
         state.recordFailure(reason, maxFailures, lockDurationMinutes, clock);
+        events.save(new LoginSecurityEventJpaEntity(key, null, "FAILURE",
+                state.getLastFailureReason(), beforeCount, state.getFailureCount(),
+                beforeLock, state.getLockedUntil(), clock.instant()));
         log.warn("AUTH_LOGIN_FAILURE username={} reason={} failures={} lockedUntil={}",
-                key, reason, state.getFailureCount(), state.getLockedUntil());
+                key, state.getLastFailureReason(), state.getFailureCount(), state.getLockedUntil());
     }
 
     @Override
@@ -91,11 +100,18 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
     public void recordSuccess(String username) {
         String key = normalize(username);
         // Recheck under the same row lock as failure recording so a refreshed lock survives.
-        repository.findByUsernameForUpdate(key).ifPresent(state -> {
+        var previous = repository.findByUsernameForUpdate(key);
+        previous.ifPresent(state -> {
             if (!state.isLocked(clock)) {
                 repository.delete(state);
             }
         });
+        var state = previous.orElse(null);
+        boolean retained = state != null && state.isLocked(clock);
+        events.save(new LoginSecurityEventJpaEntity(key, username.trim(), "SUCCESS", "AUTHENTICATED",
+                state == null ? 0 : state.getFailureCount(), retained ? state.getFailureCount() : 0,
+                state == null ? null : state.getLockedUntil(), retained ? state.getLockedUntil() : null,
+                clock.instant()));
         log.info("AUTH_LOGIN_SUCCESS username={}", key);
     }
 

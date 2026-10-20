@@ -1,3 +1,10 @@
+## 2026-10-20 — GH-924 master-data/Auth actor and audit evidence
+
+- `$account-issue-loop`, `$account-hexagonal-change`, `$account-module-parallel` and `$account-review-handoff` governed Issue #924 on `agent/924-actor-audit` in `/tmp/account-924-actor-audit`, base `origin/main@b2912554`. Parallel writers owned disjoint `master-data/**` and `auth/**`; independent read-only reviewers checked both. Parent alone updated the four requested shared records and Git/GitHub state.
+- Master Data actor attribution, request/decision reason separation, SCD2 lineage and digest-only append events; Auth retained login and PAT reason/status events; PostgreSQL V12/V76 and local H2 paths, tests and module docs changed. No other module or shared contract source changed.
+- Requested five-project offline suite PASS (master core 623/API 128, auth core 200/API 85, gateway 74; 27 existing API skips), Master Batch 5 PASS, API bootJars PASS, synthetic embedded PostgreSQL grants/export/integrity tests PASS, local JAR unauthenticated HTTP 401 PASS. First overlapping Gradle XML-result write error was resolved by serialized rerun. Independent Q1–Q4 PASS; diff/marker/scope gates PASS.
+- [Draft PR #937](https://github.com/skyg547/account/pull/937) uses `Refs #924`; actual deployment grants, immutable retention/export and restore drills remain operational gates. Rollback via reviewed code revert and forward schema correction preserving audit history. Human reviewer separately controls Ready, merge, Issue close and cleanup.
+
 ## 2026-10-20 — GH-918 master-data due-change failure isolation
 
 - Codex used `$account-issue-loop`, `$account-hexagonal-change`, `$account-module-parallel` with disjoint service/SQL/test ownership, and `$account-review-handoff` on `agent/918-isolate-due-changes` in `/tmp/account-918-isolate-due-changes`, base `origin/main@b2912554`. Implementation `c7fc82d5`; [Draft PR #932](https://github.com/skyg547/account/pull/932), `Refs #918`. Changed 26 `master-data/**` files plus only the four requested shared records.

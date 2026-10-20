@@ -67,6 +67,9 @@ public class MasterDataChangeRequestEntity {
     private String reason;
 
     @Column(length = 500)
+    private String decisionReason;
+
+    @Column(length = 500)
     private String rejectionReason;
 
     @Column(columnDefinition = "TEXT")

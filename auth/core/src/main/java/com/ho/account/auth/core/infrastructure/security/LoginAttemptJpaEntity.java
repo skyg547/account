@@ -70,11 +70,12 @@ class LoginAttemptJpaEntity {
         return lockedUntil;
     }
 
+    String getLastFailureReason() {
+        return lastFailureReason;
+    }
+
     private static String normalizeReason(String reason) {
-        if (reason == null || reason.isBlank()) {
-            return "UNKNOWN";
-        }
-        String text = reason.trim();
-        return text.length() > 120 ? text.substring(0, 120) : text;
+        // Persist only application-owned codes; callers must never turn credential text into audit data.
+        return LoginFailureReasonCodes.normalize(reason);
     }
 }

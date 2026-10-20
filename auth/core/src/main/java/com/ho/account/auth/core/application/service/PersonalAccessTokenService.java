@@ -17,6 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 // The PAT port has a JPA adapter only, so memory mode omits this use case.
 @ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
+
+    private static final Set<String> ADMIN_REVOKE_REASONS = Set.of(
+            "ADMIN_SECURITY", "ADMIN_OFFBOARDING", "ADMIN_ROTATION");
 
     private final PersonalAccessTokenPort patPort;
     private final PatCredentialVerifierPort credentialVerifier;
@@ -95,13 +99,21 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
 
     @Override
     @Transactional
-    public boolean revokeTokenForAdmin(String authorizationHeader, String tokenId) {
+    public boolean revokeTokenForAdmin(String authorizationHeader, String tokenId, String reasonCode) {
         PatActor actor = credentialVerifier.verify(authorizationHeader);
         requireAdministrator(actor);
-        return revokeAuthorizedToken(actor, tokenId, true);
+        if (reasonCode == null || !ADMIN_REVOKE_REASONS.contains(reasonCode)) {
+            throw new IllegalArgumentException("Invalid audit reason code");
+        }
+        return revokeAuthorizedToken(actor, tokenId, true, reasonCode);
     }
 
     private boolean revokeAuthorizedToken(PatActor actor, String tokenId, boolean administratorRoute) {
+        return revokeAuthorizedToken(actor, tokenId, administratorRoute, "OWNER_REQUEST");
+    }
+
+    private boolean revokeAuthorizedToken(PatActor actor, String tokenId,
+            boolean administratorRoute, String auditReason) {
         return patPort.findById(tokenId).map(token -> {
             // AuthUser identity keys are case-sensitive; a case variant never owns this PAT.
             if (!administratorRoute && !token.getUsername().equals(actor.username())) {
@@ -109,7 +121,10 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
             }
             // The conditional write resolves races after this ownership read.
             if (patPort.markRevokedIfActive(token.getId())) {
-                lifecycleEvents.recordRevoked(actor.username(), token.getId(), token.getUsername(), LocalDateTime.now());
+                // The conditional write and audit insert share this transaction; only its winner emits an event.
+                lifecycleEvents.recordRevoked(actor.username(), token.getId(), token.getUsername(),
+                        auditReason,
+                        "ACTIVE", "REVOKED", LocalDateTime.now());
             }
             return true;
         }).orElse(false);

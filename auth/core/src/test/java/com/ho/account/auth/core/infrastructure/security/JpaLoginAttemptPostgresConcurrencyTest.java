@@ -51,6 +51,7 @@ class JpaLoginAttemptPostgresConcurrencyTest {
     private static final Instant START = Instant.parse("2026-06-18T00:00:00Z");
 
     @Autowired private LoginAttemptJpaRepository repository;
+    @Autowired private LoginSecurityEventJpaRepository eventRepository;
     @Autowired private LoginAttemptPort adapter;
     @Autowired private MutableClock clock;
     @Autowired private TransactionTemplate transactions;
@@ -65,6 +66,7 @@ class JpaLoginAttemptPostgresConcurrencyTest {
 
     @AfterEach
     void clearRows() {
+        eventRepository.deleteAll();
         repository.deleteAll();
         clock.set(START);
     }
@@ -82,6 +84,7 @@ class JpaLoginAttemptPostgresConcurrencyTest {
         LoginAttemptJpaEntity state = repository.findById("synthetic_first").orElseThrow();
         assertThat(state.getFailureCount()).isEqualTo(8);
         assertThat(state.getLockedUntil()).isEqualTo(START.plusSeconds(15 * 60));
+        assertThat(eventRepository.count()).isEqualTo(8);
     }
 
     @Test
@@ -273,8 +276,9 @@ class JpaLoginAttemptPostgresConcurrencyTest {
     @EntityScan(basePackageClasses = LoginAttemptJpaEntity.class)
     static class JpaTestConfiguration {
         @Bean MutableClock mutableClock() { return new MutableClock(); }
-        @Bean JpaLoginAttemptAdapter loginAttemptAdapter(LoginAttemptJpaRepository repository, MutableClock clock) {
-            return new JpaLoginAttemptAdapter(repository, 5, 15, clock);
+        @Bean JpaLoginAttemptAdapter loginAttemptAdapter(LoginAttemptJpaRepository repository,
+                LoginSecurityEventJpaRepository events, MutableClock clock) {
+            return new JpaLoginAttemptAdapter(repository, events, 5, 15, clock);
         }
         @Bean TransactionTemplate transactionTemplate(PlatformTransactionManager manager) {
             return new TransactionTemplate(manager);

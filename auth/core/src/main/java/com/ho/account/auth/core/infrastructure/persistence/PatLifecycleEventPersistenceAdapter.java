@@ -16,13 +16,16 @@ public class PatLifecycleEventPersistenceAdapter implements PatLifecycleEventPor
     public void recordCreated(
             String actorUsername, String tokenId, String ownerUsername, LocalDateTime occurredAt) {
         repository.save(new PatLifecycleEventJpaEntity(
-                tokenId, "CREATED", actorUsername, ownerUsername, occurredAt));
+                tokenId, "CREATED", actorUsername, ownerUsername,
+                "OWNER_CREATED", "ABSENT", "ACTIVE", occurredAt));
     }
 
     @Override
     public void recordRevoked(
-            String actorUsername, String tokenId, String ownerUsername, LocalDateTime occurredAt) {
+            String actorUsername, String tokenId, String ownerUsername,
+            String reasonCode, String beforeStatus, String afterStatus, LocalDateTime occurredAt) {
         repository.save(new PatLifecycleEventJpaEntity(
-                tokenId, "REVOKED", actorUsername, ownerUsername, occurredAt));
+                tokenId, "REVOKED", actorUsername, ownerUsername,
+                reasonCode, beforeStatus, afterStatus, occurredAt));
     }
 }

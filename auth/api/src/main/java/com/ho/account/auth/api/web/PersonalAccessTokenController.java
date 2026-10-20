@@ -106,8 +106,9 @@ public class PersonalAccessTokenController {
     @DeleteMapping("/admin/pat/{id}")
     public ResponseEntity<Void> forceRevokePatByAdmin(
             @PathVariable String id,
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
-        boolean success = patUseCase.revokeTokenForAdmin(authorization, id);
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestHeader(value = "X-Audit-Reason", required = false) String auditReason) {
+        boolean success = patUseCase.revokeTokenForAdmin(authorization, id, auditReason);
         return success ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
 

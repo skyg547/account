@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.api.web;
 
+import com.ho.account.masterdata.core.application.service.MasterDataActorContext;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -93,7 +95,13 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Verified credential required");
             return;
         }
-        chain.doFilter(verifiedRequest, response);
+        String serviceActor = internal ? "closing" : null;
+        String businessActor = internal ? (String) verifiedRequest.getAttribute(VERIFIED_ACTOR)
+                : verifiedRequest.getHeader("X-Auth-User");
+        // Always clear thread identity after this synchronous servlet invocation, including exceptions.
+        try (MasterDataActorContext.Scope ignored = MasterDataActorContext.enter(serviceActor, businessActor)) {
+            chain.doFilter(verifiedRequest, response);
+        }
     }
 
     private HttpServletRequest verifyUser(HttpServletRequest request) {
@@ -102,7 +110,8 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
             throw new IllegalArgumentException("service headers are not user credentials");
         }
         Claims claims = parse(bearer(request), userSecret, userIssuer, userAudience);
-        String actor = safeHeaderValue(claims.getSubject(), 80);
+        // Master-row audit_user is VARCHAR(50); reject identities that cannot be recorded losslessly.
+        String actor = safeHeaderValue(claims.getSubject(), 50);
         List<String> roles = roles(claims.get("roles"));
         if (roles.isEmpty()) {
             throw new IllegalArgumentException("roles required");

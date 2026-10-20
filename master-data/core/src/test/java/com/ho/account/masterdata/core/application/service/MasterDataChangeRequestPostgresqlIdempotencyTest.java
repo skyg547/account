@@ -201,12 +201,16 @@ class MasterDataChangeRequestPostgresqlIdempotencyTest {
         MasterDataChangeRequest rejected = requests.reject(requested.getId(), "approver", "policy rejected");
 
         assertThat(rejected.getStatus()).isEqualTo(ChangeStatus.REJECTED);
-        assertThat(rejected.getReason()).isEqualTo("policy rejected");
+        assertThat(rejected.getReason()).isEqualTo("create");
+        assertThat(rejected.getDecisionReason()).isEqualTo("policy rejected");
+        assertThat(rejected.getRejectionReason()).isEqualTo("policy rejected");
         assertThat(rejected.getRequestReason()).isEqualTo("create");
         MasterDataChangeRequest replayed = requests.requestChange(original);
         assertThat(replayed.getId()).isEqualTo(requested.getId());
         assertThat(replayed.getStatus()).isEqualTo(ChangeStatus.REJECTED);
-        assertThat(replayed.getReason()).isEqualTo("policy rejected");
+        assertThat(replayed.getReason()).isEqualTo("create");
+        assertThat(replayed.getDecisionReason()).isEqualTo("policy rejected");
+        assertThat(replayed.getRejectionReason()).isEqualTo("policy rejected");
         assertThat(jdbc.queryForObject(
                 "SELECT reason FROM master_data_change_requests WHERE id = ?",
                 String.class, requested.getId())).isEqualTo("create");
@@ -223,7 +227,7 @@ class MasterDataChangeRequestPostgresqlIdempotencyTest {
 
         // Old rejected rows stored the rejection reason over the request reason. Their original
         // immutable command cannot be reconstructed, so replay must fail closed.
-        jdbc.update("UPDATE master_data_change_requests SET reason = ?, rejection_reason = NULL WHERE id = ?",
+        jdbc.update("UPDATE master_data_change_requests SET reason = ?, rejection_reason = NULL, decision_reason = NULL WHERE id = ?",
                 "policy rejected", requested.getId());
         assertThatThrownBy(() -> requests.requestChange(original))
                 .isInstanceOf(MasterDataIdempotencyConflictException.class);

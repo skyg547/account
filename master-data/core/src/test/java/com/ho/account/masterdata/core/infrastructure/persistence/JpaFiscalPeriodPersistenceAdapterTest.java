@@ -48,7 +48,8 @@ import org.springframework.transaction.support.TransactionTemplate;
         "spring.flyway.enabled=false"
 })
 @ContextConfiguration(classes = JpaFiscalPeriodPersistenceAdapterTest.TestApplication.class)
-@Import({JpaFiscalPeriodPersistenceAdapter.class, FiscalPeriodMapper.class, MonolithFiscalPeriodControlAdapter.class})
+@Import({JpaFiscalPeriodPersistenceAdapter.class, FiscalPeriodMapper.class,
+        MonolithFiscalPeriodControlAdapter.class, JpaMasterDataAuditAdapter.class})
 // 기본 slice의 rollback 트랜잭션을 끄므로 control adapter가 반환할 때 실제 커밋까지 완료해야 합니다.
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class JpaFiscalPeriodPersistenceAdapterTest {

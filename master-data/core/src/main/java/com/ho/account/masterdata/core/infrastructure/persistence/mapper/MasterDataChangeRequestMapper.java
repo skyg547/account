@@ -32,7 +32,9 @@ public class MasterDataChangeRequestMapper {
                 entity.getPayloadJson(),
                 entity.getSourceReference(),
                 entity.getAppliedAt(),
-                entity.getRejectionReason(),
+                entity.getDecisionReason() != null
+                        ? entity.getDecisionReason()
+                        : entity.getRejectionReason(),
                 entity.getFailureReason(),
                 entity.getFailedAt());
     }
@@ -54,6 +56,7 @@ public class MasterDataChangeRequestMapper {
         entity.setApprovedAt(domain.getApprovedAt());
         // 요청 원문은 승인/거절 후에도 멱등성 비교에 쓰이므로 거절 사유와 분리해 보존합니다.
         entity.setReason(domain.getRequestReason());
+        entity.setDecisionReason(domain.getDecisionReason());
         entity.setRejectionReason(domain.getRejectionReason());
         entity.setPayloadJson(domain.getPayloadJson());
         entity.setSourceReference(domain.getSourceReference());

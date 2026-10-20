@@ -20,7 +20,7 @@ pipeline에 두어 batch가 업무 규칙을 중복 구현하지 않습니다.
 
 1. Gradle 창에서 프로젝트를 새로고침합니다.
 2. 상단 Run Configuration에서 `Master Data bootRun`을 선택합니다.
-3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8 (target=8, 반려 사유 반복 migration 및 H2 전용 실패 상태 migration 포함), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
+3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8과 H2 전용 V8.1 (target=8.1, 반려 사유 반복 migration 및 H2 전용 실패 상태 migration 포함), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
 4. 로그에서 `Started MasterDataApplication`을 확인합니다.
 5. 테스트가 끝나면 IntelliJ의 Stop 버튼으로 프로세스를 종료합니다.
 
@@ -98,7 +98,7 @@ Config Server 설정을 확인하는 통합 모드에서는 다음 순서로 실
 API 마스킹, API/Batch composition root와 실행 JAR을 포함합니다. 두 번째와 세 번째 명령은
 소비 모듈이 JPA Repository 대신
 `BusinessPartnerPersistencePort` 또는 contracts 경계를 계속 사용하는지 확인합니다.
-H2는 V8까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 합성 PostgreSQL 회귀로 검증합니다. 운영 데이터 크기의 인덱스/잠금 성능은 별도 배포 검증 대상입니다.
+H2는 공통 V8 뒤 H2 전용 감사 V8.1까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 합성 PostgreSQL 회귀로 검증합니다. 운영 데이터 크기의 인덱스/잠금 성능은 별도 배포 검증 대상입니다.
 
 ```powershell
 .\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon
@@ -150,11 +150,11 @@ MockMvc로 검증합니다. 배포나 실제 사용자 데이터 보정은 수�
 `ON CONFLICT DO NOTHING`의 별도 트랜잭션 복구를 확인합니다. 환경변수가 없으면 테스트가
 skip되므로 그 결과를 PostgreSQL 통과로 해석하면 안 됩니다.
 
-H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8`과
-`classpath:db/migration,classpath:db/local-migration`을 함께 사용합니다. 두 번째 경로는
-예약 반영 실패 상태의 H2 전용 스키마만 적용합니다. V9–V11은 PostgreSQL 배포 migration-runner의
-공통 SQL 경로에 포함됩니다. 새 H2 구성도 target8과 두 위치를 명시해야 합니다.
-PostgreSQL 검증/배포에는 H2 target과 local-migration 위치를 적용하지 마세요.
+H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8.1`과
+`classpath:db/migration,classpath:db/local-migration,classpath:db/migration-h2`를 함께 사용합니다.
+`db/local-migration`은 예약 반영 실패 상태의 H2 전용 스키마를, `db/migration-h2`는 V8.1 로컬 감사 스키마를 적용합니다.
+V9–V12는 PostgreSQL 배포 migration-runner의 공통 SQL 경로에 포함됩니다. 새 H2 구성도 target 8.1과 세 위치를 명시해야 합니다.
+PostgreSQL 검증/배포에는 H2 target과 local-migration/migration-h2 위치를 적용하지 마세요.
 
 ### PostgreSQL 상품 가격 회귀 검증
 

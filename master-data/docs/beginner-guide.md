@@ -1,5 +1,14 @@
 # master-data beginner guide
 
+## 감사 기록을 찾는 방법
+
+직접 기준정보를 바꾸면 해당 행의 `auditUser`와 `master_data_audit_events`의 actor·이전/결과
+행 ID가 같은 트랜잭션에 저장됩니다. 승인 요청은 원래 사유(`reason`)와 반려 사유
+(`decisionReason`)를 별도로 유지합니다. `APPLIED` 이벤트의 `requestId`/`sourceReference`와
+행 ID를 따라가면 어떤 승인이 어느 SCD2 버전을 만들었는지 확인할 수 있습니다.
+감사 이벤트에는 업무 원문이나 비밀정보를 복사하지 않습니다. 내보내기·보존·무결성 확인은
+[audit-evidence.md](audit-evidence.md)의 절차를 사용합니다.
+
 ## 한 문장 요약
 
 `master-data`는 회계 시스템의 기준 이름표를 관리합니다. 계정과목, 부서, 거래처, 상품, 회계기간처럼 여러 모듈이 공통으로 참조하는 데이터를 한 곳에서 관리합니다.

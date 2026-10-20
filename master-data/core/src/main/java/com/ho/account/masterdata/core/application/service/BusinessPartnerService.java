@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
 import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
 import com.ho.account.masterdata.core.application.query.PageSlice;
 import com.ho.account.masterdata.core.application.query.PageWindow;
@@ -12,6 +13,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -31,11 +33,19 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
 
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
 
-    public BusinessPartnerService(BusinessPartnerPersistencePort businessPartnerPersistencePort,
+    BusinessPartnerService(BusinessPartnerPersistencePort businessPartnerPersistencePort,
             MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(businessPartnerPersistencePort, businessKeyLockPort, event -> { });
+    }
+
+    @Autowired
+    public BusinessPartnerService(BusinessPartnerPersistencePort businessPartnerPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort, MasterDataAuditPort auditPort) {
         this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort;
     }
 
     /**
@@ -54,7 +64,11 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
             throw new MasterDataVersionConflictException("이미 이력이 존재하는 거래처 코드입니다: "
                     + businessPartner.getBusinessPartnerCode());
         }
-        return businessPartnerPersistencePort.save(businessPartner);
+        businessPartner.setAuditUser(MasterDataActorContext.auditUser());
+        BusinessPartner saved = businessPartnerPersistencePort.save(businessPartner);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_CREATE", MasterDataType.BUSINESS_PARTNER,
+                saved.getBusinessPartnerCode(), null, saved.getId());
+        return saved;
     }
 
     /**
@@ -125,11 +139,15 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
                 command.riskRating(),
                 newValidFrom,
                 newValidTo);
+        newVersion.setAuditUser(MasterDataActorContext.auditUser());
 
         // 두 save는 클래스의 @Transactional 경계 안에 있으므로 하나만 저장되는 부분 성공을 막습니다.
         currentActive.closeVersion(newValidFrom.minusDays(1));
         businessPartnerPersistencePort.save(currentActive);
-        return businessPartnerPersistencePort.save(newVersion);
+        BusinessPartner saved = businessPartnerPersistencePort.save(newVersion);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_UPDATE", MasterDataType.BUSINESS_PARTNER,
+                saved.getBusinessPartnerCode(), currentActive.getId(), saved.getId());
+        return saved;
     }
 
     /**
@@ -150,7 +168,10 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
         LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, businessPartner.getValidFrom(), businessPartner.getValidTo());
         businessPartner.terminate(terminationDate);
+        businessPartner.setAuditUser(MasterDataActorContext.auditUser());
         businessPartnerPersistencePort.save(businessPartner);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_DEACTIVATE", MasterDataType.BUSINESS_PARTNER,
+                businessPartner.getBusinessPartnerCode(), businessPartner.getId(), businessPartner.getId());
     }
 
     private void lockBusinessKeyById(Long id) {

@@ -38,7 +38,7 @@ auth:
   login-security:
     max-failures: ${AUTH_LOGIN_MAX_FAILURES:5}
     lock-duration-minutes: ${AUTH_LOGIN_LOCK_DURATION_MINUTES:15}
-    store: ${AUTH_LOGIN_SECURITY_STORE:memory}
+    store: ${AUTH_LOGIN_SECURITY_STORE:jpa}
   sso:
     enabled: ${AUTH_SSO_ENABLED:false}
     default-provider: ${AUTH_SSO_DEFAULT_PROVIDER:local}

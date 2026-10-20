@@ -7,9 +7,11 @@ import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -23,11 +25,19 @@ public class ProductService implements ProductUseCase {
 
     private final ProductPersistencePort productPersistencePort;
     private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
 
-    public ProductService(ProductPersistencePort productPersistencePort,
+    ProductService(ProductPersistencePort productPersistencePort,
             MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(productPersistencePort, businessKeyLockPort, event -> { });
+    }
+
+    @Autowired
+    public ProductService(ProductPersistencePort productPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort, MasterDataAuditPort auditPort) {
         this.productPersistencePort = productPersistencePort;
         this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort;
     }
 
     /**
@@ -43,12 +53,15 @@ public class ProductService implements ProductUseCase {
         }
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
-        product.setAuditUser("system");
+        product.setAuditUser(MasterDataActorContext.auditUser());
         
         MasterDataValidityPolicy.applyDefaultWindow(product::getValidFrom, product::setValidFrom,
                 product::getValidTo, product::setValidTo);
 
-        return productPersistencePort.save(product);
+        Product saved = productPersistencePort.save(product);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_CREATE", MasterDataType.PRODUCT,
+                saved.getProductCode(), null, saved.getId());
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -104,7 +117,7 @@ public class ProductService implements ProductUseCase {
         newVersion.setProductType(command.productType() != null ? command.productType() : currentActive.getProductType());
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
-        newVersion.setAuditUser("system");
+        newVersion.setAuditUser(MasterDataActorContext.auditUser());
         newVersion.validateBusinessFields();
 
         // SCD2: 검증된 새 버전을 준비한 뒤 기존 활성 버전을 종료합니다.
@@ -112,7 +125,10 @@ public class ProductService implements ProductUseCase {
         currentActive.terminate(oldValidTo);
         productPersistencePort.save(currentActive);
 
-        return productPersistencePort.save(newVersion);
+        Product saved = productPersistencePort.save(newVersion);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_UPDATE", MasterDataType.PRODUCT,
+                saved.getProductCode(), currentActive.getId(), saved.getId());
+        return saved;
     }
 
     /**
@@ -132,8 +148,10 @@ public class ProductService implements ProductUseCase {
                 effectiveDate, product.getValidFrom(), product.getValidTo());
         product.terminate(terminationDate);
         product.setUpdatedAt(LocalDateTime.now());
-        product.setAuditUser("system");
+        product.setAuditUser(MasterDataActorContext.auditUser());
         productPersistencePort.save(product);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_DEACTIVATE", MasterDataType.PRODUCT,
+                product.getProductCode(), product.getId(), product.getId());
     }
 
     private void lockBusinessKeyById(Long id) {
