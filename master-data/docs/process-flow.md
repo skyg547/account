@@ -109,11 +109,18 @@ flowchart TD
     L --> M[APPLIED 저장]
 ```
 
-`MasterDataChangeApplierRegistry`는 한 targetType을 정확히 한 typed applier에 연결합니다. 담당 전략이 없으면 요청을 저장하기 전에 실패하고, 같은 유형을 두 전략이 담당하면 애플리케이션 시작 시 실패합니다. 현재 `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT`를 지원합니다.
+`MasterDataChangeApplierRegistry`는 한 targetType을 정확히 한 typed applier에 연결합니다. 담당 전략이 없으면 요청이 커밋되기 전에 실패하고 원자적 예약 행도 롤백됩니다. 같은 유형을 두 전략이 담당하면 애플리케이션 시작 시 실패합니다. 현재 `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT`를 지원합니다.
 
-Governance 승인 ID를 `sourceReference`로 전달하면 같은 승인 재시도는 기존 변경 요청을 재사용합니다.
-같은 sourceReference에 다른 target/payload가 들어오면 409로 차단하고, 실제 반영 완료 시각은
-`appliedAt`에 기록합니다. 이는 외부 승인 성공 응답이 유실되어도 요청을 새로 만들지 않기 위한 계보입니다.
+`core` 변경 요청 유즈케이스에 Governance 승인 ID를 `sourceReference`로 전달하면 같은 승인 재시도는 기존 변경 요청을 재사용합니다.
+현재 HTTP 생성 DTO에는 이 필드가 없어 `/api/master-data/change-requests` POST의 재시도 키로 사용할 수 없습니다.
+PostgreSQL에서는 최초 접수의 `INSERT ... ON CONFLICT DO NOTHING` 후 새 문장에서 기존 행을
+읽으므로 동시 요청도 같은 ID와 저장된 결과를 받습니다. 기존 행이면 대상·유형·시행일·버전·요청자·사유·
+원문 payload를 비교해 불일치 시 충돌 예외를 반환합니다. 해당 예외는 API advice에서 409로 매핑되지만 현재 POST 입력으로는 이 경로를 호출할 수 없습니다. 새 행만 업무 키를 잠그고 payload/버전을 검증하며,
+실패하면 예약 행도 같은 트랜잭션에서 롤백합니다. 이미 `APPLIED`인 요청 ID를 다시 반영하면 잠금 후
+기존 결과를 반환해 SCD2 버전과 `appliedAt`을 그대로 둡니다. 이는 성공 응답 유실 후 재시도할 때의 계보입니다.
+로컬 H2는 V8 잠금 테이블에 source reference별 별도 행을 두고 트랜잭션 종료까지 잠근 뒤 조회·저장합니다.
+새 반려 요청은 원래 요청 사유와 반려 사유를 별도 보존하므로 같은 명령을 다시 보낼 수 있습니다.
+별도 열이 없던 시기에 이미 반려된 행은 원래 사유를 복원할 수 없어 재시도를 409로 거부합니다.
 `requestedVersion`은 임의 숫자가 아니라 업무 키별 SCD2 목표 순번입니다.
 
 | 변경 유형 | 요청 버전 | 이유 |
@@ -187,7 +194,7 @@ SCD2 교체용 `closeVersion`과 업무 종료용 `terminate`는 과거 조회�
    현재 기간 확인도 수정용 조회를 사용하며 전체 컨텍스트를 clear하지 않습니다.
 3. 승인/반영은 업무 키 → 요청 행 순서로 잠그고 요청을 새로 읽습니다. `requestedVersion`
    검사는 잠금 후 수행하며, 서로 다른 요청 ID의 패자는409로 실패하고 `APPROVED`/`appliedAt=null`을 유지합니다.
-   이미 반영된 같은 ID의 재시도도409이며, 승자가 저장한 `APPLIED` 상태는 보존하고 다시 반영하지 않습니다.
+   이미 반영된 같은 ID의 재시도는 기존 `APPLIED` 결과를 반환하며 다시 반영하지 않습니다.
 4. 이전 버전의 종료일을 DB에 flush한 뒤 새 버전을 넣습니다. PostgreSQL의 즉시 exclusion
    검사가 정상적인 기간 분할의 중간 상태를 겹침으로 오인하지 않도록 합니다.
    상품 UPDATE는 새 가격의 부호·정밀도·범위를 core에서 먼저 확인하고 새 버전을 준비한 뒤
@@ -243,7 +250,7 @@ flowchart LR
 ## 현재 고도화 후보
 
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 도메인 서비스, 영속성 포트, 버전 조회, typed applier를 함께 구현하기 전까지 요청 접수부터 fail-closed 됩니다.
-- 같은 sourceReference의 동시 최초 저장은 DB unique index가 중복 행을 막지만 한 요청이 충돌 예외를 받을 수 있습니다. 충돌 후 기존 요청을 재조회·검증하는 원자적 멱등 저장 포트가 필요합니다.
+- 원자적 접수 경쟁은 PostgreSQL `READ COMMITTED`와 source reference unique index에서 검증합니다. H2 테스트는 PostgreSQL의 충돌 대기나 rollback-only 동작을 증명하지 않습니다.
 - Loan core의 Master Data 엔티티 연관과 Closing Batch의 Repository 직접 의존을 소비 모듈 소유 포트/contracts DTO로 교체해야 합니다.
 - `TaxProfile`은 엔티티만 있고 repository/use case/applier/소비 계약이 없습니다. Tax와 소유권을 정해 전체 SCD2 흐름을 구현하거나 중복 모델을 이관·제거해야 합니다.
 - 전체 이력/검색/pending API는 아직 무제한 List 계약입니다. 안정 정렬, 최대 page size와 DB limit가 있는 pagination을 포트부터 HTTP까지 연결해야 합니다.

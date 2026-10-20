@@ -24,5 +24,13 @@ public interface MasterDataChangeRequestPersistencePort {
 
     List<MasterDataChangeRequest> findReadyToApply(LocalDate effectiveDate, int limit);
 
+    /**
+     * sourceReference의 최초 저장 또는 기존 행 조회를 같은 트랜잭션에서 원자적으로 수행합니다.
+     * created가 true인 경우 호출자의 후속 검증이 실패하면 최초 저장도 함께 롤백되어야 합니다.
+     */
+    CreateOrLoadResult createOrLoad(MasterDataChangeRequest request);
+
+    record CreateOrLoadResult(MasterDataChangeRequest request, boolean created) { }
+
     MasterDataChangeRequest save(MasterDataChangeRequest request);
 }
