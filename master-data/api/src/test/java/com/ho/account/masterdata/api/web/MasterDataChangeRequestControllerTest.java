@@ -38,7 +38,7 @@ class MasterDataChangeRequestControllerTest {
     private static final String AUTH_USER = "X-Auth-User";
     private static final String AUTH_ROLES = "X-Auth-Roles";
     private static final String APPROVAL_ROLE = "ROLE_MASTER_MANAGER";
-    private static final String RAW_REGISTRATION = "SYNTHETIC-REG-1234567890";
+    private static final String RAW_REGISTRATION = "SYN-REG-12345";
     private static final Set<String> SUMMARY_FIELDS = Set.of(
             "id", "targetType", "changeType", "status", "effectiveDate",
             "requestedVersion", "requestedAt", "approvedAt", "appliedAt");
