@@ -5,8 +5,13 @@ import com.ho.account.auth.core.application.model.PersonalAccessTokenDto;
 import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
 import com.ho.account.auth.core.application.exception.PatAuthenticationException;
 import com.ho.account.auth.core.application.port.in.PersonalAccessTokenUseCase;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +27,17 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+// PAT routes require the JPA-backed token store; memory mode deliberately exposes none.
+@ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class PersonalAccessTokenController {
 
     private final PersonalAccessTokenUseCase patUseCase;
 
-    public record CreatePatRequest(String username, String tokenName, Integer expireDays) {}
+    public record CreatePatRequest(
+            @Size(max = 80, message = "username must be at most 80 characters") String username,
+            @Size(max = 100, message = "tokenName must be at most 100 characters") String tokenName,
+            @Min(value = 1, message = "expireDays must be positive")
+            @Max(value = 3650, message = "expireDays must be at most 3650") Integer expireDays) {}
 
     /**
      * 1. 개인용 액세스 토큰(PAT) 신규 생성
@@ -35,10 +46,10 @@ public class PersonalAccessTokenController {
     @PostMapping("/pat")
     public ResponseEntity<PersonalAccessTokenCreateResponse> createPat(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-            @RequestBody CreatePatRequest request) {
+            @Valid @RequestBody CreatePatRequest request) {
         // The legacy username field is accepted for compatibility, but never selects the PAT owner.
         String tokenName = (request.tokenName() != null && !request.tokenName().isBlank()) ? request.tokenName() : "My AI Agent Key";
-        int days = (request.expireDays() != null && request.expireDays() > 0) ? request.expireDays() : 90;
+        int days = request.expireDays() != null ? request.expireDays() : 90;
 
         PersonalAccessTokenCreateResponse response = patUseCase.createToken(authorization, tokenName, days);
         return ResponseEntity.ok(response);

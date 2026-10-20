@@ -63,6 +63,14 @@ class PersonalAccessTokenServiceTest {
     }
 
     @Test
+    void tokenNameOverDatabaseLimitIsRejectedBeforePersistence() {
+        assertThatThrownBy(() -> service.createToken(ALICE_BEARER, "n".repeat(101), 30))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("tokenName is too long");
+        verifyNoInteractions(patPort, events);
+    }
+
+    @Test
     void userListingUsesOnlyVerifiedPrincipalAndExactOwnerKey() {
         PersonalAccessToken aliceToken = activeToken("alice");
         when(patPort.findByUsername("alice")).thenReturn(List.of(aliceToken));

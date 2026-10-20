@@ -1,5 +1,13 @@
 # Master Data Agent Status
 
+## 2026-10-20 — Issue #911 / Draft PR #927
+
+- State: Draft handoff for human review. Branch `agent/911-bp-bulk-fail-closed`; worktree `/tmp/account-911-bp-bulk-fail-closed`; base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.
+- Scope: four core functional files and `master-data/docs/process-flow.md`; module-local harness records and Codex history. No other module, shared harness document, contract, repository query, schema, or production data change.
+- Result: Monolith bulk reference lookup throws `DuplicateBusinessPartnerReferenceException` on a repeated active result code and returns no partial Map. Equal/unequal validFrom, repeated input, distinct codes, empty input, and H2 JPA result cardinality are covered.
+- Verification: focused RED 2/5 duplicate cases failed before fix; focused GREEN 12/12 passed. Full requested core/API/Batch run passed 612 tests (523/84/5), zero failures/errors; 24 PostgreSQL-only API tests skipped. Diff and marker gates passed; separate read-only review found no findings and judged Q1–Q4 PASS.
+- Draft PR: https://github.com/skyg547/account/pull/927 (`Refs #911`); functional commit `49a8263c`. Tax HTTP round trip and PostgreSQL validation remain untested in this scope. Human review and current-head CI control Ready/merge; Issue closure and resource removal remain separate gates.
+
 ## 2026-10-01 — Issue #754 / Draft PR #821
 
 - State: `status:needs-review` handoff. Branch `agent/754-future-create-intervals`; worktree `/tmp/account-754-future-create-intervals`; base `origin/main@b06e7de3a2e26c1e14a15d73486c02fa7216e8b8`.

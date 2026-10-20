@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ho.account.auth.core.application.model.AuthenticationResult;
+import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.in.AuthUserRoleAssignmentUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersistencePort;
@@ -92,6 +93,58 @@ class AuthControllerTest {
         assertThat(commandCaptor.getValue().loginType()).isEqualTo("SSO");
         assertThat(commandCaptor.getValue().otpCode()).isEqualTo(otpCode);
         assertThat(commandCaptor.getValue().ssoProvider()).isEqualTo("corporate-oidc");
+    }
+
+    @Test
+    void malformedLoginJsonAndTypeMismatchAreSafeClientErrors() throws Exception {
+        String secret = "synthetic-password-sentinel";
+        for (String body : List.of(
+                "{\"username\":\"admin\",\"password\":\"" + secret + "\",",
+                "{\"username\":[\"admin\"],\"password\":\"" + secret + "\"}")) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                    .andExpect(jsonPath("$.message").value("Malformed request body"))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain(secret));
+        }
+        verifyNoInteractions(authUseCase);
+    }
+
+    @Test
+    void invalidRequestExceptionDoesNotReflectItsInternalMessage() throws Exception {
+        String sentinel = "synthetic-internal-request-sentinel";
+        when(authUseCase.login(any())).thenThrow(new IllegalArgumentException(sentinel));
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"admin\",\"password\":\"wrong\",\"loginType\":\"NORMAL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Invalid request"))
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain(sentinel));
+    }
+
+    @Test
+    void loginUsernameMatchesEightyCharacterPersistenceLimit() throws Exception {
+        String maximum = "u".repeat(80);
+        String tooLong = maximum + "u";
+        when(authUseCase.login(any())).thenThrow(new InvalidCredentialsException());
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + maximum + "\",\"password\":\"wrong\",\"loginType\":\"NORMAL\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+        ArgumentCaptor<AuthUseCase.LoginCommand> command = ArgumentCaptor.forClass(AuthUseCase.LoginCommand.class);
+        verify(authUseCase).login(command.capture());
+        assertThat(command.getValue().username()).isEqualTo(maximum);
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + tooLong + "\",\"password\":\"wrong\",\"loginType\":\"NORMAL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        verify(authUseCase).login(any());
     }
 
     @Test
