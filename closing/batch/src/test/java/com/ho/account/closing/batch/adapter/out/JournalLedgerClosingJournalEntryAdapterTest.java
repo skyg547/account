@@ -12,12 +12,16 @@ import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -66,6 +70,48 @@ class JournalLedgerClosingJournalEntryAdapterTest {
         assertThat(result.journalEntryId()).isEqualTo(77L);
         assertThat(result.slipNo()).isEqualTo(command.slipNo());
         verifyNoInteractions(postingPort);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REQUESTED", "APPROVED", "POSTED"})
+    void eligibleExistingSlipWithSameContentCanBeReused(String status) {
+        JournalPostingPort postingPort = mock(JournalPostingPort.class);
+        JournalQueryPort queryPort = mock(JournalQueryPort.class);
+        JournalLedgerClosingJournalEntryAdapter adapter =
+                new JournalLedgerClosingJournalEntryAdapter(postingPort, queryPort);
+        ClosingJournalEntryCommand command = command();
+        when(queryPort.findBySlipNo(command.slipNo()))
+                .thenReturn(Optional.of(existingSummary(command, status)));
+        when(queryPort.getJournalDetails(77L)).thenReturn(existingDetails(command));
+
+        var result = adapter.createDraftAdjustment(command);
+
+        assertThat(result.journalEntryId()).isEqualTo(77L);
+        assertThat(result.slipNo()).isEqualTo(command.slipNo());
+        verifyNoInteractions(postingPort);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonReusableStatuses")
+    void existingSlipWithNonReusableStatusFailsBeforeMutation(String status) {
+        JournalPostingPort postingPort = mock(JournalPostingPort.class);
+        JournalQueryPort queryPort = mock(JournalQueryPort.class);
+        JournalLedgerClosingJournalEntryAdapter adapter =
+                new JournalLedgerClosingJournalEntryAdapter(postingPort, queryPort);
+        ClosingJournalEntryCommand command = command();
+        when(queryPort.findBySlipNo(command.slipNo()))
+                .thenReturn(Optional.of(existingSummary(command, status)));
+        when(queryPort.getJournalDetails(77L)).thenReturn(existingDetails(command));
+
+        assertThatThrownBy(() -> adapter.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("non-reusable status")
+                .hasMessageContaining(command.slipNo());
+        verifyNoInteractions(postingPort);
+    }
+
+    private static Stream<String> nonReusableStatuses() {
+        return Stream.of("REJECTED", "REVERSED", "UNKNOWN", "", " ", null);
     }
 
     @Test
