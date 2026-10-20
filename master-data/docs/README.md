@@ -67,4 +67,4 @@ Spring Data 타입이 domain package로 역류하지 않습니다.
 - 활성 계정과목/상품 목록과 거래처 이름 검색도 DB 기준일 query를 사용하며, 환율은 요청일 이하 최신 한 건을 선택합니다.
 - 회계기간 변경은 비관적 행 잠금과 `FiscalPeriod.changeClosingStatus` 불변식을 거칩니다.
 - 거래처 JPA 왕복, 자식 계좌 FK/역참조, 현재·과거 SCD2 조회는 Core의 H2 영속성 테스트로 검증하고, API 사업자등록번호 마스킹은 API의 ObjectMapper 직렬화 테스트로 검증합니다.
-- PostgreSQL V8/V9 잠금·기간 제약과 합성 DB 회귀 절차는 schema/local-run을 참조합니다. API pagination, TaxProfile 소유권, Loan/Closing의 Master Data 직접 의존은 후속 과제입니다.
+- PostgreSQL V8/V9 잠금·기간 제약과 합성 DB 회귀 절차는 schema/local-run을 참조합니다. 거래처의 현재 활성 조회는 기간과 `useYn`을 확인하며 KYC·위험 등급 심사를 대신하지 않습니다. API pagination과 TaxProfile 소유권은 후속 과제입니다. Loan dev 원격 어댑터는 숫자 거래처 ID·기준일 통화 조회 API가 없어 해당 검증에 실패합니다.

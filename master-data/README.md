@@ -6,7 +6,7 @@
 
 - `BusinessPartner`와 `BusinessPartnerAccount`는 JPA를 모르는 순수 도메인 객체입니다. 생성 팩터리가 필수 코드·이름, 유효기간, 계좌의 대표 여부 같은 업무 불변식을 먼저 검사합니다.
 - `BusinessPartnerJpaEntity`와 `BusinessPartnerAccountJpaEntity`만 테이블·컬럼·연관관계를 알고, `JpaBusinessPartnerPersistenceAdapter`가 두 모델을 명시적으로 변환합니다. 따라서 도메인 규칙을 DB 프록시 생명주기와 분리해 단위 테스트할 수 있습니다.
-- SCD2 수정에서 `closeVersion()`은 과거 버전의 종료일만 닫고, 업무 비활성화인 `terminate()`도 종료일을 닫으며 과거 조회를 위해 `useYn`을 유지합니다. 두 의미를 섞지 않아 미래 시행 버전을 만들 때 현재 사용 가능 상태가 일찍 사라지지 않습니다.
+- SCD2 수정의 `closeVersion()`과 업무 종료의 `terminate()`는 모두 종료일만 닫고, 당시의 `useYn`은 과거 조회를 위해 보존합니다. 종료일 다음 날부터는 기간 조건으로 조회되지 않습니다. 현재 활성 조회는 기간과 `useYn=true`를 확인하지만 KYC 상태·위험 등급에 따른 심사 적격성까지 판단하지는 않습니다.
 - 새 SCD2 버전은 기존 계좌 값을 새 자식 행으로 복제합니다. 자식 ID는 재사용하지 않아 과거 버전의 FK와 현재 지급 계좌를 모두 보존합니다.
 - HTTP 응답은 `BusinessPartnerDto`가 조립하며 사업자등록번호 마스킹도 API 경계에서 수행합니다. 영속성 엔티티나 민감한 원문을 Controller가 직접 반환하지 않습니다.
 - 기존 `business_partners`, `business_partner_accounts` 테이블·컬럼과 API 경로는 유지되므로 이번 분리만을 위한 DB migration은 없습니다.
@@ -53,13 +53,13 @@ sequenceDiagram
     Master-->>Requester: 최종 반영 완료
 ```
 
-### 📌 타 모듈과의 연동 (ID 기반 참조)
-다른 모듈은 `master-data`의 복잡한 엔티티를 직접 가져가지 않고, **코드(String ID)**만 저장한 뒤 필요할 때 API(Port)로 조회합니다.
+### 📌 타 모듈과의 연동 (코드·ID 참조)
+소비 모듈은 필요한 코드 또는 ID를 저장하고 자신의 조회 포트를 통해 기준일의 속성을 확인합니다. 예를 들어 Loan은 거래처 ID와 통화 코드를 저장합니다.
 
 ```mermaid
 flowchart LR
-    A[Voucher / Loan / Tax] -- "String Code 저장" --> B{MasterDataQueryPort}
-    B -- "SCD2 시점 조회" --> C[Master Data Service]
+    A[업무 모듈] -- "코드 또는 ID 보관" --> B{소비 모듈 조회 포트}
+    B -- "지원되는 계약으로 기준일 조회" --> C[Master Data]
     C -- "Name, Attribute 반환" --> A
 ```
 
@@ -142,7 +142,7 @@ prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외�
 - 환율 조회는 요청일 이하의 데이터 중 가장 최근 `effectiveDate` 1건을 DB에서 선택합니다. 환율은 양수이고 통화 코드는 3자리 ISO 형식이어야 합니다.
 - Closing이 회계기간 상태를 바꿀 때는 `FiscalPeriodPersistencePort` 뒤에서 대상 행을 잠그고, 영구 마감 불변식과 감사 사용자를 `FiscalPeriod` 도메인 메서드가 검증합니다.
 - 운영에서는 애플리케이션 `ddl-auto`를 `validate`로 유지하고 migration-runner가 검증한 Flyway 기준만 사용합니다.
-- 현재 Loan core의 거래처/통화 엔티티 연관과 Closing Batch의 환율 Repository 직접 참조는 위 contracts 원칙의 예외입니다. 다음 순차 리팩터링에서 코드/ID 저장과 소비 모듈 소유 포트 + contracts 조회로 분리해야 합니다.
+- Loan은 거래처 ID·통화 코드를 저장하고 `LoanReferenceDataPort`로 참조를 확인합니다. 모놀리스 어댑터는 Master Data 영속성 포트를 사용하며, dev 원격 어댑터의 숫자 거래처 ID·기준일 통화 조회는 제공 API가 없어 현재 실패합니다. Closing 환율 조회는 `FxExchangeRateLookupPort` 뒤의 contracts 어댑터(모놀리스) 또는 JDBC 어댑터(dev)를 사용합니다.
 
 ### 업무 키별 동시 쓰기와 DB 기간 제약 (GH-753)
 
