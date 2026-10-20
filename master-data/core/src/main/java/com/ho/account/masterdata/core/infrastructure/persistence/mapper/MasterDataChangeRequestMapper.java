@@ -31,7 +31,9 @@ public class MasterDataChangeRequestMapper {
                 entity.getReason(),
                 entity.getPayloadJson(),
                 entity.getSourceReference(),
-                entity.getAppliedAt());
+                entity.getAppliedAt(),
+                entity.getFailureReason(),
+                entity.getFailedAt());
     }
 
     public MasterDataChangeRequestEntity toEntity(MasterDataChangeRequest domain) {
@@ -53,6 +55,8 @@ public class MasterDataChangeRequestMapper {
         entity.setPayloadJson(domain.getPayloadJson());
         entity.setSourceReference(domain.getSourceReference());
         entity.setAppliedAt(domain.getAppliedAt());
+        entity.setFailureReason(domain.getFailureReason());
+        entity.setFailedAt(domain.getFailedAt());
         return entity;
     }
 }

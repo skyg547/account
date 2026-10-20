@@ -895,7 +895,7 @@ class MasterDataChangeRequestPayloadValidationTest {
     }
 
     @Test
-    void dueApplyLocksDistinctBusinessKeysInOrderBeforeRequestRows() {
+    void dueApplyLocksEachBusinessKeyBeforeItsRequestRow() {
         MasterDataChangeApplier applier = mock(MasterDataChangeApplier.class);
         when(applier.targetType()).thenReturn(MasterDataType.ACCOUNT_SUBJECT);
         MasterDataChangeRequestService applying = new MasterDataChangeRequestService(
@@ -909,6 +909,8 @@ class MasterDataChangeRequestPayloadValidationTest {
                 0L, EFFECTIVE_DATE, 1, "maker", "checker", REQUESTED_AT, REQUESTED_AT,
                 null, "{}", null, null);
         when(persistence.findReadyToApply(LocalDate.now(), 500)).thenReturn(List.of(first, second));
+        when(persistence.findById(1L)).thenReturn(Optional.of(first));
+        when(persistence.findById(2L)).thenReturn(Optional.of(second));
         when(persistence.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
         when(persistence.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
         when(persistence.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -917,10 +919,10 @@ class MasterDataChangeRequestPayloadValidationTest {
 
         var order = inOrder(locks, persistence);
         order.verify(persistence).findReadyToApply(LocalDate.now(), 500);
-        order.verify(locks).lock(MasterDataType.ACCOUNT_SUBJECT, "A-KEY");
         order.verify(locks).lock(MasterDataType.ACCOUNT_SUBJECT, "Z-KEY");
         order.verify(persistence).findByIdForUpdate(1L);
         order.verify(persistence).save(first);
+        order.verify(locks).lock(MasterDataType.ACCOUNT_SUBJECT, "A-KEY");
         order.verify(persistence).findByIdForUpdate(2L);
         order.verify(persistence).save(second);
         verifyNoMoreInteractions(locks);

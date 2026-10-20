@@ -73,4 +73,9 @@ public class MasterDataChangeRequestEntity {
     private String sourceReference;
 
     private LocalDateTime appliedAt;
+
+    @Column(length = 500)
+    private String failureReason;
+
+    private LocalDateTime failedAt;
 }

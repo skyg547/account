@@ -23,6 +23,8 @@ erDiagram
         String payload_json
         String source_reference UK
         LocalDateTime applied_at
+        String failure_reason
+        LocalDateTime failed_at
     }
 ```
 
@@ -75,6 +77,13 @@ SCD2 새 거래처 버전은 계좌의 은행·번호·예금주·SWIFT·대표 
 | `APPROVED` | 분리된 승인자가 결정했고 `effectiveDate` 도래 후 반영 가능함. |
 | `REJECTED` | 승인자가 사유와 함께 반려함. 작성자는 자기 요청을 승인하거나 반려할 수 없음. |
 | `APPLIED` | typed applier의 실제 SCD2 변경과 요청 상태 저장이 같은 트랜잭션에서 성공함. |
+| `FAILED_CONFLICT` | 시행 시점의 SCD2 버전이 달라져 요청별 반영을 롤백하고 격리함. |
+| `FAILED_INVALID` | 저장된 요청의 입력이 현재 규칙을 통과하지 못해 격리함. |
+
+실패 상태는 자동 재선택하지 않습니다. `failure_reason`에는 예외·SQL·payload 원문 대신
+`VERSION_CONFLICT`, `INVALID_REQUEST` 같은 안전한 분류 코드만 저장하고,
+`failed_at`은 격리 시각입니다. 원래 `reason`, 요청자·승인자·승인 시각은 유지하며
+실패 건의 `applied_at`은 비어 있습니다.
 
 ## 외부 승인 멱등성과 계보
 
@@ -113,6 +122,11 @@ migration은 행 값을 출력하거나 수정하지 않고 실패합니다. 데
 - `V6__master_data_postgresql_baseline.sql`: 적용 이력이 있는 V1-V5를 수정하지 않고 나머지
   9개 JPA 소유 테이블과 변경 요청 제약, 정밀도, FK, unique/check/index를 forward-only로
   완성합니다. clean H2 PostgreSQL mode와 V5→V6 upgrade 경로를 모두 검증합니다.
+- `V11__master_data_due_failure_status.sql`: PostgreSQL 변경 요청에 실패 분류·시각,
+  격리 상태 CHECK와 예약 선택 인덱스를 추가합니다. 로컬 H2는 V8까지만 실행하므로
+  별도 `db/local-migration/R__master_data_due_failure_status_h2.sql`이 같은 스키마를
+  제공합니다. H2 전용 파일은 배포 migration-runner가 복사하지 않습니다. 적용된 V1–V10을
+  수정하지 않으며, 롤백은 이력을 지우지 않는 검토된 forward correction으로 수행합니다.
 - 운영 완료 판정은 승인된 PostgreSQL에서 clean/upgrade migrate+validate, API/Batch JPA
   validate 부팅, runtime role의 DDL 거부를 확인하는 것입니다. 적용된 migration은 수정하거나
   `repair`하지 않고 새 forward migration으로 보정합니다.

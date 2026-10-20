@@ -21,9 +21,8 @@ interface MasterDataChangeRequestJpaRepository extends JpaRepository<MasterDataC
 
     List<MasterDataChangeRequestEntity> findByStatusOrderByRequestedAtAsc(ChangeStatus status);
 
-    List<MasterDataChangeRequestEntity> findByStatusAndEffectiveDateLessThanEqualOrderByEffectiveDateAscRequestedAtAsc(
+    List<MasterDataChangeRequestEntity> findByStatusAndEffectiveDateLessThanEqualOrderByEffectiveDateAscRequestedAtAscIdAsc(
             ChangeStatus status,
             LocalDate effectiveDate,
             Pageable pageable);
 }
-

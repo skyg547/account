@@ -21,6 +21,17 @@
 | lockVersion | 같은 결재 문서를 여러 서버가 동시에 승인/반영하지 못하게 하는 JPA 기술 잠금 값. |
 | sourceReference | Governance 승인처럼 외부에서 온 같은 요청을 재시도해도 중복 결재가 생기지 않게 하는 계보 키. |
 | appliedAt | 승인된 변경이 실제 기준정보에 반영된 시각. 승인 시각과 시행 시각이 달라 별도로 기록합니다. |
+| FAILED_CONFLICT / FAILED_INVALID | 예약 반영 때 버전 충돌 또는 잘못된 요청으로 해당 건만 실패해 격리된 상태. `failedAt`과 안전한 `failureReason`을 함께 남깁니다. |
+
+## 예약 변경 한 건이 실패하면
+
+예를 들어 오늘 시행할 승인 요청 A, B, C 중 B의 저장된 내용이 잘못되었다면 `/apply-due`는
+A를 반영하고 B만 `FAILED_INVALID`로 기록한 뒤 C도 반영합니다. 응답에는 각 결과가 나타납니다.
+다음 실행은 `APPROVED`만 다시 고르므로 A와 C를 중복 반영하지 않고 B도 무한 반복하지
+않습니다. 담당자는 B의 실패 분류와 원래 요청·승인 이력을 확인한 뒤 새 승인 요청을 만듭니다.
+DB 연결처럼 일시적인 오류가 나면 그 건은 `APPROVED`로 남고 호출이 실패합니다. 이미 끝난
+A는 유지되며 장애 복구 후 다시 실행해 나머지를 처리할 수 있습니다. 로컬 H2 재시작은
+인메모리 데이터를 지우므로 재시작 동작 확인에는 영속 테스트 DB가 필요합니다.
 
 ## 왜 SCD2가 중요한가
 
@@ -116,7 +127,7 @@ SCD2 `UPDATE`로 바꿀 수 있습니다. 종료된 이력만 있거나 미래 �
 3. `api/.../MasterDataChangeRequestController`: 변경 요청, 승인, 반려, 반영 API.
 4. `batch/.../MasterDataBatchApplication`: 웹 서버 없이 기동하는 Batch 실행 진입점.
 5. `batch/.../MasterDataValidityJobConfiguration`: `asOfDate`를 검증하고 core pipeline을 호출하는 Job/Step.
-6. `core/.../MasterDataChangeRequestService`: 변경 요청, 승인, 반려, 예약 반영 흐름.
+6. `core/.../MasterDataChangeRequestService`와 `MasterDataDueChangeExecutor`: 변경 요청·승인·반려 조정과 예약 건별 독립 트랜잭션 반영.
 7. `core/.../MasterDataChangeApplierRegistry`: 한 기준정보 유형에 반영 전략이 없거나 두 개 이상 연결되는 설정 오류를 차단.
 8. `core/.../AccountSubjectMasterDataChangeApplier` 등 typed applier: 승인 요청을 실제 SCD2 생성/수정/비활성화로 연결.
 9. `core/.../MasterDataChangeVersionPolicy`: CREATE/UPDATE/DEACTIVATE별 목표 버전과 저장된 SCD2 이력 수를 비교.

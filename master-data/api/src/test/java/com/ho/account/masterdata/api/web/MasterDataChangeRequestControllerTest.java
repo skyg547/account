@@ -16,6 +16,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
 import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import java.time.LocalDate;
@@ -175,6 +176,34 @@ class MasterDataChangeRequestControllerTest {
         mockMvc.perform(post("/api/master-data/change-requests/{requestId}/apply", 42L)
                         .header(AUTH_ROLES, "REPORT_VIEWER"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void applyDueEndpointReportsEachSuccessAndSafeDurableFailureCategory() throws Exception {
+        MasterDataChangeRequest applied = requestedChange();
+        applied.approve("approver");
+        applied.markApplied();
+        MasterDataChangeRequest failed = new MasterDataChangeRequest(
+                MasterDataType.BUSINESS_PARTNER, "BP-INVALID", ChangeType.CREATE,
+                LocalDate.of(2026, 8, 1), 1, "requester", "business reason",
+                "{\"businessPartnerName\":\"synthetic\"}");
+        failed.approve("approver");
+        failed.markFailed(ChangeStatus.FAILED_INVALID, "INVALID_REQUEST");
+        when(useCase.applyDueApprovedChanges()).thenReturn(List.of(applied, failed));
+
+        mockMvc.perform(post("/api/master-data/change-requests/apply-due")
+                        .header(AUTH_ROLES, APPROVAL_ROLE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].status").value("APPLIED"))
+                .andExpect(jsonPath("$[0].failureReason").isEmpty())
+                .andExpect(jsonPath("$[1].targetKey").value("BP-INVALID"))
+                .andExpect(jsonPath("$[1].status").value("FAILED_INVALID"))
+                .andExpect(jsonPath("$[1].reason").value("business reason"))
+                .andExpect(jsonPath("$[1].failureReason").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$[1].failedAt").isNotEmpty())
+                .andExpect(jsonPath("$[1].appliedAt").isEmpty());
+
+        verify(useCase).applyDueApprovedChanges();
     }
 
     private MasterDataChangeRequest requestedChange() {

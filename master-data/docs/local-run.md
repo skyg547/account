@@ -20,7 +20,7 @@ pipeline에 두어 batch가 업무 규칙을 중복 구현하지 않습니다.
 
 1. Gradle 창에서 프로젝트를 새로고침합니다.
 2. 상단 Run Configuration에서 `Master Data bootRun`을 선택합니다.
-3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8 (target=8), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
+3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8 (target=8)와 H2 전용 실패 상태 migration, JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
 4. 로그에서 `Started MasterDataApplication`을 확인합니다.
 5. 테스트가 끝나면 IntelliJ의 Stop 버튼으로 프로세스를 종료합니다.
 
@@ -126,10 +126,11 @@ UPDATE/DEACTIVATE, 롤백과 재시도, 다른 키의 독립 진행, 실제 DB �
 검증합니다. PostgreSQL 테스트는 실제 서비스·JPA·Flyway·JDBC를 사용하며 HTTP 응답은
 MockMvc로 검증합니다. 배포나 실제 사용자 데이터 보정은 수행하지 않습니다.
 
-H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8`입니다. V9는
-PostgreSQL 전용 SQL이며 release migration-runner의 기존 SQL 복사 경로에 포함됩니다.
-새 H2 구성도 target8을 명시해야 합니다. PostgreSQL 검증/배포에는 이 target을 적용하지
-마세요. 이후 공통 migration을 추가할 때는 이 H2 경계를 함께 검토해야 합니다.
+H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8`과
+`classpath:db/migration,classpath:db/local-migration`을 함께 사용합니다. 두 번째 경로는
+예약 반영 실패 상태의 H2 전용 스키마만 적용합니다. V9–V11은 PostgreSQL 배포 migration-runner의
+공통 SQL 경로에 포함됩니다. 새 H2 구성도 target8과 두 위치를 명시해야 합니다.
+PostgreSQL 검증/배포에는 H2 target과 local-migration 위치를 적용하지 마세요.
 
 ### PostgreSQL 상품 가격 회귀 검증
 
@@ -195,4 +196,4 @@ PostgreSQL과 `initialize-schema=never`를 사용하므로 Batch metadata도 rel
 - 일일 유효성 집계는 전체 행을 Java 메모리에 올리지 않고 JPA `COUNT` 쿼리 네 번으로 처리합니다.
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD` 변경 요청은 typed applier와 버전 조회 어댑터가 함께 추가되기 전까지 접수 단계에서 fail-closed 됩니다.
 - 직접 CRUD 쓰기 엔드포인트는 유효한 Bearer JWT가 필요하며 `MasterDataDirectWritePolicy`에 의해 관리자 보정 권한(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN` 등)으로 제한됩니다. 자격증명이 없거나 무효이거나 전달된 `X-Auth-Roles`가 JWT claim과 다르면 HTTP 401, 검증된 JWT에 관리자 역할이 없으면 HTTP 403입니다.
-- `apply-due`는 현재 최대 500건을 한 트랜잭션으로 처리합니다. 운영 대량 실행 전 요청별 재시작 경계와 `SKIP LOCKED` 파티셔닝이 필요합니다.
+- `apply-due`는 최대 500건을 선택해 요청별 트랜잭션으로 처리합니다. 응답 배열에는 성공 `APPLIED`와 확정적 실패 `FAILED_CONFLICT`/`FAILED_INVALID`가 선택 순서로 나타나며, 실패 건에는 안전한 `failureReason`과 `failedAt`이 있습니다. 같은 호출을 다시 실행하면 처리 완료 건은 제외됩니다. SQL 연결·잠금 등 인프라 오류는 호출을 실패시키고 해당 건을 `APPROVED`로 남겨 재시도할 수 있게 합니다. 로컬 H2와 합성 PostgreSQL 두 작업자 테스트가 있으며 운영 규모의 잠금 대기·처리량은 검증하지 않았습니다. `SKIP LOCKED` 파티셔닝은 아직 없습니다.

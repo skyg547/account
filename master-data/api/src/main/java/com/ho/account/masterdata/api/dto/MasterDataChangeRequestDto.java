@@ -30,11 +30,14 @@ public class MasterDataChangeRequestDto {
     private final String payloadJson;
     private final String sourceReference;
     private final LocalDateTime appliedAt;
+    private final String failureReason;
+    private final LocalDateTime failedAt;
 
     public MasterDataChangeRequestDto(Long id, MasterDataType targetType, String targetKey, ChangeType changeType,
             ChangeStatus status, LocalDate effectiveDate, Integer requestedVersion, String requestedBy,
             String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt, String reason,
-            String payloadJson, String sourceReference, LocalDateTime appliedAt) {
+            String payloadJson, String sourceReference, LocalDateTime appliedAt,
+            String failureReason, LocalDateTime failedAt) {
         this.id = id;
         this.targetType = targetType;
         this.targetKey = targetKey;
@@ -50,13 +53,16 @@ public class MasterDataChangeRequestDto {
         this.payloadJson = payloadJson;
         this.sourceReference = sourceReference;
         this.appliedAt = appliedAt;
+        this.failureReason = failureReason;
+        this.failedAt = failedAt;
     }
 
     public static MasterDataChangeRequestDto fromEntity(MasterDataChangeRequest entity) {
         return new MasterDataChangeRequestDto(entity.getId(), entity.getTargetType(), entity.getTargetKey(),
                 entity.getChangeType(), entity.getStatus(), entity.getEffectiveDate(), entity.getRequestedVersion(),
                 entity.getRequestedBy(), entity.getApprovedBy(), entity.getRequestedAt(), entity.getApprovedAt(),
-                entity.getReason(), entity.getPayloadJson(), entity.getSourceReference(), entity.getAppliedAt());
+                entity.getReason(), entity.getPayloadJson(), entity.getSourceReference(), entity.getAppliedAt(),
+                entity.getFailureReason(), entity.getFailedAt());
     }
 
     public Long getId() { return id; }
@@ -74,4 +80,6 @@ public class MasterDataChangeRequestDto {
     public String getPayloadJson() { return payloadJson; }
     public String getSourceReference() { return sourceReference; }
     public LocalDateTime getAppliedAt() { return appliedAt; }
+    public String getFailureReason() { return failureReason; }
+    public LocalDateTime getFailedAt() { return failedAt; }
 }

@@ -10,7 +10,8 @@ import java.util.Objects;
  * 통제된 기준정보 변경 요청 도메인 모델 (Controlled master-data change request).
  *
  * <p>승인 워크플로우와 민감 기준정보 변경 이력을 관리하는 애그리게이트 루트입니다.
- * REQUESTED -> APPROVED/REJECTED -> APPLIED 라이프사이클과 요청자/승인자 분리 규칙을 강제합니다.</p>
+ * REQUESTED -> APPROVED/REJECTED -> APPLIED 또는 FAILED_* 라이프사이클과
+ * 요청자/승인자 분리 규칙을 강제합니다.</p>
  * 
  * 🐣 [DDD & Pure POJO 원칙 교육적 주석]
  * 1. Pure POJO 원칙:
@@ -47,6 +48,8 @@ public class MasterDataChangeRequest {
     private String sourceReference;
 
     private LocalDateTime appliedAt;
+    private String failureReason;
+    private LocalDateTime failedAt;
 
     public MasterDataChangeRequest() {
     }
@@ -79,6 +82,17 @@ public class MasterDataChangeRequest {
             ChangeStatus status, long lockVersion, LocalDate effectiveDate, Integer requestedVersion,
             String requestedBy, String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt,
             String reason, String payloadJson, String sourceReference, LocalDateTime appliedAt) {
+        return reconstitute(id, targetType, targetKey, changeType, status, lockVersion, effectiveDate,
+                requestedVersion, requestedBy, approvedBy, requestedAt, approvedAt, reason,
+                payloadJson, sourceReference, appliedAt, null, null);
+    }
+
+    public static MasterDataChangeRequest reconstitute(
+            Long id, MasterDataType targetType, String targetKey, ChangeType changeType,
+            ChangeStatus status, long lockVersion, LocalDate effectiveDate, Integer requestedVersion,
+            String requestedBy, String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt,
+            String reason, String payloadJson, String sourceReference, LocalDateTime appliedAt,
+            String failureReason, LocalDateTime failedAt) {
         MasterDataChangeRequest req = new MasterDataChangeRequest();
         req.id = id;
         req.targetType = targetType;
@@ -96,6 +110,8 @@ public class MasterDataChangeRequest {
         req.payloadJson = payloadJson;
         req.sourceReference = sourceReference;
         req.appliedAt = appliedAt;
+        req.failureReason = failureReason;
+        req.failedAt = failedAt;
         return req;
     }
 
@@ -128,6 +144,20 @@ public class MasterDataChangeRequest {
         }
         this.status = ChangeStatus.APPLIED;
         this.appliedAt = LocalDateTime.now();
+    }
+
+    /** Quarantine a failed due request without overwriting the request's reason or audit lineage. */
+    public void markFailed(ChangeStatus failureStatus, String safeReason) {
+        if (status != ChangeStatus.APPROVED) {
+            throw new IllegalStateException("Only APPROVED changes can fail during due application.");
+        }
+        if (failureStatus != ChangeStatus.FAILED_CONFLICT
+                && failureStatus != ChangeStatus.FAILED_INVALID) {
+            throw new IllegalArgumentException("A failed change status is required.");
+        }
+        this.failureReason = requireText(safeReason, 500, "Failure reason is required.");
+        this.failedAt = LocalDateTime.now();
+        this.status = failureStatus;
     }
 
     /**
@@ -228,6 +258,8 @@ public class MasterDataChangeRequest {
     public String getPayloadJson() { return payloadJson; }
     public String getSourceReference() { return sourceReference; }
     public LocalDateTime getAppliedAt() { return appliedAt; }
+    public String getFailureReason() { return failureReason; }
+    public LocalDateTime getFailedAt() { return failedAt; }
 
     public enum MasterDataType {
         ACCOUNT_SUBJECT, BUSINESS_PARTNER, DEPARTMENT, PRODUCT, CURRENCY, EXCHANGE_RATE, FISCAL_PERIOD
@@ -238,6 +270,6 @@ public class MasterDataChangeRequest {
     }
 
     public enum ChangeStatus {
-        REQUESTED, APPROVED, REJECTED, APPLIED
+        REQUESTED, APPROVED, REJECTED, APPLIED, FAILED_CONFLICT, FAILED_INVALID
     }
 }

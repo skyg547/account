@@ -34,7 +34,7 @@ class MasterDataBatchApplicationTests {
                 .isEqualTo("master-data-batch");
         assertThat(environment.getDefaultProfiles()).contains("local");
         assertThat(environment.getProperty("spring.flyway.locations"))
-                .isEqualTo("classpath:db/migration");
+                .isEqualTo("classpath:db/migration,classpath:db/local-migration");
         assertThat(environment.getProperty("spring.batch.job.enabled", Boolean.class)).isFalse();
         assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class)).isFalse();
     }
