@@ -109,6 +109,13 @@ H2는 V8까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 �
 PostgreSQL 환경변수가 없으면 PostgreSQL 전용 테스트는 skip되며 동시성 검증 통과로
 판단할 수 없습니다. 최신 실행 수와 결과는 모듈 [worklog](ai-harness/worklog.md)에 기록합니다.
 
+현재 V2 SQL은 `payload_json TEXT`로 테이블을 만들고 V4는 과거 `CLOB` 컬럼을 `TEXT`로
+전환하는 이행 파일입니다. H2의 Flyway/JPA 검증과 아래 합성 PostgreSQL SCD2 명령은 모두
+예전 `CLOB` V2의 체크섬·V4 이행을 검증하지 않습니다. 기존 환경은 적용된 Flyway 이력과
+실제 컬럼 타입을 확인해야 하며, 이 이행의 완료 판정에는 해당 이력을 재현한 별도 합성
+PostgreSQL fixture에서 migration/validate를 실행하는 게이트가 필요합니다. 현재 문서에는
+그 fixture를 실행하는 검증 명령이 없습니다.
+
 ### PostgreSQL SCD2 회귀 검증
 
 전제: JDK17, 캐시된 Gradle 의존성, **합성 테스트 전용** PostgreSQL16 데이터베이스.
