@@ -69,7 +69,13 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
         }
         return businessPartnerPersistencePort.findAllByBusinessPartnerCodeIn(businessPartnerCodes).stream()
                 .map(this::toBusinessPartnerRef)
-                .collect(Collectors.toMap(BusinessPartnerRef::code, Function.identity(), (a, b) -> a));
+                // 중복 활성 버전을 선택하면 손상된 기준정보가 정상 검증 결과로 전파됩니다.
+                .collect(Collectors.toMap(
+                        BusinessPartnerRef::code,
+                        Function.identity(),
+                        (first, duplicate) -> {
+                            throw new DuplicateBusinessPartnerReferenceException(first.code());
+                        }));
     }
 
     @Override
@@ -121,4 +127,3 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
                 department.getType() != null ? department.getType().name() : null);
     }
 }
-
