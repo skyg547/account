@@ -504,32 +504,49 @@ GET /api/fx/dashboard
 sequenceDiagram
     participant Scheduler as 운영자/스케줄러
     participant Batch as dailyBalanceReaggregationJob
-    participant Tasklet as Start / Cleanup / Chunk / Finalize
-    participant Control as BalanceReaggregationService
+    participant Tasklet as BalanceCleanUpTasklet / Chunk
     participant Service as LedgerService
     participant Port as LedgerBalancePersistencePort
     participant DB as GL/SL Balance
 
     Scheduler->>Batch: startDate/endDate 또는 baseDate 전달
     Batch->>Tasklet: start Step: 기간 고정 / owner barrier 획득
-    Tasklet->>Control: owner cleanup Step 실행
-    Control->>Port: 전체 잠금 + owner 검증 → 기간 잔액 삭제
+    Tasklet->>Service: owner cleanup Step 실행
+    Service->>Port: 전체 잠금 + owner 검증 → 기간 잔액 삭제
     Note over Batch, DB: cleanup 트랜잭션 커밋
     Batch->>Tasklet: POSTED 상세를 날짜순 100건 chunk로 조회
     Tasklet->>Service: updateLedgerBalancesBulkForReaggregation(owner, range, details)
     Service->>Port: chunk 계정 잠금 + owner 검증 → 최신 GL/SL 조회
     Service->>Port: 금액 집계 → bulk 저장
     Port->>DB: 각 chunk와 checkpoint 트랜잭션 커밋
-    Batch->>Control: 전체 stripe 잠금 → POSTED/GL/SL exact reconciliation
-    Control->>DB: 일치할 때만 OPEN / epoch 증가
+    Batch->>Service: 전체 stripe 잠금 → POSTED/GL/SL exact reconciliation
+    Service->>DB: 일치할 때만 OPEN / epoch 증가
 ```
 
-초보자 관점에서는 "과거 날짜의 전표가 바뀌면 그 기간 장부를 다시 더한다"고 이해하면 됩니다. 이 그림은 현재 연결된 Batch Job의 흐름입니다. Batch는 날짜 파라미터와 Step·chunk를 관리하고, core의 `BalanceReaggregationService`는 owner 시작·삭제·최종 대사를, `LedgerService`는 날짜별 잔액 계산을 맡습니다. core 계산은 chunk 안의 상세 순서에 의존하지 않고 날짜 오름차순으로 저장합니다.
+초보자 관점에서는 "과거 날짜의 전표가 바뀌면 그 기간 장부를 다시 더한다"고 이해하면 됩니다. Batch는 날짜 파라미터를 해석하고 core 서비스를 호출할 뿐이며, 실제 잔액 계산과 저장 순서는 `LedgerService`와 출력 포트가 담당합니다.
 V15 barrier가 전체 Job 수명 동안 입력과 공개를 통제합니다. 실패하면 부분 잔액은 DB에 남을 수
 있지만 조회·전기에는 수락되지 않습니다. 같은 JobInstance 재시작은 성공한 cleanup/chunk를
 건너뛰고 checkpoint에서 계속하며, 다른 인스턴스는 owner 충돌로 실패합니다.
 
-별도의 `LedgerService.reaggregateLedgerBalancesForPeriod(startDate, endDate)`는 전체 상세를 한 번에 읽어 단일 트랜잭션에서 삭제·재생성합니다. 유효한 범위와 `OPEN` 상태가 필요하고, 요청 종료일은 기존 잔액 또는 최신 `POSTED` 일자까지 확장됩니다. 이 직접 경로에는 위 Job의 owner barrier·checkpoint·최종 대사가 없으며 현재 모듈에서 확인되는 호출은 테스트뿐입니다. 운영의 대량·재시작 가능 재집계는 위 Batch Job 경로를 사용합니다.
+### GL/SL 잔액 차원 키
+
+전기 시 일별 잔액을 묶는 키와 기간 조회 결과를 묶는 키는 같은 차원 값을 그대로 비교합니다.
+GL은 계정 코드와 통화, SL은 계정 코드·거래처 코드·부서 코드·통화의 순서쌍입니다.
+각 구성요소는 정확한 문자열 값과 `null` 여부로 비교합니다. 따라서 거래처가 없는
+`null`, 빈 문자열 `""`, 실제 코드 `"NULL"`, 구분자 `|`가 든 코드는 서로 다른 값이며,
+다른 차원에 `|`가 들어 있어도 합쳐지지 않습니다. 키를 표시용 문자열로 이어 붙이거나
+`null`을 특정 문자열로 바꾸지 않습니다.
+
+예를 들어 같은 날짜·계정의 거래처 `null` 차변 10과 거래처 `"NULL"` 차변 20은
+SL에 별도 잔액 두 행으로 저장되고, 각 차원의 기간 조회에도 별도로 나타납니다.
+해당 GL 차변은 30이며 두 SL 차변의 합도 30입니다. 기간 조회는 차원별로 가장 이른
+일별 기초를 한 번만 취하고 기간 중 차변·대변을 더해 기말을 계산합니다. 기존에 이미
+잘못 합쳐 저장된 행을 자동 분리하지는 않으므로 과거 데이터는 원본 `POSTED` 전표와
+GL/SL 대사를 거친 재집계 계획이 필요합니다.
+
+저장소 루트에서 `./gradlew :journal-ledger:test`를 실행하면 이 경계의 서비스·영속성
+회귀를 확인할 수 있습니다. 기대 결과는 서로 다른 SL 행과 GL/SL 총액 일치, 테스트
+실패 0입니다. H2 기반 검증은 운영 PostgreSQL 데이터의 과거 오귀속 여부를 증명하지 않습니다.
 
 ## 재시도와 정합성 주의사항
 
