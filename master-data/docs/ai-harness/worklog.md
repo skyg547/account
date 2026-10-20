@@ -1,5 +1,22 @@
 # Master Data AI Worklog
 
+## 2026-10-20 — GH-919 concurrent submission and apply idempotency
+
+- Contract: `sourceReference` submissions atomically create or load one change request, compare the immutable command, and reject mismatched reuse with a typed conflict (HTTP 409 mapping). An `APPLIED` request returns its original result on retry without another SCD2 version or `appliedAt` update. Original command reason is retained separately from rejection reason; legacy rejected rows with unknowable original reason fail closed.
+- Isolation and ownership: `agent/919-master-change-idempotency`, `/tmp/account-919-master-change-idempotency`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; functional commit `ef93e53d`. Service, persistence, and test writers held disjoint `master-data/**` allowlists; a separate reviewer was read-only. Parent Integrator owns Git, PR, and these module-local records. The dirty root checkout and shared harness/history documents were untouched.
+- Scope: change-request service, port, domain, JPA/JDBC adapter, entity/mapper, account-subject apply conflict classification, nullable rejection-reason repeatable migration, core test dependencies and regressions, an API PostgreSQL retry regression, and module README/process-flow/schema/local-run documentation. No other module or production data was changed.
+- Verification: synthetic PostgreSQL 16 exercised a blocked concurrent insert with uncommitted winner, identical and mismatched commands, apply retry, rejection replay, and raw unique SQLSTATE `23505` followed by rollback-only `25P02`; H2 concurrency regression also passed. `MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:17519/master_data_919 ./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2` returned BUILD SUCCESSFUL: core 620 + API 181 + Batch 5 = 806 tests, failures/errors/skips 0. Diff whitespace and scoped conflict-marker checks passed. Independent read-only review found no remaining in-scope defect.
+
+| Item | Result | File and test evidence | N/A reason | Risk and next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 readable code and responsibility | PASS | `MasterDataChangeRequestService.java:76`, `JpaMasterDataChangeRequestPersistenceAdapter.java:150`; PostgreSQL and H2 concurrency tests | Not applicable: assessed | Current-head CI and human review | PASS, separate read-only reviewer |
+| Q2 input, flow, output, exception | PASS | `docs/process-flow.md:114`; PostgreSQL create/apply/rollback-only and H2 tests | Not applicable: assessed | HTTP source-reference input needs separate API contract work | PASS, separate read-only reviewer |
+| Q3 feature document and beginner guide | PASS | `README.md:137`, `docs/local-run.md:129`, `docs/schema.md`; full 806-test run | Not applicable: assessed | Human documentation review | PASS, separate read-only reviewer |
+| Q4 nearby intent comments | PASS | `MasterDataChangeRequest.java:151`, `JpaMasterDataChangeRequestPersistenceAdapter.java:150`, account-subject applier comment | Not applicable: assessed | No further comment gate | PASS, separate read-only reviewer |
+
+- Limits: the existing API create DTO does not accept `sourceReference`, so HTTP clients cannot use this particular submission key until a separately scoped API contract change. Legacy rejected rows fail closed because the earlier schema overwrote the original reason. PostgreSQL create-or-load relies on the application's `READ COMMITTED` isolation; production-scale throughput was not measured.
+- Publication: Draft PR https://github.com/skyg547/account/pull/933 uses `Refs #919`. Rollback is a reviewed issue-scoped revert; preserve existing request, SCD2, and audit rows and correct the nullable schema forward if necessary. Human review controls Ready/merge/Issue close and branch/worktree deletion.
+
 ## 2026-10-20 — GH-911 duplicate business-partner bulk references
 
 - Contract: a requested code with two current active SCD2 versions is a data integrity error, regardless of equal or unequal start dates. The Monolith bulk adapter throws a typed `DuplicateBusinessPartnerReferenceException` and cannot return a success Map containing other valid keys. Repeating an input code with one stored version remains valid; distinct keys and null/empty input retain normal behavior.

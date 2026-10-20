@@ -1,5 +1,15 @@
 # Master Data AI Handoff
 
+## Issue #919 / Draft PR #933 — 2026-10-20
+
+- Branch/worktree/base: `agent/919-master-change-idempotency`; `/tmp/account-919-master-change-idempotency`; `origin/main@b29125549504d245aa10b3d275923e407bff8d56`. Functional commit `ef93e53d`.
+- PR: https://github.com/skyg547/account/pull/933, Draft, `Refs #919`; Issue remains open. The PR body records the command, quality review, limitations, and human merge authority.
+- Changed scope: 17 implementation/test/module documentation files under `master-data/**` plus these three module-local records. No other module, shared harness/history document, or production data was changed. A separate reviewer was read-only.
+- Acceptance: identical concurrent `sourceReference` commands share one persisted request/result; mismatched reuse yields typed conflict/409; repeated apply keeps the original `appliedAt` and SCD2 count. PostgreSQL regression covers blocked contenders and rollback-only unique violations without continuing a failed transaction.
+- Verification: synthetic PostgreSQL 16 and H2; requested offline core/API/Batch command BUILD SUCCESSFUL with 620 + 181 + 5 = 806 tests, failures/errors/skips 0. Scoped whitespace and conflict-marker checks passed. Independent Q1–Q4 PASS evidence is in `worklog.md` and the PR.
+- Limits and next gate: HTTP create DTO does not accept `sourceReference`; a future API contract change requires separate scope. Legacy `REJECTED` rows with lost original reason fail closed. PostgreSQL create-or-load assumes `READ COMMITTED`; production throughput was not measured. Current-head CI and human review precede Ready/merge.
+- Rollback: reviewed issue-scoped revert; preserve request, master-history, and audit rows, and apply forward schema correction if needed. Parent Integrator owns publication and module records. Human review controls Ready, merge, Issue close, and branch/worktree deletion.
+
 ## Issue #911 / Draft PR #927 — 2026-10-20
 
 - Branch/worktree/base: `agent/911-bp-bulk-fail-closed`; `/tmp/account-911-bp-bulk-fail-closed`; `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.
