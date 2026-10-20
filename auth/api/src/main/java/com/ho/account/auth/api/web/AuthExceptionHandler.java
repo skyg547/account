@@ -5,9 +5,11 @@ import com.ho.account.auth.core.application.exception.DepartmentValidationUnavai
 import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -53,8 +55,16 @@ public class AuthExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRequest(IllegalArgumentException ex) {
+        // Domain and service messages may contain rejected input; keep the public 400 text fixed.
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("INVALID_REQUEST", ex.getMessage(), LocalDateTime.now()));
+                .body(new ErrorResponse("INVALID_REQUEST", "Invalid request", LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleMalformedRequest(HttpMessageNotReadableException ex) {
+        // Parser exceptions can contain submitted JSON, so never reflect their details.
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("INVALID_REQUEST", "Malformed request body", LocalDateTime.now()));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
@@ -66,8 +76,12 @@ public class AuthExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
-        log.error("Unexpected error occurred during authentication request processing", ex);
+        String referenceId = UUID.randomUUID().toString();
+        // Correlate diagnostics without logging exception messages or credential-bearing payloads.
+        log.error("Unexpected authentication error referenceId={} exceptionType={}",
+                referenceId, ex.getClass().getName());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("INTERNAL_SERVER_ERROR", "Unexpected server error: " + ex.getMessage(), LocalDateTime.now()));
+                .body(new ErrorResponse("INTERNAL_SERVER_ERROR",
+                        "Unexpected server error. Reference ID: " + referenceId, LocalDateTime.now()));
     }
 }

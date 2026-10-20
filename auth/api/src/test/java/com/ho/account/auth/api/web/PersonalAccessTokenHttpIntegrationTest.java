@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -238,6 +239,125 @@ class PersonalAccessTokenHttpIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "select username from auth_personal_access_tokens where id = ?", String.class,
                 created.get("id").asText())).isEqualTo(LONG_USER);
+    }
+
+    @Test
+    void tokenNameMatchesOneHundredCharacterDatabaseColumn() throws Exception {
+        String maximum = "n".repeat(100);
+        JsonNode created = create(bearer(ALICE, "ROLE_USER"),
+                "{\"tokenName\":\"" + maximum + "\"}");
+        assertThat(jdbc.queryForObject("select token_name from auth_personal_access_tokens where id = ?",
+                String.class, created.get("id").asText())).isEqualTo(maximum);
+
+        mockMvc.perform(post("/api/auth/pat")
+                        .header("Authorization", bearer(ALICE, "ROLE_USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tokenName\":\"" + maximum + "n\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void legacyUsernameFieldUsesEightyCharacterIdentityLimit() throws Exception {
+        String maximum = "u".repeat(80);
+        JsonNode created = create(bearer(ALICE, "ROLE_USER"),
+                "{\"username\":\"" + maximum + "\",\"tokenName\":\"valid\"}");
+        assertThat(created.get("username").asText()).isEqualTo(ALICE);
+
+        mockMvc.perform(post("/api/auth/pat")
+                        .header("Authorization", bearer(ALICE, "ROLE_USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + maximum + "u\",\"tokenName\":\"valid\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void malformedPatBodiesReturnSafeClientErrorsBeforePersistence() throws Exception {
+        String secret = "synthetic-pat-credential-sentinel";
+        String bearer = bearer(ALICE, "ROLE_USER");
+        for (String body : List.of(
+                "{\"tokenName\":\"" + secret + "\",",
+                "{\"tokenName\":[\"" + secret + "\"]}")) {
+            mockMvc.perform(post("/api/auth/pat")
+                            .header("Authorization", bearer)
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                    .andExpect(jsonPath("$.message").value("Malformed request body"))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain(secret));
+        }
+        assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void scalarCoercionsAreRejectedAsMalformedRequests() throws Exception {
+        String sentinel = "synthetic-json-credential-sentinel";
+        String bearer = bearer(ALICE, "ROLE_USER");
+        for (String body : List.of(
+                "{\"username\":123,\"password\":\"" + sentinel + "\",\"loginType\":\"NORMAL\"}",
+                "{\"username\":\"" + ALICE + "\",\"password\":123,\"loginType\":\"NORMAL\"}")) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                    .andExpect(jsonPath("$.message").value("Malformed request body"))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain(sentinel));
+        }
+        for (String body : List.of(
+                "{\"tokenName\":123,\"username\":\"" + sentinel + "\"}",
+                "{\"tokenName\":\"valid\",\"expireDays\":1.5,\"username\":\"" + sentinel + "\"}",
+                "{\"tokenName\":\"valid\",\"expireDays\":\"30\",\"username\":\"" + sentinel + "\"}")) {
+            mockMvc.perform(post("/api/auth/pat")
+                            .header("Authorization", bearer)
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                    .andExpect(jsonPath("$.message").value("Malformed request body"))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain(sentinel));
+        }
+        assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void unicodeUsernameExpansionIsRejectedAsClientErrorBeforeAttemptPersistence() throws Exception {
+        String expandingUsername = "İ".repeat(80);
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + expandingUsername
+                                + "\",\"password\":\"wrong\",\"loginType\":\"NORMAL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Invalid request"));
+    }
+
+    @Test
+    void patExpirationDaysAcceptRangeEndpointsAndRejectOutsideRange() throws Exception {
+        String authorization = bearer(ALICE, "ROLE_USER");
+        create(authorization, "{\"tokenName\":\"one day\",\"expireDays\":1}");
+        create(authorization, "{\"tokenName\":\"maximum days\",\"expireDays\":3650}");
+        assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
+                .isEqualTo(2);
+
+        for (int invalidDays : List.of(0, 3651)) {
+            mockMvc.perform(post("/api/auth/pat")
+                            .header("Authorization", authorization)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"tokenName\":\"invalid days\",\"expireDays\":" + invalidDays + "}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        }
+        assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
+                .isEqualTo(2);
     }
 
     @Test

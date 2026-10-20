@@ -5,6 +5,13 @@
 - Verification: requested offline core/API/gateway command PASS, 195/67/74 = 336 tests with zero failures/errors/skips; focused startup tests 2/2 PASS after initial memory missing-port RED; actual local JPA and memory `bootRun` startup PASS with generated unprinted credentials and ephemeral ports. Diff/marker and harness quality 32/32 checks PASS. Independent read-only reviewer found no defects and Q1–Q4 PASS.
 - Residual/next owner: H2/MockMvc and local bootRun are not PostgreSQL evidence; no production data or deployment touched. Remote harness validation and merge-guard candidate passed. Implementer PR discipline fails only for Draft status and repository trust policy not configured; it is a merge gate, not a test failure. Human reviewer owns Draft review and current-head CI. Ready, merge, Issue close, and branch/worktree cleanup remain separate gates.
 
+## 2026-10-20 — GH-916 auth error/input safety / Draft PR #925
+
+- State: Issue #916 `status:needs-review`; branch `agent/916-auth-error-input-safety`, worktree `/tmp/account-916-auth-error-input-safety`, base `origin/main@a24ceb02`, implementation `32387e3a`; [Draft PR #925](https://github.com/skyg547/account/pull/925), `Refs #916`.
+- Scope: 15 `auth/**` source/test/module-doc files plus four Issue-requested harness/history records. Malformed/scalar-mismatched requests use safe 400; unexpected 500 uses opaque reference ID and safe diagnostics; login/PAT schema bounds and Unicode normalization are enforced before persistence. No cross-module change.
+- Verification: core 197/API 76/Gateway 74 = 347 tests PASS, failures/errors/skips 0; auth API bootJar PASS; H2 HTTP/JPA, diff, and scoped marker checks PASS. Separate read-only reviewer found no acceptance blocker and Q1–Q4 PASS. Earlier focused stale-build failure was superseded by the current-source full run.
+- Residual/next owner: H2 is not PostgreSQL evidence; broad existing IAE→400 mapping can still classify an internal IAE as client error, with fixed safe public text. Human reviewer/authorized Integrator owns current-head CI, PostgreSQL gate, Ready, merge, Issue close, and cleanup. Preserve branch/worktree; Draft is not merge approval.
+
 ## 2026-10-09 — GH-892 ECL lineage / Draft PR #907
 
 - State: Issue `status:needs-review`; branch `agent/892-ecl-snapshot-lineage` in `/tmp/account-892-ecl-snapshot-lineage`; base `origin/main@9348966a`; [Draft PR #907](https://github.com/skyg547/account/pull/907), `Refs #892`.

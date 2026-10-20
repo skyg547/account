@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -49,6 +50,9 @@ class AuthJpaLoginAttemptIntegrationTest {
     @Autowired
     private LoginAttemptPort loginAttemptPort;
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
     @DynamicPropertySource
     static void ephemeralAuthInputs(DynamicPropertyRegistry registry) {
         registry.add("auth.jwt.secret", () -> TEST_JWT_SECRET);
@@ -66,6 +70,43 @@ class AuthJpaLoginAttemptIntegrationTest {
                 .isInstanceOf(InvalidCredentialsException.class);
 
         assertThat(loginAttemptPort.isLocked("admin")).isTrue();
+    }
+
+    @Test
+    void failedLoginAtSchemaUsernameLimitPersistsButLongerInputNeverWrites() {
+        String maximum = "u".repeat(80);
+        String tooLong = maximum + "u";
+        jdbc.update("delete from auth_login_attempts where username = ?", maximum);
+
+        assertThatThrownBy(() -> authUseCase.login(new AuthUseCase.LoginCommand(
+                maximum, "wrong-password", "NORMAL", null)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(jdbc.queryForObject(
+                "select failure_count from auth_login_attempts where username = ?", Integer.class, maximum))
+                .isEqualTo(1);
+
+        assertThatThrownBy(() -> authUseCase.login(new AuthUseCase.LoginCommand(
+                tooLong, "wrong-password", "NORMAL", null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("username is too long");
+        assertThat(jdbc.queryForObject("select count(*) from auth_login_attempts where username = ?",
+                Integer.class, tooLong)).isZero();
+        assertThat(jdbc.queryForObject(
+                "select failure_count from auth_login_attempts where username = ?", Integer.class, maximum))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void unicodeUsernameThatExpandsDuringAttemptKeyNormalizationIsRejectedBeforeWrite() {
+        String expandingUsername = "İ".repeat(80);
+        int rowsBefore = jdbc.queryForObject("select count(*) from auth_login_attempts", Integer.class);
+
+        assertThatThrownBy(() -> authUseCase.login(new AuthUseCase.LoginCommand(
+                expandingUsername, "wrong-password", "NORMAL", null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("username is too long");
+        assertThat(jdbc.queryForObject("select count(*) from auth_login_attempts", Integer.class))
+                .isEqualTo(rowsBefore);
     }
 
     private static String ephemeralValue() {
