@@ -116,6 +116,30 @@ Governance 승인 ID를 `sourceReference`로 전달하면 같은 승인 재시�
 `appliedAt`에 기록합니다. 이는 외부 승인 성공 응답이 유실되어도 요청을 새로 만들지 않기 위한 계보입니다.
 `requestedVersion`은 임의 숫자가 아니라 업무 키별 SCD2 목표 순번입니다.
 
+### 변경 요청 HTTP 응답과 원문 접근
+
+`POST /api/master-data/change-requests`, `GET /pending`, 승인·반려·단건 반영 및
+`POST /apply-due`는 동일한 요약 DTO를 반환합니다. 응답에는 `id`, `targetType`,
+`changeType`, `status`, `effectiveDate`, `requestedVersion`, `requestedAt`, `approvedAt`,
+`appliedAt`만 포함합니다. `payloadJson`과 자유 입력 문자열(`targetKey`, 요청자·승인자,
+사유, `sourceReference`)은 응답에 넣지 않습니다. 예를 들어 거래처 등록번호가
+`payloadJson` 안에 있거나 사유에 복사되어도 JSON 문자열 안으로 다시 나오지 않습니다.
+클라이언트는 응답 `id`와 상태로 결과를 확인하고, 승인할 때 요청 ID를 사용합니다.
+
+원문 조회를 시도하는 `GET /api/master-data/change-requests/{requestId}/raw-detail`은
+현재 모든 사용자 역할에 HTTP 403으로 명시적으로 거부됩니다. 서비스의 JWT 검증을
+통과하지 못한 요청은 Controller 전에 401입니다. 정형 상세 경로의 인증 실패는
+`actor=unverified`, 인증된 사용자의 거부는 검증된 사용자와 숫자 요청 ID만 담은
+`master_data_raw_detail_denied` 보안 감사 이벤트로 남깁니다. 원문이나 등록번호는
+기록하지 않습니다. 운영 감사 수집기의 보존·조회 정책은 별도 운영 게이트입니다.
+원문 상세가 업무상 필요해지면 단건 조회 포트, 별도 세분 권한과 지속 감사 저장을 갖춘
+계약을 별도 검토해야 합니다. 이 응답 변환은 저장된 원문, 승인·반영 명령,
+`sourceReference`의 멱등 비교를 바꾸지 않습니다.
+
+현재 프런트 거래처 승인 화면은 `payloadJson`을 필수로 파싱해 승인 버튼을 활성화하므로
+이 요약 응답만 배포하면 화면에서 대기 요청을 승인할 수 없습니다. 프런트와 별도 상세
+계약을 함께 갱신하거나, 화면 차단을 명시적으로 수용하기 전에는 호환 배포로 간주하지 않습니다.
+
 | 변경 유형 | 요청 버전 | 이유 |
 | --- | --- | --- |
 | `CREATE` | `1` | 이력이 없는 업무 키의 첫 행을 생성합니다. |

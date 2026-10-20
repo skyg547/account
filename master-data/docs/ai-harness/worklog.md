@@ -1,5 +1,21 @@
 # Master Data AI Worklog
 
+## 2026-10-20 — GH-914 sensitive change-response masking (review blocked)
+
+- Issue #914, branch `agent/914-mask-change-responses`, isolated worktree `/tmp/account-914-mask-change-responses`, base `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`. Scope is `master-data/api` DTO/controller and API tests, module functional docs, and these module-local records. The user prohibits other modules and common harness/history edits. No shared contract, core, batch, schema, operational data, or credentials changed.
+- Added regressions first. Focused RED command `./gradlew :master-data:api:test --tests '*MasterDataChangeRequestControllerTest' --tests '*MasterDataIngressHttpTest' --offline --no-daemon --console=plain --max-workers=2` compiled and produced 18 tests, 7 expected failures: six raw summary leaks and raw-detail 404 instead of explicit denial. Controller writer then changed only DTO and Controller; focused GREEN passed 18/18.
+- Current projection returns nine fixed metadata fields on create/pending/approve/reject/apply/apply-due, never the payload or free-text fields. A separate raw-detail GET returns 403 after verified JWT and emits a WARN audit event with only verified actor and numeric request ID; unauthenticated requests return 401. API output mapping does not change core's stored payload, approved command, or sourceReference comparison.
+- Requested full command `./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2` BUILD SUCCESSFUL. XML: core 547/547, API 99 pass plus 27 PostgreSQL-only skips, batch 5/5; total 651 pass, 27 skipped, zero failures/errors. Spring HTTP JWT integration is included; no live PostgreSQL or operational audit-collector delivery test. `git diff --check` and scoped conflict-marker scan passed.
+- Independent read-only reviewer found P1: `frontend/src/app/master-data/partner/page.tsx` requires pending `payloadJson` to enable the approval button. The API-only secure summary leaves that button disabled for every pending request. The frontend is explicitly outside the user allowlist. Q1 and Q3 therefore FAIL; Q2 and Q4 PASS. No commit, push, or Draft PR is claimed pending an explicit scope/compatibility decision. Rollback of this uncommitted attempt is an issue-scoped code revert, preserving all stored business/audit data.
+- Follow-up: ingress now emits the same denial event for unauthenticated requests to numeric raw-detail paths, with `actor=unverified` and no unverified claim or free-form URI; the HTTP regression covers positive and negative IDs. Focused `MasterDataIngressHttpTest` passed after this change. Operational log retention is still unverified, and the P1 frontend scope decision remains pending.
+
+| Item | Result | File and test evidence | N/A reason | Risk and next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 readable code and responsibility | FAIL | `api/dto/MasterDataChangeRequestDto.java:16`, frontend `partner/page.tsx:353-386`; focused 18/18 | Not applicable: assessed | Existing approval UI disabled; resolve scope/contract | P1 finding, read-only reviewer |
+| Q2 input, flow, output, exception | PASS | `docs/process-flow.md:119`, DTO projection and 401/403 HTTP test | Not applicable: assessed | Audit retention depends on collector | Confirmed by reviewer |
+| Q3 feature document and beginner guide | FAIL | `docs/process-flow.md:119`, `docs/beginner-guide.md:78`, frontend approval usage at `partner/page.tsx:353` | Not applicable: assessed | Frontend contract and guide need compatible design | P1 finding, read-only reviewer |
+| Q4 nearby intent comments | PASS | DTO projection, Controller audit comment, `MasterDataChangeRequestControllerTest.java:218` | Not applicable: assessed | No further comment gate | Confirmed by reviewer |
+
 ## 2026-10-20 — GH-911 duplicate business-partner bulk references
 
 - Contract: a requested code with two current active SCD2 versions is a data integrity error, regardless of equal or unequal start dates. The Monolith bulk adapter throws a typed `DuplicateBusinessPartnerReferenceException` and cannot return a success Map containing other valid keys. Repeating an input code with one stored version remains valid; distinct keys and null/empty input retain normal behavior.

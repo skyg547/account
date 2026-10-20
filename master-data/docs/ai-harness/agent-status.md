@@ -1,5 +1,13 @@
 # Master Data Agent Status
 
+## 2026-10-20 — Issue #914 review blocked
+
+- Branch `agent/914-mask-change-responses`; worktree `/tmp/account-914-mask-change-responses`; base `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`.
+- API-only security projection and audited denial are implemented in the worktree. Focused RED 7/18 expected failures, GREEN 18/18 pass. Requested core/API/batch suites passed 651 tests with 27 PostgreSQL-only skips and no failures/errors.
+- Independent read-only review found P1 frontend approval regression: the pending screen requires `payloadJson`, while the response now omits it. Q1/Q3 FAIL; Q2/Q4 PASS. Explicit user prohibition prevents editing the frontend. Scope/compatibility decision is pending; no commit, push, Draft PR, Ready, merge, or Issue closure is claimed.
+- Raw-detail denial audit is a WARN event; durable collection and live PostgreSQL were not verified. Next owner is the user for the scope decision, then the implementation owner and independent reviewer.
+- Follow-up: unauthenticated numeric raw-detail requests now emit an `actor=unverified` denial audit; focused HTTP test passed. This does not resolve the frontend P1 or verify operational audit retention.
+
 ## 2026-10-20 — Issue #911 / Draft PR #927
 
 - State: Draft handoff for human review. Branch `agent/911-bp-bulk-fail-closed`; worktree `/tmp/account-911-bp-bulk-fail-closed`; base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.

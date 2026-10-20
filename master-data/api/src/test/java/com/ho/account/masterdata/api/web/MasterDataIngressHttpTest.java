@@ -1,5 +1,6 @@
 package com.ho.account.masterdata.api.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,10 @@ import com.ho.account.masterdata.core.application.port.in.MasterDataChangeReques
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -38,6 +43,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.slf4j.LoggerFactory;
 
 /** Exercises the real servlet filter, MVC advice, controllers, and use-case boundary together. */
 @SpringBootTest(properties = {
@@ -218,6 +224,49 @@ class MasterDataIngressHttpTest {
                         .header("Authorization", "Bearer " + manager))
                 .andExpect(status().isOk());
         verify(changeRequestUseCase).approve(1L, "alice");
+    }
+
+    @Test
+    void rawDetailRequiresASeparateAuditedGrantEvenForSignedApprovers() throws Exception {
+        String path = CHANGE_PATH + "/42/raw-detail";
+        Logger controllerLogger = (Logger) LoggerFactory.getLogger(MasterDataChangeRequestController.class);
+        Logger ingressLogger = (Logger) LoggerFactory.getLogger(MasterDataIngressAuthenticationFilter.class);
+        ListAppender<ILoggingEvent> auditEvents = new ListAppender<>();
+        auditEvents.start();
+        controllerLogger.addAppender(auditEvents);
+        ingressLogger.addAppender(auditEvents);
+        try {
+            mockMvc.perform(get(path))
+                    .andExpect(status().isUnauthorized());
+            mockMvc.perform(get(CHANGE_PATH + "/-1/raw-detail"))
+                    .andExpect(status().isUnauthorized());
+            for (String role : List.of("ROLE_MASTER_MANAGER", "ROLE_SYSTEM_ADMIN")) {
+                String token = userToken(USER_SECRET, "auth-service", USER_AUDIENCE,
+                        60, "alice", role);
+                mockMvc.perform(get(path)
+                                .header("Authorization", "Bearer " + token))
+                        .andExpect(status().isForbidden());
+            }
+            verifyNoInteractions(changeRequestUseCase);
+            assertThat(auditEvents.list).hasSize(4);
+            assertThat(auditEvents.list.get(0).getFormattedMessage())
+                    .isEqualTo("master_data_raw_detail_denied actor=unverified requestId=42");
+            assertThat(auditEvents.list.get(1).getFormattedMessage())
+                    .isEqualTo("master_data_raw_detail_denied actor=unverified requestId=-1");
+            for (ILoggingEvent event : auditEvents.list.subList(2, 4)) {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getFormattedMessage())
+                        .isEqualTo("master_data_raw_detail_denied actor=alice requestId=42");
+            }
+            assertThat(auditEvents.list).allSatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getFormattedMessage()).doesNotContain("payloadJson", "registrationNumber");
+            });
+        } finally {
+            controllerLogger.detachAppender(auditEvents);
+            ingressLogger.detachAppender(auditEvents);
+            auditEvents.stop();
+        }
     }
 
     @Test

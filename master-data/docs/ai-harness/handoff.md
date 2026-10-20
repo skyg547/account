@@ -1,5 +1,15 @@
 # Master Data AI Handoff
 
+## Issue #914 — review blocked, 2026-10-20
+
+- Issue/branch/worktree/base: `#914`; `agent/914-mask-change-responses`; `/tmp/account-914-mask-change-responses`; `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`. No PR or commit yet.
+- Changed files are limited to `master-data/api` response DTO/Controller, two API tests, `master-data/docs/process-flow.md`, `local-run.md`, `beginner-guide.md`, and these three module-local records. Other modules and common harness/history are forbidden by the user and untouched.
+- Acceptance evidence: six endpoint response JSON bodies exclude synthetic registration text, including escaped strings; real JWT HTTP test shows unauthenticated 401 and authenticated 403 plus WARN audit event without payload; captured request command retains the original payload. Core persistence and idempotency implementation are unchanged.
+- Follow-up acceptance check: the ingress filter also audits unauthenticated numeric raw-detail requests as `actor=unverified`, including a negative ID route, without trusting request claims or logging free-form URI text. The focused HTTP test passed; durable audit collection remains unverified.
+- Verification: focused RED 18 tests/7 expected failures, then GREEN 18/18; requested core/API/batch suite BUILD SUCCESSFUL with core 547, API 99, batch 5 passed and 27 PostgreSQL-only skips. No live PostgreSQL, operational audit retention, or frontend runtime test. Diff whitespace and scoped marker gates passed.
+- Independent reviewer found a P1 frontend approval regression: pending `payloadJson` is required to enable approval, and the current safe summary omits it. Q1 and Q3 FAIL; Q2 and Q4 PASS. The user must decide whether to permit frontend/detail-contract scope or explicitly accept fail-closed incompatibility. Do not mark ready or publish as completed while this finding remains.
+- Rollback: reviewed revert of this issue's API/tests/module docs. No schema or production data changes; preserve existing business/audit records. Parent Integrator owns Git/GitHub and module records; read-only reviewer changed no code.
+
 ## Issue #911 / Draft PR #927 — 2026-10-20
 
 - Branch/worktree/base: `agent/911-bp-bulk-fail-closed`; `/tmp/account-911-bp-bulk-fail-closed`; `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.
