@@ -1,8 +1,9 @@
 # Master Data AI Handoff
 
-## Issue #923 / Draft PR pending — 2026-10-20
+## Issue #923 / Draft PR #939 — 2026-10-20
 
 - Branch/worktree/base: `agent/923-screening-eligibility`; `/tmp/account-923-screening-eligibility`; `origin/main@b2912554`. Only `master-data/**` was edited, including these three module-local records.
+- PR: https://github.com/skyg547/account/pull/939, Draft, `Refs #923`; implementation commit `7b7410d6`. Issue remains open for human review.
 - Delivered: separate operational-active and evidence-backed screening eligibility; dedicated reviewer role and separation from submitter; explicit as-of eligibility endpoint; append-only reviewer/evidence/time audit; V11 PostgreSQL migration and local H2 support; module documentation.
 - Local verification: required core/API/Batch suite and both bootJars BUILD SUCCESSFUL (core 641, API 136 with 29 PostgreSQL-only skips, Batch 5; zero failures/errors). Fresh synthetic PostgreSQL V11 migrations and immutable audit test passed. Packaged H2 API startup and unscreened eligibility GET passed. Separate read-only reviewer found no blocking code issue and Q1–Q4 PASS; evidence table is in `worklog.md`.
 - Incomplete acceptance: provider-side eligibility is tested, but consuming payable/receivable services and shared contracts were outside the allowlist, so agreed consumer contract tests and enforcement remain open. Business owner approval of wider jurisdiction/type and escalation policy is also pending. Keep this PR Draft and do not claim full Issue acceptance.

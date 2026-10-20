@@ -17,6 +17,7 @@
 
 - Open acceptance: `BusinessPartnerScreeningControllerTest` proves the master-data provider contract, but no payable/receivable or shared-contract consumer test or enforcement was changed. Those paths are outside the user-approved module allowlist. Human review must determine and authorize the consumer follow-up before claiming Issue #923 fully accepted. Current-head remote CI and human review control Ready/merge.
 - Rollback: reviewed, issue-scoped revert of module code/tests/docs with a forward schema correction if needed. Preserve pre-existing partner rows and append-only audit records; do not delete screening history as a rollback shortcut.
+- Publication: [Draft PR #939](https://github.com/skyg547/account/pull/939) uses `Refs #923` and includes verification, Q1–Q4 review evidence, consumer/policy gaps, and authority separation. Implementation commit `7b7410d6`. Human review controls Ready, merge, and Issue close.
 
 ## 2026-10-20 — GH-911 duplicate business-partner bulk references
 

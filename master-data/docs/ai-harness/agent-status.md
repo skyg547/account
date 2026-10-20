@@ -1,8 +1,8 @@
 # Master Data Agent Status
 
-## 2026-10-20 — Issue #923 / Draft review handoff
+## 2026-10-20 — Issue #923 / Draft PR #939
 
-- State: implementation verified locally; Draft PR and human policy/consumer review required. Branch `agent/923-screening-eligibility`; isolated worktree `/tmp/account-923-screening-eligibility`; base `origin/main@b2912554`.
+- State: [Draft PR #939](https://github.com/skyg547/account/pull/939) (`Refs #923`) published for human policy/consumer review. Branch `agent/923-screening-eligibility`; isolated worktree `/tmp/account-923-screening-eligibility`; base `origin/main@b2912554`; implementation commit `7b7410d6`.
 - Scope: `master-data/**` only, including module-local harness records. No shared contract, payable/receivable, other module, or common harness document was edited.
 - Result: evidence-backed partner screening lifecycle, separate reviewer command and append-only audit, explicit as-of eligibility API, fail-closed identifier/expiry/risk policy, and guards against generic KYC/risk edits. Legacy labels do not grant eligibility.
 - Verification: required core/API/Batch tests and API/Batch bootJar BUILD SUCCESSFUL; XML core 641, API 136 (29 environment-gated skips), Batch 5, zero failures/errors. Fresh synthetic PostgreSQL V1→V11 and V10→V11 migration plus audit immutability passed; packaged local H2 API startup and eligibility GET passed. Independent read-only review found no blocking code issue and judged Q1–Q4 PASS.
