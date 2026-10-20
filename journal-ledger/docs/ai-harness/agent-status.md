@@ -1,14 +1,18 @@
-# GH-882 agent status
+# GH-883 agent status
 
-- Issue [#882](https://github.com/skyg547/account/issues/882) is at Draft [PR #897](https://github.com/skyg547/account/pull/897) review handoff (`Refs #882`). Base `origin/main@9348966a`, branch `agent/882-typed-ledger-keys`, worktree `/tmp/account-882-typed-ledger-keys`; audited detached proof `/tmp/account-882-audited-proof@a97d10ab`.
-- Scope: only `journal-ledger/**`, including these module-local records. Read and write aggregation now use typed exact-value GL/SL keys; null, empty, literal `NULL`, and delimiter-bearing dimensions remain separate. No shared harness/history or other module edit.
-- Evidence: byte-identical audited regression RED 1/1 (one SL 30 instead of distinct 10/20); focused service 34/34 and real JPA/JDBC integration 54/54 GREEN; required module command 439/439 PASS (core328, API74, batch37), failures/errors/skips 0. Diff and changed-file marker gates pass.
-- Independent read-only review: no P0–P3 finding, Q1–Q4 PASS with evidence in [worklog.md](worklog.md). Parent Integrator owns records and Git/GitHub; implementers owned disjoint service/test files.
-- Rollback/risk: scoped code revert restores the defect; previously merged historical rows need separate `POSTED`-source reconciliation/rebuild. No live PostgreSQL, production data/load, distributed fault, or deployment verification. Human review and current-head CI own Ready/merge/Issue close; branch/worktrees remain retained.
+- Issue [#883](https://github.com/skyg547/account/issues/883) is handed off for review in [Draft PR #898](https://github.com/skyg547/account/pull/898) with `Refs #883`.
+- Base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; branch `agent/883-jpa-rebuild-cleanup`; isolated worktree `/tmp/account-883-jpa-rebuild-cleanup`; audited proof `/tmp/account-883-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope is `journal-ledger/**` only. The `gpt-6-sol` high-reasoning module writer changed tests and functional docs; the independent reviewer remained read-only. The parent Integrator owns these module-local records and Git/GitHub state. Other modules and repository-wide harness/history remain untouched.
+- Current production already has date-predicate GL/SL bulk DELETE from #766. This PR adds audited RED/current GREEN regression, inclusive date/rollback integration coverage, and PostgreSQL plan/timing guidance. No production source or migration changed.
+- Audited regression: 1/1 expected failure on entity materialization path. Current `./gradlew :journal-ledger:test`: 435/435 PASS (core 323, API 74, batch 38), failures/errors/skips 0. Disposable PostgreSQL 16.13 JPA/Flyway cleanup integration: 1/1 PASS. Synthetic 200,000 rows per ledger: narrow Bitmap Index/Heap Scan, broad Seq Scan, and both rollbacks restored 200,000 rows per table. The owned PostgreSQL container is stopped.
+- Independent read-only review: no P0–P3 findings after a test-comment correction; Q1–Q4 PASS. Whitespace and changed-file conflict marker checks passed.
+- Residual gate: synthetic SQL timing does not measure production lock waits, WAL, storage or load; PostgreSQL full Job restart was not run. Human reviewer owns current-head CI, target environment validation, Ready/merge/Issue close, deployment, and resource cleanup. Rollback is a scoped revert of tests/docs/records; the prior production bulk DELETE remains.
+
+See [worklog.md](worklog.md) for commands, evidence and Q1–Q4 review.
 
 ---
 
-The following is retained historical status and is not a current GH-882 report.
+The following is retained historical status and is not a current GH-883 report.
 
 # GH-879 agent status
 
