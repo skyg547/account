@@ -226,7 +226,8 @@ V57은 확정 ECL 원천의 run/model/기준일/법인, 합산 목표·노출·S
 | `account.closing.annual.legal-entity-code` | 사용 가능한 기본값 없음 | 이 Closing 런타임이 전담하는 단일 법인 |
 | `account.closing.annual.mappings[]` | 사용 가능한 기본값 없음 | 정확한 연도별 `account-code`, `postable`, `approved-by`, `change-reference` |
 | `account.closing.batch.fx.chunk-size` | `1000` | FX Cursor 처리와 트랜잭션 checkpoint 단위 |
-| `account.closing.batch.fx.grid-size` | `4` | FX 병렬 계정 범위와 동시 실행 상한 |
+| `account.closing.batch.fx.grid-size` | `1` | FX 병렬 계정 범위와 동시 실행 상한; Journal source pool 크기 이하만 허용 |
+| `closing.sources.journal.maximum-pool-size` | `1` | `dev` 읽기 전용 Journal 풀 상한, 1~8; FX grid 이상으로 승인·설정 필요 |
 
 ## 알려진 스키마 후속 작업
 
