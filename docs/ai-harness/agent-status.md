@@ -1,3 +1,10 @@
+## 2026-10-20 — GH-918 master-data due-change isolation / Draft PR #932
+
+- State: [Issue #918](https://github.com/skyg547/account/issues/918) `status:needs-review`; `agent/918-isolate-due-changes` in `/tmp/account-918-isolate-due-changes`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`, implementation `c7fc82d5`; [Draft PR #932](https://github.com/skyg547/account/pull/932), `Refs #918`.
+- Scope: 26 `master-data/**` code, test, migration, configuration, and module documentation files, plus only the four requested shared harness/history records. Due requests now use separate transactions; deterministic failures have durable safe status/reason/time; transient failures remain retryable.
+- Verification: requested offline core/API/Batch suite PASS (619/130/5 total; 29 API PostgreSQL-conditioned skips; 0 failures/errors), focused H2 6/6 and synthetic PostgreSQL two-worker 2/2 PASS. API/Batch bootJars and local JAR startup PASS; unauthenticated HTTP apply-due returned expected 401. Diff/marker checks PASS. Independent read-only reviewer found no remaining P0–P3 and Q1–Q4 PASS.
+- Residual/next owner: OS process crash, authenticated deployed HTTP, and operating-scale contention remain untested. A pre-existing H2 migration-runner V5→full-history path fails at PostgreSQL-only V9 SQL; scoped H2 V5→V8 and PostgreSQL V10→V11 passed. Human reviewer owns current-head CI, Draft review, and separately authorized Ready/merge/Issue close/cleanup. Preserve branch/worktree and business/audit history; schema rollback requires reviewed forward correction.
+
 ## 2026-10-20 — GH-913 master-data payload limits / Draft PR #930
 
 - State: [Issue #913](https://github.com/skyg547/account/issues/913) `status:needs-review`; `agent/913-master-payload-limits` in `/tmp/account-913-master-payload-limits`, base `origin/main@a543f412`, implementation `273af9f8`; [Draft PR #930](https://github.com/skyg547/account/pull/930), `Refs #913`.
