@@ -918,3 +918,9 @@
 - 결과: 서비스 공통 진입점에서 고객 코드를 변경 전에 검증하고, 3개 업무 파일만 변경. 교차 고객 거부 시 상태·잔액·배분·전표 포트 보존, 같은 고객 부분 매칭·GL 고객 코드 유지. 독립 읽기 전용 리뷰 지적 사항 없음; Q1–Q4 PASS.
 - 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; 공백·충돌 마커 검사 PASS. PostgreSQL/원격 GL/HTTP 종단 검증과 기존 데이터 정정은 후속 범위.
 - 다음 소유자: 사람 리뷰어. Draft 유지; 최신 CI와 head/base 검토 및 별도 승인 전 Ready·merge·Issue close·자원 삭제 없음.
+## 2026-10-09 — GH-887 closing period uniqueness / Draft PR #902
+
+- State: `status:needs-review`; branch `agent/887-closing-lock-reopen`; worktree `/tmp/account-887-closing-lock-reopen`; base `origin/main@9348966a`; [Draft PR #902](https://github.com/skyg547/account/pull/902), `Refs #887`.
+- Scope: 18 `closing/**` files plus the three requested status records. V54 limits active locks and pending reopen approvals; unlock/decision retain rows. Existing duplicates stop migration pending audited repair. Service/SQL/test ownership was disjoint; independent Reviewer was read-only; parent Integrator controls records and Git/GitHub.
+- Verification: `:closing:test` 644/644 PASS (core 377, API 165, batch 102; 0 failures/errors/skips), both bootJars PASS and package V54, diff/marker PASS. Independent Q1–Q4 PASS, no unresolved P0–P3. H2/Flyway V54 race evidence exists; actual PostgreSQL/production data/load remain unverified.
+- Next owner: human PR reviewer for latest-head checks and approved deployment/merge decision. Draft remains Draft; Ready, merge, Issue close, and resource deletion were not performed.
