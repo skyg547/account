@@ -1,5 +1,17 @@
 # Master Data Agent Status
 
+## 2026-10-20 — Issue #923 / Draft PR #939
+
+- Follow-up fix verified: an existing master-data administrator role is now required to submit evidence, so authenticated `ROLE_USER` cannot reset an approval; reviewer decisions still require `SCREENING_REVIEWER`. Normalized pending retries append no duplicate audit, including exact retries after evidence expiry, while changed expired evidence fails. Final-source core/API/Batch tests and both bootJars passed (core 643, API 108 passed/30 PostgreSQL opt-in skipped, Batch 5; failures/errors 0). Separate read-only re-review found no P0–P3 issue and Q1–Q4 PASS. Consumer enforcement and business policy approval are still open; keep PR Draft.
+- State: [Draft PR #939](https://github.com/skyg547/account/pull/939) (`Refs #923`) published for human policy/consumer review. Branch `agent/923-screening-eligibility`; isolated worktree `/tmp/account-923-screening-eligibility`; base `origin/main@b2912554`; implementation commit `7b7410d6`.
+- Scope: `master-data/**` only, including module-local harness records. No shared contract, payable/receivable, other module, or common harness document was edited.
+- Result: evidence-backed partner screening lifecycle, separate reviewer command and append-only audit, explicit as-of eligibility API, fail-closed identifier/expiry/risk policy, and guards against generic KYC/risk edits. Legacy labels do not grant eligibility.
+- Verification: required core/API/Batch tests and API/Batch bootJar BUILD SUCCESSFUL; XML core 641, API 136 (29 environment-gated skips), Batch 5, zero failures/errors. Fresh synthetic PostgreSQL V1→V13 and V12→V13 migration plus audit immutability passed; packaged local H2 API startup and eligibility GET passed. Independent read-only review found no blocking code issue and judged Q1–Q4 PASS.
+- Current-head recheck: the required core/API/Batch command with `--rerun-tasks` executed all 18 tasks successfully (core 641, API 107 passed/29 skipped, Batch 5; failures/errors 0). A new read-only review found no additional code defect and reconfirmed Q1–Q4 PASS; consumer and policy acceptance remain open.
+- PostgreSQL as-of replay follow-up: new opt-in API/JPA test passed 1/1 against fresh synthetic PostgreSQL 16 V13 schema on localhost port 46601, with zero failures/errors/skips. The full module run preceded this test-only addition; targeted PostgreSQL test compiled and passed separately. Independent read-only review found no blocking issue and judged Q1–Q4 PASS for the added test and run guide.
+- Remote checks: Harness Validation Result, Test merge guard candidate, and Validate harness contracts passed. Check implementer PR discipline failed because the workflow passes `policy: undefined` and reports `TRUST_POLICY_UNCONFIGURED` alongside required authority metadata; that trust-model configuration is outside the permitted module scope. Treat remote Ready/merge validation as open.
+- Open acceptance: actual payable/receivable consumer contract tests and an approved wider jurisdiction/partner-type policy require a separately authorized scope and human decision. This Draft must not be treated as complete consumer enforcement or approval to merge.
+
 ## 2026-10-20 — Issue #919 / Draft PR #933
 
 - State: Draft handoff for human review. Branch `agent/919-master-change-idempotency`; worktree `/tmp/account-919-master-change-idempotency`; base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; functional commit `ef93e53d`.

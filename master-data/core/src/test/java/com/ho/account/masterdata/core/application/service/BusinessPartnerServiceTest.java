@@ -15,6 +15,7 @@ import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKey
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.BusinessPartnerAccount;
+import com.ho.account.masterdata.core.domain.exception.ScreeningMutationForbiddenException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -104,6 +105,22 @@ class BusinessPartnerServiceTest {
                 .withMessage("거래처 코드는 SCD2 버전 수정 시 변경할 수 없습니다.");
 
         // 새 버전 검증이 끝나기 전에는 과거 행을 닫거나 포트에 저장하지 않습니다.
+        assertThat(current.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
+        verify(persistencePort, never()).save(any(BusinessPartner.class));
+    }
+
+    @Test
+    void genericUpdateCannotElevateScreeningMetadataOrCloseTheCurrentVersion() {
+        LocalDate today = LocalDate.now();
+        BusinessPartner current = currentPartner(today);
+        when(persistencePort.findByIdForUpdate(10L)).thenReturn(Optional.of(current));
+        BusinessPartnerCommand command = new BusinessPartnerCommand(
+                "BP-SERVICE", "Synthetic changed name", null, null, null, null,
+                null, null, BusinessPartner.KycStatus.REJECTED, BusinessPartner.RiskRating.CRITICAL,
+                today.plusDays(1), BusinessPartner.OPEN_ENDED_VALID_TO);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.updateBusinessPartner(10L, command))
+                .isInstanceOf(ScreeningMutationForbiddenException.class);
         assertThat(current.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
         verify(persistencePort, never()).save(any(BusinessPartner.class));
     }

@@ -31,7 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Synthetic PostgreSQL V1→V12 migration and committed audit evidence; never uses an external DB. */
 @DataJpaTest(properties = {
         "spring.flyway.enabled=true", "spring.flyway.locations=classpath:db/migration",
-        "spring.flyway.target=12", "spring.jpa.hibernate.ddl-auto=validate"
+        "spring.flyway.target=13", "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

@@ -17,6 +17,9 @@ import static org.hamcrest.Matchers.not;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
+import com.ho.account.masterdata.core.application.port.in.BusinessPartnerScreeningUseCase;
+import com.ho.account.masterdata.core.application.command.BusinessPartnerScreeningDecision;
+import com.ho.account.masterdata.core.application.command.BusinessPartnerScreeningSubmission;
 import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
@@ -38,6 +41,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -78,6 +82,7 @@ class MasterDataIngressHttpTest {
 
     @Autowired private MockMvc mockMvc;
     @MockBean private BusinessPartnerUseCase businessPartnerUseCase;
+    @MockBean private BusinessPartnerScreeningUseCase screeningUseCase;
     @MockBean private MasterDataChangeRequestUseCase changeRequestUseCase;
     @MockBean private FiscalPeriodControlPort fiscalPeriodControlPort;
 
@@ -228,6 +233,56 @@ class MasterDataIngressHttpTest {
                         .header("Authorization", "Bearer " + manager))
                 .andExpect(status().isOk());
         verify(changeRequestUseCase).approve(1L, "alice");
+    }
+
+    @Test
+    void screeningCommandsUseVerifiedIdentityAndDedicatedReviewerRole() throws Exception {
+        String submissionPath = "/api/basic/businesspartners/BP-923/screening-submission";
+        String decisionPath = "/api/basic/businesspartners/BP-923/screening-decision";
+        String submission = """
+                {"jurisdiction":"KR","identifierType":"BUSINESS_REGISTRATION",
+                 "identifier":"1234567890","evidenceReference":"synthetic-evidence"}
+                """;
+        String decision = """
+                {"status":"APPROVED","riskRating":"LOW","decisionReason":"Synthetic evidence reviewed"}
+                """;
+        String submitter = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_PARTNER_MANAGER");
+        String nonAdmin = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_USER");
+        String reviewer = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "bob", "ROLE_SCREENING_REVIEWER");
+
+        mockMvc.perform(post(submissionPath).header("X-Auth-User", "alice")
+                        .contentType(MediaType.APPLICATION_JSON).content(submission))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(submissionPath).header("Authorization", "Bearer " + submitter)
+                        .header("X-Auth-User", "mallory")
+                        .contentType(MediaType.APPLICATION_JSON).content(submission))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(submissionPath).header("Authorization", "Bearer " + nonAdmin)
+                        .contentType(MediaType.APPLICATION_JSON).content(submission))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(screeningUseCase);
+
+        mockMvc.perform(post(submissionPath).header("Authorization", "Bearer " + submitter)
+                        .contentType(MediaType.APPLICATION_JSON).content(submission))
+                .andExpect(status().isNoContent());
+        ArgumentCaptor<BusinessPartnerScreeningSubmission> submitted =
+                ArgumentCaptor.forClass(BusinessPartnerScreeningSubmission.class);
+        verify(screeningUseCase).submitScreening(submitted.capture());
+        assertThat(submitted.getValue().submittedBy()).isEqualTo("alice");
+
+        mockMvc.perform(post(decisionPath).header("Authorization", "Bearer " + submitter)
+                        .contentType(MediaType.APPLICATION_JSON).content(decision))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post(decisionPath).header("Authorization", "Bearer " + reviewer)
+                        .contentType(MediaType.APPLICATION_JSON).content(decision))
+                .andExpect(status().isNoContent());
+        ArgumentCaptor<BusinessPartnerScreeningDecision> reviewed =
+                ArgumentCaptor.forClass(BusinessPartnerScreeningDecision.class);
+        verify(screeningUseCase).decideScreening(reviewed.capture());
+        assertThat(reviewed.getValue().reviewedBy()).isEqualTo("bob");
     }
 
     @Test

@@ -67,7 +67,16 @@ SCD2 테이블은 업무 식별 코드와 유효 기간이 함께 중요합니�
 SCD2 새 거래처 버전은 계좌의 은행·번호·예금주·SWIFT·대표 여부를 복제하되 계좌 PK는 비워
 새 행으로 저장합니다. 기존 자식 PK를 새 부모에 재사용해 과거 FK를 이동시키지 않습니다.
 
+## 거래처 screening 저장 (Issue #923)
+
+PostgreSQL release migration `V13__business_partner_screening_upgrade.sql`은 업무 코드가 PK인 `business_partner_screenings` 현재 snapshot과, 별도 ID를 가진 `business_partner_screening_audit` snapshot 이력을 만듭니다. 둘 다 관할권·식별자 유형/값, 증빙 참조/만료일, 상태·위험도, 제출자/시각과 선택적 결정자/사유/시각을 저장합니다. 상태는 `PENDING`, `APPROVED`, `REJECTED`, `REVIEW_REQUIRED`; 위험도는 `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`로 제한합니다. 결정 필드는 `PENDING`일 때 비어 있고 결정 상태에서는 필수입니다. audit는 PostgreSQL trigger가 UPDATE/DELETE를 거부합니다. 업무 코드 기준 잠금 뒤 현재 행 저장과 audit append가 같은 트랜잭션입니다.
+
+두 테이블은 SCD2 `business_partners.id`에 FK를 두지 않습니다. 새 거래처 버전이 생겨도 screening 이력을 지우지 않기 위해서입니다. eligibility 조회는 기준일이 끝나기 전의 마지막 audit snapshot을 DB에서 한 건 선택하고, 그날 유효한 거래처 버전의 등록번호와 비교합니다. audit의 결정 시각(미결정은 제출 시각) 내림차순, 동일 시각이면 audit ID 내림차순으로 선택하므로 이후 재제출이 이전 날짜의 결과를 덮지 않습니다. 식별번호와 증빙 참조는 조회 DTO에 포함하지 않습니다.
+
+로컬 H2는 PostgreSQL 전용 V9 이후를 실행할 수 없어 Flyway target 8.1에서 멈추고 `db/local/schema-business-partner-screening.sql`로 두 테이블·CHECK·index를 초기화합니다. 이 H2 schema에는 PostgreSQL audit 불변 trigger가 없습니다. H2 성공은 V13 migration 적용, PostgreSQL trigger, 운영 데이터 upgrade의 증거가 아닙니다. V13은 승인된 migration-runner 경로에서 적용하고 실제 PostgreSQL 검증이 별도로 필요합니다.
+
 ## 환율과 회계기간
+
 
 | 모델 | 핵심 제약/조회 |
 | --- | --- |
