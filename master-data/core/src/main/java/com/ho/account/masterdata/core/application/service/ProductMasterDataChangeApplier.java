@@ -38,7 +38,10 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
 
     private ProductCommand validatedCommand(MasterDataChangeRequest request) {
         ProductCommand command = command(request);
-        // 현재 버전 조회는 apply에만 둡니다. 부분 UPDATE와 CREATE의 price 기본값을 검증으로 덮지 않습니다.
+        // 현재 버전 조회는 apply에만 둡니다. 부분 UPDATE의 생략 단가는 core가 상속해 검증합니다.
+        if (command.price() != null || request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+            Product.requireValidPrice(command.price());
+        }
         if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
             if (command.name() == null) {
                 throw new IllegalArgumentException("Product name is required.");
