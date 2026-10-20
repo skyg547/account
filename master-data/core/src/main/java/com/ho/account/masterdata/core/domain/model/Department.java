@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -48,6 +50,12 @@ public class Department {
         OTHER // 기타
     }
 
+    /** Validate the effective row, including fields inherited by a partial UPDATE. */
+    public void validateBusinessFields() {
+        code = MasterDataFieldRules.code(code, "Department code", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
+        name = MasterDataFieldRules.requiredText(name, "Department name", MasterDataFieldRules.DEPARTMENT_NAME_MAX);
+    }
+
     /**
      * 특정 시점에 유효한지 확인
      */
@@ -63,4 +71,3 @@ public class Department {
         this.updatedAt = LocalDateTime.now();
     }
 }
-

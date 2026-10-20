@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.domain.changerequest;
 
 import com.ho.account.masterdata.core.domain.exception.MasterDataIdempotencyConflictException;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -60,7 +61,7 @@ public class MasterDataChangeRequest {
             LocalDate effectiveDate, Integer requestedVersion, String requestedBy, String reason,
             String payloadJson, String sourceReference) {
         this.targetType = require(targetType, "Target type is required.");
-        this.targetKey = requireText(targetKey, 100, "Target key is required.");
+        this.targetKey = MasterDataFieldRules.code(targetKey, "Target key", targetKeyLimit(targetType));
         this.changeType = require(changeType, "Change type is required.");
         this.effectiveDate = require(effectiveDate, "Effective date is required.");
         this.requestedVersion = requirePositiveVersion(requestedVersion);
@@ -202,6 +203,15 @@ public class MasterDataChangeRequest {
         return version;
     }
 
+    private static int targetKeyLimit(MasterDataType type) {
+        // The change-request column is wider than several target tables; validate the eventual business key.
+        return switch (type) {
+            case ACCOUNT_SUBJECT, BUSINESS_PARTNER, DEPARTMENT -> 20;
+            case PRODUCT -> 50;
+            default -> 100;
+        };
+    }
+
     public Long getId() { return id; }
     public MasterDataType getTargetType() { return targetType; }
     public String getTargetKey() { return targetKey; }
@@ -231,4 +241,3 @@ public class MasterDataChangeRequest {
         REQUESTED, APPROVED, REJECTED, APPLIED
     }
 }
-

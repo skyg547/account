@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+
 import java.time.LocalDateTime;
 
 /**
@@ -37,10 +39,10 @@ public class BusinessPartnerAccount {
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
         this.id = id;
-        this.bankName = requireText(bankName, "은행명은 필수입니다.");
-        this.accountNumber = requireText(accountNumber, "계좌번호는 필수입니다.");
-        this.accountHolder = requireText(accountHolder, "예금주는 필수입니다.");
-        this.swiftCode = trimToNull(swiftCode);
+        this.bankName = MasterDataFieldRules.requiredText(bankName, "Bank name", MasterDataFieldRules.PARTNER_ACCOUNT_TEXT_MAX);
+        this.accountNumber = MasterDataFieldRules.requiredText(accountNumber, "Account number", MasterDataFieldRules.PARTNER_ACCOUNT_TEXT_MAX);
+        this.accountHolder = MasterDataFieldRules.requiredText(accountHolder, "Account holder", MasterDataFieldRules.PARTNER_ACCOUNT_TEXT_MAX);
+        this.swiftCode = MasterDataFieldRules.optionalText(swiftCode, "SWIFT code", MasterDataFieldRules.PARTNER_SWIFT_MAX);
         this.mainAccount = mainAccount;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -156,7 +158,7 @@ public class BusinessPartnerAccount {
 
     @Deprecated
     public void setBankName(String bankName) {
-        this.bankName = requireText(bankName, "은행명은 필수입니다.");
+        this.bankName = MasterDataFieldRules.requiredText(bankName, "Bank name", MasterDataFieldRules.PARTNER_ACCOUNT_TEXT_MAX);
         touch();
     }
 
@@ -166,7 +168,7 @@ public class BusinessPartnerAccount {
 
     @Deprecated
     public void setAccountNumber(String accountNumber) {
-        this.accountNumber = requireText(accountNumber, "계좌번호는 필수입니다.");
+        this.accountNumber = MasterDataFieldRules.requiredText(accountNumber, "Account number", MasterDataFieldRules.PARTNER_ACCOUNT_TEXT_MAX);
         touch();
     }
 
@@ -176,7 +178,7 @@ public class BusinessPartnerAccount {
 
     @Deprecated
     public void setAccountHolder(String accountHolder) {
-        this.accountHolder = requireText(accountHolder, "예금주는 필수입니다.");
+        this.accountHolder = MasterDataFieldRules.requiredText(accountHolder, "Account holder", MasterDataFieldRules.PARTNER_ACCOUNT_TEXT_MAX);
         touch();
     }
 
@@ -186,7 +188,7 @@ public class BusinessPartnerAccount {
 
     @Deprecated
     public void setSwiftCode(String swiftCode) {
-        this.swiftCode = trimToNull(swiftCode);
+        this.swiftCode = MasterDataFieldRules.optionalText(swiftCode, "SWIFT code", MasterDataFieldRules.PARTNER_SWIFT_MAX);
         touch();
     }
 

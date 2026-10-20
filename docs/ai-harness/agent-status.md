@@ -1,3 +1,9 @@
+## 2026-10-20 — GH-913 master-data payload limits / Draft PR #930
+
+- State: [Issue #913](https://github.com/skyg547/account/issues/913) `status:needs-review`; `agent/913-master-payload-limits` in `/tmp/account-913-master-payload-limits`, base `origin/main@a543f412`, implementation `273af9f8`; [Draft PR #930](https://github.com/skyg547/account/pull/930), `Refs #913`.
+- Scope: 29 `master-data/core`, `master-data/api`, module beginner-guide files plus only the three user-requested shared status records. Core enforces storage limits and blank names across governed/direct paths, validates merged UPDATE before approval and SCD2 closure, and locks before current-row lookup. No other module/shared contract/schema or history worklog edit.
+- Verification: requested offline core/API/batch suite PASS (582/112/5 tests; API 24 skipped; failures/errors 0), API/batch bootJars PASS; local H2 API startup PASS, health DOWN/503, synthetic POST 401 at ingress authentication. Diff and scoped marker gates PASS. Independent read-only Reviewer found no unresolved issue and Q1–Q4 PASS.
+- Residual/next owner: PostgreSQL-conditioned tests and live authenticated validation flow remain unverified; H2/MockMvc cannot substitute for PostgreSQL. Human reviewer owns current-head CI and separate Ready/merge/Issue close/cleanup gates. Implementation, review, and merge authority remain separate; preserve branch/worktree.
 ## 2026-10-20 — GH-917 Auth memory-mode PAT startup / Draft PR #926
 
 - State: Issue #917; `agent/917-auth-memory-pat` in `/tmp/account-917-auth-memory-pat`, base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`. [Draft PR #926](https://github.com/skyg547/account/pull/926) uses `Refs #917`.

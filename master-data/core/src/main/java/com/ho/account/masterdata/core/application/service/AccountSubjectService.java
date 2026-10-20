@@ -7,6 +7,7 @@ import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKey
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,17 +47,21 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
-        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, command.code());
+        AccountSubject accountSubject = command.toEntity();
+        accountSubject.validateBusinessFields();
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Account subject parentCode", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        }
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, accountSubject.getCode());
         // A new account has no prior mapping to clear; reject the flag instead of silently ignoring it.
         if (command.clearRegulatoryMappingCode()) {
             throw new IllegalArgumentException("Cannot clear regulatory mapping code when creating an account subject.");
         }
         // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
-        if (accountSubjectPersistencePort.existsByCode(command.code())) {
+        if (accountSubjectPersistencePort.existsByCode(accountSubject.getCode())) {
             throw new MasterDataVersionConflictException("이미 이력이 존재하는 계정과목 코드입니다: " + command.code());
         }
 
-        AccountSubject accountSubject = command.toEntity();
         accountSubject.normalizeAndValidateClassification();
 
         if (command.hasParentCode()) {
@@ -100,9 +105,16 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject updateAccountSubject(String code, AccountSubjectCommand command) {
-        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, code);
-        AccountSubject currentActive = accountSubjectPersistencePort.findByCodeForUpdate(code)
-                .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
+        String canonicalCode = MasterDataFieldRules.code(code, "Account subject code", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        if (command.code() != null && !MasterDataFieldRules.code(command.code(), "Account subject code", MasterDataFieldRules.ACCOUNT_CODE_MAX).equals(canonicalCode)) {
+            throw new MasterDataFieldRules.FieldValidationException("Account subject code cannot change during update.");
+        }
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Account subject parentCode", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        }
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, canonicalCode);
+        AccountSubject currentActive = accountSubjectPersistencePort.findByCodeForUpdate(canonicalCode)
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + canonicalCode));
 
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
         LocalDate newValidTo = command.validTo() != null
@@ -153,6 +165,7 @@ public class AccountSubjectService implements AccountSubjectUseCase {
         }
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
+        newVersion.validateBusinessFields();
         newVersion.normalizeAndValidateClassification();
 
         currentActive.terminate(oldValidTo);

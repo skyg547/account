@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -61,18 +63,19 @@ public class Product {
      */
     public static BigDecimal requireValidPrice(BigDecimal value) {
         if (value == null) {
-            throw new IllegalArgumentException("Product price is required.");
+            throw new MasterDataFieldRules.FieldValidationException("Product price is required.");
         }
         if (value.signum() < 0) {
-            throw new IllegalArgumentException("Product price must be nonnegative.");
+            throw new MasterDataFieldRules.FieldValidationException("Product price must be nonnegative.");
         }
         if (value.compareTo(MAX_PRICE) > 0) {
-            throw new IllegalArgumentException("Product price exceeds NUMERIC(19,4).");
+            throw new MasterDataFieldRules.FieldValidationException("Product price exceeds NUMERIC(19,4).");
         }
         try {
             return value.setScale(PRICE_SCALE, RoundingMode.UNNECESSARY);
         } catch (ArithmeticException ex) {
-            throw new IllegalArgumentException("Product price has more than four meaningful fractional digits.", ex);
+            throw new MasterDataFieldRules.FieldValidationException(
+                    "Product price has more than four meaningful fractional digits.", ex);
         }
     }
 
@@ -103,6 +106,18 @@ public class Product {
 
     public enum ProductType {
         PHYSICAL, SERVICE, DIGITAL, LOAN, DEPOSIT
+    }
+
+    /** Validate the effective row before SCD2 history is changed. */
+    public void validateBusinessFields() {
+        productCode = MasterDataFieldRules.code(productCode, "Product code", MasterDataFieldRules.PRODUCT_CODE_MAX);
+        name = MasterDataFieldRules.requiredText(name, "Product name", MasterDataFieldRules.PRODUCT_NAME_MAX);
+        description = MasterDataFieldRules.optionalText(description, "Product description", MasterDataFieldRules.PRODUCT_DESCRIPTION_MAX);
+        unitOfMeasure = MasterDataFieldRules.optionalText(unitOfMeasure, "Product unitOfMeasure", MasterDataFieldRules.PRODUCT_UNIT_MAX);
+        price = MasterDataFieldRules.productPrice(price);
+        if (productType == null) {
+            throw new MasterDataFieldRules.FieldValidationException("Product productType is required.");
+        }
     }
 
     /**

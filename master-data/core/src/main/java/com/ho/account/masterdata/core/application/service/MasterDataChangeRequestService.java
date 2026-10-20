@@ -74,8 +74,9 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
 
         // 구현되지 않은 전략은 접수 후 장기간 방치하지 않고 입구에서 바로 차단합니다.
         MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
-        applier.validate(request);
+        // UPDATE 검증은 현재 버전을 읽으므로 업무 키 잠금 후에 실행해 종료와 경합해도 같은 상태를 봅니다.
         lockBusinessKey(request);
+        applier.validate(request);
         verifyCurrentVersion(request);
 
         // @todo 두 노드가 같은 sourceReference를 동시에 최초 저장하면 unique key 충돌이 날 수 있습니다.
@@ -94,6 +95,7 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     public MasterDataChangeRequest approve(Long requestId, String approver) {
         MasterDataChangeRequest request = findAfterBusinessKeyLock(requestId);
         MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
+        // The persisted payload may predate current rules; approval must validate it before changing audit state.
         applier.validate(request);
         verifyCurrentVersion(request);
         request.approve(approver);
