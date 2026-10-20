@@ -74,7 +74,8 @@ public class ClosingServiceTest {
                 fiscalPeriodControlPort, closingCalendarPersistencePort, periodLockPersistencePort);
         ClosingTransitionTransactions transactions = new ClosingTransitionTransactions(aggregates,
                 closingCalendarPersistencePort, reopenApprovalPersistencePort, closingAuditLogPersistencePort,
-                fiscalPeriodControlPort, finalCloseEvidenceService);
+                fiscalPeriodControlPort, finalCloseEvidenceService,
+                closingTaskPersistencePort, closingGatePersistencePort);
         ClosingPeriodTransitionService transitions = new ClosingPeriodTransitionService(transactions,
                 closingCalendarPersistencePort);
         lenient().when(aggregates.lockCalendar(any(Long.class))).thenAnswer(call ->
@@ -88,6 +89,10 @@ public class ClosingServiceTest {
         lenient().when(aggregates.refreshTasks(any())).thenAnswer(call ->
                 closingTaskPersistencePort.findByClosingCalendar(call.getArgument(0)));
         lenient().when(aggregates.refreshGates(any())).thenAnswer(call ->
+                closingGatePersistencePort.findByClosingCalendar(call.getArgument(0)));
+        lenient().when(aggregates.refreshActiveTasks(any())).thenAnswer(call ->
+                closingTaskPersistencePort.findByClosingCalendar(call.getArgument(0)));
+        lenient().when(aggregates.refreshActiveGates(any())).thenAnswer(call ->
                 closingGatePersistencePort.findByClosingCalendar(call.getArgument(0)));
         closingService = new ClosingService(
                 closingCalendarPersistencePort, closingTaskPersistencePort, closingGatePersistencePort,
@@ -121,14 +126,14 @@ public class ClosingServiceTest {
         ClosingTask secondTask = new ClosingTask();
         secondTask.setId(102L);
         List<ClosingTask> tasks = List.of(firstTask, secondTask);
-        when(closingTaskPersistencePort.findByClosingCalendarId(42L)).thenReturn(tasks);
+        when(closingTaskPersistencePort.findActiveByClosingCalendarId(42L)).thenReturn(tasks);
 
         // when
         List<ClosingTask> result = closingService.findClosingTasksByCalendarId(42L);
 
         // then
         assertThat(result).containsExactly(firstTask, secondTask);
-        verify(closingTaskPersistencePort).findByClosingCalendarId(42L);
+        verify(closingTaskPersistencePort).findActiveByClosingCalendarId(42L);
     }
 
     @Test
@@ -212,8 +217,11 @@ public class ClosingServiceTest {
         ClosingCalendar calendar = new ClosingCalendar();
         calendar.setFiscalYear("2026");
         calendar.setFiscalPeriod("01");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.OPEN);
         when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
                 .thenReturn(Optional.of(calendar));
+        when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of());
+        when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of());
 
         // when
         ClosingAdjustment result = closingService.createClosingAdjustment(
@@ -227,6 +235,43 @@ public class ClosingServiceTest {
         assertThat(result.getFiscalPeriodId()).isEqualTo(1L);
         assertThat(result.getFiscalYear()).isEqualTo("2026");
         assertThat(result.getFiscalPeriod()).isEqualTo("01");
+    }
+
+    @Test
+    void adjustmentBeforeAnyControlProgressKeepsCycleButAdvancesSourceFence() {
+        ClosingCalendar calendar = openCalendar();
+        calendar.start("CLOSER");
+        ClosingTask pendingTask = new ClosingTask();
+        pendingTask.setStatus(ClosingTask.ClosingTaskStatus.PENDING);
+        ClosingGate pendingGate = new ClosingGate();
+        pendingGate.setStatus(ClosingGate.ClosingGateStatus.PENDING);
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
+        when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(pendingTask));
+        when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(pendingGate));
+        JournalSummary summary = new JournalSummary();
+        summary.setAccountingDate(LocalDate.of(2026, 1, 15));
+        when(journalQueryPort.getJournalSummary(885L)).thenReturn(summary);
+        JournalDetailSummary debit = new JournalDetailSummary();
+        debit.setSide(JournalSide.DEBIT);
+        debit.setAmount(new BigDecimal("125.000"));
+        JournalDetailSummary credit = new JournalDetailSummary();
+        credit.setSide(JournalSide.CREDIT);
+        credit.setAmount(new BigDecimal("125.000"));
+        when(journalQueryPort.getJournalDetails(885L)).thenReturn(List.of(debit, credit));
+        when(closingAdjustmentPersistencePort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        closingService.createClosingAdjustment(1L, 885L, ClosingAdjustment.AdjustmentType.ACCRUAL,
+                "Correction before reconciliation", "APPROVER");
+
+        assertThat(calendar.getCycleNumber()).isEqualTo(1);
+        assertThat(calendar.getLastSourceChangedAt()).isNotNull();
+        assertThat(pendingTask.getStatus()).isEqualTo(ClosingTask.ClosingTaskStatus.PENDING);
+        assertThat(pendingGate.getStatus()).isEqualTo(ClosingGate.ClosingGateStatus.PENDING);
+        verify(closingTaskPersistencePort, never()).save(any());
+        verify(closingGatePersistencePort, never()).save(any());
+        verify(closingCalendarPersistencePort).save(calendar);
     }
 
     @Test

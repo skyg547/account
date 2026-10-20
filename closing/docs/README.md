@@ -40,7 +40,7 @@
 - remote Journal 호출과 로컬 Batch metadata는 하나의 트랜잭션이 아닙니다. 재시도는 결정적 slip과 Journal 멱등성에 의존합니다.
 - API 요청 자체의 멱등 key와 다중 전표 ID 조회 모델은 아직 없습니다. 단일 history ID 컬럼은 0건 또는 여러 건일 때 `null`입니다.
 - production PostgreSQL 실행계획과 대용량 부하는 별도 검증이 필요합니다.
-- 이 변경은 기존 Closing 스키마를 그대로 사용하며 새 migration을 추가하지 않습니다.
+- 재오픈 회차 통제에는 V54 migration이 필요합니다. 기존 금융 실행 경로에 관한 이전 설명과 별도로, 최신 스키마·배포 순서는 [schema.md](schema.md#재오픈-회차와-체크리스트-이력-gh-885)를 따릅니다.
 
 ## 보존한 이전 문서
 

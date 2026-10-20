@@ -118,6 +118,14 @@ V52에서 이미 만들어진 CLOSED 미완료 전이는 증빙 ID가 없을 수
 허용하지만, 새 writer는 반드시 ID를 넣고 런타임 dispatch/finish는 누락 시 차단합니다. V53은
 forward-only입니다. 롤백 시 증빙이나 미완료 전이를 삭제하지 말고 원격 Master와 먼저 대사합니다.
 
+## 재오픈 회차와 체크리스트 이력 (GH-885)
+
+V54는 `closing_calendars`, `closing_tasks`, `closing_gates`에 양수 `cycle_number`를 추가하고 캘린더에 `last_source_changed_at`(UTC)을 추가합니다. 기존 자식 행은 1회차로 backfill합니다. 재오픈 이력이 없는 캘린더도 1회차입니다. 이미 재오픈된 기존 캘린더(`reopened_at IS NOT NULL`)는 자식 행의 정확한 과거 회차를 복구할 수 없으므로 캘린더만 2회차로 두어 과거 완료/통과 행을 차단합니다. 해당 기간은 운영자가 새 태스크·게이트를 정의해야 다시 마감할 수 있습니다. 캘린더의 번호가 현재 회차이며 각 태스크·게이트 행의 번호가 해당 행의 이력 회차입니다. 승인된 재오픈의 원격 `OPEN` 결과를 확인한 뒤 한 로컬 트랜잭션에서 번호를 올리고 직전 회차 정의를 `PENDING` 행으로 복제합니다. 완료/통과 상태, 작업자, 통과 시각은 복제하지 않습니다. 원본 행과 감사 기록은 보존합니다.
+
+현재 회차만 일반 태스크 조회, 게이트 선행조건, 최종 마감 준비에 참여하고, 이전 회차 ID의 상태 변경은 거부합니다. 동일한 원천 상태에도 체크리스트 증빙을 자동 이월하지 않습니다. 새 마감은 새 시작 시각 뒤의 최종 마감 증빙을 요구합니다. V54 적용 전 오래된 writer를 배출하고, 롤백은 회차 행을 삭제하거나 번호를 되돌리는 방식으로 하지 않습니다. 원천별 권위 있는 변경 워터마크가 없으므로 공급자 제출 이후의 모든 외부 변경을 DB 회차 번호만으로 감지할 수는 없습니다.
+Closing이 조정 전표를 승인해 등록하면 `last_source_changed_at`을 갱신합니다. 현재 회차에서 통제가 진행됐다면 회차를 올리고 새로운 `PENDING` 정의를 복제하며, 이전 완료 행은 보존합니다. 마감 증빙의 `observedAt`은 현재 시작 시각과 이 원천 변경 시각 양쪽보다 늦어야 합니다. 이 시각은 Closing을 통과한 조정만 포착하며 다른 모듈이 직접 전기한 거래의 워터마크가 아닙니다.
+재오픈 시각은 과거 writer에서 UTC로 저장되지 않았으므로 V54는 `last_source_changed_at`을 SQL 시각으로 추정해 채우지 않습니다. 기존 재오픈 행은 이 값이 null이면 최종 마감을 거부하고, 현재 회차의 새 태스크·게이트 정의 또는 조정 등록 때 애플리케이션 UTC 시각으로 경계를 세웁니다. 그 뒤 공급자는 더 늦은 새 증빙을 제출해야 합니다.
+
 ## 외부 데이터 의존성
 
 | 외부 데이터 | 제공 모듈 | `closing`에서 사용하는 이유 |
@@ -180,7 +188,7 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. 새 writer를 시작하기 전에 V53까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를 추가합니다. 새 writer를 시작하기 전에 V54까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
 - `period_locks`는 현재 unlock 시 감사 로그를 남기고 활성 행을 삭제합니다. `active`, `unlocked_by`, `unlocked_at`, `unlock_reason`을 추가하는 forward migration 후 이력 행 보존 방식으로 전환해야 합니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
