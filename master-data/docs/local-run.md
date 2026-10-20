@@ -20,7 +20,7 @@ pipeline에 두어 batch가 업무 규칙을 중복 구현하지 않습니다.
 
 1. Gradle 창에서 프로젝트를 새로고침합니다.
 2. 상단 Run Configuration에서 `Master Data bootRun`을 선택합니다.
-3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8 (target=8), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
+3. 실행하면 기본 `local` profile, 내장 H2 PostgreSQL mode, Flyway V1-V8 (target=8, 반려 사유 반복 migration 포함), JPA `validate`로 API 서버가 `8082` 포트에 올라옵니다.
 4. 로그에서 `Started MasterDataApplication`을 확인합니다.
 5. 테스트가 끝나면 IntelliJ의 Stop 버튼으로 프로세스를 종료합니다.
 
@@ -132,6 +132,23 @@ MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:17533/master_data_753 
 UPDATE/DEACTIVATE, 롤백과 재시도, 다른 키의 독립 진행, 실제 DB 기간 제약/HTTP409를
 검증합니다. PostgreSQL 테스트는 실제 서비스·JPA·Flyway·JDBC를 사용하며 HTTP 응답은
 MockMvc로 검증합니다. 배포나 실제 사용자 데이터 보정은 수행하지 않습니다.
+
+### PostgreSQL 변경 요청 멱등성 회귀 검증
+
+전제: 위와 같은 로컬 합성 PostgreSQL 16 데이터베이스와 `MASTER_DATA_TEST_POSTGRES_URL`.
+기존 테이블을 지우지 않고 매 실행마다 새 schema를 생성합니다. 예를 들어 합성 DB 주소를
+환경변수로 설정한 뒤 다음 대상 테스트를 실행합니다.
+
+```bash
+./gradlew :master-data:core:test --tests '*MasterDataChangeRequestPostgresqlIdempotencyTest' \
+  --offline --no-daemon --console=plain --max-workers=2
+```
+
+같은 `sourceReference` 동시 최초 접수의 단일 행·동일 ID, 다른 명령의 충돌,
+`APPLIED` 응답 유실 후 재시도의 SCD2 행 수·`appliedAt` 보존을 확인합니다.
+또한 일반 unique 위반이 PostgreSQL 트랜잭션을 실패 상태로 만드는 반례와
+`ON CONFLICT DO NOTHING`의 별도 트랜잭션 복구를 확인합니다. 환경변수가 없으면 테스트가
+skip되므로 그 결과를 PostgreSQL 통과로 해석하면 안 됩니다.
 
 H2의 `local` 프로파일과 H2 전용 schema 테스트는 `spring.flyway.target=8`입니다. V9는
 PostgreSQL 전용 SQL이며 release migration-runner의 기존 SQL 복사 경로에 포함됩니다.

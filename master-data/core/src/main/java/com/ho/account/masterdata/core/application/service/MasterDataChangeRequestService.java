@@ -4,6 +4,7 @@ import com.ho.account.masterdata.core.application.command.MasterDataChangeReques
 import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort.CreateOrLoadResult;
 import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.application.query.PageSlice;
@@ -74,6 +75,17 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
             }
         }
 
+        MasterDataChangeRequest created = null;
+        if (request.getSourceReference() != null) {
+            // 먼저 식별자를 예약해 동시 재사용 충돌을 업무 버전 검증보다 앞서 판정합니다.
+            CreateOrLoadResult result = persistencePort.createOrLoad(request);
+            result.request().verifySameChange(request);
+            if (!result.created()) {
+                return result.request();
+            }
+            created = result.request();
+        }
+
         // 구현되지 않은 전략은 접수 후 장기간 방치하지 않고 입구에서 바로 차단합니다.
         MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
         // UPDATE 검증은 현재 버전을 읽으므로 업무 키 잠금 후에 실행해 종료와 경합해도 같은 상태를 봅니다.
@@ -81,9 +93,8 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
         applier.validate(request);
         verifyCurrentVersion(request);
 
-        // @todo 두 노드가 같은 sourceReference를 동시에 최초 저장하면 unique key 충돌이 날 수 있습니다.
-        // 저장 포트가 충돌 후 기존 요청을 다시 읽어 동일 명령인지 검증하는 원자적 멱등 연산을 제공해야 합니다.
-        return persistencePort.save(request);
+        // 생성 예약은 같은 트랜잭션이므로 검증 실패 시 행도 함께 롤백됩니다.
+        return created != null ? created : persistencePort.save(request);
     }
 
     @Override
@@ -116,6 +127,10 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     @Transactional
     public MasterDataChangeRequest applyApprovedChange(Long requestId) {
         MasterDataChangeRequest request = findAfterBusinessKeyLock(requestId);
+        // 잠금 후 최신 상태가 이미 반영됐으면 원래 결과를 반환하고 이력과 appliedAt을 보존합니다.
+        if (request.getStatus() == ChangeStatus.APPLIED) {
+            return request;
+        }
         return applyAndSave(request, LocalDate.now());
     }
 

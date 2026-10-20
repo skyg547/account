@@ -58,9 +58,10 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
             candidate = command.toEntity();
         } else {
             // Resolve omitted fields against the live version before approval; apply rechecks its own snapshot.
+            // A prior deactivation can remove that version while we wait for the key lock: classify it as a version conflict.
             AccountSubject current = accountSubjectUseCase.findAccountSubjectByCode(request.getTargetKey())
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Active account subject not found."));
+                    .orElseThrow(() -> new MasterDataVersionConflictException(
+                            "Active account subject no longer exists. Code: " + request.getTargetKey()));
             candidate = current.successor();
             if (command.name() != null) {
                 candidate.setName(command.name());
