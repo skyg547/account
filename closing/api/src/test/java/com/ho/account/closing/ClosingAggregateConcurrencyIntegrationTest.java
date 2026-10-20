@@ -18,6 +18,7 @@ import com.ho.account.closing.domain.ClosingTask.ClosingTaskStatus;
 import com.ho.account.closing.domain.ClosingGate;
 import com.ho.account.closing.domain.ClosingGate.ClosingGateStatus;
 import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogRepository;
+import com.ho.account.closing.infrastructure.persistence.ClosingCalendarEntity;
 import com.ho.account.closing.application.service.FinalCloseEvidenceService;
 import com.ho.account.closing.application.service.FinalCloseEvidenceValidationException;
 import com.ho.account.closing.web.ClosingController;
@@ -288,7 +289,7 @@ class ClosingAggregateConcurrencyIntegrationTest {
         ExecutorService workers = Executors.newFixedThreadPool(2);
         try {
             Future<?> owner = workers.submit(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-                ClosingCalendar managed = entityManager.find(ClosingCalendar.class, calendar.getId(), LockModeType.PESSIMISTIC_WRITE);
+                ClosingCalendarEntity managed = entityManager.find(ClosingCalendarEntity.class, calendar.getId(), LockModeType.PESSIMISTIC_WRITE);
                 rootOwner.stop();
                 managed.setStatus(ClosingCalendarStatus.CLOSED);
             }));

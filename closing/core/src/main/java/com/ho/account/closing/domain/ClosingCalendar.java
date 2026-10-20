@@ -1,6 +1,5 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
@@ -10,84 +9,61 @@ import java.time.ZoneOffset;
  * <p>특정 회계연도와 회계기간의 결산 진행 상태를 관리합니다.
  * 초보자 관점에서는 "이번 달 마감표"라고 이해하면 됩니다.
  */
-@Entity
-@Table(name = "closing_calendars", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "fiscal_year", "fiscal_period" })
-})
+
 public class ClosingCalendar {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fiscal_year", nullable = false, length = 4)
     private String fiscalYear;
 
-    @Column(name = "fiscal_period", nullable = false, length = 20) // MM, Q1, H1, YEAR 등 기간 코드
+     // MM, Q1, H1, YEAR 등 기간 코드
     private String fiscalPeriod;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ClosingCalendarStatus status; // OPEN, IN_PROGRESS, CLOSED, PERMANENTLY_CLOSED
 
-    @Column(length = 50)
     private String closeInitiatedBy;
 
     private LocalDateTime closeInitiatedAt;
 
-    @Column(length = 50)
     private String closedBy;
 
     private LocalDateTime closedAt;
 
-    @Column(length = 50)
     private String reopenedBy;
 
     private LocalDateTime reopenedAt;
 
     /** Each successful reopen starts a fresh checklist and approval cycle. */
-    @Column(name = "cycle_number", nullable = false)
     private int cycleNumber = 1;
 
     /** UTC watermark for changes to journal source state admitted through closing. */
-    @Column(name = "last_source_changed_at")
     private LocalDateTime lastSourceChangedAt;
-
-    @Column(nullable = false)
     private boolean isCurrentPeriod; // 현재 활성 결산 기간 여부
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
     // Durable intent survives a failed/ambiguous remote Master call. Calendar admission stays closed
     // until the original target is confirmed; a dispatched operation is never automatically replayed.
-    @Column(length = 36)
+
     private String transitionId;
 
-    @Column(length = 6)
     private String transitionTarget;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
     private TransitionStage transitionStage;
 
     private Long transitionFiscalPeriodId;
     private Long transitionApprovalId;
 
-    @Column(length = 50)
     private String transitionActor;
 
     private LocalDateTime transitionPreparedAt;
 
-    @Column(length = 100)
     private String transitionEvidenceSetId;
 
-    @Transient
     private String name;
 
     public enum ClosingCalendarStatus {
@@ -104,6 +80,20 @@ public class ClosingCalendar {
     public String getTransitionActor() { return transitionActor; }
     public LocalDateTime getTransitionPreparedAt() { return transitionPreparedAt; }
     public String getTransitionEvidenceSetId() { return transitionEvidenceSetId; }
+
+    /** Reconstitutes a durable transition exactly as stored, without running a new decision. */
+    public void restoreTransition(String id, String target, TransitionStage stage,
+            Long fiscalPeriodId, Long approvalId, String actor,
+            LocalDateTime preparedAt, String evidenceSetId) {
+        this.transitionId = id;
+        this.transitionTarget = target;
+        this.transitionStage = stage;
+        this.transitionFiscalPeriodId = fiscalPeriodId;
+        this.transitionApprovalId = approvalId;
+        this.transitionActor = actor;
+        this.transitionPreparedAt = preparedAt;
+        this.transitionEvidenceSetId = evidenceSetId;
+    }
 
     public void requireNoTransition() {
         if (transitionId != null) {
@@ -224,22 +214,6 @@ public class ClosingCalendar {
         }
     }
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
-            this.status = ClosingCalendarStatus.OPEN;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-        if (this.cycleNumber <= 0)
-            this.cycleNumber = 1;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 
     // Getter and Setter
     public Long getId() {

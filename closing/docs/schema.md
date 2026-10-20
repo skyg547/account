@@ -2,6 +2,20 @@
 
 이 문서는 `closing` 모듈의 주요 저장 데이터와 외부 테이블 의존성을 정리합니다.
 
+## 도메인과 저장 모델의 경계 (GH-895)
+
+`closing:core`의 `domain` 객체는 JPA/Spring 어노테이션과 영속성 콜백 없이 마감 상태 전이와
+검증 규칙을 실행합니다. `infrastructure.persistence`의 `*Entity`가 기존 테이블/컬럼,
+관계 및 생성·수정 시각 콜백을 소유하고, `ClosingEntityMapper`와 포트 어댑터가 양쪽 상태를
+명시적으로 변환합니다. 태스크·게이트·감사 로그의 캘린더 참조는 ID를 보존하며, 마감
+캘린더의 미완료 전이 식별자·증빙 바인딩도 재구성합니다.
+
+`daily_closing_status`의 `@Version`은 `DailyClosingStatusEntity`에 있고, 어댑터는
+기존 행의 버전을 확인한 뒤 관리 중인 행에 상태 변경을 반영합니다. 날짜별 행 조회에는
+기존 `PESSIMISTIC_WRITE` 잠금을 유지합니다. 도메인 의존성 검사는
+`DomainDependencyArchitectureTest`가 새 도메인 소스까지 순회하며 Spring/JPA/Hibernate
+import를 거부합니다. 회귀 검증은 `./gradlew :closing:test`입니다.
+
 ## 주요 엔티티
 
 ```mermaid
