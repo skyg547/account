@@ -213,7 +213,7 @@ public class IntegratedBusinessProcessTest {
                     type = FilterType.ASSIGNABLE_TYPE,
                     classes = JournalLedgerApplication.class))
     @EntityScan(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence",
             "com.ho.account.masterdata.core",
             "com.ho.account.expenditure",
             "com.ho.account.tax"

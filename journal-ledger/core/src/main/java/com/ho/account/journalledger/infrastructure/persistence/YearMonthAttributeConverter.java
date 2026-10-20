@@ -1,7 +1,6 @@
-package com.ho.account.journalledger.domain.ledger.domain;
+package com.ho.account.journalledger.infrastructure.persistence;
 
 import jakarta.persistence.AttributeConverter;
-import jakarta.persistence.Converter;
 
 import java.time.YearMonth;
 
@@ -12,7 +11,6 @@ import java.time.YearMonth;
  * JPA와 JDBC bulk upsert가 서로 다른 타입 표현을 쓰면 같은 잔액 키를 다르게 인식할 수 있으므로
  * 저장 표현을 명시적으로 고정합니다.</p>
  */
-@Converter(autoApply = true)
 public class YearMonthAttributeConverter implements AttributeConverter<YearMonth, String> {
 
     @Override

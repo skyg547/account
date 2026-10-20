@@ -1,17 +1,13 @@
-# GH-884 agent status
+# GH-894 agent status
 
-- Issue: [#884](https://github.com/skyg547/account/issues/884), review handoff `status:needs-review`; [Draft PR #899](https://github.com/skyg547/account/pull/899) is open with `Refs #884`.
-- Base/branch/worktrees: `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; `agent/884-kafka-accounting-date`; `/tmp/account-884-kafka-accounting-date`; detached audited proof `/tmp/account-884-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
-- Scope/ownership: `journal-ledger/**` only, including these three module-local records. Requested `gpt-6-sol` / high implementation writer owned the eight code/test/feature-document files; independent reviewer was read-only; parent Integrator owns Git/GitHub and these records. Other modules and repository-level shared harness/history files remain unchanged.
-- Result: Kafka requires a validated explicit ISO `accountingDate`; missing or malformed dates fail before journal generation. Stored quarantine replay retains its accepted date. Core closed-period validation remains active, while authenticated HTTP maker requests can explicitly choose an open adjustment date.
-- RED/GREEN: byte-identical regression SHA-256 `3126aa7d90df830e60bc3a0b9a981d9e06aa78f8475ba5e7d9f02e9ca8c07325` failed 1/1 on audited source, where missing date raised no error; final module run passed core326/API79/Batch37 = 442 tests, failures/errors/skips0.
-- Review: independent read-only reviewer found no P0-P3 and confirmed Q1-Q4 PASS after the original writer strengthened adjustment tests. Diff, scope, marker and unmerged-index checks passed.
-- Limits/rollback: no live Kafka/DLT, PostgreSQL, distributed or load test, production data, deployment, or fully composed HTTP-to-rule test. The current event has no separate immutable source-event date or signed authorization proof, so a producer's deliberately false declared date cannot be detected here. Reviewed Issue-scoped revert requires affected Kafka consumption paused because it restores the fallback defect; no schema/data migration.
-- Authority: Draft publication only. Human reviewer owns current-head CI and Ready/merge/Issue close; branch and worktree cleanup remain separate gates.
+- Issue [#894](https://github.com/skyg547/account/issues/894): `status:blocked` on the Loan integration regression after module implementation and requested test; [Draft PR #909](https://github.com/skyg547/account/pull/909) open with `Refs #894`. Base `origin/main@9348966a`; branch `agent/894-domain-persistence-boundary`; worktree `/tmp/account-894-domain-persistence-boundary`; audited proof `/tmp/account-894-audited-proof@a97d10ab`.
+- Scope `journal-ledger/**` only. `gpt-6-sol` high module writer, read-only independent reviewer, parent Integrator for records/Git/GitHub. Root shared harness/history and other modules remain untouched.
+- Domain framework references removed; named infrastructure XML mapping, moved repositories/converter, lifecycle listener, explicit API/Batch registration and architecture guard are implemented. Exact module test 434/434 PASS; audited guard RED 1/1 with identical bytes; module bootJar and static gates PASS.
+- Independent review Q1 FAIL/P1: Loan API and Batch `local` profile context tests now fail at startup because their non-dev composition roots scan the old Journal repository package and do not opt into the named XML mapping. Both dev-profile tests also retain a stale `Class.forName` of the deleted repository. Q2–Q4 PASS. Keep Draft; Ready/merge requires an authorized Loan composition/test correction and renewed review. No deployed Loan run was performed.
+- Draft head `2707249d` remote checks: journal-ledger, module result, harness validation and merge guard candidate PASS; implementer PR discipline FAIL because required ownership/verification/merge metadata and trust policy are unconfigured, and the PR is Draft. Human owner resolves governance before Ready/merge.
+- No live PostgreSQL, distributed fault or load claim. Roll back by reviewed module-scoped revert; no migration/data changed. Human reviewer owns later Ready/merge/Issue close/deployment/cleanup gates.
 
 ---
-
-The following entries are retained history and are not current GH-884 evidence.
 
 # GH-879 agent status
 

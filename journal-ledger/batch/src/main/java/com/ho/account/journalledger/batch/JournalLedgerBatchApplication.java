@@ -12,10 +12,9 @@ import com.ho.account.shared.infrastructure.ProductionPostgresqlTlsGuard;
         "com.ho.account.journalledger",
         "com.ho.account.common"
 })
-@EntityScan(basePackages = "com.ho.account.journalledger.domain")
+@EntityScan(basePackages = "com.ho.account.journalledger.infrastructure.persistence")
 @EnableJpaRepositories(basePackages = {
-        "com.ho.account.journalledger.domain",
-        "com.ho.account.journalledger.adapter.out.persistence"
+        "com.ho.account.journalledger.infrastructure.persistence.repository"
 })
 @Import({SpringServiceDiscoveryRegistry.class, ProductionPostgresqlTlsGuard.class})
 public class JournalLedgerBatchApplication {

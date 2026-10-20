@@ -1,18 +1,14 @@
-# GH-884 handoff
+# GH-894 handoff
 
-Issue [#884](https://github.com/skyg547/account/issues/884) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #899](https://github.com/skyg547/account/pull/899) is open with `Refs #884`.
+Issue [#894](https://github.com/skyg547/account/issues/894) is `status:blocked` on the Loan integration regression. Its module-scoped implementation is on `agent/894-domain-persistence-boundary` in `/tmp/account-894-domain-persistence-boundary`, based on `origin/main@9348966a`. [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`. Other modules and shared harness/history were not edited.
 
-- Branch/worktrees: `agent/884-kafka-accounting-date`, `/tmp/account-884-kafka-accounting-date`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; audited proof `/tmp/account-884-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
-- Scope: eight production/test/feature-document files plus these three module-local records under `journal-ledger/**`; other modules and repository-level shared harness/history files are untouched.
-- Behavior: Kafka payload must carry a validated explicit ISO accounting date. Missing/invalid values fail before journal generation and use existing retry/DLT recovery. Replayed unmatched events use the stored accounting date. A closed-period source date is rejected before persistence; the separate authenticated HTTP maker workflow can choose an explicit open adjustment date and returns a draft.
-- Verification: SHA-256-identical regression failed 1/1 on audited `a97d10ab`; final forced `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=1 --rerun-tasks` passed 442/442 (core326/API79/Batch37), failures/errors/skips0. Static scope, whitespace, conflict-marker and unmerged-index gates passed.
-- Independent review: initial P3 shallow adjustment test was returned to its writer and corrected. Final read-only verdict has no P0-P3; Q1-Q4 PASS with file/test evidence in [worklog.md](worklog.md).
-- Rollback/limits: reviewed Issue-scoped revert after pausing affected Kafka consumption; no migration or automated data repair. No live broker/DLT, PostgreSQL, distributed/load, production data, deployment, or fully composed HTTP-to-rule test. Deliberately falsified producer dates cannot be detected without an independent source-date/trust contract.
-- Authority/next owner: writer was restricted to module code/tests/feature docs; reviewer remained read-only; parent Integrator alone wrote these records and owns Git/GitHub. Human reviewer examines the Draft and current-head CI before separate Ready/merge/Issue-close decisions; branch/worktree cleanup is not part of this handoff.
+- The domain has no Spring/JPA source references. Infrastructure owns repositories, converter, named XML entity mapping and persistence lifecycle listener. Journal API/Batch opt in; Loan `dev` contexts initialize without Journal schema leakage, while Loan `local` contexts fail to start as noted below.
+- Exact `./gradlew :journal-ledger:test`: 434/434 PASS (core 323, API 74, Batch 37), no failures/errors/skips. Existing POSTED persistence 19/19 PASS. Byte-identical boundary guard `78656bbe...` fails 1/1 on audited `a97d10ab` and passes here. API/Batch bootJar and static gates PASS.
+- Independent read-only review: no remaining journal-ledger P0–P3; Q2–Q4 PASS. Q1 FAIL/P1: Loan API and Batch `local` context tests each fail to start because non-dev composition roots scan the removed Journal repository package and omit named XML mapping. Loan API/Batch dev-profile tests also retain stale `Class.forName` references. Loan is outside the allowlist; do not mark Ready or merge until authorized composition/test corrections and new review.
+- Remote Draft checks on head `2707249d`: journal-ledger, module result, harness validation and merge guard candidate PASS; implementer PR discipline FAIL due owner/verification/merge metadata, Draft state and unconfigured trust policy. This governance gate is separate from the confirmed Loan startup regression.
+- Rollback is a reviewed module-scoped revert; no migration or production data changed. H2/local tests do not establish live PostgreSQL, distributed fault or load behavior. Human reviewer is next owner for scope decision, Loan correction, CI and later PR lifecycle gates.
 
 ---
-
-The following entries are retained history and are not current GH-884 evidence.
 
 # GH-879 handoff
 
@@ -56,6 +52,7 @@ Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
 ---
 
 The following is retained historical handoff and is not a current GH-769 report.
+
 
 # GH-763 handoff
 

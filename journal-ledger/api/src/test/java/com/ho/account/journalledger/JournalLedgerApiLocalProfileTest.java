@@ -13,9 +13,9 @@ import org.springframework.core.env.Profiles;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.adapter.out.persistence.unsettled.UnsettledItemRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.UnsettledItemRepository;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 
 import java.time.LocalDate;

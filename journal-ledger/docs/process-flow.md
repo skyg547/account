@@ -81,7 +81,7 @@ KRW 130,000이어야 하며 USD 100을 그대로 공급할 수 없습니다.
 승인 내용과 현재 장부가 달라지므로, `POSTED` 원본은 그대로 두고 정정 사실도 별도 전표로
 남깁니다.
 
-1. 최초 `APPROVED -> POSTED` 전환은 정상 처리됩니다. JPA 콜백은 로드·저장 직후 캡처한
+1. 최초 `APPROVED -> POSTED` 전환은 정상 처리됩니다. `META-INF/journal-ledger-orm.xml`에 연결된 infrastructure lifecycle listener는 로드·저장 직후 캡처한
    persisted 상태와 현재 상태를 함께 보므로, 이 최초 전환을 이미 확정된 이력의 수정으로
    오인하지 않습니다.
 2. 한번 commit된 `POSTED` 전표에서는 헤더·감사 setter, 상세의 금액·차대 구분·계정·차원·적요·

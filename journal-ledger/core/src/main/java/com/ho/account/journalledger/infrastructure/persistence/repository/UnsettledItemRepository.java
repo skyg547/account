@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.adapter.out.persistence.unsettled;
+package com.ho.account.journalledger.infrastructure.persistence.repository;
 
 import com.ho.account.journalledger.domain.unsettled.UnsettledItem;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -8,9 +8,9 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEventQuarantine
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalEventQuarantineRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEventQuarantineRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalRuleRepository;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
