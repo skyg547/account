@@ -1,14 +1,18 @@
 package com.ho.account.masterdata.api.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
@@ -17,6 +21,11 @@ import com.ho.account.masterdata.core.application.port.in.MasterDataChangeReques
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -38,6 +47,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.slf4j.LoggerFactory;
 
 /** Exercises the real servlet filter, MVC advice, controllers, and use-case boundary together. */
 @SpringBootTest(properties = {
@@ -221,6 +231,49 @@ class MasterDataIngressHttpTest {
     }
 
     @Test
+    void rawDetailRequiresASeparateAuditedGrantEvenForSignedApprovers() throws Exception {
+        String path = CHANGE_PATH + "/42/raw-detail";
+        Logger controllerLogger = (Logger) LoggerFactory.getLogger(MasterDataChangeRequestController.class);
+        Logger ingressLogger = (Logger) LoggerFactory.getLogger(MasterDataIngressAuthenticationFilter.class);
+        ListAppender<ILoggingEvent> auditEvents = new ListAppender<>();
+        auditEvents.start();
+        controllerLogger.addAppender(auditEvents);
+        ingressLogger.addAppender(auditEvents);
+        try {
+            mockMvc.perform(get(path))
+                    .andExpect(status().isUnauthorized());
+            mockMvc.perform(get(CHANGE_PATH + "/-1/raw-detail"))
+                    .andExpect(status().isUnauthorized());
+            for (String role : List.of("ROLE_MASTER_MANAGER", "ROLE_SYSTEM_ADMIN")) {
+                String token = userToken(USER_SECRET, "auth-service", USER_AUDIENCE,
+                        60, "alice", role);
+                mockMvc.perform(get(path)
+                                .header("Authorization", "Bearer " + token))
+                        .andExpect(status().isForbidden());
+            }
+            verifyNoInteractions(changeRequestUseCase);
+            assertThat(auditEvents.list).hasSize(4);
+            assertThat(auditEvents.list.get(0).getFormattedMessage())
+                    .isEqualTo("master_data_raw_detail_denied actor=unverified requestId=42");
+            assertThat(auditEvents.list.get(1).getFormattedMessage())
+                    .isEqualTo("master_data_raw_detail_denied actor=unverified requestId=-1");
+            for (ILoggingEvent event : auditEvents.list.subList(2, 4)) {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getFormattedMessage())
+                        .isEqualTo("master_data_raw_detail_denied actor=alice requestId=42");
+            }
+            assertThat(auditEvents.list).allSatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getFormattedMessage()).doesNotContain("payloadJson", "registrationNumber");
+            });
+        } finally {
+            controllerLogger.detachAppender(auditEvents);
+            ingressLogger.detachAppender(auditEvents);
+            auditEvents.stop();
+        }
+    }
+
+    @Test
     void closingAssertionControlsServiceAndDelegatedActorNotBodyAuditUser() throws Exception {
         when(fiscalPeriodControlPort.updateClosingStatus(1L, "CLOSED", "closing:alice"))
                 .thenReturn(new FiscalPeriodRef(1L, "2026", "10", LocalDate.of(2026, 10, 1),
@@ -316,6 +369,105 @@ class MasterDataIngressHttpTest {
                         .content("{\"closingStatus\":\"CLOSED\"}"))
                 .andExpect(status().isOk());
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "closing:alice");
+    }
+
+    @Test
+    void rejectedCredentialsAndRoleNeverEnterChangeRequestUseCase() throws Exception {
+        String manager = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_MASTER_MANAGER");
+        String viewer = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_VIEWER");
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + manager)
+                        .header("X-Auth-User", "forged-actor"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + viewer))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(changeRequestUseCase);
+    }
+
+    @Test
+    void malformedRequestsReturnBadRequestBeforeMutation() throws Exception {
+        String manager = userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_MASTER_MANAGER");
+
+        mockMvc.perform(get("/api/basic/businesspartners/search"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Bad request"));
+        mockMvc.perform(post(CHANGE_PATH + "/not-a-number/approve")
+                        .header("Authorization", "Bearer " + manager))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Bad request"));
+        mockMvc.perform(post(CHANGE_PATH)
+                        .header("Authorization", "Bearer " + manager)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetType\":\"UNKNOWN_TYPE\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(CHANGE_PATH)
+                        .header("Authorization", "Bearer " + manager)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(CHANGE_PATH)
+                        .header("Authorization", "Bearer " + manager)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(businessPartnerUseCase, changeRequestUseCase);
+    }
+
+    @Test
+    void missingChangeRequestReturnsNotFound() throws Exception {
+        when(changeRequestUseCase.approve(42L, "alice"))
+                .thenThrow(new IllegalArgumentException("Change request not found. ID: 42"));
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Change request not found"));
+        verify(changeRequestUseCase).approve(42L, "alice");
+    }
+
+    @Test
+    void versionAndInvalidStateConflictsReturnConflict() throws Exception {
+        when(changeRequestUseCase.approve(42L, "alice"))
+                .thenThrow(new MasterDataVersionConflictException("Version conflict"));
+        when(changeRequestUseCase.applyApprovedChange(42L))
+                .thenThrow(new IllegalStateException("Change request is not ready to apply. ID: 42"));
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Master-data version conflict"));
+        mockMvc.perform(post(CHANGE_PATH + "/42/apply")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Change request state conflict"));
+        verify(changeRequestUseCase).approve(42L, "alice");
+        verify(changeRequestUseCase).applyApprovedChange(42L);
+    }
+
+    @Test
+    void unexpectedUseCaseFailureReturnsSanitizedServerError() throws Exception {
+        String internalDetail = "synthetic-private-failure-detail";
+        when(changeRequestUseCase.approve(42L, "alice"))
+                .thenThrow(new RuntimeException(internalDetail));
+
+        mockMvc.perform(post(CHANGE_PATH + "/42/approve")
+                        .header("Authorization", "Bearer " + managerToken()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Internal server error"))
+                .andExpect(jsonPath("$.message", not(containsString(internalDetail))));
+        verify(changeRequestUseCase).approve(42L, "alice");
+    }
+
+    private static String managerToken() {
+        return userToken(USER_SECRET, "auth-service", USER_AUDIENCE, 60,
+                "alice", "ROLE_MASTER_MANAGER");
     }
 
     private static String userToken(String secret, String issuer, String audience, long ttlSeconds,

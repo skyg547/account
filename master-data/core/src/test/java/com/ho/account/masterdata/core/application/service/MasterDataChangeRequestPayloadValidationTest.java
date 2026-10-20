@@ -25,6 +25,7 @@ import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase
 import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.application.port.in.ProductUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort.CreateOrLoadResult;
 import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
@@ -123,6 +124,8 @@ class MasterDataChangeRequestPayloadValidationTest {
     void rejectsFirstSourceReferenceRequestBeforeSaving(InvalidPayload input) {
         stubValidVersion(input.type(), input.change());
         when(persistence.findBySourceReference("source-668")).thenReturn(Optional.empty());
+        when(persistence.createOrLoad(any())).thenAnswer(invocation ->
+                new CreateOrLoadResult(invocation.getArgument(0), true));
 
         assertThatThrownBy(() -> service.requestChange(requestCommand(input, "source-668")))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -331,6 +334,8 @@ class MasterDataChangeRequestPayloadValidationTest {
     void acceptsThenApprovesValidPayloadWithoutBusinessCalls(ValidPayload input) {
         stubValidVersion(input.type(), input.change());
         when(persistence.findBySourceReference("first-valid-source")).thenReturn(Optional.empty());
+        when(persistence.createOrLoad(any())).thenAnswer(invocation ->
+                new CreateOrLoadResult(invocation.getArgument(0), true));
         when(persistence.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         MasterDataChangeRequest requested = service.requestChange(requestCommand(
@@ -866,6 +871,33 @@ class MasterDataChangeRequestPayloadValidationTest {
         assertThat(request.getAppliedAt()).isNull();
     }
 
+    @Test
+    void retryOfAppliedRequestReturnsStableResultWithoutApplyingAnotherVersion() {
+        MasterDataChangeApplier applier = mock(MasterDataChangeApplier.class);
+        when(applier.targetType()).thenReturn(MasterDataType.ACCOUNT_SUBJECT);
+        MasterDataChangeRequestService applying = new MasterDataChangeRequestService(
+                persistence, versions, List.of(applier), locks);
+        MasterDataChangeRequest request = pendingRequest(
+                MasterDataType.ACCOUNT_SUBJECT, ChangeType.UPDATE, "{}", "retry-source");
+        request.approve("approver");
+        request.markApplied();
+        LocalDateTime firstAppliedAt = request.getAppliedAt();
+        when(persistence.findById(668L)).thenReturn(Optional.of(request));
+        when(persistence.findByIdForUpdate(668L)).thenReturn(Optional.of(request));
+
+        MasterDataChangeRequest firstRetry = applying.applyApprovedChange(668L);
+        MasterDataChangeRequest secondRetry = applying.applyApprovedChange(668L);
+
+        assertThat(firstRetry.getId()).isEqualTo(668L);
+        assertThat(secondRetry.getId()).isEqualTo(firstRetry.getId());
+        assertThat(firstRetry.getStatus()).isEqualTo(ChangeStatus.APPLIED);
+        assertThat(firstRetry.getAppliedAt()).isEqualTo(firstAppliedAt);
+        assertThat(secondRetry.getAppliedAt()).isEqualTo(firstAppliedAt);
+        verify(applier, never()).apply(any());
+        verifyNoInteractions(versions);
+        verify(persistence, never()).save(any());
+    }
+
     @ParameterizedTest
     @EnumSource(value = MasterDataType.class,
             names = {"ACCOUNT_SUBJECT", "BUSINESS_PARTNER", "DEPARTMENT", "PRODUCT"})
@@ -915,7 +947,7 @@ class MasterDataChangeRequestPayloadValidationTest {
     }
 
     @Test
-    void dueApplyLocksDistinctBusinessKeysInOrderBeforeRequestRows() {
+    void dueApplyLocksEachBusinessKeyBeforeItsRequestRow() {
         MasterDataChangeApplier applier = mock(MasterDataChangeApplier.class);
         when(applier.targetType()).thenReturn(MasterDataType.ACCOUNT_SUBJECT);
         when(applier.apply(any())).thenReturn(new MasterDataChangeApplier.AppliedVersion(null, 901L));
@@ -930,6 +962,8 @@ class MasterDataChangeRequestPayloadValidationTest {
                 0L, EFFECTIVE_DATE, 1, "maker", "checker", REQUESTED_AT, REQUESTED_AT,
                 null, "{}", null, null);
         when(persistence.findReadyToApply(LocalDate.now(), 500)).thenReturn(List.of(first, second));
+        when(persistence.findById(1L)).thenReturn(Optional.of(first));
+        when(persistence.findById(2L)).thenReturn(Optional.of(second));
         when(persistence.findByIdForUpdate(1L)).thenReturn(Optional.of(first));
         when(persistence.findByIdForUpdate(2L)).thenReturn(Optional.of(second));
         when(persistence.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -938,10 +972,10 @@ class MasterDataChangeRequestPayloadValidationTest {
 
         var order = inOrder(locks, persistence);
         order.verify(persistence).findReadyToApply(LocalDate.now(), 500);
-        order.verify(locks).lock(MasterDataType.ACCOUNT_SUBJECT, "A-KEY");
         order.verify(locks).lock(MasterDataType.ACCOUNT_SUBJECT, "Z-KEY");
         order.verify(persistence).findByIdForUpdate(1L);
         order.verify(persistence).save(first);
+        order.verify(locks).lock(MasterDataType.ACCOUNT_SUBJECT, "A-KEY");
         order.verify(persistence).findByIdForUpdate(2L);
         order.verify(persistence).save(second);
         verifyNoMoreInteractions(locks);

@@ -23,7 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
                 "spring.datasource.password=",
                 "spring.flyway.enabled=true",
                 "spring.flyway.target=8.1",
-                "spring.flyway.locations=classpath:db/migration,classpath:db/migration-h2",
+                "spring.flyway.locations=classpath:db/migration,classpath:db/local-migration,classpath:db/migration-h2",
                 "spring.flyway.clean-disabled=true",
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "spring.batch.job.enabled=false",

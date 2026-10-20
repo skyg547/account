@@ -8,6 +8,7 @@ import com.ho.account.masterdata.core.application.command.MasterDataChangeReques
 import com.ho.account.masterdata.core.application.service.AccountSubjectMasterDataChangeApplier;
 import com.ho.account.masterdata.core.application.service.AccountSubjectService;
 import com.ho.account.masterdata.core.application.service.MasterDataChangeRequestService;
+import com.ho.account.masterdata.core.application.service.MasterDataDueChangeExecutor;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
@@ -40,6 +41,7 @@ import org.springframework.test.context.ContextConfiguration;
 @Import({JpaAccountSubjectPersistenceAdapter.class, AccountSubjectMapper.class, AccountSubjectService.class,
         JpaMasterDataAuditAdapter.class,
         AccountSubjectMasterDataChangeApplier.class, MasterDataChangeRequestService.class,
+        MasterDataDueChangeExecutor.class,
         JpaMasterDataChangeRequestPersistenceAdapter.class, JpaMasterDataVersionQueryAdapter.class,
         JpaMasterDataBusinessKeyLockAdapter.class,
         MasterDataChangeRequestMapper.class, JacksonMasterDataChangePayloadDecoder.class,

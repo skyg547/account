@@ -6,6 +6,9 @@ import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
@@ -73,17 +76,15 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<BusinessPartner> getAllBusinessPartners() {
-        return businessPartnerPersistencePort.findAll();
+    public PageSlice<BusinessPartnerSummary> getAllBusinessPartners(PageWindow page) {
+        return businessPartnerPersistencePort.findAllSummaries(page);
     }
 
-    /**
-     * 활성화된 거래처만 조회합니다. (Legacy UseYn 플래그 기반)
-     */
+    /** 오늘을 기준으로 업무 사용 상태와 SCD2 유효기간을 함께 적용합니다. */
     @Override
     @Transactional(readOnly = true)
-    public List<BusinessPartner> getActiveBusinessPartners() {
-        return businessPartnerPersistencePort.findByUseYnTrue();
+    public PageSlice<BusinessPartnerSummary> getActiveBusinessPartners(PageWindow page) {
+        return businessPartnerPersistencePort.findActiveSummaries(LocalDate.now(), page);
     }
 
     /**
@@ -100,11 +101,11 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<BusinessPartner> searchBusinessPartnersByName(String name) {
+    public PageSlice<BusinessPartnerSummary> searchBusinessPartnersByName(String name, PageWindow page) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("거래처 검색어는 필수입니다.");
         }
-        return businessPartnerPersistencePort.searchActiveByName(name.trim(), LocalDate.now());
+        return businessPartnerPersistencePort.searchActiveByName(name.trim(), LocalDate.now(), page);
     }
 
     /**

@@ -69,6 +69,9 @@ public class MasterDataChangeRequestEntity {
     @Column(length = 500)
     private String decisionReason;
 
+    @Column(length = 500)
+    private String rejectionReason;
+
     @Column(columnDefinition = "TEXT")
     private String payloadJson;
 
@@ -76,4 +79,9 @@ public class MasterDataChangeRequestEntity {
     private String sourceReference;
 
     private LocalDateTime appliedAt;
+
+    @Column(length = 500)
+    private String failureReason;
+
+    private LocalDateTime failedAt;
 }

@@ -1,6 +1,9 @@
 package com.ho.account.masterdata.core.application.port.out;
 
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -43,11 +46,11 @@ public interface BusinessPartnerPersistencePort {
     /** 변경 가능한 aggregate를 미리 읽지 않고 잠글 업무 키만 조회합니다. */
     Optional<String> findBusinessKeyById(Long id);
 
-    List<BusinessPartner> findAll();
+    PageSlice<BusinessPartnerSummary> findAllSummaries(PageWindow page);
 
-    List<BusinessPartner> findByUseYnTrue();
+    PageSlice<BusinessPartnerSummary> findActiveSummaries(LocalDate asOfDate, PageWindow page);
 
-    List<BusinessPartner> searchActiveByName(String name, LocalDate asOfDate);
+    PageSlice<BusinessPartnerSummary> searchActiveByName(String name, LocalDate asOfDate, PageWindow page);
 
     BusinessPartner save(BusinessPartner businessPartner);
 }

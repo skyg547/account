@@ -14,6 +14,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
@@ -106,10 +109,17 @@ class BusinessPartnerControllerTest {
                 LocalDateTime.of(2026, 1, 1, 9, 0),
                 "master-data-admin",
                 List.of());
-        when(useCase.getAllBusinessPartners()).thenReturn(List.of(partner));
+        when(useCase.getAllBusinessPartners(new PageWindow(0, 20))).thenReturn(new PageSlice<>(List.of(
+                new BusinessPartnerSummary(partner.getId(), partner.getBusinessPartnerCode(),
+                        partner.getBusinessPartnerName(), partner.getRegistrationNumber(), partner.getCeoName(),
+                        partner.getBusinessType(), partner.getBusinessItem(), partner.getPartnerType(),
+                        partner.getUseYn(), partner.getKycStatus(), partner.getRiskRating(),
+                        partner.getValidFrom(), partner.getValidTo())), false));
 
         mockMvc.perform(get("/api/basic/businesspartners"))
                 .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page-Size", "20"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Has-Next", "false"))
                 .andExpect(jsonPath("$[0].id").value(7))
                 .andExpect(jsonPath("$[0].businessPartnerCode").value("BP-007"))
                 .andExpect(jsonPath("$[0].businessPartnerName").value("미래은행"))
@@ -119,7 +129,7 @@ class BusinessPartnerControllerTest {
                 .andExpect(jsonPath("$[0].kycStatus").value("APPROVED"))
                 .andExpect(jsonPath("$[0].riskRating").value("LOW"));
 
-        verify(useCase).getAllBusinessPartners();
+        verify(useCase).getAllBusinessPartners(new PageWindow(0, 20));
     }
 
     @Test
@@ -134,5 +144,15 @@ class BusinessPartnerControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message")
                         .value("Business partner name must be at most 100 characters."));
+    }
+
+    @Test
+    void listRejectsOutOfRangeSizeAndOffsetBeforeQueryingUseCase() throws Exception {
+        mockMvc.perform(get("/api/basic/businesspartners").param("size", "101"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/basic/businesspartners")
+                        .param("page", "2147483647").param("size", "100"))
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verifyNoInteractions(useCase);
     }
 }

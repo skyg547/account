@@ -2,6 +2,7 @@ package com.ho.account.masterdata.api.web;
 
 import com.ho.account.masterdata.core.domain.exception.MasterDataIdempotencyConflictException;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import com.ho.account.shared.finance.dto.ApiResponse;
 import com.ho.account.shared.finance.exception.GlobalExceptionAdvice;
 import java.sql.SQLException;
@@ -14,8 +15,10 @@ import org.postgresql.util.PSQLException;
 import org.postgresql.util.ServerErrorMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -32,17 +35,51 @@ public class MasterDataExceptionHandler extends GlobalExceptionAdvice {
         return ResponseEntity.status(exception.getStatusCode()).build();
     }
 
+    @ExceptionHandler({MissingRequestHeaderException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiResponse<Void>> handleMalformedInput(Exception exception) {
+        return ResponseEntity.badRequest().body(ApiResponse.failure("Bad request"));
+    }
+
+    @ExceptionHandler(FieldValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFieldValidation(FieldValidationException exception) {
+        // FieldValidationException carries fixed, trusted rule descriptions without submitted values.
+        return ResponseEntity.badRequest().body(ApiResponse.failure(exception.getMessage()));
+    }
+
+    @Override
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException exception) {
+        // The existing core use case signals a missing change request with this stable prefix.
+        // Keep its ID out of the response while preserving other invalid commands as 400.
+        if (exception.getMessage() != null && exception.getMessage().startsWith("Change request not found. ID: ")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.failure("Change request not found"));
+        }
+        return ResponseEntity.badRequest().body(ApiResponse.failure("Bad request"));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleStateConflict(IllegalStateException exception) {
+        // Only the known approval transition is a client conflict; infrastructure state failures remain 500.
+        if (exception.getMessage() != null
+                && exception.getMessage().startsWith("Change request is not ready to apply. ID: ")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.failure("Change request state conflict"));
+        }
+        return handleUnexpected(exception);
+    }
+
     @ExceptionHandler(MasterDataVersionConflictException.class)
     public ResponseEntity<ApiResponse<Void>> handleVersionConflict(MasterDataVersionConflictException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.failure(exception.getMessage()));
+                .body(ApiResponse.failure("Master-data version conflict"));
     }
 
     @ExceptionHandler(MasterDataIdempotencyConflictException.class)
     public ResponseEntity<ApiResponse<Void>> handleIdempotencyConflict(
             MasterDataIdempotencyConflictException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.failure(exception.getMessage()));
+                .body(ApiResponse.failure("Master-data idempotency conflict"));
     }
 
     @Override

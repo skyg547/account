@@ -1,5 +1,6 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -22,10 +23,10 @@ class PatLifecycleEventJpaEntity {
     @Column(name = "action", nullable = false, length = 16)
     private String action;
 
-    @Column(name = "actor_username", nullable = false, length = 80)
+    @Column(name = "actor_username", nullable = false, length = AuthIdentityPolicy.MAX_USERNAME_LENGTH)
     private String actorUsername;
 
-    @Column(name = "owner_username", nullable = false, length = 80)
+    @Column(name = "owner_username", nullable = false, length = AuthIdentityPolicy.MAX_USERNAME_LENGTH)
     private String ownerUsername;
 
     @Column(name = "occurred_at", nullable = false)

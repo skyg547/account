@@ -30,16 +30,28 @@
 | lockVersion | 같은 결재 문서를 여러 서버가 동시에 승인/반영하지 못하게 하는 JPA 기술 잠금 값. |
 | sourceReference | Governance 승인처럼 외부에서 온 같은 요청을 재시도해도 중복 결재가 생기지 않게 하는 계보 키. |
 | appliedAt | 승인된 변경이 실제 기준정보에 반영된 시각. 승인 시각과 시행 시각이 달라 별도로 기록합니다. |
+| FAILED_CONFLICT / FAILED_INVALID | 예약 반영 때 버전 충돌 또는 잘못된 요청으로 해당 건만 실패해 격리된 상태. `failedAt`과 안전한 `failureReason`을 함께 남깁니다. |
+
+## 예약 변경 한 건이 실패하면
+
+예를 들어 오늘 시행할 승인 요청 A, B, C 중 B의 저장된 내용이 잘못되었다면 `/apply-due`는
+A를 반영하고 B만 `FAILED_INVALID`로 기록한 뒤 C도 반영합니다. 응답에는 각 결과가 나타납니다.
+다음 실행은 `APPROVED`만 다시 고르므로 A와 C를 중복 반영하지 않고 B도 무한 반복하지
+않습니다. 담당자는 B의 실패 분류와 원래 요청·승인 이력을 확인한 뒤 새 승인 요청을 만듭니다.
+DB 연결처럼 일시적인 오류가 나면 그 건은 `APPROVED`로 남고 호출이 실패합니다. 이미 끝난
+A는 유지되며 장애 복구 후 다시 실행해 나머지를 처리할 수 있습니다. 로컬 H2 재시작은
+인메모리 데이터를 지우므로 재시작 동작 확인에는 영속 테스트 DB가 필요합니다.
 
 ## 왜 SCD2가 중요한가
 
 부서명이 2026년 6월 1일에 바뀌었다고 해서 2025년 전표의 부서명까지 바뀌면 안 됩니다. `master-data`는 실제 컬럼인 `validFrom`, `validTo`로 "그 당시 기준정보"를 재현합니다. `isCurrent` 컬럼을 따로 저장하지 않고, 조회 기준일이 두 날짜 사이인지 계산해 활성 여부를 판단합니다.
 
 새 버전은 `validTo`가 `validFrom`보다 빠른지 먼저 검사한 뒤 기존 버전을 종료합니다. 거래처의
-현재 활성 조회는 legacy `useYn`도 확인하지만, 과거 기준일 조회는 유효기간으로 당시 버전을
-복원합니다. SCD2 교체 마감인 `closeVersion`과 업무 종료인 `terminate`는 모두 종료일을
-닫으며 과거 조회를 위해 `useYn`을 유지합니다. 업무 종료 뒤에도 그 이전 기준일의 거래처
-정보를 유효기간으로 복원할 수 있습니다.
+현재 활성 조회는 유효기간과 `useYn=true`를 함께 확인하고, 과거 기준일 조회는 유효기간으로
+당시 버전을 복원합니다. SCD2 교체 마감인 `closeVersion`과 업무 종료인 `terminate`는 모두
+종료일만 닫고 당시 `useYn`을 유지합니다. 따라서 종료일 이전·당일의 거래처 정보는 복원되고,
+종료일 다음 날부터는 기간 밖이라 조회되지 않습니다. `useYn`과 기간으로 판단하는 운영상 활성
+여부는 KYC 상태·위험 등급에 따른 거래 심사 적격성을 뜻하지 않습니다.
 
 ## 같은 코드로 다시 CREATE할 수 있나요? (Issue #754)
 
@@ -105,8 +117,16 @@ SCD2 `UPDATE`로 바꿀 수 있습니다. 종료된 이력만 있거나 미래 �
 3. 어댑터가 순수 도메인과 `BusinessPartnerJpaEntity`를 양방향으로 변환합니다.
 4. Controller는 도메인을 API DTO로 변환하며 사업자등록번호를 마스킹합니다.
 
+변경 승인 목록과 승인·반영 응답은 거래처 조회 응답과 다릅니다. 변경 요청에 입력한
+`payloadJson`에는 등록번호가 들어갈 수 있으므로, 이 응답들은 요청 ID·유형·상태·일자·
+버전만 보여줍니다. 예를 들어 `POST /api/master-data/change-requests`에 합성 등록번호를
+보내면 응답의 `id`와 `REQUESTED` 상태를 확인하고, 그 ID로 승인합니다. 원문 상세
+경로는 JWT가 있어도 403이며, 인증되지 않으면 401입니다. 원문은 저장·승인 과정에는
+그대로 사용되므로 응답에 보이지 않는다고 변경 내용이 사라진 것은 아닙니다.
+
 `closeVersion`과 `terminate`도 의도가 다릅니다. 전자는 새 SCD2 버전을 만들기 위해 과거
-버전의 기간만 닫고, 후자는 거래처 자체를 사용 중지합니다. 이 차이가 있어 미래 시행일 수정이
+버전의 기간만 닫고, 후자는 지정 종료일 이후의 거래처 사용을 중지합니다. 두 메서드 모두
+`useYn`을 바꾸지 않으므로 미래 시행일 수정이
 예약되어도 기존 거래처가 그 전에 비활성화되지 않습니다. 계좌는 업무 값을 다음 버전에
 복사하되 자식 ID는 새로 발급합니다. 그래야 과거 버전의 계좌 FK를 현재 버전으로 옮기지 않고
 두 시점의 정산 계좌를 모두 재현할 수 있습니다.
@@ -125,7 +145,7 @@ SCD2 `UPDATE`로 바꿀 수 있습니다. 종료된 이력만 있거나 미래 �
 3. `api/.../MasterDataChangeRequestController`: 변경 요청, 승인, 반려, 반영 API.
 4. `batch/.../MasterDataBatchApplication`: 웹 서버 없이 기동하는 Batch 실행 진입점.
 5. `batch/.../MasterDataValidityJobConfiguration`: `asOfDate`를 검증하고 core pipeline을 호출하는 Job/Step.
-6. `core/.../MasterDataChangeRequestService`: 변경 요청, 승인, 반려, 예약 반영 흐름.
+6. `core/.../MasterDataChangeRequestService`와 `MasterDataDueChangeExecutor`: 변경 요청·승인·반려 조정과 예약 건별 독립 트랜잭션 반영.
 7. `core/.../MasterDataChangeApplierRegistry`: 한 기준정보 유형에 반영 전략이 없거나 두 개 이상 연결되는 설정 오류를 차단.
 8. `core/.../AccountSubjectMasterDataChangeApplier` 등 typed applier: 승인 요청을 실제 SCD2 생성/수정/비활성화로 연결.
 9. `core/.../MasterDataChangeVersionPolicy`: CREATE/UPDATE/DEACTIVATE별 목표 버전과 저장된 SCD2 이력 수를 비교.
@@ -171,3 +191,14 @@ PostgreSQL 환경변수가 없으면 실제 DB 동시성 테스트는 skip됩니
 반올림이 필요해 거부됩니다. 음수와 `999999999999999.9999`를 넘는 값도 거부됩니다.
 직접 API와 승인 변경 모두 같은 core 규칙을 사용하며, 실제 PostgreSQL 저장·재조회는
 [상품 가격 회귀 검증](local-run.md#postgresql-상품-가격-회귀-검증)으로 확인합니다.
+# 거래처·변경 요청 목록 페이지 조회 (Issue #920)
+
+전제: master-data API를 실행하고 기존 조회 권한을 갖춘 요청을 보냅니다. 변경 요청 pending 조회에는 승인 역할이 필요합니다.
+
+`GET /api/basic/businesspartners?page=0&size=20`은 모든 SCD2 거래처 버전의 첫 페이지를 반환합니다. 현재 유효한 거래처만 필요하면 `/api/basic/businesspartners/active?page=0&size=20`, 이름으로 찾으려면 `/api/basic/businesspartners/search?name=검색어&page=0&size=20`을 사용합니다. Pending 변경 요청은 `GET /api/master-data/change-requests/pending?page=0&size=20`입니다.
+
+응답 본문은 계속 JSON 배열입니다. `X-Page: 0`, `X-Page-Size: 20`, `X-Has-Next: true|false` 헤더를 읽습니다. `true`라면 같은 검색어와 크기로 `page=1`, `page=2`를 순서대로 요청하고, `false`에서 멈춥니다. 기존 소비자가 첫 응답 배열만 전체 목록으로 간주했다면 이 반복을 추가해야 합니다. `size` 기본값은 20, 허용 범위는 1–100이며 음수 페이지, 지나치게 큰 페이지 번호와 크기는 HTTP 400입니다.
+
+현재 `frontend/src/services/masterDataService.ts`의 거래처와 pending 변경 요청 호출은 한 번의 배열 응답만 읽습니다. 프런트엔드 전환 시 두 호출에서 `X-Has-Next`를 확인해 다음 페이지를 이어 붙이거나, 화면에서 명시적인 페이지 이동을 제공해야 합니다. 이 파일은 이번 모듈 변경 범위에 포함되지 않습니다.
+
+거래처 정렬은 코드, 유효 시작일, ID 순서이며 pending 요청은 요청시각, ID 순서입니다. 같은 값이 겹쳐도 ID가 순서를 확정합니다. 활성/검색은 요청 시점의 오늘 날짜가 유효기간의 시작일과 종료일을 **포함**하는 버전만 반환합니다. 이력 목록은 날짜로 거르지 않습니다. 페이지를 읽는 동안 쓰기나 날짜 변경이 발생하면 offset 방식의 결과 집합이 이동할 수 있으므로 완전한 스냅샷이 필요한 소비자는 쓰기가 없는 시점에 수집하거나 별도 스냅샷 계약을 사용해야 합니다. 목록의 계좌 자료는 반환되지 않으며 계좌가 필요한 흐름은 거래처 단건 조회를 사용합니다.

@@ -2,6 +2,8 @@ package com.ho.account.auth.core.application.service;
 
 import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
 import com.ho.account.auth.core.application.model.PatActor;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenCreateResponse;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenDto;
 import com.ho.account.auth.core.application.port.in.PersonalAccessTokenUseCase;
@@ -15,7 +17,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -30,9 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
 
-    private static final int MAX_USERNAME_LENGTH = 80;
-    private static final int MAX_TOKEN_NAME_LENGTH = 100;
-    private static final int MAX_EXPIRE_DAYS = 3650;
     private static final Set<String> ADMIN_REVOKE_REASONS = Set.of(
             "ADMIN_SECURITY", "ADMIN_OFFBOARDING", "ADMIN_ROTATION");
 
@@ -46,16 +44,9 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
     public PersonalAccessTokenCreateResponse createToken(String authorizationHeader, String tokenName, int expireDays) {
         PatActor actor = credentialVerifier.verify(authorizationHeader);
         // Validate the verified owner and request before generating or persisting a credential.
-        if (actor.username().length() > MAX_USERNAME_LENGTH) {
-            throw new IllegalArgumentException("username is too long");
-        }
-        if (tokenName == null || tokenName.isBlank()) {
-            throw new IllegalArgumentException("tokenName is required");
-        }
-        if (tokenName.length() > MAX_TOKEN_NAME_LENGTH) {
-            throw new IllegalArgumentException("tokenName is too long");
-        }
-        if (expireDays < 1 || expireDays > MAX_EXPIRE_DAYS) {
+        PersonalAccessToken.validateNewTokenIdentityAndName(actor.username(), tokenName);
+        if (expireDays < PersonalAccessToken.MIN_EXPIRE_DAYS
+                || expireDays > PersonalAccessToken.MAX_EXPIRE_DAYS) {
             throw new IllegalArgumentException("expireDays is out of range");
         }
         String id = UUID.randomUUID().toString();
@@ -85,20 +76,18 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PersonalAccessTokenDto> getUserTokens(String authorizationHeader) {
+    public ListPage<PersonalAccessTokenDto> getUserTokens(String authorizationHeader, int page, int size) {
         PatActor actor = credentialVerifier.verify(authorizationHeader);
-        return patPort.findByUsername(actor.username()).stream()
-                .map(this::toDto)
-                .toList();
+        ListPageRequest pageRequest = new ListPageRequest(page, size);
+        return toDtoPage(patPort.findByUsername(actor.username(), pageRequest));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<PersonalAccessTokenDto> getAllTokensForAdmin(String authorizationHeader) {
+    public ListPage<PersonalAccessTokenDto> getAllTokensForAdmin(String authorizationHeader, int page, int size) {
         requireAdministrator(credentialVerifier.verify(authorizationHeader));
-        return patPort.findAll().stream()
-                .map(this::toDto)
-                .toList();
+        ListPageRequest pageRequest = new ListPageRequest(page, size);
+        return toDtoPage(patPort.findAll(pageRequest));
     }
 
     @Override
@@ -145,6 +134,11 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
         if (!actor.systemAdmin()) {
             throw new PatAccessDeniedException();
         }
+    }
+
+    private ListPage<PersonalAccessTokenDto> toDtoPage(ListPage<PersonalAccessToken> tokens) {
+        return new ListPage<>(tokens.content().stream().map(this::toDto).toList(),
+                tokens.page(), tokens.size(), tokens.hasNext());
     }
 
     private PersonalAccessTokenDto toDto(PersonalAccessToken token) {

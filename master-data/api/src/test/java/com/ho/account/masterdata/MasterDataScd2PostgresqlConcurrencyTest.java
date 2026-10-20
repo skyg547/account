@@ -36,6 +36,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -218,7 +219,10 @@ class MasterDataScd2PostgresqlConcurrencyTest {
         MvcResult result = compete(() -> {
             assertThat(apply(winner).getResponse().getStatus()).isEqualTo(200);
         }, () -> apply(loser));
-        assertThat(result.getResponse().getStatus()).isEqualTo(409);
+        assertThat(result.getResponse().getStatus())
+                .as("resolved exception: %s; response: %s", result.getResolvedException(),
+                        result.getResponse().getContentAsString())
+                .isEqualTo(409);
         assertThat(versionReadBeforeCommit).isFalse();
         assertRequest(winner, "APPLIED", true);
         assertRequest(loser, "APPROVED", false);
@@ -290,11 +294,20 @@ class MasterDataScd2PostgresqlConcurrencyTest {
         String key = key();
         directWrite(MasterDataType.DEPARTMENT, key, ChangeType.CREATE, START);
         long id = approve(MasterDataType.DEPARTMENT, key, ChangeType.UPDATE);
-        MvcResult result = compete(() -> assertThat(apply(id).getResponse().getStatus()).isEqualTo(200), () -> {
+        AtomicReference<LocalDateTime> firstAppliedAt = new AtomicReference<>();
+        MvcResult result = compete(() -> {
+            assertThat(apply(id).getResponse().getStatus()).isEqualTo(200);
+            entityManager.flush();
+            firstAppliedAt.set(jdbc.queryForObject(
+                    "SELECT applied_at FROM master_data_change_requests WHERE id = ?",
+                    LocalDateTime.class, id));
+        }, () -> {
             requestPersistence.findById(id).orElseThrow();
             return apply(id);
         });
-        assertThat(result.getResponse().getStatus()).as("resolved exception: %s", result.getResolvedException()).isEqualTo(409);
+        assertThat(result.getResponse().getStatus()).as("resolved exception: %s", result.getResolvedException()).isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT applied_at FROM master_data_change_requests WHERE id = ?",
+                LocalDateTime.class, id)).isEqualTo(firstAppliedAt.get());
         assertRequest(id, "APPLIED", true);
         assertHistory(MasterDataType.DEPARTMENT, key, 2);
     }
@@ -327,6 +340,77 @@ class MasterDataScd2PostgresqlConcurrencyTest {
         assertThat(result.getResponse().getContentAsString()).isEqualTo("[]");
         assertRequest(id, "APPLIED", true);
         assertHistory(MasterDataType.DEPARTMENT, key, 2);
+    }
+
+    @Test
+    void dueApplyCommitsValidNeighborsAndQuarantinesInvalidMiddleRequest() {
+        deferOlderApprovedFixtures();
+        String firstKey = key();
+        String invalidKey = key();
+        String lastKey = key();
+        long firstId = approve(MasterDataType.DEPARTMENT, firstKey, ChangeType.CREATE);
+        long invalidId = approve(MasterDataType.DEPARTMENT, invalidKey, ChangeType.CREATE);
+        long lastId = approve(MasterDataType.DEPARTMENT, lastKey, ChangeType.CREATE);
+        // Approval used valid input. Corrupt only the stored synthetic payload to model a legacy
+        // or externally damaged request becoming invalid before its effective date.
+        jdbc.update("UPDATE master_data_change_requests SET payload_json = ? WHERE id = ?",
+                "{", invalidId);
+
+        List<MasterDataChangeRequest> results = changeRequests.applyDueApprovedChanges();
+
+        assertThat(results).extracting(MasterDataChangeRequest::getId)
+                .containsExactly(firstId, invalidId, lastId);
+        assertRequest(firstId, "APPLIED", true);
+        assertRequest(invalidId, "FAILED_INVALID", false);
+        assertRequest(lastId, "APPLIED", true);
+        assertHistory(MasterDataType.DEPARTMENT, firstKey, 1);
+        assertHistory(MasterDataType.DEPARTMENT, invalidKey, 0);
+        assertHistory(MasterDataType.DEPARTMENT, lastKey, 1);
+        assertThat(jdbc.queryForObject("""
+                SELECT failure_reason FROM master_data_change_requests WHERE id = ?
+                """, String.class, invalidId)).isEqualTo("INVALID_REQUEST");
+        assertThat(jdbc.queryForObject("""
+                SELECT failed_at IS NOT NULL FROM master_data_change_requests WHERE id = ?
+                """, Boolean.class, invalidId)).isTrue();
+        assertThat(changeRequests.applyDueApprovedChanges()).isEmpty();
+        assertHistory(MasterDataType.DEPARTMENT, firstKey, 1);
+        assertHistory(MasterDataType.DEPARTMENT, lastKey, 1);
+    }
+
+    @Test
+    void twoDueWorkersApplyTheSameRequestOnlyOnce() throws Exception {
+        deferOlderApprovedFixtures();
+        String key = key();
+        long id = approve(MasterDataType.DEPARTMENT, key, ChangeType.CREATE);
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<List<MasterDataChangeRequest>> first = workers.submit(() -> {
+                await(start);
+                return changeRequests.applyDueApprovedChanges();
+            });
+            Future<List<MasterDataChangeRequest>> second = workers.submit(() -> {
+                await(start);
+                return changeRequests.applyDueApprovedChanges();
+            });
+            start.countDown();
+            List<MasterDataChangeRequest> combined = new java.util.ArrayList<>();
+            combined.addAll(first.get(15, TimeUnit.SECONDS));
+            combined.addAll(second.get(15, TimeUnit.SECONDS));
+            assertThat(combined).extracting(MasterDataChangeRequest::getId).containsExactly(id);
+        } finally {
+            start.countDown();
+            workers.shutdownNow();
+            assertThat(workers.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+        assertRequest(id, "APPLIED", true);
+        assertHistory(MasterDataType.DEPARTMENT, key, 1);
+    }
+
+    private void deferOlderApprovedFixtures() {
+        // Existing concurrency cases leave intentional APPROVED losers in this isolated schema.
+        jdbc.update("UPDATE master_data_change_requests SET effective_date = ? WHERE status = 'APPROVED'",
+                LocalDate.now().plusDays(1));
     }
 
     @Test

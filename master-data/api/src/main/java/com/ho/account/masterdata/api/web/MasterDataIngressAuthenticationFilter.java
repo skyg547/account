@@ -24,6 +24,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -34,6 +38,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public final class MasterDataIngressAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(MasterDataIngressAuthenticationFilter.class);
+    private static final Pattern RAW_DETAIL_PATH = Pattern.compile(
+            "^/api/master-data/change-requests/(-?[0-9]{1,19})/raw-detail$");
     public static final String VERIFIED_SERVICE = MasterDataIngressAuthenticationFilter.class.getName() + ".service";
     public static final String VERIFIED_ACTOR = MasterDataIngressAuthenticationFilter.class.getName() + ".actor";
     public static final String VERIFIED_PERIOD_ID = MasterDataIngressAuthenticationFilter.class.getName() + ".periodId";
@@ -80,6 +87,11 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
         try {
             verifiedRequest = internal ? verifyInternal(request) : verifyUser(request);
         } catch (RuntimeException exception) {
+            Matcher rawDetail = RAW_DETAIL_PATH.matcher(path);
+            if (rawDetail.matches()) {
+                // Never log an unverified claim or arbitrary URI as an audit actor or request ID.
+                log.warn("master_data_raw_detail_denied actor=unverified requestId={}", rawDetail.group(1));
+            }
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Verified credential required");
             return;
         }

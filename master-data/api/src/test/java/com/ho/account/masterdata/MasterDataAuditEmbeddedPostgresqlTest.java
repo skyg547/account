@@ -28,10 +28,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Synthetic PostgreSQL V1→V11 migration and committed audit evidence; never uses an external DB. */
+/** Synthetic PostgreSQL V1→V12 migration and committed audit evidence; never uses an external DB. */
 @DataJpaTest(properties = {
         "spring.flyway.enabled=true", "spring.flyway.locations=classpath:db/migration",
-        "spring.flyway.target=11", "spring.jpa.hibernate.ddl-auto=validate"
+        "spring.flyway.target=12", "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -57,9 +57,9 @@ class MasterDataAuditEmbeddedPostgresqlTest {
     static void closePostgres() throws IOException { POSTGRES.close(); }
 
     @Test
-    void v11MigratesAndCommittedEvidenceExportsWithIntegrityVerification() {
+    void v12MigratesAndCommittedEvidenceExportsWithIntegrityVerification() {
         assertThat(jdbc.queryForObject("""
-                select count(*) from flyway_schema_history where version = '11' and success = true
+                select count(*) from flyway_schema_history where version = '12' and success = true
                 """, Integer.class)).isOne();
 
         // The writer receives no UPDATE grant. Successful append proves sealing precedes the INSERT.
