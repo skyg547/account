@@ -3,6 +3,9 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.BusinessPartnerAccount;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -12,6 +15,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -90,24 +95,24 @@ public class JpaBusinessPartnerPersistenceAdapter implements BusinessPartnerPers
     }
 
     @Override
-    public List<BusinessPartner> findAll() {
-        return businessPartnerRepository.findAll().stream()
-                .map(this::toDomain)
-                .toList();
+    public PageSlice<BusinessPartnerSummary> findAllSummaries(PageWindow page) {
+        return toPageSlice(businessPartnerRepository.findAllSummaries(PageRequest.of(page.page(), page.size())));
     }
 
     @Override
-    public List<BusinessPartner> findByUseYnTrue() {
-        return businessPartnerRepository.findByUseYnTrue().stream()
-                .map(this::toDomain)
-                .toList();
+    public PageSlice<BusinessPartnerSummary> findActiveSummaries(LocalDate asOfDate, PageWindow page) {
+        return toPageSlice(businessPartnerRepository.findActiveSummaries(
+                asOfDate, PageRequest.of(page.page(), page.size())));
     }
 
     @Override
-    public List<BusinessPartner> searchActiveByName(String name, LocalDate asOfDate) {
-        return businessPartnerRepository.searchActiveByName(name, asOfDate).stream()
-                .map(this::toDomain)
-                .toList();
+    public PageSlice<BusinessPartnerSummary> searchActiveByName(String name, LocalDate asOfDate, PageWindow page) {
+        return toPageSlice(businessPartnerRepository.searchActiveByName(
+                name, asOfDate, PageRequest.of(page.page(), page.size())));
+    }
+
+    private PageSlice<BusinessPartnerSummary> toPageSlice(Slice<BusinessPartnerSummary> slice) {
+        return new PageSlice<>(slice.getContent(), slice.hasNext());
     }
 
     @Override

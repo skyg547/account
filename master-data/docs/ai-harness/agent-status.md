@@ -9,6 +9,29 @@
 - Draft CI: harness validation and merge-guard candidate tests passed; PR discipline failed only `DRAFT_NOT_MERGE_READY` and repository `TRUST_POLICY_UNCONFIGURED`. Current-head CI is not fully green or merge-ready.
 - Draft PR: https://github.com/skyg547/account/pull/933 (`Refs #919`). Existing HTTP create DTO lacks `sourceReference`; legacy rejected rows fail closed; PostgreSQL lookup assumes `READ COMMITTED`. Current-head CI and human review control Ready/merge; Issue closure and resource removal remain human gates.
 
+## 2026-10-20 — Issue #914 / Draft PR #938
+
+- Branch `agent/914-mask-change-responses`; worktree `/tmp/account-914-mask-change-responses`; base `origin/main@ff5466f12b0df7db8653d83902e01c44918edb43`.
+- API-only security projection and audited denial are implemented in the worktree, and `frontend/src/app/master-data/partner/page.tsx` + `frontend/src/services/masterDataService.ts` are updated to accept masked summary responses without disabling the approval button.
+- Raw-detail denial audit is a WARN event; durable collection and live PostgreSQL were not verified.
+
+## 2026-10-20 — Issue #920 / Draft PR #934
+
+- State: module implementation and local verification complete; Draft PR [#934](https://github.com/skyg547/account/pull/934) published with `Refs #920`. Branch `agent/920-bound-foundation-lists`; worktree `/tmp/account-920-bound-foundation-lists`; base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`.
+- Scope: `master-data/**` and `auth/**` list ports, HTTP adapters, JPA queries, tests, module docs, auth PAT index migration, and these master-data module-local harness records. Shared harness, frontend, Gateway source, contracts and other modules are untouched.
+- Result: zero-based pages default to 20 and cap at 100; array bodies retain shape, page headers expose continuation. Partner list scalar projections omit child accounts. Auth user keys are paged before role loading; PAT pages use creation time and ID. H2 SQL and synthetic history tests verify bounded reads and stable pages.
+- Verification: requested five-project offline command passed; XML has 1,069 passing tests, zero failures/errors, and 27 environment-skipped master-data PostgreSQL API tests. A post-edit auth core rerun and exact PAT JPA test passed. Independent module reviews judged Q1–Q4 PASS after the PAT test gap was filled.
+- Gate: existing frontend list consumers fetch only page 0 and can hide rows beyond 20. Their migration is outside the user-approved module scope; document and resolve deployment order before Ready/merge. PostgreSQL plans and production load were not measured. Draft PR remains under human review; no Ready/merge/Issue close/cleanup is authorized.
+
+## 2026-10-20 — Issue #915 / Draft PR #931
+
+- State: Draft handoff for human review. Branch `agent/915-master-data-http-errors`; worktree `/tmp/account-915-master-data-http-errors`; integrated base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; PR https://github.com/skyg547/account/pull/931 (`Refs #915`).
+- Scope: master-data API advice and two HTTP tests, module process-flow document, and these three module-local harness records only. No other module, shared-kernel, shared harness, global Codex history, schema, or production data was changed.
+- Result: signed role and service identity failures retain 403/401; malformed input is 400, absent change request 404, known version/state conflicts 409, unexpected failure 500. Rejected unauthorized/malformed requests never enter mocked mutation use cases in full-context HTTP tests.
+- Verification: RED 2 expected status failures before fix; targeted #913 compatibility and ingress cases 23/23 PASS; current-main full suite 723 PASS (core 613, API 105, batch 5), 27 PostgreSQL-only API skips, zero failures/errors. Diff and marker checks passed. Independent read-only reviewer found no issue and judged Q1–Q4 PASS.
+- Remote gate: Harness Validation passed on Draft PR #931. Agent Merge Guard failed because its current workflow supplies no trusted policy (`TRUST_POLICY_UNCONFIGURED`) and also requires implementation owner, verification, merge authority, and non-Draft readiness. This policy/human gate is outside the module-only allowlist; the PR remains Draft.
+- Next owner: repository policy owner and human reviewer for the trust configuration, Draft review, current-head CI, Ready/merge/Issue-close decision. Remaining risk: prefix coupling to core exception messages, mocked service-to-HTTP errors, and unrun PostgreSQL-only checks. No branch/worktree cleanup yet.
+
 ## 2026-10-20 — Issue #911 / Draft PR #927
 
 - State: Draft handoff for human review. Branch `agent/911-bp-bulk-fail-closed`; worktree `/tmp/account-911-bp-bulk-fail-closed`; base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.

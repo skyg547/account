@@ -62,6 +62,7 @@ class PersonalAccessTokenHttpIntegrationTest {
     private static final String CASE_VARIANT = "PatAlice";
     private static final String BOB = "patBob";
     private static final String ADMIN = "patAdmin";
+    private static final String FIFTY_ONE_USER = "p".repeat(51);
     private static final String LONG_USER = "p".repeat(80);
 
     @Autowired private MockMvc mockMvc;
@@ -79,14 +80,15 @@ class PersonalAccessTokenHttpIntegrationTest {
     void resetUsersAndTokens() {
         jdbc.update("delete from auth_pat_lifecycle_events");
         jdbc.update("delete from auth_personal_access_tokens");
-        jdbc.update("delete from auth_role_assignments where username in (?, ?, ?, ?, ?)",
-                ALICE, CASE_VARIANT, BOB, ADMIN, LONG_USER);
-        jdbc.update("delete from auth_users where username in (?, ?, ?, ?, ?)",
-                ALICE, CASE_VARIANT, BOB, ADMIN, LONG_USER);
+        jdbc.update("delete from auth_role_assignments where username in (?, ?, ?, ?, ?, ?)",
+                ALICE, CASE_VARIANT, BOB, ADMIN, FIFTY_ONE_USER, LONG_USER);
+        jdbc.update("delete from auth_users where username in (?, ?, ?, ?, ?, ?)",
+                ALICE, CASE_VARIANT, BOB, ADMIN, FIFTY_ONE_USER, LONG_USER);
         insertUser(ALICE, "ROLE_USER");
         insertUser(CASE_VARIANT, "ROLE_USER");
         insertUser(BOB, "ROLE_USER");
         insertUser(ADMIN, "ROLE_SYSTEM_ADMIN");
+        insertUser(FIFTY_ONE_USER, "ROLE_USER");
         insertUser(LONG_USER, "ROLE_USER");
     }
 
@@ -146,6 +148,29 @@ class PersonalAccessTokenHttpIntegrationTest {
             assertThat(row.get("owner_username")).isEqualTo(ALICE);
             assertThat(row).doesNotContainKeys("raw_token", "token_hash");
         });
+    }
+
+    @Test
+    void patListDefaultsAndMaximumAreVisibleAndInvalidSizesReturnBadRequest() throws Exception {
+        String bearer = bearer(ALICE, "ROLE_USER");
+        create(bearer, "{\"tokenName\":\"key\"}");
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page", "0"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page-Size", "20"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Has-Next", "false"));
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer)
+                        .param("page", "0").param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page-Size", "100"));
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer)
+                        .param("page", "0").param("size", "101"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/auth/pat").param("size", "101"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/auth/admin/pat").header("Authorization", bearer)
+                        .param("size", "101"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -233,12 +258,19 @@ class PersonalAccessTokenHttpIntegrationTest {
 
     @Test
     void maximumLengthCanonicalAuthUserCanOwnAPat() throws Exception {
-        JsonNode created = create(bearer(LONG_USER, "ROLE_USER"),
-                "{\"tokenName\":\"long owner key\"}");
-        assertThat(created.get("username").asText()).isEqualTo(LONG_USER);
-        assertThat(jdbc.queryForObject(
-                "select username from auth_personal_access_tokens where id = ?", String.class,
-                created.get("id").asText())).isEqualTo(LONG_USER);
+        for (String owner : List.of(FIFTY_ONE_USER, LONG_USER)) {
+            JsonNode created = create(bearer(owner, "ROLE_USER"),
+                    "{\"tokenName\":\"long owner key\"}");
+            assertThat(created.get("username").asText()).isEqualTo(owner);
+            assertThat(jdbc.queryForObject(
+                    "select username from auth_personal_access_tokens where id = ?", String.class,
+                    created.get("id").asText())).isEqualTo(owner);
+            mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer(owner, "ROLE_USER")))
+                    .andExpect(status().isOk())
+                    .andExpect(result -> assertThat(objectMapper.readTree(
+                            result.getResponse().getContentAsString()).get(0).get("id").asText())
+                            .isEqualTo(created.get("id").asText()));
+        }
     }
 
     @Test
@@ -348,7 +380,7 @@ class PersonalAccessTokenHttpIntegrationTest {
         assertThat(jdbc.queryForObject("select count(*) from auth_personal_access_tokens", Integer.class))
                 .isEqualTo(2);
 
-        for (int invalidDays : List.of(0, 3651)) {
+        for (int invalidDays : List.of(-1, 0, 3651)) {
             mockMvc.perform(post("/api/auth/pat")
                             .header("Authorization", authorization)
                             .contentType(MediaType.APPLICATION_JSON)

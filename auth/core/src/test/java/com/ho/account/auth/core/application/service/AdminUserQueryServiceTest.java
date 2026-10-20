@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.model.AdminUserView;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import java.time.Clock;
@@ -31,7 +33,7 @@ class AdminUserQueryServiceTest {
         AdminUserQueryService service = service(List.of(user(
                 "user@example.com", true, false, "FIN", List.of(RoleAssignment.approved(storedRole)))));
 
-        assertThat(service.findAllUsers("admin")).singleElement()
+        assertThat(service.findUsers("admin", new ListPageRequest(0, 20)).content()).singleElement()
                 .extracting(AdminUserView::role)
                 .isEqualTo(expectedRole);
     }
@@ -47,9 +49,9 @@ class AdminUserQueryServiceTest {
                 "FIN",
                 List.of(new RoleAssignment("ROLE_FUTURE", "GLOBAL", NOW.plusSeconds(1), null, true)));
 
-        List<AdminUserView> first = service(List.of(zeta, alpha)).findAllUsers("admin");
-        List<AdminUserView> reordered = service(List.of(alpha, zeta)).findAllUsers("admin");
-        List<AdminUserView> alphaOnly = service(List.of(alpha)).findAllUsers("admin");
+        List<AdminUserView> first = service(List.of(zeta, alpha)).findUsers("admin", new ListPageRequest(0, 20)).content();
+        List<AdminUserView> reordered = service(List.of(alpha, zeta)).findUsers("admin", new ListPageRequest(0, 20)).content();
+        List<AdminUserView> alphaOnly = service(List.of(alpha)).findUsers("admin", new ListPageRequest(0, 20)).content();
 
         assertThat(first).extracting(AdminUserView::email)
                 .containsExactly("alpha@example.com", "zeta@example.com");
@@ -86,14 +88,15 @@ class AdminUserQueryServiceTest {
             }
 
             @Override
-            public List<AuthUser> findAllUsers() {
+            public ListPage<AuthUser> findUsers(ListPageRequest pageRequest) {
                 listed.set(true);
-                return List.of(user("target", true, false, "FIN", List.of()));
+                return new ListPage<>(List.of(user("target", true, false, "FIN", List.of())),
+                        pageRequest.page(), pageRequest.size(), false);
             }
         };
         AdminUserQueryService scopedService = new AdminUserQueryService(queryPort,
                 Clock.fixed(NOW, ZoneOffset.UTC));
-        assertThatThrownBy(() -> scopedService.findAllUsers("admin"))
+        assertThatThrownBy(() -> scopedService.findUsers("admin", new ListPageRequest(0, 20)))
                 .isInstanceOf(UserAccessDeniedException.class);
         assertThat(listed).isFalse();
 
@@ -104,11 +107,12 @@ class AdminUserQueryServiceTest {
             }
 
             @Override
-            public List<AuthUser> findAllUsers() {
-                return List.of(user("target", true, false, "FIN", List.of()));
+            public ListPage<AuthUser> findUsers(ListPageRequest pageRequest) {
+                return new ListPage<>(List.of(user("target", true, false, "FIN", List.of())),
+                        pageRequest.page(), pageRequest.size(), false);
             }
         }, Clock.fixed(NOW, ZoneOffset.UTC));
-        assertThat(globalService.findAllUsers("admin"))
+        assertThat(globalService.findUsers("admin", new ListPageRequest(0, 20)).content())
                 .extracting(AdminUserView::email)
                 .containsExactly("target");
     }
@@ -118,7 +122,7 @@ class AdminUserQueryServiceTest {
         AuthUser requester = user("admin", true, false, "FIN", List.of(
                 RoleAssignment.approved("ROLE_SYSTEM_ADMIN"),
                 new RoleAssignment("ROLE_AUDITOR", "FIN", null, null, true)));
-        assertThatThrownBy(() -> service(List.of(), requester).findAllUsers("admin"))
+        assertThatThrownBy(() -> service(List.of(), requester).findUsers("admin", new ListPageRequest(0, 20)))
                 .isInstanceOf(UserAccessDeniedException.class);
     }
 
@@ -135,8 +139,11 @@ class AdminUserQueryServiceTest {
             }
 
             @Override
-            public List<AuthUser> findAllUsers() {
-                return users;
+            public ListPage<AuthUser> findUsers(ListPageRequest pageRequest) {
+                List<AuthUser> sorted = users.stream().sorted(java.util.Comparator.comparing(AuthUser::getUsername)).toList();
+                int start = Math.min(sorted.size(), pageRequest.page() * pageRequest.size());
+                int end = Math.min(sorted.size(), start + pageRequest.size());
+                return new ListPage<>(sorted.subList(start, end), pageRequest.page(), pageRequest.size(), end < sorted.size());
             }
         };
         return new AdminUserQueryService(queryPort, Clock.fixed(NOW, ZoneOffset.UTC));

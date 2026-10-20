@@ -12,6 +12,7 @@ import com.ho.account.auth.core.application.port.out.OtpVerificationPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.SsoAuthenticationPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import java.time.Clock;
@@ -38,8 +39,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AuthService implements AuthUseCase {
-
-    private static final int MAX_USERNAME_LENGTH = 80;
 
     private final AuthUserQueryPort authUserQueryPort;
     private final DepartmentValidationPort departmentValidationPort;
@@ -88,8 +87,8 @@ public class AuthService implements AuthUseCase {
 
         String username = command.username().trim();
         // Lowercasing can expand Unicode, so check the exact key shape stored by login-attempt tracking too.
-        if (username.length() > MAX_USERNAME_LENGTH
-                || username.toLowerCase(Locale.ROOT).length() > MAX_USERNAME_LENGTH) {
+        if (username.length() > AuthIdentityPolicy.MAX_USERNAME_LENGTH
+                || username.toLowerCase(Locale.ROOT).length() > AuthIdentityPolicy.MAX_USERNAME_LENGTH) {
             throw new IllegalArgumentException("username is too long");
         }
 

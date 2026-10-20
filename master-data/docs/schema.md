@@ -40,7 +40,9 @@ erDiagram
 SCD2 테이블은 업무 식별 코드와 유효 기간이 함께 중요합니다. `account_subjects`, `business_partners`, `departments`, `products`에는 업무 코드와 유효 기간을 앞부분으로 하는 인덱스가 있어 기준일 조회와 버전 개수 집계를 지원합니다. 단순히 업무 코드만 unique로 묶으면 과거 버전을 보존할 수 없습니다.
 
 활성 계정과목/상품 목록과 거래처 검색은 이 기간 조건을 DB query에서 처리합니다. 거래처는
-legacy `useYn=true`도 함께 확인합니다. 단건 통화/거래처 조회는 중복 기간이 있으면 한 행을
+`useYn=true`도 함께 확인합니다. 과거 기준일 조회는 기간으로 당시 버전을 찾으며 종료된
+버전의 `useYn`은 변경하지 않습니다. `useYn`과 기간은 KYC·위험 등급 심사 적격성의 판정이
+아닙니다. 단건 통화/거래처 조회는 중복 기간이 있으면 한 행을
 임의 선택하지 않고 실패합니다. PostgreSQL V9는 네 지원 유형의 저장 단계에서도 모든 이력의 기간 중첩을 거부합니다.
 
 ## 거래처 도메인과 JPA 스키마 매핑
@@ -114,7 +116,7 @@ migration은 행 값을 출력하거나 수정하지 않고 실패합니다. 데
 
 - `V2__master_data_change_requests.sql`: 변경 요청 테이블과 상태/업무 키 조회 인덱스를 만듭니다.
 - `V3__master_data_change_request_lock_version.sql`: 기존 요청 데이터에 기본값 0을 적용하며 `lock_version`을 추가합니다.
-- `V4__master_data_change_request_payload_text.sql`: 적용 이력이 있는 V2를 수정하지 않고 `payload_json`을 `TEXT`로 보정합니다. 현재 V2의 실제 SQL은 `TEXT`이며 이 작업은 V1–V7을 수정하지 않습니다. PostgreSQL clean/upgrade 경로는 합성 DB 회귀로 검증합니다.
+- `V4__master_data_change_request_payload_text.sql`: 예전 V2의 `CLOB`으로 이미 생성된 컬럼을 `TEXT`로 전환하기 위한 forward migration입니다. 현재 저장소의 V2 SQL은 `payload_json TEXT`를 선언하므로 새 설치에서는 V2부터 `TEXT`입니다. 이미 적용된 Flyway 이력의 체크섬·실제 컬럼 상태가 다를 수 있으므로 기존 환경은 migration 이력과 컬럼을 확인해야 합니다. 아래 기존 PostgreSQL SCD2 회귀는 현재 `TEXT` V2와 V7→V8/V8→V9 이행을 사용하며, 예전 `CLOB` V2의 체크섬·V4 이행은 검증하지 않습니다. 이 경로에는 해당 이력을 재현한 별도 합성 PostgreSQL fixture와 migration/validate 게이트가 필요합니다.
 - `V5__master_data_change_request_lineage.sql`: Governance 재시도 멱등 키 `source_reference`, 실제 반영 시각 `applied_at`, source reference unique index를 추가합니다.
 - `R__master_data_change_request_rejection_reason.sql`: H2의 V8 target과 PostgreSQL 최신 version 모두에 반려 사유 열을 추가합니다. 기존 반려 행의 원래 요청 사유는 추정하거나 덮어쓰지 않습니다.
 - `V6__master_data_postgresql_baseline.sql`: 적용 이력이 있는 V1-V5를 수정하지 않고 나머지

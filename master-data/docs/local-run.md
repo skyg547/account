@@ -109,6 +109,13 @@ H2는 V8까지만 적용하며 PostgreSQL exclusion과 실제 경쟁은 아래 �
 PostgreSQL 환경변수가 없으면 PostgreSQL 전용 테스트는 skip되며 동시성 검증 통과로
 판단할 수 없습니다. 최신 실행 수와 결과는 모듈 [worklog](ai-harness/worklog.md)에 기록합니다.
 
+현재 V2 SQL은 `payload_json TEXT`로 테이블을 만들고 V4는 과거 `CLOB` 컬럼을 `TEXT`로
+전환하는 이행 파일입니다. H2의 Flyway/JPA 검증과 아래 합성 PostgreSQL SCD2 명령은 모두
+예전 `CLOB` V2의 체크섬·V4 이행을 검증하지 않습니다. 기존 환경은 적용된 Flyway 이력과
+실제 컬럼 타입을 확인해야 하며, 이 이행의 완료 판정에는 해당 이력을 재현한 별도 합성
+PostgreSQL fixture에서 migration/validate를 실행하는 게이트가 필요합니다. 현재 문서에는
+그 fixture를 실행하는 검증 명령이 없습니다.
+
 ### PostgreSQL SCD2 회귀 검증
 
 전제: JDK17, 캐시된 Gradle 의존성, **합성 테스트 전용** PostgreSQL16 데이터베이스.
@@ -191,10 +198,18 @@ PostgreSQL과 `initialize-schema=never`를 사용하므로 Batch metadata도 rel
 - `GET /api/basic/fiscal-periods/{fiscalYear}/{fiscalPeriod}`
 - `POST /api/master-data/change-requests`
 - `GET /api/master-data/change-requests/pending`
+- `GET /api/master-data/change-requests/{requestId}/raw-detail` (JWT 검증 후에도 403, 원문 조회 비활성)
 - `POST /api/master-data/change-requests/{requestId}/approve`
 - `POST /api/master-data/change-requests/{requestId}/reject`
 - `POST /api/master-data/change-requests/{requestId}/apply`
 - `POST /api/master-data/change-requests/apply-due`
+
+변경 요청 응답은 정형 상태·일자·버전·ID만 반환합니다. 합성 등록번호가 들어 있는
+`payloadJson`, 사유, 대상 키와 actor/sourceReference는 반환하지 않습니다.
+로컬 검증은 `./gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=2`를 사용합니다.
+요약 JSON의 원문 누출과 인증된 상세 거부는 API HTTP 회귀 테스트에서 확인합니다.
+기존 프런트 거래처 승인 화면은 `payloadJson` 부재 시 승인 버튼을 비활성화합니다.
+API 테스트 성공은 해당 화면의 호환성 검증을 대신하지 않습니다.
 
 `requestedVersion` 예시는 다음과 같습니다.
 

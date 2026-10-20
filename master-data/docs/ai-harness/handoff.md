@@ -11,6 +11,32 @@
 - Limits and next gate: HTTP create DTO does not accept `sourceReference`; a future API contract change requires separate scope. Legacy `REJECTED` rows with lost original reason fail closed. PostgreSQL create-or-load assumes `READ COMMITTED`; production throughput was not measured. Current-head CI and human review precede Ready/merge.
 - Rollback: reviewed issue-scoped revert; preserve request, master-history, and audit rows, and apply forward schema correction if needed. Parent Integrator owns publication and module records. Human review controls Ready, merge, Issue close, and branch/worktree deletion.
 
+## Issue #914 / Draft PR #938 — 2026-10-20
+
+- Issue/branch/worktree/base: `#914`; `agent/914-mask-change-responses`; `/tmp/account-914-mask-change-responses`; original `origin/main@ff5466f1`, integrated `origin/main@4d0273fe`.
+- Changed files include `master-data/api` response DTO/Controller/authentication filter and two API tests, `master-data/docs/process-flow.md`, `local-run.md`, `beginner-guide.md`, `frontend/src/services/masterDataService.ts`, `frontend/src/app/master-data/partner/page.tsx`, and these three module-local records.
+- Acceptance evidence: six endpoint response JSON bodies exclude synthetic registration text, including escaped strings; real JWT HTTP test shows unauthenticated 401 and authenticated 403 plus WARN audit event without payload; frontend approval UI supports masked summary responses.
+- Rollback: reviewed revert of this issue's API/frontend/tests/module docs. No schema or production data changes; preserve existing business/audit records.
+
+## Issue #920 / Draft PR #934 — 2026-10-20
+
+- Branch/worktree/base: `agent/920-bound-foundation-lists`; `/tmp/account-920-bound-foundation-lists`; `origin/main@b29125549504d245aa10b3d275923e407bff8d56`.
+- Draft PR: https://github.com/skyg547/account/pull/934 (`Refs #920`), implementation commit `12f27e608a074ffb26fe2f5c07e179d008349512`; current-head hosted CI has not been accepted as verification.
+- Changed scope: master-data/auth API/core ports, adapters, tests, module docs and auth V75 indexes, plus three master-data module-local harness records. No shared harness, frontend, Gateway source, contracts or other module changes.
+- Acceptance evidence: default 20/maximum 100, 400 on invalid bounds, stable SQL pages, effective-date filtering, 601 partner/2,400 account synthetic history with zero aggregate loads, PAT owner/admin tie-break tests, explicit consumer page-loop instructions. Existing frontend consumers still need migration and can show only the first 20; this is the remaining integration gate.
+- Verification: five-project offline Gradle command passed with 1,069 passing tests, zero failures/errors and 27 PostgreSQL-only skips. Latest auth PAT JPA 2/2 and full auth core 199/199 passed after review fix. H2 is not PostgreSQL query-plan evidence. Independent master-data/auth reviewers judged Q1–Q4 PASS; their consumer finding remains open. `git diff --check` passed.
+- Rollback: reviewed issue-scoped code/doc revert; if V75 has run, use a reviewed forward index correction rather than erasing data. Preserve historical and audit rows.
+- Authority: module writers implemented, separate reviewers remained read-only, and parent Integrator owns records, commit, push and Draft PR. Human review and frontend migration decision precede Ready/merge; Issue close and branch/worktree removal are separate gates.
+
+## Issue #915 / Draft PR #931 — 2026-10-20
+
+- Branch/worktree/base: `agent/915-master-data-http-errors`; `/tmp/account-915-master-data-http-errors`; `origin/main@b29125549504d245aa10b3d275923e407bff8d56`. PR https://github.com/skyg547/account/pull/931 is Draft with `Refs #915`; Issue remains open.
+- Implementation: `MasterDataExceptionHandler` maps expected MVC, missing-record and state errors without leaking raw input/internal details; #913's trusted field-rule messages remain available. Two HTTP test files cover current status contracts with real advice and filter; `docs/process-flow.md` explains the mapping and test command. Only `master-data/**` code, module document, and module-local records changed. Shared kernel, common harness/history, schema, and production data were untouched.
+- Verification: prior RED 400-for-404 and 500-for-409; final required core/API/batch run passed 613/105/5 tests (723 total), zero failures/errors, with 27 PostgreSQL-only API tests skipped. Targeted compatibility run passed 23/23; whitespace/marker gates passed. Independent reviewer was read-only, found no findings, and rated Q1–Q4 PASS; detailed evidence is in the module worklog and PR body.
+- Residual: full-context tests mock the core exceptions, and idempotency/PostgreSQL SCD2 409 paths have separate rather than full-context evidence. The 404/409 adapter checks current core message prefixes, so core wording changes require paired updates. H2 is not PostgreSQL evidence.
+- Remote gate: Harness Validation passed. Agent Merge Guard's implementer-discipline job failed with `TRUST_POLICY_UNCONFIGURED` plus implementation-owner, verification, merge-authority, and Draft-readiness requirements because the workflow explicitly supplies `policy: undefined`. The repository policy owner must configure/review this trust gate before Ready/merge; it cannot be changed inside the module-only allowlist. Keep the PR Draft.
+- Rollback: reviewed issue-scoped revert of code, tests, and module feature document; preserve existing business/audit records. Parent Integrator owns Git/PR and these records. Human reviewer controls Ready, merge, Issue close, and branch/worktree removal.
+
 ## Issue #911 / Draft PR #927 — 2026-10-20
 
 - Branch/worktree/base: `agent/911-bp-bulk-fail-closed`; `/tmp/account-911-bp-bulk-fail-closed`; `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.

@@ -5,6 +5,8 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.infrastructure.persistence.entity.MasterDataChangeRequestEntity;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.MasterDataChangeRequestMapper;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
@@ -65,10 +67,10 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
     }
 
     @Override
-    public List<MasterDataChangeRequest> findByStatus(ChangeStatus status) {
-        return repository.findByStatusOrderByRequestedAtAsc(status).stream()
-                .map(mapper::toDomain)
-                .toList();
+    public PageSlice<MasterDataChangeRequest> findByStatus(ChangeStatus status, PageWindow page) {
+        var slice = repository.findByStatusOrderByRequestedAtAscIdAsc(
+                status, PageRequest.of(page.page(), page.size()));
+        return new PageSlice<>(slice.getContent().stream().map(mapper::toDomain).toList(), slice.hasNext());
     }
 
     @Override
