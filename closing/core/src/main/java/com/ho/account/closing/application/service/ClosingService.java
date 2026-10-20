@@ -120,7 +120,7 @@ public class ClosingService implements ClosingUseCase {
         if (calendarId == null || calendarId <= 0) {
             throw new IllegalArgumentException("calendarId must be positive");
         }
-        return closingTaskPersistencePort.findByClosingCalendarId(calendarId);
+        return closingTaskPersistencePort.findActiveByClosingCalendarId(calendarId);
     }
 
     @Override
@@ -142,7 +142,8 @@ public class ClosingService implements ClosingUseCase {
         requireNewEntity(closingTask.getId());
         ClosingCalendar calendar = lockCalendar(closingTask.getClosingCalendar().getId());
         calendar.requireChecklistMutable();
-        closingTask.setClosingCalendar(calendar);
+        establishLegacyEvidenceFence(calendar);
+        closingTask.assignCycle(calendar);
         closingTask.setStatus(ClosingTaskStatus.PENDING);
         return closingTaskPersistencePort.save(closingTask);
     }
@@ -154,6 +155,7 @@ public class ClosingService implements ClosingUseCase {
         calendar.requireChecklistMutable();
         ClosingTask task = aggregatePersistencePort.refreshTask(taskId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingTask not found"));
+        calendar.requireActiveCycle(task.getCycleNumber());
         String prevStatus = task.getStatus().name();
         
         // 도메인 메서드 활용
@@ -180,7 +182,8 @@ public class ClosingService implements ClosingUseCase {
         requireNewEntity(closingGate.getId());
         ClosingCalendar calendar = lockCalendar(closingGate.getClosingCalendar().getId());
         calendar.requireChecklistMutable();
-        closingGate.setClosingCalendar(calendar);
+        establishLegacyEvidenceFence(calendar);
+        closingGate.assignCycle(calendar);
         closingGate.setStatus(ClosingGateStatus.PENDING);
         return closingGatePersistencePort.save(closingGate);
     }
@@ -192,13 +195,14 @@ public class ClosingService implements ClosingUseCase {
         calendar.requireChecklistMutable();
         ClosingGate gate = aggregatePersistencePort.refreshGate(gateId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingGate not found"));
+        calendar.requireActiveCycle(gate.getCycleNumber());
         if (hasText(gate.getCheckConditionJson())) {
             // @todo Introduce a typed ClosingGateEvidencePort. The gate may pass only after the
             // external evidence is verified and stored with source ID, result and verification time.
             throw new IllegalStateException(
                     "Configured gate conditions require a typed evidence evaluator.");
         }
-        List<ClosingTask> tasks = aggregatePersistencePort.refreshTasks(calendar);
+        List<ClosingTask> tasks = aggregatePersistencePort.refreshActiveTasks(calendar);
         gate.pass(user, tasks);
         ClosingGate saved = closingGatePersistencePort.save(gate);
 
@@ -457,11 +461,12 @@ public class ClosingService implements ClosingUseCase {
 
     @Override
     public ClosingAdjustment createClosingAdjustment(Long fiscalPeriodId, Long journalEntryId, ClosingAdjustment.AdjustmentType adjustmentType, String description, String approvedBy) {
+        requireActor(approvedBy, "approvedBy");
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
 
         ClosingCalendar calendar = lockCalendar(fiscalPeriod);
-        calendar.requireNoTransition();
+        calendar.requireChecklistMutable();
         fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
         // Read admission again under the same calendar lock used by close/reopen.
@@ -507,13 +512,35 @@ public class ClosingService implements ClosingUseCase {
         adjustment.setAuditUser(approvedBy);
         ClosingAdjustment saved = closingAdjustmentPersistencePort.save(adjustment);
 
+        // This journal changes the financial source under the same root lock as task/gate progress.
+        // Completed controls must be rerun; untouched definitions can remain in the current cycle.
+        List<ClosingTask> activeTasks = aggregatePersistencePort.refreshActiveTasks(calendar);
+        List<ClosingGate> activeGates = aggregatePersistencePort.refreshActiveGates(calendar);
+        int previousCycle = calendar.getCycleNumber();
+        boolean controlsProgressed = activeTasks.stream()
+                .anyMatch(task -> task.getStatus() != ClosingTaskStatus.PENDING)
+                || activeGates.stream().anyMatch(gate -> gate.getStatus() != ClosingGateStatus.PENDING);
+        if (controlsProgressed) {
+            calendar.advanceCycleForSourceChange();
+            for (ClosingTask task : activeTasks) {
+                closingTaskPersistencePort.save(task.nextCycle(calendar, approvedBy));
+            }
+            for (ClosingGate gate : activeGates) {
+                closingGatePersistencePort.save(gate.nextCycle(calendar, approvedBy));
+            }
+        }
+        calendar.recordSourceChange();
+        closingCalendarPersistencePort.save(calendar);
+
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar,
                 ActionType.ADJUSTMENT_CREATED,
                 null,
                 "CREATED",
                 approvedBy,
-                "Adjustment Entry ID: " + journalEntryId));
+                "Adjustment Entry ID: " + journalEntryId
+                        + "; previousCycle=" + previousCycle
+                        + "; activeCycle=" + calendar.getCycleNumber()));
 
         return saved;
     }
@@ -540,6 +567,12 @@ public class ClosingService implements ClosingUseCase {
         }
     }
 
+    private void establishLegacyEvidenceFence(ClosingCalendar calendar) {
+        if (calendar.getReopenedAt() != null && calendar.getLastSourceChangedAt() == null) {
+            calendar.establishLegacyEvidenceFence();
+            closingCalendarPersistencePort.save(calendar);
+        }
+    }
     private void requireSupportedValuationType(ValuationBatch.ValuationType valuationType) {
         if (valuationType != ValuationBatch.ValuationType.FX_RATE) {
             throw new IllegalArgumentException("Only FX_RATE valuation is supported");

@@ -7,8 +7,10 @@ import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
 import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
+import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
 import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
 import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.BalanceReaggregationService;
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
@@ -37,6 +39,8 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -49,6 +53,7 @@ import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -93,6 +98,22 @@ import static org.mockito.Mockito.when;
 class BalanceReaggregationBatchConfigTest {
 
     private static final Instant INITIAL_CLOCK_INSTANT = Instant.parse("2026-08-04T00:30:00Z");
+    private static final String CLEANUP_POSTGRES_URL = System.getenv("JOURNAL_BALANCE_CLEANUP_TEST_POSTGRES_URL");
+    private static final String CLEANUP_POSTGRES_SCHEMA = "cleanup_" + UUID.randomUUID().toString().replace("-", "");
+
+    @DynamicPropertySource
+    static void disposablePostgres(DynamicPropertyRegistry registry) {
+        if (CLEANUP_POSTGRES_URL == null || CLEANUP_POSTGRES_URL.isBlank()) {
+            return;
+        }
+        registry.add("spring.datasource.url", () -> CLEANUP_POSTGRES_URL
+                + (CLEANUP_POSTGRES_URL.contains("?") ? "&" : "?")
+                + "currentSchema=" + CLEANUP_POSTGRES_SCHEMA);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("spring.datasource.username", () -> "postgres");
+        registry.add("spring.flyway.schemas", () -> CLEANUP_POSTGRES_SCHEMA);
+        registry.add("spring.jpa.properties.hibernate.default_schema", () -> CLEANUP_POSTGRES_SCHEMA);
+    }
 
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
@@ -111,6 +132,9 @@ class BalanceReaggregationBatchConfigTest {
 
     @Autowired
     private SlBalanceRepository slBalanceRepository;
+
+    @Autowired
+    private LedgerBalancePersistencePort balancePersistence;
 
     @SpyBean
     private LedgerService ledgerService;
@@ -140,10 +164,45 @@ class BalanceReaggregationBatchConfigTest {
         jobLauncherTestUtils.setJob(dailyBalanceReaggregationJob);
         glBalanceRepository.deleteAllInBatch();
         slBalanceRepository.deleteAllInBatch();
-        // This fixed in-memory H2 database is disposable test state. Child rows must be removed first
-        // so fixture cleanup respects the journal_details -> journal_entries foreign key.
+        // The isolated test database is disposable. Remove child rows first so fixture cleanup
+        // respects the journal_details -> journal_entries foreign key on H2 and PostgreSQL.
         jdbcTemplate.update("DELETE FROM journal_details");
         jdbcTemplate.update("DELETE FROM journal_entries");
+    }
+
+    @Test
+    @DisplayName("GL/SL cleanup은 양끝 날짜를 포함하고 실패한 트랜잭션에서는 함께 롤백한다")
+    void cleanupDateBoundariesAndRollbackForBothLedgers() {
+        LocalDate start = LocalDate.of(2026, 8, 10);
+        LocalDate end = LocalDate.of(2026, 8, 12);
+        List<LocalDate> dates = List.of(start.minusDays(1), start, end, end.plusDays(1));
+        glBalanceRepository.saveAllAndFlush(dates.stream()
+                .map(date -> existingGlBalance(date, BigDecimal.ONE)).toList());
+        slBalanceRepository.saveAllAndFlush(dates.stream()
+                .map(this::existingSlBalance).toList());
+
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.executeWithoutResult(status -> {
+            balancePersistence.deleteBalancesBetween(start, end);
+            assertBalanceDateCounts(start, end, 0);
+            status.setRollbackOnly();
+        });
+        assertBalanceDateCounts(start, end, 2);
+
+        transaction.executeWithoutResult(status -> balancePersistence.deleteBalancesBetween(start, end));
+        assertBalanceDateCounts(start, end, 0);
+        assertThat(glBalanceRepository.findAll()).extracting(GlBalance::getBalanceDate)
+                .containsExactlyInAnyOrder(start.minusDays(1), end.plusDays(1));
+        assertThat(slBalanceRepository.findAll()).extracting(SlBalance::getBalanceDate)
+                .containsExactlyInAnyOrder(start.minusDays(1), end.plusDays(1));
+    }
+
+    private void assertBalanceDateCounts(LocalDate start, LocalDate end, int expected) {
+        for (String table : List.of("gl_balances", "sl_balances")) {
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table
+                    + " WHERE balance_date BETWEEN ? AND ?", Integer.class, start, end))
+                    .as(table + " inclusive cleanup count").isEqualTo(expected);
+        }
     }
 
     @Test
@@ -556,6 +615,16 @@ class BalanceReaggregationBatchConfigTest {
         balance.setDebitAmount(debitAmount);
         balance.setCreditAmount(BigDecimal.ZERO);
         balance.setEndingBalance(debitAmount);
+        return balance;
+    }
+
+    private SlBalance existingSlBalance(LocalDate date) {
+        SlBalance balance = new SlBalance();
+        balance.setAccountCode("EXISTING");
+        balance.setCurrencyCode("KRW");
+        balance.setBalanceDate(date);
+        balance.setPeriod(YearMonth.from(date));
+        balance.setDebitAmount(BigDecimal.ONE);
         return balance;
     }
 

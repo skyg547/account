@@ -24,12 +24,19 @@ final class FinalCloseEvidenceFixtures {
 
     static String recordValid(FinalCloseEvidenceUseCase useCase, ClosingCalendar calendar,
             Long fiscalPeriodId, LocalDate cutoff, Instant observedAt) {
+        return recordValid(useCase, calendar, fiscalPeriodId, cutoff, observedAt, "", BigDecimal.ZERO);
+    }
+
+    static String recordValid(FinalCloseEvidenceUseCase useCase, ClosingCalendar calendar,
+            Long fiscalPeriodId, LocalDate cutoff, Instant observedAt, String sourceRunSuffix,
+            BigDecimal matchedTotal) {
         String id = "test-evidence-" + calendar.getId() + "-" + System.nanoTime();
         List<FinalCloseEvidenceControl> controls = Arrays.stream(Type.values())
                 .filter(type -> type != Type.ANNUAL_TRANSFER || "YEAR".equals(calendar.getFiscalPeriod()))
-                .map(type -> new FinalCloseEvidenceControl(type, type.expectedSourceSystem(), "run-" + type,
+                .map(type -> new FinalCloseEvidenceControl(type, type.expectedSourceSystem(),
+                        "run-" + type + sourceRunSuffix,
                         Outcome.PASS, 0, List.of(new FinalCloseEvidenceTotal(
-                                "1000", "KRW", BigDecimal.ZERO, new BigDecimal("0.000")))))
+                                "1000", "KRW", matchedTotal, matchedTotal))))
                 .toList();
         Submission seed = new Submission(id, calendar.getId(), fiscalPeriodId, calendar.getFiscalYear(),
                 calendar.getFiscalPeriod(), cutoff, observedAt, "0".repeat(64), controls);

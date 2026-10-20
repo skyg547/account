@@ -198,5 +198,6 @@ ECL 충당 Job 예시:
 - 현재 연차 구현은 원천 전표별 상세 조회(N+1)이며 원격 조회와 초안 생성은 분산 원자적 snapshot이 아닙니다. `HttpClosingJournalAdapter`의 maker 헤더 전달만으로 신뢰된 서비스 주체가 성립하지 않으므로, 별도 승인된 인증 통합 전에는 독립 Journal 원격 초안 생성을 배포 검증된 경로로 간주하면 안 됩니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.
-- Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. V49 baseline 뒤 V50~V54를 순서대로 적용합니다. V54의 실행 키 고유 제약은 새 API writer 기동 전에 적용해야 합니다.
+- Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49 baseline부터 V55까지 순서대로 적용합니다. V50은 EOD/BOD, V51은 인덱스, V52는 월말 전이, V53은 최종 마감 증빙, V54는 재오픈 회차, V55는 실행 키 고유 제약을 추가합니다. 기존 legacy DB는 runner가 V49 baseline 형태를 확인한 뒤 후속 migration을 forward 적용합니다. 새 writer 기동 전 V55까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
+- 재오픈이 확정되면 이전 완료/통과 행을 보존한 채 새 회차의 `PENDING` 체크리스트를 만듭니다. 이미 재오픈된 legacy 캘린더는 과거 증빙을 차단하고 운영자가 새 정의를 등록해야 합니다. [재오픈 회차 흐름](docs/process-flow.md#재오픈-후-새-마감-회차-gh-885)을 참고하세요.
 - Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.
