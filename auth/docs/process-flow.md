@@ -16,7 +16,7 @@
 
 로그인 요청의 `username`은 `auth_users`와 `auth_login_attempts`의 80자 한도에 맞춰 검증합니다. 길이 81자 이상은 core의 잠금 조회·실패 기록 전에 HTTP 400 `VALIDATION_ERROR`로 중단됩니다. 소문자 정규화 후 실패 기록 키가 80자를 넘는 Unicode 입력도 core가 조회 전에 400 `INVALID_REQUEST`로 중단합니다. 길이 이내에서 비밀번호 등이 틀린 요청은 기존 401 `INVALID_CREDENTIALS` 동작을 유지합니다.
 
-PAT 생성 요청에서는 선택적 레거시 `username`을 80자, `tokenName`을 `auth_personal_access_tokens.token_name`의 100자까지 받습니다. 본문의 `username`은 검증되더라도 소유자 선택에는 사용되지 않습니다. `expireDays`를 생략하면 90일이고, 명시하면 1~3650일이어야 합니다. 길이와 기간 위반은 PAT 생성 전에 HTTP 400 `VALIDATION_ERROR`로 거부합니다. core도 검증된 소유자와 PAT 이름·기간의 상한을 저장 전에 다시 확인합니다.
+PAT 생성 요청에서는 선택적 레거시 `username`을 80자, `tokenName`을 `auth_personal_access_tokens.token_name`의 100자까지 받습니다. 본문의 `username`은 검증되더라도 소유자 선택에는 사용되지 않습니다. 확인된 소유자 username은 50·51·80자까지 PAT에 저장할 수 있습니다. 레거시 본문 username 81자는 HTTP 400으로, 확인된 소유자 username 81자는 core에서 저장 전에 거부합니다. `expireDays`를 생략하면 90일이고, 명시하면 1~3650일이어야 합니다. 따라서 이름 100자는 허용하고 101자는 거부하며, 기간 0·음수·3651일은 거부하고 3650일은 허용합니다. 요청 길이와 기간 위반은 PAT 생성 전에 HTTP 400 `VALIDATION_ERROR`로 거부합니다. core도 확인된 소유자와 PAT 이름·기간의 상한을 저장 전에 다시 확인합니다.
 
 로그인·PAT 본문에서 JSON 구문이 깨지거나 자료형이 맞지 않으면 HTTP 400 `INVALID_REQUEST`와 고정된 `Malformed request body`를 반환합니다. 파서 메시지와 제출 내용은 응답에 넣지 않습니다. 예상 밖의 서버 오류는 HTTP 500 `INTERNAL_SERVER_ERROR`와 참조 ID를 담은 일반 메시지로 응답합니다. 서버 로그에는 참조 ID와 예외 종류만 남겨 오류와 요청을 연결하며 예외 메시지나 요청 본문을 기록하지 않습니다.
 

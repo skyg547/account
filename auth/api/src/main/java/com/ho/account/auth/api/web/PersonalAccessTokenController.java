@@ -5,6 +5,8 @@ import com.ho.account.auth.core.application.model.PersonalAccessTokenDto;
 import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
 import com.ho.account.auth.core.application.exception.PatAuthenticationException;
 import com.ho.account.auth.core.application.port.in.PersonalAccessTokenUseCase;
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
+import com.ho.account.auth.core.domain.model.PersonalAccessToken;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -34,10 +36,10 @@ public class PersonalAccessTokenController {
     private final PersonalAccessTokenUseCase patUseCase;
 
     public record CreatePatRequest(
-            @Size(max = 80, message = "username must be at most 80 characters") String username,
-            @Size(max = 100, message = "tokenName must be at most 100 characters") String tokenName,
-            @Min(value = 1, message = "expireDays must be positive")
-            @Max(value = 3650, message = "expireDays must be at most 3650") Integer expireDays) {}
+            @Size(max = AuthIdentityPolicy.MAX_USERNAME_LENGTH, message = "username must be at most 80 characters") String username,
+            @Size(max = PersonalAccessToken.MAX_TOKEN_NAME_LENGTH, message = "tokenName must be at most 100 characters") String tokenName,
+            @Min(value = PersonalAccessToken.MIN_EXPIRE_DAYS, message = "expireDays must be positive")
+            @Max(value = PersonalAccessToken.MAX_EXPIRE_DAYS, message = "expireDays must be at most 3650") Integer expireDays) {}
 
     /**
      * 1. 개인용 액세스 토큰(PAT) 신규 생성
