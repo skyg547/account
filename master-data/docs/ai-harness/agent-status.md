@@ -1,5 +1,13 @@
 # Master Data Agent Status
 
+## 2026-10-20 — Issue #920 / Draft review handoff
+
+- State: module implementation and local verification complete; Draft PR publication pending. Branch `agent/920-bound-foundation-lists`; worktree `/tmp/account-920-bound-foundation-lists`; base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`.
+- Scope: `master-data/**` and `auth/**` list ports, HTTP adapters, JPA queries, tests, module docs, auth PAT index migration, and these master-data module-local harness records. Shared harness, frontend, Gateway source, contracts and other modules are untouched.
+- Result: zero-based pages default to 20 and cap at 100; array bodies retain shape, page headers expose continuation. Partner list scalar projections omit child accounts. Auth user keys are paged before role loading; PAT pages use creation time and ID. H2 SQL and synthetic history tests verify bounded reads and stable pages.
+- Verification: requested five-project offline command passed; XML has 1,069 passing tests, zero failures/errors, and 27 environment-skipped master-data PostgreSQL API tests. A post-edit auth core rerun and exact PAT JPA test passed. Independent module reviews judged Q1–Q4 PASS after the PAT test gap was filled.
+- Gate: existing frontend list consumers fetch only page 0 and can hide rows beyond 20. Their migration is outside the user-approved module scope; document and resolve deployment order before Ready/merge. PostgreSQL plans and production load were not measured. Draft PR remains under human review; no Ready/merge/Issue close/cleanup is authorized.
+
 ## 2026-10-20 — Issue #911 / Draft PR #927
 
 - State: Draft handoff for human review. Branch `agent/911-bp-bulk-fail-closed`; worktree `/tmp/account-911-bp-bulk-fail-closed`; base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.

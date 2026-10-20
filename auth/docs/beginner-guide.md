@@ -66,3 +66,7 @@ curl -i -X POST http://localhost:8081/api/auth/pat \
 - JPA 저장소는 같은 사용자에 대한 실패를 차례로 기록하므로, 여러 서버에서 동시에 실패해도 잠금 기준에 도달한 횟수를 잃지 않습니다. 잠금 확인을 이미 통과한 요청은 잠금 직후에도 끝날 수 있습니다.
 - 레거시 평문 비밀번호와 멱등 이력 보존 정책은 별도 후속 과제입니다.
 - Auth의 `AUTH_INTERNAL_API_TOKEN`과 Governance의 `GOVERNANCE_AUTH_INTERNAL_TOKEN`은 같은 값을 사용해야 합니다.
+
+## 목록을 여러 페이지로 읽기
+
+관리자 사용자 목록과 내 PAT·관리자 PAT 목록은 한 번에 최대 100개까지만 반환합니다. 예를 들어 권한 있는 요청에 `GET /api/auth/pat?page=0&size=20`을 보내면 첫 20개 이하의 JSON 배열과 `X-Page: 0`, `X-Page-Size: 20`, `X-Has-Next: true|false` 헤더를 받습니다. `X-Has-Next`가 `true`이면 같은 인증으로 `page=1`, `page=2`를 순서대로 읽으세요. `page`를 생략하면 0, `size`를 생략하면 20입니다. 최대 `size=100`이며 범위를 벗어난 값은 400입니다. 기존처럼 목록 API를 한 번만 호출하는 소비자는 첫 페이지만 보게 되므로 전체 목록이 필요한 화면은 반복 호출로 변경해야 합니다. 요청 중 데이터가 추가되거나 삭제되면 offset 페이지의 경계가 이동할 수 있습니다.

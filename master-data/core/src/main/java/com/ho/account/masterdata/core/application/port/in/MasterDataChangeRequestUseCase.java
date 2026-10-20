@@ -2,6 +2,8 @@ package com.ho.account.masterdata.core.application.port.in;
 
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import java.util.List;
 
 /**
@@ -10,7 +12,7 @@ import java.util.List;
 public interface MasterDataChangeRequestUseCase {
     MasterDataChangeRequest requestChange(MasterDataChangeRequestCommand command);
     
-    List<MasterDataChangeRequest> findPendingRequests();
+    PageSlice<MasterDataChangeRequest> findPendingRequests(PageWindow page);
     
     MasterDataChangeRequest approve(Long requestId, String approver);
     

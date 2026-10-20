@@ -6,6 +6,8 @@ import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKey
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataChangeVersionPolicy;
@@ -86,8 +88,8 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
 
     @Override
     @Transactional(readOnly = true)
-    public List<MasterDataChangeRequest> findPendingRequests() {
-        return persistencePort.findByStatus(ChangeStatus.REQUESTED);
+    public PageSlice<MasterDataChangeRequest> findPendingRequests(PageWindow page) {
+        return persistencePort.findByStatus(ChangeStatus.REQUESTED, page);
     }
 
     @Override

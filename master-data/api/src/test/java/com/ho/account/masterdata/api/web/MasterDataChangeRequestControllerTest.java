@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
 import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
@@ -106,7 +108,8 @@ class MasterDataChangeRequestControllerTest {
     @Test
     void pendingEndpointReturnsRequestedChangesFromUseCase() throws Exception {
         MasterDataChangeRequest requested = requestedChange();
-        when(useCase.findPendingRequests()).thenReturn(List.of(requested));
+        when(useCase.findPendingRequests(new PageWindow(0, 20)))
+                .thenReturn(new PageSlice<>(List.of(requested), false));
 
         mockMvc.perform(get("/api/master-data/change-requests/pending")
                         .header(AUTH_ROLES, APPROVAL_ROLE))
@@ -120,7 +123,7 @@ class MasterDataChangeRequestControllerTest {
                 .andExpect(jsonPath("$[0].requestedBy").value("requester"))
                 .andExpect(jsonPath("$[0].sourceReference").value("GOV-42"));
 
-        verify(useCase).findPendingRequests();
+        verify(useCase).findPendingRequests(new PageWindow(0, 20));
     }
 
     @Test

@@ -139,6 +139,7 @@ prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외�
 - 변경 요청의 조회/승인/반려/반영도 같은 수신 서비스 검증을 거칩니다. 내부 회계기간 변경은 별도 서명키와 `master-data-internal` audience의 Closing assertion을 요구하며, `audit_user`에는 검증된 `closing:<delegated actor>`를 기록합니다. 상세 입력과 통합 제약은 [docs/process-flow.md](docs/process-flow.md)에 있습니다.
 - 일일 유효성 보고서는 core pipeline이 기준일을 필수로 받고, JPA 통계 어댑터가 네 테이블의 활성 건수를 DB `COUNT`로 계산합니다.
 - 계정과목/상품 활성 목록과 거래처 이름 검색도 전체 행을 Java에서 필터링하지 않고 기준일 조건을 DB query에 전달합니다. 거래처 검색은 빈 검색어를 거부하고 현재 활성 버전만 반환합니다.
+- 거래처 `GET /api/basic/businesspartners`, `/active`, `/search?name=...`와 변경 요청 `GET /api/master-data/change-requests/pending`은 0부터 시작하는 `page`와 `size`를 받습니다. 기본 크기는 20, 최대 크기는 100이며 잘못된 범위는 HTTP 400입니다. JSON 본문은 기존 배열 형식을 유지하고 응답 헤더 `X-Page`, `X-Page-Size`, `X-Has-Next`가 다음 페이지 여부를 알려줍니다. 전체 결과가 필요한 소비자는 `X-Has-Next=true`인 동안 `page`를 1씩 올려 조회해야 합니다. 거래처 목록은 계좌를 포함하지 않는 scalar 요약만 DB에서 조회합니다.
 - 환율 조회는 요청일 이하의 데이터 중 가장 최근 `effectiveDate` 1건을 DB에서 선택합니다. 환율은 양수이고 통화 코드는 3자리 ISO 형식이어야 합니다.
 - Closing이 회계기간 상태를 바꿀 때는 `FiscalPeriodPersistencePort` 뒤에서 대상 행을 잠그고, 영구 마감 불변식과 감사 사용자를 `FiscalPeriod` 도메인 메서드가 검증합니다.
 - 운영에서는 애플리케이션 `ddl-auto`를 `validate`로 유지하고 migration-runner가 검증한 Flyway 기준만 사용합니다.

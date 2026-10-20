@@ -1,6 +1,7 @@
 package com.ho.account.auth.api.web;
 
 import com.ho.account.auth.core.application.model.PersonalAccessTokenCreateResponse;
+import com.ho.account.auth.core.application.model.ListPage;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenDto;
 import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
 import com.ho.account.auth.core.application.exception.PatAuthenticationException;
@@ -23,7 +24,8 @@ import org.springframework.web.bind.annotation.*;
  * - 사용자가 자신의 마이페이지에서 AI 에이전트/스크립트용 전용 키를 직접 생성하고,
  * - 관리자(System Admin)가 전사 생성된 PAT를 모니터링하고 강제 폐기(Revoke)할 수 있는 API입니다.
  */
-@CrossOrigin(origins = "*", allowedHeaders = "*")
+@CrossOrigin(origins = "*", allowedHeaders = "*",
+        exposedHeaders = {"X-Page", "X-Page-Size", "X-Has-Next"})
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -60,9 +62,10 @@ public class PersonalAccessTokenController {
      */
     @GetMapping("/pat")
     public ResponseEntity<List<PersonalAccessTokenDto>> getMyPats(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
-        List<PersonalAccessTokenDto> list = patUseCase.getUserTokens(authorization);
-        return ResponseEntity.ok(list);
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return pageResponse(patUseCase.getUserTokens(authorization, page, size));
     }
 
     /**
@@ -81,9 +84,18 @@ public class PersonalAccessTokenController {
      */
     @GetMapping("/admin/pat")
     public ResponseEntity<List<PersonalAccessTokenDto>> getAllPatsForAdmin(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
-        List<PersonalAccessTokenDto> list = patUseCase.getAllTokensForAdmin(authorization);
-        return ResponseEntity.ok(list);
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return pageResponse(patUseCase.getAllTokensForAdmin(authorization, page, size));
+    }
+
+    private ResponseEntity<List<PersonalAccessTokenDto>> pageResponse(ListPage<PersonalAccessTokenDto> result) {
+        return ResponseEntity.ok()
+                .header("X-Page", String.valueOf(result.page()))
+                .header("X-Page-Size", String.valueOf(result.size()))
+                .header("X-Has-Next", String.valueOf(result.hasNext()))
+                .body(result.content());
     }
 
     /**

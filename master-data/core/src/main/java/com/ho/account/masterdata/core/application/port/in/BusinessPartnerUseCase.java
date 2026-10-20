@@ -1,9 +1,11 @@
 package com.ho.account.masterdata.core.application.port.in;
 
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -16,13 +18,13 @@ public interface BusinessPartnerUseCase {
 
     BusinessPartner createBusinessPartner(BusinessPartnerCommand command);
 
-    List<BusinessPartner> getAllBusinessPartners();
+    PageSlice<BusinessPartnerSummary> getAllBusinessPartners(PageWindow page);
 
-    List<BusinessPartner> getActiveBusinessPartners();
+    PageSlice<BusinessPartnerSummary> getActiveBusinessPartners(PageWindow page);
 
     Optional<BusinessPartner> getBusinessPartnerByCode(String businessPartnerCode);
 
-    List<BusinessPartner> searchBusinessPartnersByName(String name);
+    PageSlice<BusinessPartnerSummary> searchBusinessPartnersByName(String name, PageWindow page);
 
     BusinessPartner updateBusinessPartner(Long id, BusinessPartnerCommand command);
 

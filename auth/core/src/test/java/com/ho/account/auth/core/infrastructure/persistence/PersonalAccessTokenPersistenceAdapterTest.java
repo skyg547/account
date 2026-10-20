@@ -1,5 +1,6 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.domain.model.PersonalAccessToken;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,8 @@ import org.mockito.ArgumentCaptor;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -73,10 +76,11 @@ class PersonalAccessTokenPersistenceAdapterTest {
         LocalDateTime now = LocalDateTime.now();
         PersonalAccessTokenJpaEntity entity = new PersonalAccessTokenJpaEntity(
                 "id-123", "user1", "Key 1", "pat_live_abc...", "hash123", "ACTIVE", now.plusDays(30), now);
-        when(repository.findByUsernameOrderByCreatedAtDesc("user1")).thenReturn(List.of(entity));
+        when(repository.findByUsernameOrderByCreatedAtDescIdDesc("user1", PageRequest.of(0, 20)))
+                .thenReturn(new SliceImpl<>(List.of(entity), PageRequest.of(0, 20), false));
 
         // when
-        List<PersonalAccessToken> result = adapter.findByUsername("user1");
+        List<PersonalAccessToken> result = adapter.findByUsername("user1", new ListPageRequest(0, 20)).content();
 
         // then
         assertThat(result).hasSize(1);
@@ -103,7 +107,8 @@ class PersonalAccessTokenPersistenceAdapterTest {
 }
 
 /** Verifies the conditional SQL write against H2 rather than a repository mock. */
-@DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"})
+@DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.jpa.properties.hibernate.session_factory.statement_inspector=com.ho.account.auth.core.infrastructure.persistence.SqlLimitInspector"})
 @ContextConfiguration(classes = PersonalAccessTokenConditionalRevokeJpaTest.JpaTestConfiguration.class)
 class PersonalAccessTokenConditionalRevokeJpaTest {
 
@@ -126,6 +131,57 @@ class PersonalAccessTokenConditionalRevokeJpaTest {
         entityManager.clear();
         assertThat(repository.findById("conditional-id").orElseThrow().getStatus())
                 .isEqualTo("REVOKED");
+    }
+
+    @Test
+    void equalTimestampTokensHaveStableSqlLimitedOwnerAndAdminPages() {
+        LocalDateTime created = LocalDateTime.of(2026, 1, 1, 0, 0);
+        for (int index = 0; index < 25; index++) {
+            String id = String.format("token-%03d", index);
+            repository.save(new PersonalAccessTokenJpaEntity(id, "owner", "Key",
+                    "pat_live_123...", "hash-" + id, "ACTIVE", created.plusDays(1), created));
+        }
+        repository.save(new PersonalAccessTokenJpaEntity("other-token", "other", "Key",
+                "pat_live_123...", "hash-other", "ACTIVE", created.plusDays(1), created));
+        repository.flush();
+        entityManager.clear();
+        SqlLimitInspector.STATEMENTS.clear();
+
+        var first = adapter.findByUsername("owner", new ListPageRequest(0, 10));
+        var second = adapter.findByUsername("owner", new ListPageRequest(1, 10));
+        var third = adapter.findByUsername("owner", new ListPageRequest(2, 10));
+        var names = java.util.stream.Stream.of(first, second, third)
+                .flatMap(page -> page.content().stream()).map(PersonalAccessToken::getId).toList();
+        assertThat(names).hasSize(25).doesNotHaveDuplicates().isSortedAccordingTo(java.util.Comparator.reverseOrder());
+        assertThat(first.hasNext()).isTrue();
+        assertThat(second.hasNext()).isTrue();
+        assertThat(third.hasNext()).isFalse();
+        assertThat(SqlLimitInspector.STATEMENTS.stream()
+                .filter(sql -> sql.contains("from auth_personal_access_tokens") && sql.contains("order by"))
+                .filter(sql -> sql.contains("fetch first") || sql.contains(" limit ")))
+                .hasSizeGreaterThanOrEqualTo(3);
+
+        SqlLimitInspector.STATEMENTS.clear();
+        var adminFirst = adapter.findAll(new ListPageRequest(0, 10));
+        var adminSecond = adapter.findAll(new ListPageRequest(1, 10));
+        var adminThird = adapter.findAll(new ListPageRequest(2, 10));
+        var adminIds = java.util.stream.Stream.of(adminFirst, adminSecond, adminThird)
+                .flatMap(page -> page.content().stream()).map(PersonalAccessToken::getId).toList();
+        assertThat(adminIds).hasSize(26).doesNotHaveDuplicates()
+                .isSortedAccordingTo(java.util.Comparator.reverseOrder());
+        assertThat(adminIds).contains("other-token", "token-000", "token-024");
+        assertThat(adminFirst.hasNext()).isTrue();
+        assertThat(adminSecond.hasNext()).isTrue();
+        assertThat(adminThird.hasNext()).isFalse();
+        // Every admin page must use a database limit, including the equal-timestamp boundary.
+        assertThat(SqlLimitInspector.STATEMENTS.stream()
+                .filter(sql -> sql.contains("from auth_personal_access_tokens") && sql.contains("order by"))
+                .filter(sql -> sql.contains("fetch first") || sql.contains(" limit ")))
+                .hasSize(3);
+        assertThat(SqlLimitInspector.STATEMENTS.stream()
+                .filter(sql -> sql.contains("from auth_personal_access_tokens") && sql.contains("order by"))
+                .allMatch(sql -> sql.contains("created_at desc") && sql.contains("id desc")))
+                .isTrue();
     }
 
     @SpringBootConfiguration

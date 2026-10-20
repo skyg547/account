@@ -15,6 +15,8 @@ import com.ho.account.auth.core.application.port.out.OtpVerificationPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.SsoAuthenticationPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
@@ -413,9 +415,9 @@ class AuthServiceTest {
                     }
 
                     @Override
-                    public List<AuthUser> findAllUsers() {
+                    public ListPage<AuthUser> findUsers(ListPageRequest pageRequest) {
                         userQueried.set(true);
-                        return List.of();
+                        return new ListPage<>(List.of(), pageRequest.page(), pageRequest.size(), false);
                     }
                 },
                 code -> true,
@@ -574,8 +576,8 @@ class AuthServiceTest {
             }
 
             @Override
-            public List<AuthUser> findAllUsers() {
-                return List.copyOf(users.values());
+            public ListPage<AuthUser> findUsers(ListPageRequest pageRequest) {
+                return new ListPage<>(List.copyOf(users.values()), pageRequest.page(), pageRequest.size(), false);
             }
         };
     }

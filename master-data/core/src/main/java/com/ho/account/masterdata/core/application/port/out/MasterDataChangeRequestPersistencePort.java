@@ -2,6 +2,8 @@ package com.ho.account.masterdata.core.application.port.out;
 
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -20,7 +22,7 @@ public interface MasterDataChangeRequestPersistencePort {
 
     Optional<MasterDataChangeRequest> findBySourceReference(String sourceReference);
 
-    List<MasterDataChangeRequest> findByStatus(ChangeStatus status);
+    PageSlice<MasterDataChangeRequest> findByStatus(ChangeStatus status, PageWindow page);
 
     List<MasterDataChangeRequest> findReadyToApply(LocalDate effectiveDate, int limit);
 

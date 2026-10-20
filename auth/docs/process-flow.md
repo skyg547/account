@@ -188,3 +188,7 @@ AND 검증 시점의 유효 역할이 1개 이상
 Gateway는 JWT 서명·issuer·시간과 역할 버전을 검증하고 원시 신원 헤더를 제거한 뒤 검증된 헤더와 `Authorization`을 뒤쪽 서비스로 전달합니다. 현재 Gateway 검증기는 audience를 검사하지 않습니다. Auth 관리자 수신 필터는 JWT의 audience까지 독립 검증하고 `AuthUseCase.validateTokenVersion`으로 현재 역할 버전과 계정 상태를 확인합니다. 직접 호출도 동일하게 처리됩니다. 이 검사는 로컬 auth 사용자 저장소를 사용하며 Gateway의 별도 버전 검증 호출에 의존하지 않습니다.
 
 Auth 발급기의 `AUTH_JWT_AUDIENCE`와 Master Data 수신 검증기의 `AUTH_JWT_AUDIENCE`는 같은 값으로 설정합니다(기본값 `account-api`). 값이 다르면 Master Data의 보호된 요청은 401로 거부됩니다. Gateway에도 audience 검증을 추가할 경우 같은 값을 사용해야 합니다.
+
+## 목록 조회의 페이지 흐름 (Issue #920)
+
+관리자 사용자와 PAT 목록은 `page=0`, `size=20`에서 시작하고 `size`는 100까지 허용합니다. Controller는 제한된 페이지 요청을 core use case로 전달합니다. 사용자 영속성 어댑터는 먼저 `username ASC`로 사용자 키만 SQL 페이지 조회하고 그 페이지의 역할 할당을 다시 읽어 유효 시각에 따른 표시 역할을 계산합니다. PAT 영속성 어댑터는 소유자 필터를 유지하며 `created_at DESC, id DESC` 순서로 SQL 페이지 조회합니다. 응답은 JSON 배열과 `X-Page`, `X-Page-Size`, `X-Has-Next` 헤더로 구성됩니다. 전체 결과가 필요한 클라이언트는 `X-Has-Next`가 `false`가 될 때까지 다음 페이지를 읽어야 합니다.

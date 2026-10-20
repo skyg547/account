@@ -149,6 +149,29 @@ class PersonalAccessTokenHttpIntegrationTest {
     }
 
     @Test
+    void patListDefaultsAndMaximumAreVisibleAndInvalidSizesReturnBadRequest() throws Exception {
+        String bearer = bearer(ALICE, "ROLE_USER");
+        create(bearer, "{\"tokenName\":\"key\"}");
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page", "0"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page-Size", "20"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Has-Next", "false"));
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer)
+                        .param("page", "0").param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Page-Size", "100"));
+        mockMvc.perform(get("/api/auth/pat").header("Authorization", bearer)
+                        .param("page", "0").param("size", "101"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/auth/pat").param("size", "101"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/auth/admin/pat").header("Authorization", bearer)
+                        .param("size", "101"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void ordinaryUserCannotSeeOrRevokeAnotherUsersTokenOrUseAdminRoutes() throws Exception {
         String bobId = create(bearer(BOB, "ROLE_USER"), "{\"tokenName\":\"bob key\"}")
                 .get("id").asText();
