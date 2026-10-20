@@ -16,6 +16,7 @@
 | Q4 | PASS | Handler comments for trusted field messages and narrow missing/state mappings | Not applicable: assessed | Update adapter if core exception wording changes | Read-only reviewer PASS |
 
 - Rollback: reviewed revert of the issue-scoped API code, tests, and module feature document. No schema or business data changed. Full-context idempotency and real PostgreSQL SCD2 409 are not established by these tests; current-head CI and human review remain the next gates. Reviewer changed no code; parent Integrator alone committed and published the Draft PR. Ready, merge, Issue closure, and cleanup remain human-controlled.
+- Remote Draft PR #931 checks: Harness Validation passed. Agent Merge Guard's implementer-discipline job failed with `TRUST_POLICY_UNCONFIGURED`, `IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, and `DRAFT_NOT_MERGE_READY`; its workflow passes `policy: undefined` pending owner approval, so this Draft is not merge-ready. This is a repository trust-policy/human gate outside the module-only allowlist, not local test evidence; leave the PR Draft for the owner to configure/review the policy.
 
 ## 2026-10-20 — GH-911 duplicate business-partner bulk references
 

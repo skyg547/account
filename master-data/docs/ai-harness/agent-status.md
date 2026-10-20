@@ -6,7 +6,8 @@
 - Scope: master-data API advice and two HTTP tests, module process-flow document, and these three module-local harness records only. No other module, shared-kernel, shared harness, global Codex history, schema, or production data was changed.
 - Result: signed role and service identity failures retain 403/401; malformed input is 400, absent change request 404, known version/state conflicts 409, unexpected failure 500. Rejected unauthorized/malformed requests never enter mocked mutation use cases in full-context HTTP tests.
 - Verification: RED 2 expected status failures before fix; targeted #913 compatibility and ingress cases 23/23 PASS; current-main full suite 723 PASS (core 613, API 105, batch 5), 27 PostgreSQL-only API skips, zero failures/errors. Diff and marker checks passed. Independent read-only reviewer found no issue and judged Q1–Q4 PASS.
-- Next owner: human reviewer for current-head CI, Draft review, Ready/merge/Issue-close decision. Remaining risk: prefix coupling to core exception messages, mocked service-to-HTTP errors, and unrun PostgreSQL-only checks. No branch/worktree cleanup yet.
+- Remote gate: Harness Validation passed on Draft PR #931. Agent Merge Guard failed because its current workflow supplies no trusted policy (`TRUST_POLICY_UNCONFIGURED`) and also requires implementation owner, verification, merge authority, and non-Draft readiness. This policy/human gate is outside the module-only allowlist; the PR remains Draft.
+- Next owner: repository policy owner and human reviewer for the trust configuration, Draft review, current-head CI, Ready/merge/Issue-close decision. Remaining risk: prefix coupling to core exception messages, mocked service-to-HTTP errors, and unrun PostgreSQL-only checks. No branch/worktree cleanup yet.
 
 ## 2026-10-20 — Issue #911 / Draft PR #927
 
