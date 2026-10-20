@@ -133,7 +133,7 @@ class PeriodLockReopenUniquenessIntegrationTest {
     private void assertV54Applied() {
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM flyway_schema_history_closing
-                WHERE version='54' AND success=TRUE
+                WHERE version='56' AND success=TRUE
                 """, Integer.class)).isEqualTo(1);
     }
 
