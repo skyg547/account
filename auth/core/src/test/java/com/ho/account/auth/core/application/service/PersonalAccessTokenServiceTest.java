@@ -74,6 +74,44 @@ class PersonalAccessTokenServiceTest {
     }
 
     @Test
+    void verifiedOwnerLengthUsesTheEightyCharacterAuthIdentityLimit() {
+        when(patPort.save(any(PersonalAccessToken.class))).thenAnswer(call -> call.getArgument(0));
+        for (int length : List.of(50, 51, 80)) {
+            String username = "u".repeat(length);
+            String credential = "Bearer owner-" + length;
+            when(verifier.verify(credential)).thenReturn(new PatActor(username, false));
+
+            assertThat(service.createToken(credential, "Key", 30).username()).isEqualTo(username);
+        }
+        verify(patPort, times(3)).save(any(PersonalAccessToken.class));
+
+        String tooLongCredential = "Bearer owner-81";
+        when(verifier.verify(tooLongCredential)).thenReturn(new PatActor("u".repeat(81), false));
+        assertThatThrownBy(() -> service.createToken(tooLongCredential, "Key", 30))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("username is too long");
+        verify(patPort, times(3)).save(any(PersonalAccessToken.class));
+        verify(events, times(3)).recordCreated(any(), any(), any(), any());
+    }
+
+    @Test
+    void tokenNameAndLifetimeBoundariesAreCheckedBeforePersistence() {
+        when(patPort.save(any(PersonalAccessToken.class))).thenAnswer(call -> call.getArgument(0));
+        assertThat(service.createToken(ALICE_BEARER, "n".repeat(100), 3650).tokenName())
+                .hasSize(100);
+        verify(patPort, times(1)).save(any(PersonalAccessToken.class));
+
+        assertThatThrownBy(() -> service.createToken(ALICE_BEARER, "n".repeat(101), 30))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("tokenName is too long");
+        for (int days : List.of(-1, 0, 3651)) {
+            assertThatThrownBy(() -> service.createToken(ALICE_BEARER, "Key", days))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("expireDays is out of range");
+        }
+        verify(patPort, times(1)).save(any(PersonalAccessToken.class));
+        verify(events, times(1)).recordCreated(any(), any(), any(), any());
+    }
+
+    @Test
     void userListingUsesOnlyVerifiedPrincipalAndExactOwnerKey() {
         PersonalAccessToken aliceToken = activeToken("alice");
         when(patPort.findByUsername("alice", PAGE)).thenReturn(new ListPage<>(List.of(aliceToken), 0, 20, false));

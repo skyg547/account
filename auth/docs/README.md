@@ -7,7 +7,7 @@
 1. [beginner-guide.md](./beginner-guide.md) - 로그인, JWT, 역할 버전, 승인 재시도를 초보자 관점에서 설명합니다.
 2. [process-flow.md](./process-flow.md) - API DTO부터 core와 출력 어댑터까지의 흐름을 정리합니다.
 3. [schema.md](./schema.md) - 사용자, 역할, 로그인 실패, 승인 멱등 이력 테이블을 정리합니다.
-4. [local-run.md](./local-run.md) - IntelliJ/Gradle에서 H2 또는 PostgreSQL로 실행하는 방법입니다.
+4. [local-run.md](./local-run.md) - IntelliJ/Gradle의 H2 단독 실행과 테스트 범위를 설명합니다.
 
 ## 현재 실행 전제
 
@@ -25,11 +25,12 @@
 - `AuthUserRoleAssignmentService`: 역할 정규화와 approval trace fingerprint 생성
 - `AuthUser`, `RoleAssignment`: 계정 상태와 역할 유효성 도메인 규칙
 - `JwtTokenIssuer`: 확정된 역할 스냅샷을 JWT claim으로 발급
-- `JpaLoginAttemptAdapter`: 다중 인스턴스 로그인 실패와 잠금의 사용자별 DB 직렬화
+- `ConfiguredSsoAuthenticationAdapter`, `TotpVerificationAdapter`: `local` 프로파일에서 명시적으로 활성화하는 설정 기반 SSO와 TOTP 검증
+- `JpaLoginAttemptAdapter`: 최초 행 삽입과 기존 행 갱신을 직렬화하는 공유 DB 로그인 실패·잠금 저장소
 - `JpaAuthUserRoleAssignmentAdapter`: 사용자별 lock, 역할 교체, 멱등 이력 저장
 - `InMemoryAuthUserRoleAssignmentAdapter`: 로컬 memory 모드의 동일한 멱등 정책
 
 ## 현재 남은 코드 TODO
 
-- 접두사 없는 레거시 평문 비밀번호 해시 승격과 운영 fail-closed
+- 접두사 없는 레거시 비밀번호 해시의 승인된 이관 절차. 현재 저장·로그인 경계는 `PasswordEncoderPolicy`와 `DelegatingPasswordVerifier`에서 이미 fail-closed입니다.
 - 승인 멱등 이력의 감사 보존/아카이브 정책

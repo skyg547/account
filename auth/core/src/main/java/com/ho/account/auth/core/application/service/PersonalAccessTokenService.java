@@ -30,10 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
 
-    private static final int MAX_USERNAME_LENGTH = 80;
-    private static final int MAX_TOKEN_NAME_LENGTH = 100;
-    private static final int MAX_EXPIRE_DAYS = 3650;
-
     private final PersonalAccessTokenPort patPort;
     private final PatCredentialVerifierPort credentialVerifier;
     private final PatLifecycleEventPort lifecycleEvents;
@@ -44,16 +40,9 @@ public class PersonalAccessTokenService implements PersonalAccessTokenUseCase {
     public PersonalAccessTokenCreateResponse createToken(String authorizationHeader, String tokenName, int expireDays) {
         PatActor actor = credentialVerifier.verify(authorizationHeader);
         // Validate the verified owner and request before generating or persisting a credential.
-        if (actor.username().length() > MAX_USERNAME_LENGTH) {
-            throw new IllegalArgumentException("username is too long");
-        }
-        if (tokenName == null || tokenName.isBlank()) {
-            throw new IllegalArgumentException("tokenName is required");
-        }
-        if (tokenName.length() > MAX_TOKEN_NAME_LENGTH) {
-            throw new IllegalArgumentException("tokenName is too long");
-        }
-        if (expireDays < 1 || expireDays > MAX_EXPIRE_DAYS) {
+        PersonalAccessToken.validateNewTokenIdentityAndName(actor.username(), tokenName);
+        if (expireDays < PersonalAccessToken.MIN_EXPIRE_DAYS
+                || expireDays > PersonalAccessToken.MAX_EXPIRE_DAYS) {
             throw new IllegalArgumentException("expireDays is out of range");
         }
         String id = UUID.randomUUID().toString();
