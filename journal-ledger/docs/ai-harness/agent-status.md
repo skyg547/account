@@ -1,18 +1,17 @@
-# GH-883 agent status
+# GH-884 agent status
 
-- Issue [#883](https://github.com/skyg547/account/issues/883) is handed off for review in [Draft PR #898](https://github.com/skyg547/account/pull/898) with `Refs #883`.
-- Base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; branch `agent/883-jpa-rebuild-cleanup`; isolated worktree `/tmp/account-883-jpa-rebuild-cleanup`; audited proof `/tmp/account-883-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
-- Scope is `journal-ledger/**` only. The `gpt-6-sol` high-reasoning module writer changed tests and functional docs; the independent reviewer remained read-only. The parent Integrator owns these module-local records and Git/GitHub state. Other modules and repository-wide harness/history remain untouched.
-- Current production already has date-predicate GL/SL bulk DELETE from #766. This PR adds audited RED/current GREEN regression, inclusive date/rollback integration coverage, and PostgreSQL plan/timing guidance. No production source or migration changed.
-- Audited regression: 1/1 expected failure on entity materialization path. Current `./gradlew :journal-ledger:test`: 435/435 PASS (core 323, API 74, batch 38), failures/errors/skips 0. Disposable PostgreSQL 16.13 JPA/Flyway cleanup integration: 1/1 PASS. Synthetic 200,000 rows per ledger: narrow Bitmap Index/Heap Scan, broad Seq Scan, and both rollbacks restored 200,000 rows per table. The owned PostgreSQL container is stopped.
-- Independent read-only review: no P0–P3 findings after a test-comment correction; Q1–Q4 PASS. Whitespace and changed-file conflict marker checks passed.
-- Residual gate: synthetic SQL timing does not measure production lock waits, WAL, storage or load; PostgreSQL full Job restart was not run. Human reviewer owns current-head CI, target environment validation, Ready/merge/Issue close, deployment, and resource cleanup. Rollback is a scoped revert of tests/docs/records; the prior production bulk DELETE remains.
-
-See [worklog.md](worklog.md) for commands, evidence and Q1–Q4 review.
+- Issue: [#884](https://github.com/skyg547/account/issues/884), review handoff `status:needs-review`; [Draft PR #899](https://github.com/skyg547/account/pull/899) is open with `Refs #884`.
+- Base/branch/worktrees: `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; `agent/884-kafka-accounting-date`; `/tmp/account-884-kafka-accounting-date`; detached audited proof `/tmp/account-884-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope/ownership: `journal-ledger/**` only, including these three module-local records. Requested `gpt-6-sol` / high implementation writer owned the eight code/test/feature-document files; independent reviewer was read-only; parent Integrator owns Git/GitHub and these records. Other modules and repository-level shared harness/history files remain unchanged.
+- Result: Kafka requires a validated explicit ISO `accountingDate`; missing or malformed dates fail before journal generation. Stored quarantine replay retains its accepted date. Core closed-period validation remains active, while authenticated HTTP maker requests can explicitly choose an open adjustment date.
+- RED/GREEN: byte-identical regression SHA-256 `3126aa7d90df830e60bc3a0b9a981d9e06aa78f8475ba5e7d9f02e9ca8c07325` failed 1/1 on audited source, where missing date raised no error; final module run passed core326/API79/Batch37 = 442 tests, failures/errors/skips0.
+- Review: independent read-only reviewer found no P0-P3 and confirmed Q1-Q4 PASS after the original writer strengthened adjustment tests. Diff, scope, marker and unmerged-index checks passed.
+- Limits/rollback: no live Kafka/DLT, PostgreSQL, distributed or load test, production data, deployment, or fully composed HTTP-to-rule test. The current event has no separate immutable source-event date or signed authorization proof, so a producer's deliberately false declared date cannot be detected here. Reviewed Issue-scoped revert requires affected Kafka consumption paused because it restores the fallback defect; no schema/data migration.
+- Authority: Draft publication only. Human reviewer owns current-head CI and Ready/merge/Issue close; branch and worktree cleanup remain separate gates.
 
 ---
 
-The following is retained historical status and is not a current GH-883 report.
+The following entries are retained history and are not current GH-884 evidence.
 
 # GH-879 agent status
 

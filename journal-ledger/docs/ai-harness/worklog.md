@@ -1,37 +1,37 @@
-# 2026-10-09 — GH-883 JPA rebuild cleanup evidence
+# 2026-10-09 — GH-884 Kafka accounting-date control
 
-## Contract and change
+## Contract and ownership
 
-- [Issue #883](https://github.com/skyg547/account/issues/883) / GL17; base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; `agent/883-jpa-rebuild-cleanup`; `/tmp/account-883-jpa-rebuild-cleanup`. Audited proof is detached at `a97d10ab6efc2570a88f83d630242cd748f8be57` in `/tmp/account-883-audited-proof`.
-- Applied `account-issue-loop`, `account-hexagonal-change`, single-module `account-module-parallel`, and `account-review-handoff`. The module writer used `gpt-6-sol` high and owned only `journal-ledger/**`; the independent reviewer was read-only. Parent Integrator alone changed these module-local records and Git/GitHub. User scope excludes repository-wide harness/history and other modules.
-- Audited source loaded `findByBalanceDateBetween` results into `deleteAllInBatch`. Current base already has JPQL date-predicate GL/SL bulk deletes from #766 with flush/clear; no production source or migration changed here. New `LedgerBalanceCleanupRegressionTest` checks both repository invocations without referencing new methods, so byte-identical test source runs on the audited version. `BalanceReaggregationBatchConfigTest` checks both inclusive dates, outside-date preservation and transaction rollback through the real JPA port on H2 and optional PostgreSQL. Existing Batch restart/publication suite remains in place.
-- Updated `docs/beginner-guide.md` and `docs/posting-concurrency.md` with cleanup input→port→DB result, GL13 owner/restart behavior, reproducible synthetic SQL, PostgreSQL plan and timing limits. No shared contract changed.
+- Issue [#884](https://github.com/skyg547/account/issues/884) GL21, `agent/884-kafka-accounting-date`, `/tmp/account-884-kafka-accounting-date`, fetched `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; [Draft PR #899](https://github.com/skyg547/account/pull/899) uses `Refs #884`.
+- Applied `account-issue-loop`, `account-hexagonal-change`, single-module `account-module-parallel`, and `account-review-handoff`. Requested `gpt-6-sol` / high implementation writer owned only eight `journal-ledger/**` production/test/feature-document files. Independent reviewer was read-only. Parent Integrator alone owns Git/GitHub and these three module-local records. No other module or repository-level shared harness/history file was edited.
+- Non-goals: producer event-contract expansion, arbitrary Kafka accounting-date override, existing transaction correction, database migration, deployment, and Issue close. Rollback is a reviewed Issue-scoped revert after pausing affected Kafka consumption; reverting the listener restores the original fallback defect.
 
-## Verification
+## Behavior and evidence
 
-- Audited RED: `./gradlew :journal-ledger:core:test --tests '*LedgerBalanceCleanupRegressionTest' --offline --console=plain --max-workers=1` at `a97d10ab`: 1 test failed as expected; XML records `findByBalanceDateBetween` then `deleteAllInBatch`. Current focused regression: PASS.
-- Current `./gradlew :journal-ledger:test --offline --console=plain --max-workers=1`: 435 PASS (API 74, batch 38, core 323); failures/errors/skips 0. Final literal `./gradlew :journal-ledger:test`: PASS after PostgreSQL test, with Batch rerun and the same 435 XML total. Final local log: `/tmp/account-883-module-final.log`.
-- Disposable PostgreSQL 16.13: `JOURNAL_BALANCE_CLEANUP_TEST_POSTGRES_URL=<loopback disposable fixture> ./gradlew :journal-ledger:batch:test --tests '*BalanceReaggregationBatchConfigTest.cleanupDateBoundariesAndRollbackForBothLedgers' --offline --rerun-tasks --console=plain --max-workers=1`: 1/1 PASS with actual JPA/Flyway PostgreSQL. Preserved `/tmp/account-883-pg-integration.log` and `/tmp/account-883-pg-integration.xml`; the owned `account-883-pg` container was stopped and reports `exited 0`.
-- Synthetic PostgreSQL plan script/log: `/tmp/account-883-pg-plan.sql` and `/tmp/account-883-pg-plan.log`. GL/SL each 200,000 rows; one-day 500-row cleanup used Bitmap Index/Heap Scan; whole-range cleanup used Seq Scan; rollback restored 200,000 each after both narrow and broad deletion. First wide-run pair took 1,267.9 ms before rollback and 1,276.3 ms through rollback; rerun timing varied with cache while plan, row count and rollback results matched. Existing account-leading indexes scan 238 index buffers for the one-day filter, so this does not establish a date-leading index benefit.
-- `git diff --check` PASS; anchored conflict marker scan of changed module files found none. Independent read-only reviewer found no P0–P3 after the original writer corrected a stale H2-only fixture comment. No other module or shared harness changes.
+- `KafkaTransactionListener.accountingDate` accepts only a nonblank ISO date string from the payload. Missing, malformed, and nonstring values throw before the durable Kafka use case, rule engine, journal creation, or unmatched-event quarantine. The existing bounded retry/DLT handler handles consumer failures; its failed DLT publication remains fail-closed.
+- Repeated delivery keeps the payload's declared date across month and year boundaries. Unmatched-event quarantine stores that date and replay uses the stored value. The core creation validation rejects a closed accounting period before journal persistence. An authenticated accounting admin can submit an explicit open adjustment date through the existing HTTP maker endpoint; an unauthorized viewer is rejected. Kafka replay has no date override.
+- Added/updated files: `api/.../KafkaTransactionListener.java`; API `KafkaAccountingDateAuditedRegressionTest`, `KafkaTransactionListenerCompletenessTest`, `JournalCommandAuthorizationMvcTest`; core `JournalEntryServiceTest`, `KafkaJournalEventServiceTest`; `README.md`; `docs/process-flow.md`.
+- Detached proof `/tmp/account-884-audited-proof` used exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`. The regression file in both worktrees has SHA-256 `3126aa7d90df830e60bc3a0b9a981d9e06aa78f8475ba5e7d9f02e9ca8c07325`. Audited `./gradlew :journal-ledger:api:test --tests 'com.ho.account.journalledger.adapter.in.kafka.KafkaAccountingDateAuditedRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1` exited 1: one test, one expected assertion failure because the old listener raised no exception for a missing date. Fixed focused API/core tests passed 33/33; strengthened adjustment tests later passed 22/22.
+- Final `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=1 --rerun-tasks` exited 0, 67 suites/442 tests (core326/API79/Batch37), failures/errors/skips0. The parent `:journal-ledger:test` task itself is `NO-SOURCE` and depends on those three projects. `git diff --check`, explicit module allowlist, anchored conflict-marker, and unmerged-index checks passed.
+- Independent reviewer first returned a P3 test-depth concern: the HTTP adjustment test did not create a draft. The original writer added a nonempty HTTP draft result and real core service/period-filter OPEN adjustment test. Final read-only review found no P0-P3. No conflict occurred.
 
-## Code/documentation quality review
+## Q1-Q4 evidence
 
-| Item | Verdict | File/test evidence | N/A reason | Risk/next gate | Independent review |
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
 | --- | --- | --- | --- | --- | --- |
-| Q1 | PASS | JPA adapter bulk path; `LedgerBalanceCleanupRegressionTest`, Batch boundary/rollback; 435 PASS | None: behavior covered | Target data/lock profile | PASS, no P0–P3 |
-| Q2 | PASS | `docs/posting-concurrency.md` explains port, transaction, GL13 restart; PostgreSQL integration PASS | None: flow documented | PostgreSQL full Job restart | PASS |
-| Q3 | PASS | `docs/beginner-guide.md` and `docs/posting-concurrency.md` match executed commands/results | None: module docs updated | Production plan/WAL review | PASS |
-| Q4 | PASS | Core regression explains audited-compatible invocation inspection; Batch test fixture comment names H2/PostgreSQL | None: non-obvious tests changed | Recheck on adapter evolution | PASS after comment fix |
+| Q1 | PASS | `journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/kafka/KafkaTransactionListener.java:98` validates inbound date; `journal-ledger/core/src/test/java/com/ho/account/journalledger/application/service/journal/JournalEntryServiceTest.java:74` and `:96` test closed/open periods; final442/442 | 해당 없음: production 경계 변경 | live Kafka/PostgreSQL integration | read-only reviewer: no P0-P3, PASS |
+| Q2 | PASS | `journal-ledger/docs/process-flow.md:307` explains input→failure/DLT or date-preserving creation/replay, closed-period and authorized adjustment paths; final module command exit0 | 해당 없음: 금융 흐름 변경 | distributed replay/operational DLT observation | reviewer: PASS |
+| Q3 | PASS | `journal-ledger/README.md:113`, `journal-ledger/docs/process-flow.md:307` document producer input, conditional HTTP example, results and limits | 해당 없음: producer contract 변경 | coordinate producers and human review | reviewer: PASS |
+| Q4 | PASS | `journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/kafka/KafkaTransactionListener.java:100` explains retry/calendar stability; `journal-ledger/core/src/test/java/com/ho/account/journalledger/application/service/journal/KafkaJournalEventServiceTest.java:131` explains stored-date authority | 해당 없음: 비자명 날짜 규칙 변경 | re-review if event contract expands | reviewer: PASS |
 
-## Rollback, limits and handoff
+## Limits and next gate
 
-- Implementation commit `8ce0b4e52c6eb85af9a31b0918ed72f1b19a98b8`; [Draft PR #898](https://github.com/skyg547/account/pull/898) uses `Refs #883` and includes verification and authority separation. Revert this PR's tests/docs/records if needed; no migration, production source or data rewrite belongs to this branch. The existing bulk DELETE remains in base.
-- The synthetic simplified tables and disposable PostgreSQL prove plan shape, transaction timing and rollback only in that environment. They do not prove production distribution, concurrent lock waits, WAL/replication/storage cost, production load, or full PostgreSQL Job restart. Validate those before deployment/Ready. Human reviewer controls current-head CI, Ready/merge/Issue close and cleanup.
+- No live Kafka broker/DLT, PostgreSQL, distributed fault injection, load test, production data, deployment, or fully composed HTTP→rule→persistence test was run. The event has no independent source-event date or signed authorization evidence; a deliberately false declared accounting date cannot be proven from this consumer alone.
+- Draft PR and current-head CI are for human review. Ready, merge, Issue close, and branch/worktree cleanup require separate gates. The next owner is a human reviewer, with the parent Integrator retaining PR lifecycle authority.
 
 ---
 
-The following is retained historical worklog and is not a current GH-883 report.
+The following entries are retained history and are not current GH-884 evidence.
 
 # 2026-10-09 — GH-879 durable slip number allocation
 

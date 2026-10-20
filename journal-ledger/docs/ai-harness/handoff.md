@@ -1,16 +1,18 @@
-# GH-883 handoff
+# GH-884 handoff
 
-[Issue #883](https://github.com/skyg547/account/issues/883) is presented in [Draft PR #898](https://github.com/skyg547/account/pull/898) with `Refs #883`. Branch `agent/883-jpa-rebuild-cleanup` and worktree `/tmp/account-883-jpa-rebuild-cleanup` are based on `origin/main@9348966a`; audited RED proof remains at `/tmp/account-883-audited-proof@a97d10ab`.
+Issue [#884](https://github.com/skyg547/account/issues/884) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #899](https://github.com/skyg547/account/pull/899) is open with `Refs #884`.
 
-- `journal-ledger/**` only: new core regression, Batch GL/SL date-boundary and rollback integration test, beginner and PostgreSQL functional docs, and these three module-local records. No production source/migration, other module or repository-wide harness/history edits. Current base already contains the predicate bulk DELETE.
-- Audited RED 1/1; current module 435/435 PASS with failures/errors/skips 0; disposable PostgreSQL 16.13 JPA/Flyway integration 1/1 PASS; synthetic 200,000 GL and SL rows show narrow Bitmap and broad Seq Scan with rollback to 200,000 after both ranges. Logs and exact commands are in [worklog.md](worklog.md). The owned PostgreSQL container is stopped.
-- Independent reviewer stayed read-only and found no P0–P3 after the writer corrected one test comment; Q1–Q4 PASS. Diff/marker gates passed.
-- Rollback: revert this PR's tests/docs/records; no schema/data migration is included. Large cleanup remains one transaction; target-environment plans, lock waits, WAL, transaction time, production load and full PostgreSQL restart still need review. No deployment claim is made.
-- Authority: user authorized Draft publication; module writer authored tests/docs, independent reviewer only inspected, parent Integrator owns records and Git/GitHub. Human reviewer owns current-head CI, Ready, merge, Issue close, deployment and branch/worktree cleanup. Keep this PR Draft until those gates pass.
+- Branch/worktrees: `agent/884-kafka-accounting-date`, `/tmp/account-884-kafka-accounting-date`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`; audited proof `/tmp/account-884-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope: eight production/test/feature-document files plus these three module-local records under `journal-ledger/**`; other modules and repository-level shared harness/history files are untouched.
+- Behavior: Kafka payload must carry a validated explicit ISO accounting date. Missing/invalid values fail before journal generation and use existing retry/DLT recovery. Replayed unmatched events use the stored accounting date. A closed-period source date is rejected before persistence; the separate authenticated HTTP maker workflow can choose an explicit open adjustment date and returns a draft.
+- Verification: SHA-256-identical regression failed 1/1 on audited `a97d10ab`; final forced `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=1 --rerun-tasks` passed 442/442 (core326/API79/Batch37), failures/errors/skips0. Static scope, whitespace, conflict-marker and unmerged-index gates passed.
+- Independent review: initial P3 shallow adjustment test was returned to its writer and corrected. Final read-only verdict has no P0-P3; Q1-Q4 PASS with file/test evidence in [worklog.md](worklog.md).
+- Rollback/limits: reviewed Issue-scoped revert after pausing affected Kafka consumption; no migration or automated data repair. No live broker/DLT, PostgreSQL, distributed/load, production data, deployment, or fully composed HTTP-to-rule test. Deliberately falsified producer dates cannot be detected without an independent source-date/trust contract.
+- Authority/next owner: writer was restricted to module code/tests/feature docs; reviewer remained read-only; parent Integrator alone wrote these records and owns Git/GitHub. Human reviewer examines the Draft and current-head CI before separate Ready/merge/Issue-close decisions; branch/worktree cleanup is not part of this handoff.
 
 ---
 
-The following is retained historical handoff and is not a current GH-883 report.
+The following entries are retained history and are not current GH-884 evidence.
 
 # GH-879 handoff
 
