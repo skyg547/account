@@ -62,7 +62,10 @@ function parsePartnerPayload(request: MasterDataChangeRequestDto): {
   payload: BusinessPartnerCommand | null;
   error: string | null;
 } {
-  if (!request.payloadJson) {
+  if (request.payloadJson === undefined || request.payloadJson === null) {
+    return { payload: null, error: null };
+  }
+  if (!request.payloadJson.trim()) {
     return { payload: null, error: '심사할 거래처 payload가 없습니다.' };
   }
 
@@ -353,6 +356,7 @@ export default function BusinessPartnerApprovalPage() {
             {pendingRequests.map((request) => {
               const { payload, error: payloadError } = parsePartnerPayload(request);
               const busy = actionId === request.id;
+              const requestLabel = request.targetKey || `요청 #${request.id}`;
               return (
                 <article key={request.id} className="rounded-2xl border border-white/10 bg-slate-950/50 p-5">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -361,9 +365,9 @@ export default function BusinessPartnerApprovalPage() {
                         <StatusBadge status={request.status === 'REQUESTED' ? 'PENDING' : request.status} variant="warning" />
                         <span className="text-xs font-bold text-slate-600">요청 #{request.id}</span>
                       </div>
-                      <h3 className="truncate text-lg font-black text-white">{payload?.businessPartnerName || request.targetKey}</h3>
+                      <h3 className="truncate text-lg font-black text-white">{payload?.businessPartnerName || requestLabel}</h3>
                       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
-                        <span>코드: {request.targetKey}</span>
+                        <span>코드: {request.targetKey || '-'}</span>
                         <span>유형: {payload?.partnerType || '-'}</span>
                         <span>사업자번호: {payload?.registrationNumber || '-'}</span>
                         <span>대표자: {payload?.ceoName || '-'}</span>
@@ -371,7 +375,7 @@ export default function BusinessPartnerApprovalPage() {
                         <span>KYC/위험: {payload?.kycStatus || '-'} / {payload?.riskRating || '-'}</span>
                         <span>사용 여부: {payload ? (payload.useYn ? '사용' : '미사용') : '-'}</span>
                         <span>유효기간: {payload?.validFrom || '-'} ~ {payload?.validTo || '-'}</span>
-                        <span>요청자: {request.requestedBy}</span>
+                        <span>요청자: {request.requestedBy || '-'}</span>
                         <span>적용일: {request.effectiveDate}</span>
                         <span>요청 버전: {request.requestedVersion}</span>
                       </div>
@@ -383,11 +387,11 @@ export default function BusinessPartnerApprovalPage() {
                       )}
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <button type="button" onClick={() => void handleApprove(request.id)} disabled={actionId !== null || payloadError !== null} aria-label={`${request.targetKey} 거래처 요청 승인`} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
+                      <button type="button" onClick={() => void handleApprove(request.id)} disabled={actionId !== null || payloadError !== null} aria-label={`${requestLabel} 거래처 요청 승인`} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50">
                         <CheckCircle2 size={16} aria-hidden="true" />
                         {busy ? '처리 중...' : '승인'}
                       </button>
-                      <button type="button" onClick={() => { setRejectingId(request.id); setRejectReason(''); setActionError(null); }} disabled={actionId !== null} aria-label={`${request.targetKey} 거래처 요청 반려 사유 입력`} className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-black text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50">
+                      <button type="button" onClick={() => { setRejectingId(request.id); setRejectReason(''); setActionError(null); }} disabled={actionId !== null} aria-label={`${requestLabel} 거래처 요청 반려 사유 입력`} className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-black text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50">
                         <XCircle size={16} aria-hidden="true" />
                         반려
                       </button>
@@ -399,7 +403,7 @@ export default function BusinessPartnerApprovalPage() {
                       <textarea id={`reject-reason-${request.id}`} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} required maxLength={500} rows={3} disabled={busy} aria-required="true" className={inputClass} />
                       <div className="mt-3 flex justify-end gap-2">
                         <button type="button" onClick={() => { setRejectingId(null); setRejectReason(''); }} disabled={busy} className="rounded-lg px-4 py-2 text-xs font-bold text-slate-400 hover:bg-white/5 disabled:opacity-50">취소</button>
-                        <button type="button" onClick={() => void handleReject(request.id)} disabled={busy || !rejectReason.trim()} aria-label={`${request.targetKey} 거래처 요청 반려 확정`} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-black text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50">
+                        <button type="button" onClick={() => void handleReject(request.id)} disabled={busy || !rejectReason.trim()} aria-label={`${requestLabel} 거래처 요청 반려 확정`} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-black text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50">
                           {busy ? '처리 중...' : '반려 확정'}
                         </button>
                       </div>
