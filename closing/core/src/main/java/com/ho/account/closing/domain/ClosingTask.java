@@ -23,6 +23,9 @@ public class ClosingTask {
     @JoinColumn(name = "calendar_id", nullable = false)
     private ClosingCalendar closingCalendar;
 
+    @Column(name = "cycle_number", nullable = false)
+    private int cycleNumber = 1;
+
     @Column(nullable = false, length = 200)
     private String name; // 태스크명 (예: "은행잔고 대조 완료", "외화 평가 실행")
 
@@ -79,6 +82,8 @@ public class ClosingTask {
             this.status = ClosingTaskStatus.PENDING;
         if (this.auditUser == null)
             this.auditUser = "SYSTEM";
+        if (this.cycleNumber <= 0)
+            this.cycleNumber = 1;
     }
 
     @PreUpdate
@@ -97,6 +102,35 @@ public class ClosingTask {
 
     public ClosingCalendar getClosingCalendar() {
         return closingCalendar;
+    }
+
+    public int getCycleNumber() {
+        return cycleNumber;
+    }
+
+    public void assignCycle(ClosingCalendar calendar) {
+        if (calendar == null) {
+            throw new IllegalArgumentException("calendar must not be null");
+        }
+        this.closingCalendar = calendar;
+        this.cycleNumber = calendar.getCycleNumber();
+    }
+
+    /** Copies only the checklist definition; completion evidence belongs to the old cycle. */
+    public ClosingTask nextCycle(ClosingCalendar calendar, String actor) {
+        ClosingTask next = new ClosingTask();
+        next.assignCycle(calendar);
+        next.name = name;
+        next.description = description;
+        next.category = category;
+        next.dueDate = dueDate;
+        next.assignedTo = assignedTo;
+        next.completionConditionJson = completionConditionJson;
+        next.isMandatory = isMandatory;
+        next.taskOrder = taskOrder;
+        next.status = ClosingTaskStatus.PENDING;
+        next.auditUser = actor;
+        return next;
     }
 
     public void setClosingCalendar(ClosingCalendar closingCalendar) {

@@ -49,6 +49,40 @@ erDiagram
 
 월·연 기간 상태는 `closing_calendars`와 Master Data의 `fiscal_periods`가 권위 모델입니다. 별도 `closing_period` 테이블과 setter 기반 병렬 엔티티는 사용하지 않습니다. 연차 손익 대체는 `AnnualClosingService`가 담당합니다.
 
+## 기간 잠금과 재오픈 고유성 (GH-887)
+
+V54는 기존 잠금 행을 활성으로 backfill합니다. 예전 unlock은 잠금 행을 삭제했으므로 남아 있는
+행은 일단 활성으로 취급합니다. 새 `active_fiscal_period_id`는 활성일 때 기간 ID, 해제 후에는
+`NULL`이고, 고유 제약과 상태 대응 CHECK가 이 값을 보호합니다. `unlocked_by`와 `unlocked_at`은
+해제 행의 감사 정보를 보존합니다. `reopen_approvals.pending_fiscal_period_id`도 `PENDING`일 때만
+기간 ID이고 결정 후 `NULL`입니다. 승인·반려는 원 행과 요청자/결정자 정보를 지우지 않습니다.
+`NULL`인 이력 키는 여러 행이 가능하지만 활성/대기 키는 기간별 한 행만 가능합니다.
+
+배포 전에는 Closing writer를 중지하고 같은 데이터베이스에서 다음 읽기 전용 사전 점검을
+실행합니다. 두 결과가 모두 0행이어야 V54를 적용할 수 있습니다.
+
+```sql
+SELECT fiscal_period_id, COUNT(*) AS row_count
+FROM period_locks GROUP BY fiscal_period_id HAVING COUNT(*) > 1;
+SELECT fiscal_period_id, COUNT(*) AS row_count
+FROM reopen_approvals WHERE status = 'PENDING'
+GROUP BY fiscal_period_id HAVING COUNT(*) > 1;
+```
+
+중복을 발견하면 배포와 쓰기를 중단합니다. 운영자가 원 잠금/요청, Closing 감사 기록,
+Master 상태를 대사하고 권한 있는 업무 결정과 별도 승인된 보정 절차를 기록해야 합니다.
+레거시 잠금에는 비활성 표시가 없으므로 V54 이전 중복 행에서 어느 하나를 자동으로
+활성으로 선택할 근거가 없습니다. 보정은 전체 원본과 결정 근거를 감사 가능한 보관소에
+보존한 후 별도의 검토된 순방향 변경으로 수행해야 합니다. 재오픈 중복도 임의 승인/반려
+시각이나 결정자를 꾸며 넣지 않습니다. 대사가 끝나기 전에는 V54 고유 제약 실패를
+우회하거나 앱을 시작하지 않습니다. V54 자체는 중복을 삭제하거나 승자를 선택하지 않습니다.
+
+적용 순서는 기존 writer 중지·배출, 사전 점검과 보정 승인, V54 migrate/validate, 새
+API/Batch 기동입니다. 기존 writer는 새 활성/대기 슬롯을 유지하지 않으므로 혼합 버전
+쓰기를 허용하지 않습니다. 롤백도 이력 행과 새 제약을 삭제하는 down migration이 아니라
+쓰기 중지·대사 후 검토된 순방향 보정으로 수행합니다. 로컬 H2 회귀는 제약과 경합을
+검증하지만 운영 PostgreSQL 데이터/부하 검증을 대체하지 않습니다.
+
 ## 연차 이익잉여금 설정 모델 (GH-776)
 
 연차 목적지는 DB 테이블이 아니라 버전 관리·동료 검토된
@@ -96,8 +130,12 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 판단하지 말고 캘린더 상태와 미완료 전이를 함께 확인해야 합니다.
 동시성 경계와 운영 복구 조건은 [업무 흐름](process-flow.md#월말-동시-결정과-복구-gh-774)에 설명합니다.
 
-V52와 후속 V53은 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
-새 API/Batch를 시작하기 전에 V53까지 release-time migrate/validate를 수행해야 합니다.
+V52와 후속 V53/V54는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
+새 API/Batch를 시작하기 전에 V54까지 release-time migrate/validate를 수행해야 합니다.
+
+V54는 평가·충당 실행 이력에 endpoint별 고유 `execution_key`와 `journal_count`,
+실행 키 잠금 테이블과 불변 명령 manifest 테이블을 추가합니다.
+기존 이력은 임의 키를 부여하지 않고 null로 남깁니다. 새 API 호출은 키가 필수입니다.
 기존 버전 writer는 새 잠금·전이 규칙을 모르므로 혼합 버전 쓰기를 허용하지 않습니다.
 미해결 전이 컬럼을 삭제하는 down migration이나 데이터 초기화는 롤백 방법이 아닙니다.
 
@@ -118,6 +156,14 @@ V52에서 이미 만들어진 CLOSED 미완료 전이는 증빙 ID가 없을 수
 허용하지만, 새 writer는 반드시 ID를 넣고 런타임 dispatch/finish는 누락 시 차단합니다. V53은
 forward-only입니다. 롤백 시 증빙이나 미완료 전이를 삭제하지 말고 원격 Master와 먼저 대사합니다.
 
+## 재오픈 회차와 체크리스트 이력 (GH-885)
+
+V54는 `closing_calendars`, `closing_tasks`, `closing_gates`에 양수 `cycle_number`를 추가하고 캘린더에 `last_source_changed_at`(UTC)을 추가합니다. 기존 자식 행은 1회차로 backfill합니다. 재오픈 이력이 없는 캘린더도 1회차입니다. 이미 재오픈된 기존 캘린더(`reopened_at IS NOT NULL`)는 자식 행의 정확한 과거 회차를 복구할 수 없으므로 캘린더만 2회차로 두어 과거 완료/통과 행을 차단합니다. 해당 기간은 운영자가 새 태스크·게이트를 정의해야 다시 마감할 수 있습니다. 캘린더의 번호가 현재 회차이며 각 태스크·게이트 행의 번호가 해당 행의 이력 회차입니다. 승인된 재오픈의 원격 `OPEN` 결과를 확인한 뒤 한 로컬 트랜잭션에서 번호를 올리고 직전 회차 정의를 `PENDING` 행으로 복제합니다. 완료/통과 상태, 작업자, 통과 시각은 복제하지 않습니다. 원본 행과 감사 기록은 보존합니다.
+
+현재 회차만 일반 태스크 조회, 게이트 선행조건, 최종 마감 준비에 참여하고, 이전 회차 ID의 상태 변경은 거부합니다. 동일한 원천 상태에도 체크리스트 증빙을 자동 이월하지 않습니다. 새 마감은 새 시작 시각 뒤의 최종 마감 증빙을 요구합니다. V54 적용 전 오래된 writer를 배출하고, 롤백은 회차 행을 삭제하거나 번호를 되돌리는 방식으로 하지 않습니다. 원천별 권위 있는 변경 워터마크가 없으므로 공급자 제출 이후의 모든 외부 변경을 DB 회차 번호만으로 감지할 수는 없습니다.
+Closing이 조정 전표를 승인해 등록하면 `last_source_changed_at`을 갱신합니다. 현재 회차에서 통제가 진행됐다면 회차를 올리고 새로운 `PENDING` 정의를 복제하며, 이전 완료 행은 보존합니다. 마감 증빙의 `observedAt`은 현재 시작 시각과 이 원천 변경 시각 양쪽보다 늦어야 합니다. 이 시각은 Closing을 통과한 조정만 포착하며 다른 모듈이 직접 전기한 거래의 워터마크가 아닙니다.
+재오픈 시각은 과거 writer에서 UTC로 저장되지 않았으므로 V54는 `last_source_changed_at`을 SQL 시각으로 추정해 채우지 않습니다. 기존 재오픈 행은 이 값이 null이면 최종 마감을 거부하고, 현재 회차의 새 태스크·게이트 정의 또는 조정 등록 때 애플리케이션 UTC 시각으로 경계를 세웁니다. 그 뒤 공급자는 더 늦은 새 증빙을 제출해야 합니다.
+
 ## 외부 데이터 의존성
 
 | 외부 데이터 | 제공 모듈 | `closing`에서 사용하는 이유 |
@@ -127,6 +173,9 @@ forward-only입니다. 롤백 시 증빙이나 미완료 전이를 삭제하지 
 | `POSTED` 전표 라인 | `journal-ledger` | FX/ECL 거래통화·기능통화 잔액의 원천 집계 및 이전 FX 평가 귀속 |
 | 환율 | `master-data` | FX 평가와 ECL 목표·잔액의 기준일 기능통화 환산 |
 | `allowance_summary` | `ecl` | ECL 목표 충당금 조회 |
+| `ecl_provision_snapshots` | `closing` | 확정 run/model/기준일/법인과 원천·대사 금액의 불변 원본; Journal `ECLSNAP:` 참조로 조회 |
+| `ecl_provision_snapshot_bindings` | `closing` | 계정·통화별 작업 키를 원본 참조에 영구 결합 |
+| `ecl_provision_run_bindings` | `closing` | 기준일·배치 ID별 전체 스냅샷 집합 지문을 고정 |
 
 FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineage_source_id`도
 읽습니다. `FX_VALUATION`의 `배치ID|평가계정|원천통화`는 보고통화로 전기된 평가액을
@@ -136,8 +185,8 @@ FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineag
 기존 lineage의 backfill은 필요하지 않습니다. 근거 없는 레거시 식별자는 별도 대사가 필요합니다.
 
 API와 Batch의 FX/ECL 원장 조회는 core의 `PostedJournalContributionQuery`를 공유합니다.
-API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 이번 금융
-실행 변경에는 스키마나 migration 추가가 없습니다.
+API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 실행 키와
+전표 건수는 V55에서 기존 이력 테이블에 추가하고, GH-892 ECL 스냅샷 라인리지는 V57에서 추가됩니다.
 
 ## `allowance_summary` 연결 기준
 
@@ -152,8 +201,11 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `bad_debt_expense_account_code` | 보충 적립 시 비용 계정 |
 | `reversal_income_account_code` | 환입 시 수익 계정 |
 | `target_allowance_amount` | `currency_code` 거래통화 단위의 목표 충당금 |
+| `source_exposure_amount`, `stage1_allowance_amount`, `stage2_allowance_amount`, `stage3_allowance_amount` | 원천 exposure 및 Stage별 충당금 증빙; Stage 합계와 목표는 원천 정밀도로 정확히 일치해야 함 |
 
-현재 배치는 JDBC에서 동일 run/model·법인·계정/통화별 목표를 먼저 합산하고, 실제 전기 원장에서 기존 거래통화·기능통화 잔액을 대변 양수로 함께 조회합니다. 기능통화만 저장하는 `gl_balances`는 ECL의 거래통화 잔액으로 사용하지 않습니다. 외화의 기존 기능통화 잔액이 기준일 환율과 맞지 않으면 FX 평가 전기를 요구하며, 동일 통화의 금액 불일치는 원장 대사가 필요합니다. [통화별 계산·반올림·재시도](process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요. 원장에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
+현재 배치는 JDBC에서 원천 행의 Stage 합계·목표·0 exposure 정책을 먼저 검사하고 동일 run/model·법인·계정/통화별 목표와 Stage 증빙 합계를 합산합니다. 그 뒤 실제 전기 원장에서 기존 거래통화·기능통화 잔액을 대변 양수로 함께 조회합니다. `ecl`은 날짜별 원천 행을 재생성할 수 있으므로 전표가 필요한 그룹의 통화쌍·환율은 Journal 헤더 설명에, 전체 run ID·정확한 목표·exposure·Stage 1 합계는 첫 상세 설명에, 전체 model version·정확한 Stage 2/3 합계는 둘째 상세 설명에 저장합니다. 역분개 설명 확장을 고려해 헤더 120자·각 상세 194자 한도를 전표 쓰기 전에 검사하며, 재시도 시 기존 저장값과 비교합니다. 무전표 그룹에는 Journal 증빙이 없습니다. 기능통화만 저장하는 `gl_balances`는 ECL의 거래통화 잔액으로 사용하지 않습니다. 외화의 기존 기능통화 잔액이 기준일 환율과 맞지 않으면 FX 평가 전기를 요구하며, 동일 통화의 금액 불일치는 원장 원천을 대사해야 합니다. [통화별 계산·반올림·재시도](process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요. 원장에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
+
+V57은 확정 ECL 원천의 run/model/기준일/법인, 합산 목표·노출·Stage 금액, 최초 원장 잔액·환율·조정 차액을 `ecl_provision_snapshots`에 보존합니다. 배치 ID는 별도 binding에만 두며 스냅샷 참조의 원천 지문에 포함하지 않습니다. 전표의 `lineage_source_id`는 72자 `ECLSNAP:<SHA-256>`이고, 해당 참조를 기본키로 조회해 원본을 찾습니다. 기존 전표는 자동 역채움되지 않습니다.
 
 ## 설정 키
 
@@ -170,7 +222,7 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `account.closing.accounting.api-financial-run-max-journal-commands` | `1000` | API FX/ECL 전표 command hard cap; ECL source도 cap+1 그룹까지만 조회해 초과를 fail-closed |
 | `account.closing.accounting.provision-rules.ECL.debit-account-code` | 운영 설정 필요 | ECL 비용 계정 fallback mapping |
 | `account.closing.accounting.provision-rules.ECL.credit-account-code` | 운영 설정 필요 | ECL 충당금 계정 fallback mapping |
-| `closing.sources.enabled` (`dev`) | `false`/미설정 | `true`일 때만 승인된 외부 source/Journaling 구성; 그 외 금융 실행 fail-closed |
+| `closing.sources.enabled` | `false`/미설정 | 내장 모놀리스 연차 읽기는 값과 무관하게 primary Journal DB 사용. `dev`에서 `true`이면 별도 Journal/ECL/Master 읽기 전용 source 구성; `dev`에서 `false`이면 외부 금융 실행 fail-closed |
 | `account.closing.annual.legal-entity-code` | 사용 가능한 기본값 없음 | 이 Closing 런타임이 전담하는 단일 법인 |
 | `account.closing.annual.mappings[]` | 사용 가능한 기본값 없음 | 정확한 연도별 `account-code`, `postable`, `approved-by`, `change-reference` |
 | `account.closing.batch.fx.chunk-size` | `1000` | FX Cursor 처리와 트랜잭션 checkpoint 단위 |
@@ -181,11 +233,11 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을 추가합니다. 새 writer를 시작하기 전에 V53까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를 추가합니다. 새 writer를 시작하기 전에 V56까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
-- `period_locks`는 현재 unlock 시 감사 로그를 남기고 활성 행을 삭제합니다. `active`, `unlocked_by`, `unlocked_at`, `unlock_reason`을 추가하는 forward migration 후 이력 행 보존 방식으로 전환해야 합니다.
+- V56부터 `period_locks` unlock은 행을 비활성화하고 해제자·시각을 보존합니다. 별도 `unlock_reason` 컬럼은 아직 없으며 기존 해제 감사 로그의 사유가 남습니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
-- `valuation_batches`/`provision_batches`에는 기간·유형·기준일·요청 키의 멱등 unique key가 아직 없습니다. 중복 요청과 crash recovery를 포함한 migration이 필요합니다.
+- V55는 `valuation_batches`/`provision_batches`에 API별 고유 `execution_key`를 추가하고 `closing_financial_run_locks`로 동시 실행을 직렬화합니다. 기간·유형·인증된 실행자는 같은 키 재사용 시 application에서 검증합니다. `closing_financial_run_manifests`는 첫 Journal 쓰기 전에 확정된 명령 전체를 저장합니다.
 - 두 history 테이블의 `generated_journal_entry_id`는 scalar라서 0건/다중 전표 실행 ID를 표현하지 못합니다. 현재는 `null`이며, 다중 전표 조회 모델은 후속 설계가 필요합니다.
 
 원격 Journal의 멱등 slip 처리와 로컬 history/Batch metadata 사이 원자성, FX Batch validation과

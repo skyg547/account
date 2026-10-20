@@ -79,6 +79,50 @@ class JdbcEclAllowanceResultAdapterTest {
                 .hasMessageContaining("ECL summary groups exceed API hard cap of 1");
     }
 
+    @Test
+    void rejectsOffsettingUnreconciledSourceRowsBeforeGrouping() {
+        insert(1, "12000", "100.0000", "1000.0000");
+        insert(2, "12100", "100.0000", "1000.0000");
+        jdbcTemplate.update("UPDATE allowance_summary SET stage1_allowance_amount = 99.9999 WHERE id = 1");
+        jdbcTemplate.update("UPDATE allowance_summary SET stage1_allowance_amount = 100.0001 WHERE id = 2");
+
+        assertThatThrownBy(() -> adapter.loadSummaries(LocalDate.of(2026, 5, 31)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("source row reconciliation");
+    }
+
+    @Test
+    void preservesExactGroupedStageTotals() {
+        insert(1, "12000", "33.3333", "1000.0000");
+        insert(2, "12100", "66.6668", "1000.0000");
+
+        assertThat(adapter.loadSummaries(LocalDate.of(2026, 5, 31)))
+                .singleElement().satisfies(summary -> {
+                    assertThat(summary.targetAllowanceAmount()).isEqualByComparingTo("100.0001");
+                    assertThat(summary.stage1AllowanceAmount()).isEqualByComparingTo("100.0001");
+                });
+    }
+
+    @Test
+    void rejectsZeroExposureWithPositiveTargetBeforeGrouping() {
+        insert(1, "12000", "1.0000", "0.0000");
+
+        assertThatThrownBy(() -> adapter.loadSummaries(LocalDate.of(2026, 5, 31)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("source row reconciliation");
+    }
+
+    @Test
+    void rejectsNullStageSourceRowBeforeGrouping() {
+        insert(1, "12000", "100.0000", "1000.0000");
+        jdbcTemplate.execute("ALTER TABLE allowance_summary ALTER COLUMN stage2_allowance_amount DROP NOT NULL");
+        jdbcTemplate.update("UPDATE allowance_summary SET stage2_allowance_amount = NULL WHERE id = 1");
+
+        assertThatThrownBy(() -> adapter.loadSummaries(LocalDate.of(2026, 5, 31)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("source row reconciliation");
+    }
+
     private void insert(int id, String exposureAccountCode, String target, String exposure) {
         jdbcTemplate.update("""
                 INSERT INTO allowance_summary VALUES (
