@@ -32,15 +32,15 @@
 - 닫힌 영업일은 같은 행에서 BOD/OPEN으로 되돌리지 않습니다. 다음 영업일은 전일 `CLOSED`를 잠근 뒤 별도 `BOD_IN_PROGRESS` 행으로 생성합니다.
 - FX/ECL 날짜와 실행 ID, 환율, 계정, 확정 summary가 빠지면 배치를 실패시킵니다.
 - API는 평가 유형 `FX_RATE`, 충당 유형 `ECL`만 허용하며 수동 고정 금액 경로를 제공하지 않습니다.
-- `dev`에서 `closing.sources.enabled`가 `false`이거나 없으면 외부 source와 Journal 호출은 대체 성공하지 않고 실패합니다.
+- `dev`에서 `closing.sources.enabled`가 `false`이거나 없으면 외부 source와 Journal 호출은 대체 성공하지 않고 실패합니다. `dev`/`local` 이외의 내장 모놀리스 연차 cursor는 플래그와 무관하게 쓰기와 같은 primary Journal DB를 사용합니다. 별도 source는 `dev`에서만 `closing.sources.enabled=true`로 명시합니다.
 - FX Batch validation과 posting은 서로 다른 source read입니다. 분산 snapshot 보장이 없으므로 실행 동안 원장·환율·정책 변경을 운영 절차로 동결합니다.
 
 ## 금융 실행의 현재 한계
 
 - remote Journal 호출과 로컬 Batch metadata는 하나의 트랜잭션이 아닙니다. 재시도는 결정적 slip과 Journal 멱등성에 의존합니다.
-- API 요청 자체의 멱등 key와 다중 전표 ID 조회 모델은 아직 없습니다. 단일 history ID 컬럼은 0건 또는 여러 건일 때 `null`입니다.
+- API 요청 키는 각 평가/충당 endpoint 안에서 고유하며, 다중 전표 ID 조회 모델은 아직 없습니다. 단일 history ID 컬럼은 0건 또는 여러 건일 때 `null`이고 `journalCount`가 건수를 보존합니다.
 - production PostgreSQL 실행계획과 대용량 부하는 별도 검증이 필요합니다.
-- 이 변경은 기존 Closing 스키마를 그대로 사용하며 새 migration을 추가하지 않습니다.
+- V54 migration이 재오픈 회차 통제를, V55 migration이 실행 키 고유 제약과 전표 건수 컬럼을, V56 migration이 기간 잠금·재오픈 요청 고유성을 추가합니다. 최신 스키마·배포 순서는 [schema.md](schema.md#재오픈-회차와-체크리스트-이력-gh-885)를 따릅니다.
 
 ## 보존한 이전 문서
 

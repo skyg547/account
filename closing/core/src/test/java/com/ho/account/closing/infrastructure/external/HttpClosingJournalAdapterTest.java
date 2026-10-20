@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
+import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
+import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.sun.net.httpserver.HttpServer;
@@ -51,6 +55,8 @@ class HttpClosingJournalAdapterTest {
     private volatile String viewStatus = "DRAFT";
     private volatile String delayedPath;
     private volatile String createResponse = DRAFT;
+    private volatile boolean persistCreatedDraft;
+    private volatile String createdView;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -58,11 +64,24 @@ class HttpClosingJournalAdapterTest {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
             String path = exchange.getRequestURI().getPath();
+            String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             requests.add(new Received(path, exchange.getRequestMethod(),
                     exchange.getRequestHeaders().getFirst("X-User-ID"),
                     exchange.getRequestHeaders().getFirst("X-Auth-User"),
                     exchange.getRequestHeaders().getFirst("X-Auth-Roles"),
-                    new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
+                    requestBody));
+            if (persistCreatedDraft && path.equals(CREATE)) {
+                ObjectNode journal = (ObjectNode) new ObjectMapper().readTree(requestBody);
+                journal.put("id", 42L);
+                journal.put("status", "DRAFT");
+                for (int index = 0; index < journal.withArray("lines").size(); index++) {
+                    ObjectNode line = (ObjectNode) journal.withArray("lines").get(index);
+                    line.put("id", 4201L + index);
+                    line.set("side", line.remove("drcrType"));
+                    line.set("description", line.remove("detailDescription"));
+                }
+                createdView = journal.toString();
+            }
             if (path.equals(delayedPath)) {
                 try {
                     Thread.sleep(300);
@@ -74,9 +93,12 @@ class HttpClosingJournalAdapterTest {
             }
             // Journal's write API requires trusted roles and a state transition through
             // request-approval; this test server must not pretend direct approve/post works.
-            int status = path.equals(failedPath) ? failureStatus
+            int status = persistCreatedDraft && path.startsWith("/api/journals/")
+                    && !path.equals(DETAIL) && createdView == null ? 404
+                    : path.equals(failedPath) ? failureStatus
                     : path.equals(APPROVE) || path.equals(POST) ? 403 : 200;
             String view = VIEW.replace("\"status\":\"DRAFT\"", "\"status\":\"" + viewStatus + "\"");
+            if (persistCreatedDraft && createdView != null) view = createdView;
             String body = path.equals(CREATE) ? createResponse : path.equals(SUMMARIES) ? "[" + view + "]" : view;
             if (status >= 300 && status < 400) {
                 exchange.getResponseHeaders().set("Location", "/redirect-target?private-provider-detail");
@@ -220,6 +242,84 @@ class HttpClosingJournalAdapterTest {
                 .hasMessageContaining("posting failed")
                 .hasNoCause();
         assertThat(requests).extracting(Received::path).containsExactly(CREATE);
+    }
+
+    static Stream<Arguments> closingAdjustments() {
+        return Stream.of(
+                Arguments.of("FX", fxDraft()),
+                Arguments.of("ECL", eclDraft()));
+    }
+
+    // These are service-shaped commands at the adapter create phase. Approval/posting is
+    // deliberately outside this test: the HTTP adapter rejects auto-post without trusted actors.
+    @ParameterizedTest(name = "{0} adapter create response loss reconciles the exact persisted draft")
+    @MethodSource("closingAdjustments")
+    void lostCreateResponseReconcilesOnRestartWithoutSecondCreate(
+            String adjustmentType, ClosingJournalEntryCommand command) throws Exception {
+        persistCreatedDraft = true;
+        delayedPath = CREATE;
+        String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+        var firstHttp = new HttpClosingJournalAdapter(RestClient.builder(), baseUrl, "2s", "50ms");
+        var firstRun = new JournalLedgerClosingJournalEntryAdapter(firstHttp, firstHttp);
+
+        assertThatThrownBy(() -> firstRun.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("posting failed")
+                .hasNoCause();
+        assertThat(createdView).as(adjustmentType + " draft was persisted before timeout").isNotNull();
+        JsonNode persisted = new ObjectMapper().readTree(createdView);
+        assertThat(persisted.path("lines").size()).isEqualTo(2);
+        assertThat(persisted.path("lines").get(0).path("id").asLong()).isPositive();
+        assertThat(persisted.path("lines").get(0).path("side").asText()).isEqualTo("DEBIT");
+
+        // A new adapter models a restarted Closing process; its only durable key is the slip number.
+        var restartedHttp = new HttpClosingJournalAdapter(RestClient.builder(), baseUrl, "2s", "2s");
+        var restartedRun = new JournalLedgerClosingJournalEntryAdapter(restartedHttp, restartedHttp);
+        var recovered = restartedRun.createDraftAdjustment(command);
+        assertThat(recovered.journalEntryId()).isEqualTo(42L);
+        assertThat(recovered.slipNo()).isEqualTo(command.slipNo());
+        assertThat(requests).extracting(Received::path)
+                .containsExactly("/api/journals/" + command.slipNo(), CREATE,
+                        "/api/journals/" + command.slipNo(), DETAIL);
+        assertThat(requests.stream().filter(request -> request.path().equals(CREATE))).hasSize(1);
+        assertThat(requests).noneMatch(request -> request.path().endsWith("/approve")
+                || request.path().endsWith("/post"));
+
+        // Recovery must still reject a collided slip with different financial content.
+        String exactView = createdView;
+        createdView = exactView.replace(command.lines().get(0).amount().toPlainString(), "0.01");
+        assertThatThrownBy(() -> restartedRun.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different business content");
+        createdView = exactView.replace("\"status\":\"DRAFT\"", "\"status\":\"CANCELLED\"");
+        assertThatThrownBy(() -> restartedRun.createDraftAdjustment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("non-reusable status CANCELLED");
+        assertThat(requests.stream().filter(request -> request.path().equals(CREATE))).hasSize(1);
+    }
+
+    private static ClosingJournalEntryCommand fxDraft() {
+        BigDecimal amount = new BigDecimal("1234.56");
+        return new ClosingJournalEntryCommand(DATE, DATE, "Month-end FX Valuation",
+                "CLOSING_ADJUSTMENT", "BATCH", "SYSTEM", "FX_VALUATION", "42|131000|USD",
+                "KRW", "FXV202609107A9F0D77A",
+                List.of(new ClosingJournalLineCommand(ClosingJournalSide.DEBIT, "131000",
+                                amount, amount, "FX Revaluation adjustment"),
+                        new ClosingJournalLineCommand(ClosingJournalSide.CREDIT, "41000",
+                                amount, amount, "FX Translation Gain/Loss")));
+    }
+
+    private static ClosingJournalEntryCommand eclDraft() {
+        BigDecimal amount = new BigDecimal("789.12");
+        BigDecimal base = new BigDecimal("1025856.00"); // 789.12 USD at 1300 KRW per USD.
+        return new ClosingJournalEntryCommand(DATE, DATE,
+                "Month-end ECL Provision (Impairment) [USD/KRW @ 1300]",
+                "CLOSING_ADJUSTMENT", "BATCH", "SYSTEM", "ECL_PROVISION", "42|139000|USD",
+                "USD", new BigDecimal("1300.000000"), "ECL20260910D362162C6",
+                List.of(new ClosingJournalLineCommand(ClosingJournalSide.DEBIT, "51000",
+                                amount, base, "Bad Debt Expense (ECL Addition)"),
+                        new ClosingJournalLineCommand(ClosingJournalSide.CREDIT, "139000",
+                                amount, base, "Allowance for Doubtful Accounts (ECL Addition)")));
     }
 
     @Test
