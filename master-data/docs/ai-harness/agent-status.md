@@ -6,6 +6,7 @@
 - Scope: only `master-data/**` change-request core code, migration, targeted core/API tests, feature documentation, and these three module-local AI harness records. Shared harness/history files, other modules, and production data were untouched.
 - Result: atomic create-or-load makes identical concurrent `sourceReference` submissions share one result and rejects mismatched reuse. An already `APPLIED` request returns the stable prior result without a new SCD2 version or changed `appliedAt`.
 - Verification: synthetic PostgreSQL 16 plus H2; requested core/API/Batch run passed 806/806 (620/181/5), failures/errors/skips 0. PostgreSQL rollback-only unique-violation and blocked concurrent insert cases passed. Diff/marker gates and independent read-only Q1–Q4 review passed.
+- Draft CI: harness validation and merge-guard candidate tests passed; PR discipline failed only `DRAFT_NOT_MERGE_READY` and repository `TRUST_POLICY_UNCONFIGURED`. Current-head CI is not fully green or merge-ready.
 - Draft PR: https://github.com/skyg547/account/pull/933 (`Refs #919`). Existing HTTP create DTO lacks `sourceReference`; legacy rejected rows fail closed; PostgreSQL lookup assumes `READ COMMITTED`. Current-head CI and human review control Ready/merge; Issue closure and resource removal remain human gates.
 
 ## 2026-10-20 — Issue #911 / Draft PR #927

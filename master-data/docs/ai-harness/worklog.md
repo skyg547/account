@@ -15,6 +15,7 @@
 | Q4 nearby intent comments | PASS | `MasterDataChangeRequest.java:151`, `JpaMasterDataChangeRequestPersistenceAdapter.java:150`, account-subject applier comment | Not applicable: assessed | No further comment gate | PASS, separate read-only reviewer |
 
 - Limits: the existing API create DTO does not accept `sourceReference`, so HTTP clients cannot use this particular submission key until a separately scoped API contract change. Legacy rejected rows fail closed because the earlier schema overwrote the original reason. PostgreSQL create-or-load relies on the application's `READ COMMITTED` isolation; production-scale throughput was not measured.
+- Draft CI: local `python3 tools/ci/validate-harness.py` passed. Remote Harness Validation and merge-guard candidate tests passed on PR #933. `Check implementer PR discipline` failed solely with `DRAFT_NOT_MERGE_READY` and `TRUST_POLICY_UNCONFIGURED` after PR owner label and fenced verification were supplied; the former is expected for this requested Draft, and the latter requires repository-owner trust-policy configuration. This is not a code-test PASS or merge-ready state.
 - Publication: Draft PR https://github.com/skyg547/account/pull/933 uses `Refs #919`. Rollback is a reviewed issue-scoped revert; preserve existing request, SCD2, and audit rows and correct the nullable schema forward if necessary. Human review controls Ready/merge/Issue close and branch/worktree deletion.
 
 ## 2026-10-20 — GH-911 duplicate business-partner bulk references
