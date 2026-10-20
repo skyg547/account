@@ -16,6 +16,7 @@
 
 - Consumer gate: frontend `masterDataService.ts`, `adminService.ts`, system tokens and profile PAT screens still request one array. More than 20 rows silently disappear from those screens until they follow `X-Has-Next` or offer page navigation. This is a known user-visible integration risk, not a claim that frontend migration occurred. User module scope forbids editing frontend here; deploy only with a migration plan or explicit product acceptance.
 - Rollback: reviewed issue-scoped revert of module code, tests, docs, and V75 index migration using a forward database correction if already applied. Preserve business/audit rows; never erase history. Ready, merge, Issue close and resource cleanup remain human gates.
+- Publication: implementation commit `12f27e608a074ffb26fe2f5c07e179d008349512` was pushed and Draft PR [#934](https://github.com/skyg547/account/pull/934) opened with `Refs #920`. The PR body states the 1,069-pass verification, reviewer/Integrator separation, PostgreSQL limits and unresolved frontend gate. Current-head hosted CI and frontend deployment decision remain separate checks.
 
 ## 2026-10-20 — GH-911 duplicate business-partner bulk references
 

@@ -1,8 +1,9 @@
 # Master Data AI Handoff
 
-## Issue #920 / Draft PR pending — 2026-10-20
+## Issue #920 / Draft PR #934 — 2026-10-20
 
 - Branch/worktree/base: `agent/920-bound-foundation-lists`; `/tmp/account-920-bound-foundation-lists`; `origin/main@b29125549504d245aa10b3d275923e407bff8d56`.
+- Draft PR: https://github.com/skyg547/account/pull/934 (`Refs #920`), implementation commit `12f27e608a074ffb26fe2f5c07e179d008349512`; current-head hosted CI has not been accepted as verification.
 - Changed scope: master-data/auth API/core ports, adapters, tests, module docs and auth V75 indexes, plus three master-data module-local harness records. No shared harness, frontend, Gateway source, contracts or other module changes.
 - Acceptance evidence: default 20/maximum 100, 400 on invalid bounds, stable SQL pages, effective-date filtering, 601 partner/2,400 account synthetic history with zero aggregate loads, PAT owner/admin tie-break tests, explicit consumer page-loop instructions. Existing frontend consumers still need migration and can show only the first 20; this is the remaining integration gate.
 - Verification: five-project offline Gradle command passed with 1,069 passing tests, zero failures/errors and 27 PostgreSQL-only skips. Latest auth PAT JPA 2/2 and full auth core 199/199 passed after review fix. H2 is not PostgreSQL query-plan evidence. Independent master-data/auth reviewers judged Q1–Q4 PASS; their consumer finding remains open. `git diff --check` passed.
