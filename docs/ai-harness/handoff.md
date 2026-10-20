@@ -1,3 +1,10 @@
+## 2026-10-20 — GH-916 Draft PR #925 handoff
+
+- [Issue #916](https://github.com/skyg547/account/issues/916) is `status:needs-review`; branch `agent/916-auth-error-input-safety` in `/tmp/account-916-auth-error-input-safety` is based on `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`. Implementation `32387e3a`; [Draft PR #925](https://github.com/skyg547/account/pull/925) uses `Refs #916`.
+- Fifteen `auth/**` files bound login and PAT inputs to actual 80/100-character schema limits, reject malformed/coerced JSON as safe 400, and replace reflected 500 exception text with a UUID reference. Core checks Unicode-expanded login-attempt keys before DB access. Module README/process/beginner docs explain the behavior. The parent updated only the four Issue-requested harness/history records; no schema, gateway code, or other module changed.
+- Requested core/API/Gateway command PASS: 197+76+74=347 tests, zero failures/errors/skips. `:auth:api:bootJar` PASS; full-context HTTP/H2 Flyway/JPA and scoped diff/marker checks PASS. Independent read-only reviewer confirmed Q1–Q4 PASS and no acceptance blocker. The initial focused stale-build Unicode failure was resolved in the current-source full run.
+- Residual: PostgreSQL and deployment were not tested. Existing broad IAE→400 classification may hide an internal failure as a client error, though response text is safe. Rollback is reviewed issue-scope commit revert; preserve all records. Human reviewer/authorized Integrator next checks current-head CI/PostgreSQL as applicable and separately gates Ready, merge, Issue close, and resource cleanup. Implementer/reviewer/merge authority are separate; Draft is not approval to merge.
+
 ## 2026-10-09 — GH-892 Draft PR #907 handoff
 
 - [Issue #892](https://github.com/skyg547/account/issues/892) is `status:needs-review`; `agent/892-ecl-snapshot-lineage` in `/tmp/account-892-ecl-snapshot-lineage` is based on `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. [Draft PR #907](https://github.com/skyg547/account/pull/907) uses `Refs #892`; implementation commit `108f4605`.
