@@ -104,6 +104,7 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
         lockBusinessKeyById(id);
         BusinessPartner currentActive = businessPartnerPersistencePort.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
+        command.requireUnchangedScreening(currentActive);
 
         // 도메인이 새 버전을 먼저 완전히 검증한 뒤에만 현재 버전을 닫습니다.
         // 이 순서 덕분에 잘못된 날짜나 코드 변경 요청이 현재 정상 버전을 먼저 종료하지 않습니다.

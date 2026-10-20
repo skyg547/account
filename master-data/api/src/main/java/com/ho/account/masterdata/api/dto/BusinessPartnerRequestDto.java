@@ -8,7 +8,8 @@ import java.time.LocalDate;
  * 거래처(Business Partner) 요청 DTO입니다.
  *
  * <p>Controller 계층에서 사용하는 API 스펙이며, JPA Entity와의 직접적인 결합을 피하기 위해
- * 필요한 데이터 필드들로만 구성되어 있습니다.</p>
+ * 필요한 데이터 필드들로만 구성되어 있습니다. 기존 화면 호환용 KYC/risk 필드는 screening 승인
+ * 근거가 아니며, core가 이 일반 쓰기 경로를 통해 screening 상태를 올리는 것을 거부합니다.</p>
  */
 public class BusinessPartnerRequestDto {
 

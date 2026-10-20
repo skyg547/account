@@ -28,7 +28,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "spring.batch.job.enabled=false",
                 "spring.batch.jdbc.initialize-schema=always",
-                "spring.sql.init.mode=never",
+                "spring.sql.init.mode=always",
+                "spring.sql.init.schema-locations=classpath:db/local/schema-business-partner-screening.sql",
                 "spring.cloud.config.enabled=false",
                 "spring.cloud.config.import-check.enabled=false",
                 "spring.cloud.discovery.enabled=false",
@@ -50,6 +51,11 @@ class MasterDataBatchPostgresqlSchemaContextTest {
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'public' AND table_name = 'batch_job_instance'
                 """, Integer.class)).isOne();
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name IN ('business_partner_screenings', 'business_partner_screening_audit')
+                """, Integer.class)).isEqualTo(2);
     }
 
     @Configuration(proxyBeanMethods = false)

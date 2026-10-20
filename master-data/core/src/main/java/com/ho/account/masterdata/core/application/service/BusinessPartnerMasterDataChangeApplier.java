@@ -45,6 +45,7 @@ public class BusinessPartnerMasterDataChangeApplier implements MasterDataChangeA
         } else {
             BusinessPartner current = businessPartnerUseCase.getBusinessPartnerByCode(request.getTargetKey())
                     .orElseThrow(() -> new MasterDataVersionConflictException("Active business partner no longer exists."));
+            command.requireUnchangedScreening(current);
             // Merge omitted UPDATE fields before approval; explicit blanks still reach the domain factory.
             BusinessPartner.create(current.getBusinessPartnerCode(),
                     command.businessPartnerName() != null ? command.businessPartnerName() : current.getBusinessPartnerName(),

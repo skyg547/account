@@ -13,7 +13,7 @@ spring:
     driver-class-name: org.h2.Driver
   flyway:
     enabled: true
-    # V9 uses PostgreSQL GiST exclusion constraints; this profile is H2-only.
+    # V9 and later migrations use PostgreSQL-only SQL; the local screening schema is initialized below.
     target: "8"
   jpa:
     hibernate:
@@ -24,6 +24,7 @@ spring:
   sql:
     init:
       mode: always
+      schema-locations: classpath:db/local/schema-business-partner-screening.sql
       data-locations: classpath:data-local.sql
 
 eureka:

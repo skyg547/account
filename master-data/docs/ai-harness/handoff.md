@@ -1,5 +1,14 @@
 # Master Data AI Handoff
 
+## Issue #923 / Draft PR pending — 2026-10-20
+
+- Branch/worktree/base: `agent/923-screening-eligibility`; `/tmp/account-923-screening-eligibility`; `origin/main@b2912554`. Only `master-data/**` was edited, including these three module-local records.
+- Delivered: separate operational-active and evidence-backed screening eligibility; dedicated reviewer role and separation from submitter; explicit as-of eligibility endpoint; append-only reviewer/evidence/time audit; V11 PostgreSQL migration and local H2 support; module documentation.
+- Local verification: required core/API/Batch suite and both bootJars BUILD SUCCESSFUL (core 641, API 136 with 29 PostgreSQL-only skips, Batch 5; zero failures/errors). Fresh synthetic PostgreSQL V11 migrations and immutable audit test passed. Packaged H2 API startup and unscreened eligibility GET passed. Separate read-only reviewer found no blocking code issue and Q1–Q4 PASS; evidence table is in `worklog.md`.
+- Incomplete acceptance: provider-side eligibility is tested, but consuming payable/receivable services and shared contracts were outside the allowlist, so agreed consumer contract tests and enforcement remain open. Business owner approval of wider jurisdiction/type and escalation policy is also pending. Keep this PR Draft and do not claim full Issue acceptance.
+- Next gates: human policy/scope decision for consumers, consumer integration tests in a separately authorized change, current-head CI, and human review before Ready/merge or Issue closure. A reviewed forward schema correction and issue-scoped revert must preserve existing partner and screening audit rows.
+- Authority: implementers wrote disjoint module files; independent reviewer was read-only; parent Integrator owns Git/GitHub and module records. Human controls Ready, merge, Issue close, and branch/worktree removal.
+
 ## Issue #911 / Draft PR #927 — 2026-10-20
 
 - Branch/worktree/base: `agent/911-bp-bulk-fail-closed`; `/tmp/account-911-bp-bulk-fail-closed`; `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.

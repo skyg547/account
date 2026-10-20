@@ -29,7 +29,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
                 "spring.flyway.clean-disabled=true",
                 "spring.flyway.baseline-on-migrate=false",
                 "spring.jpa.hibernate.ddl-auto=validate",
-                "spring.sql.init.mode=never",
+                "spring.sql.init.mode=always",
+                "spring.sql.init.schema-locations=classpath:db/local/schema-business-partner-screening.sql",
                 "spring.cloud.config.enabled=false",
                 "spring.cloud.config.import-check.enabled=false",
                 "spring.cloud.discovery.enabled=false",
@@ -61,8 +62,9 @@ class MasterDataPostgresqlSchemaContextTest {
                   AND table_name IN (
                     'account_subjects', 'business_partners', 'business_partner_accounts',
                     'currencies', 'departments', 'exchange_rates', 'fiscal_periods',
-                    'master_data_change_requests', 'products', 'tax_profiles')
-                """, Integer.class)).isEqualTo(10);
+                    'master_data_change_requests', 'products', 'tax_profiles',
+                    'business_partner_screenings', 'business_partner_screening_audit')
+                """, Integer.class)).isEqualTo(12);
         assertThat(accountSubjectRepository.count()).isZero();
         assertThat(businessPartnerRepository.count()).isZero();
     }

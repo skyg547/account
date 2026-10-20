@@ -148,7 +148,37 @@ API 입력 `1.23456`은 HTTP 400, `1.230000`은 허용됩니다. 승인 UPDATE�
 가격은 기존 SCD2 행을 종료하기 전에 거부됩니다. PostgreSQL migration의 테이블 잠금은
 테이블 크기에 따라 쓰기를 기다리게 하므로 배포 창에서 확인해야 합니다.
 
+## 거래처 screening 확인 (Issue #923)
+
+전제: JDK 17, 로컬 API(`8082`), 동일한 JWT 설정으로 Auth가 발급한 서로 다른 제출자·심사자 토큰, 현재 활성인 `CUSTOMER` 또는 `VENDOR` 거래처가 필요합니다. 아래 `BP-923`과 `123-45-67890`은 합성 예시입니다. 사용 중인 거래처 코드와 등록번호로 교체합니다. 예시는 선택적 증빙 만료일을 생략합니다. 만료일을 넣는 경우 제출일 이전이면 거부되고, 기준일이 만료일을 지나면 eligibility는 false입니다. 토큰은 출력이나 문서에 저장하지 않습니다. `X-Auth-User`/`X-Auth-Roles`를 임의로 보내 권한을 만들 수 없으며, 서버 필터가 JWT claim과 대조합니다.
+
+```bash
+curl -i -X POST http://localhost:8082/api/basic/businesspartners/BP-923/screening-submission \
+  -H "Authorization: Bearer <submitter-jwt>" -H 'Content-Type: application/json' \
+  -d '{"jurisdiction":"KR","identifierType":"BUSINESS_REGISTRATION","identifier":"1234567890","evidenceReference":"synthetic-evidence-923"}'
+
+curl -i -X POST http://localhost:8082/api/basic/businesspartners/BP-923/screening-decision \
+  -H "Authorization: Bearer <different-reviewer-jwt-with-SCREENING_REVIEWER>" -H 'Content-Type: application/json' \
+  -d '{"status":"APPROVED","riskRating":"LOW","decisionReason":"Evidence checked"}'
+
+curl -i 'http://localhost:8082/api/basic/businesspartners/BP-923/eligibility'
+```
+
+정상 제출·결정은 각각 HTTP 204 빈 본문입니다. 마지막 조회는 HTTP 200과 `{"businessPartnerCode":"BP-923","asOfDate":"<서버의 오늘 날짜>","eligible":true}` 형태로 반환합니다. 이는 거래처가 오늘 활성 상태이고 등록번호가 예시와 일치할 때만 성립합니다. 결정 전, `HIGH`/`CRITICAL`, 만료 이후, 누락·변경된 등록번호, 비활성 거래처라면 `eligible:false`입니다. 조회에서 `asOfDate`를 생략하면 서버의 오늘 날짜를 씁니다. 과거 확인은 `?asOfDate=yyyy-MM-dd`로 요청하며, 해당 날짜 종료 전 마지막 audit 상태와 당시 거래처 버전으로 판단합니다. 오늘 재제출하여 현재 상태가 `PENDING`이 되어도 이전 승인 날짜의 결과는 재현됩니다. 조회 응답에 식별번호·증빙은 없습니다. 제출자의 자기 결정은 400, 심사자 역할이 없는 결정은 403, 없는 거래처 제출은 404입니다.
+
+로컬 API/Batch는 Flyway V8까지만 적용하고 별도 H2 screening schema를 초기화합니다. PostgreSQL V11과 audit 변경 금지 trigger는 이 실행으로 검증되지 않습니다. 집중 단위·MVC 회귀는 저장소 루트에서 다음 명령으로 실행합니다(성공 여부는 실제 실행 결과로 판단합니다).
+
+```bash
+./gradlew :master-data:core:test --tests '*BusinessPartnerScreeningPolicyTest' \
+  --tests '*BusinessPartnerScreeningServiceTest' :master-data:api:test \
+  --tests '*BusinessPartnerScreeningControllerTest' \
+  --offline --no-daemon --console=plain --max-workers=2
+```
+
+이 명령은 정책, 서비스의 audit/멱등성, MVC의 상태·actor 매핑을 확인합니다. HTTP 서버 종단, PostgreSQL migration·trigger, 공용 계약 및 실제 payable/receivable 소비자는 별도 검증 범위입니다.
+
 ## 일일 유효성 Batch 실행
+
 
 `Master Data Batch Validity` Run Configuration 또는 아래 명령을 사용합니다. `asOfDate`는 Spring Batch의 식별 파라미터이므로 재실행할 회계 기준일을 반드시 명시합니다.
 

@@ -2,6 +2,7 @@ package com.ho.account.masterdata.core.domain.model;
 
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+import com.ho.account.masterdata.core.domain.exception.ScreeningMutationForbiddenException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -195,6 +196,11 @@ public class BusinessPartner {
         if (requestedBusinessPartnerCode != null
                 && !businessPartnerCode.equals(requestedBusinessPartnerCode.trim())) {
             throw new IllegalArgumentException("거래처 코드는 SCD2 버전 수정 시 변경할 수 없습니다.");
+        }
+        // The generic SCD2 path carries legacy labels forward; only the screening review can decide them.
+        if ((kycStatus != null && kycStatus != this.kycStatus)
+                || (riskRating != null && riskRating != this.riskRating)) {
+            throw new ScreeningMutationForbiddenException("Generic partner updates cannot change KYC or risk.");
         }
         MasterDataValidityPolicy.requireVersionSplit(validFrom, validTo, newValidFrom, newValidTo);
         if (!isActiveAt(LocalDate.now())) {

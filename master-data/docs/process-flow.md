@@ -18,7 +18,25 @@ Closing의 회계기간 상태 변경은 `X-Service-Assertion`에 별도 HS256 J
 | `ProductController` | `/api/basic/products` | 상품 생성, 조회, 수정, 종료 |
 | `MasterDataChangeRequestController` | `/api/master-data/change-requests` | 변경 요청, 승인, 반려, 반영 |
 
+## 거래처 screening과 eligibility (Issue #923)
+
+1. 활성 `CUSTOMER` 또는 `VENDOR`의 인증된 사용자가 관할권, 식별자 유형·값, 증빙 참조와 선택적 만료일을 제출합니다. 서버는 JWT에서 제출자 ID를 얻습니다. 현재 허용하는 조합은 `KR`/`BUSINESS_REGISTRATION`/ASCII 숫자 10자리이며, 거래처 등록번호(숫자 10자리 또는 `123-45-67890` 형식)의 정규화 값과 같아야 합니다. 형식 검사는 실제 발급 사실을 확인하지 않습니다.
+2. 서비스는 업무 코드를 잠그고 현재 screening을 `PENDING`으로 저장하며 제출 snapshot을 audit에 추가합니다. 이전 결정이 있어도 새 제출은 다시 심사해야 합니다. 같은 제출자의 동일한 `PENDING` 요청 재시도는 추가 저장·감사 없이 끝납니다.
+3. 인증된 `SCREENING_REVIEWER`가 사유와 위험도를 포함하여 `APPROVED`, `REJECTED`, `REVIEW_REQUIRED` 중 하나로 결정합니다. 제출자와 동일한 ID는 거부됩니다. 결정 snapshot은 audit에 추가됩니다. 결정 후 같은 결정 재시도는 추가 기록이 없고, 다른 결정을 하려면 새 증빙 제출이 필요합니다. 저장과 audit 추가는 한 트랜잭션입니다.
+4. 기준일 조회는 그날 유효하고 활성인 거래처 버전과, 그날 종료 전까지 기록된 **마지막 screening 감사 snapshot**을 함께 선택합니다. 결정은 결정 시각부터, 아직 결정되지 않은 제출은 제출 시각부터 반영됩니다. 마지막 상태의 결정·위험·증빙·식별번호가 기준일 거래처 등록번호와 일치해야 합니다. 하나라도 실패하면 `eligible=false`입니다. 뒤에 새 증빙이 제출되어 현재 행이 `PENDING`이어도 이전 날짜에는 당시 `APPROVED` 상태를 재현할 수 있습니다. 등록번호 변경 후 날짜에는 새 버전의 등록번호와 불일치한 이전 승인이 eligibility를 만들지 못합니다.
+
+| 기준일의 마지막 screening 상태 | 위험도 | 유효한 증빙·식별번호와 활성 거래처 | eligibility |
+| --- | --- | --- | --- |
+| 없음 또는 `PENDING` | 모두 | 모두 | `false` |
+| `REJECTED` 또는 `REVIEW_REQUIRED` | 모두 | 모두 | `false` |
+| `APPROVED` | `HIGH` 또는 `CRITICAL` | 충족 | `false` |
+| `APPROVED` | `LOW` 또는 `MEDIUM` | 만료일이 기준일 전, 증빙 참조 누락, 식별번호 누락·불일치, 미지원 정책 또는 비활성·미존재 거래처 | `false` |
+| `APPROVED` | `LOW` 또는 `MEDIUM` | 모두 충족. 만료일 당일과 만료일 미지정은 허용 | `true` |
+
+제출 시 식별번호·증빙 참조 누락, 이미 만료된 증빙, 미지원 관할권/유형, 거래처 등록번호 불일치는 400입니다. 없는 거래처는 404, 비활성 거래처·선행 제출 없는 결정·다른 재결정은 409입니다. 결정 역할 없음은 403, 제출자 자기 심사는 400입니다. 쓰기 요청의 무효·누락 JWT는 Controller 전 401입니다. `GET`은 `asOfDate` 생략 시 서버의 오늘 날짜를 사용하며, 없는 거래처나 기준일까지 screening 이력이 없는 거래처도 404 대신 `eligible=false`를 반환합니다. 날짜 단위 조회이므로 같은 날짜에 여러 상태가 기록되면 그날의 마지막 기록을 사용합니다. 기존 거래처 KYC/risk 필드는 screening 승인 또는 eligibility가 아닙니다.
+
 ## 신규 업무 키 생성
+
 
 네 기준정보의 직접 `CREATE`는 저장 전에 업무 키 전체 이력의 존재 여부를 확인합니다.
 계정과목·부서·상품은 각 코드의 저장소 `exists` 조회를 사용하고, 거래처도 날짜와 `useYn`을

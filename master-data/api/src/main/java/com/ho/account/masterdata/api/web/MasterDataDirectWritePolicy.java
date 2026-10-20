@@ -29,19 +29,27 @@ final class MasterDataDirectWritePolicy {
 
     private static final Set<String> ADMIN_ROLES = Set.of(
             "ADMIN", "SYSTEM_ADMIN", "MASTER_MANAGER", "ACCOUNTING_ADMIN", "PARTNER_MANAGER");
+    private static final Set<String> SCREENING_REVIEWER_ROLES = Set.of("SCREENING_REVIEWER");
 
     MasterDataDirectWritePolicy() {
     }
 
     static void requireAdminRole(String authenticatedRoles) {
+        requireRole(authenticatedRoles, ADMIN_ROLES, "Master Data administrator role is required.");
+    }
+
+    static void requireScreeningReviewerRole(String authenticatedRoles) {
+        requireRole(authenticatedRoles, SCREENING_REVIEWER_ROLES, "Screening reviewer role is required.");
+    }
+
+    private static void requireRole(String authenticatedRoles, Set<String> allowedRoles, String failureReason) {
         boolean authorized = authenticatedRoles != null && Arrays.stream(authenticatedRoles.split(","))
                 .map(String::trim)
                 .filter(role -> !role.isEmpty())
                 .map(role -> role.startsWith("ROLE_") ? role.substring("ROLE_".length()) : role)
-                .anyMatch(ADMIN_ROLES::contains);
+                .anyMatch(allowedRoles::contains);
         if (!authorized) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Master Data administrator role is required.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, failureReason);
         }
     }
 
