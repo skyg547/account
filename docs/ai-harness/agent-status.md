@@ -1,3 +1,10 @@
+## 2026-10-09 — GH-892 ECL lineage / Draft PR #907
+
+- State: Issue `status:needs-review`; branch `agent/892-ecl-snapshot-lineage` in `/tmp/account-892-ecl-snapshot-lineage`; base `origin/main@9348966a`; [Draft PR #907](https://github.com/skyg547/account/pull/907), `Refs #892`.
+- Scope: 23 Closing implementation/test/module-doc files plus the three Issue-requested AI harness records. V54 persists original ECL source and reconciliation, Journal carries resolvable `ECLSNAP` lineage, and full-run operation bindings reject changed snapshots before posting. No cross-module change.
+- Verification: final `./gradlew :closing:test` PASS 645/645 (core 374/API 159/Batch 112; 0 fail/error/skip); both Closing `bootJar` tasks PASS; H2 context/migration, diff, conflict marker, and harness quality 32/32 checks PASS. Independent read-only reviewer found no P0–P1 blocker and Q1–Q4 PASS.
+- Residual/next owner: no live PostgreSQL, remote Journal, distributed fault, or production-load evidence; POSTED detail reread and per-group remote lookup cost remain follow-up risks. Human reviewer and authorized Integrator own current-head CI, V54 deployment gate, Ready, merge, Issue close, and cleanup. Preserve branch/worktree until then.
+
 ## 2026-10-09 — GH-854 cashflow images / Draft PR #878
 
 - State: `status:needs-review`; branch `agent/854-cashflow-images`; worktree `/tmp/account-854-cashflow-images`; base `origin/main@6b4998ed`; [Draft PR #878](https://github.com/skyg547/account/pull/878), `Refs #854`.

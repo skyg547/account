@@ -173,6 +173,9 @@ Closing이 조정 전표를 승인해 등록하면 `last_source_changed_at`을 �
 | `POSTED` 전표 라인 | `journal-ledger` | FX/ECL 거래통화·기능통화 잔액의 원천 집계 및 이전 FX 평가 귀속 |
 | 환율 | `master-data` | FX 평가와 ECL 목표·잔액의 기준일 기능통화 환산 |
 | `allowance_summary` | `ecl` | ECL 목표 충당금 조회 |
+| `ecl_provision_snapshots` | `closing` | 확정 run/model/기준일/법인과 원천·대사 금액의 불변 원본; Journal `ECLSNAP:` 참조로 조회 |
+| `ecl_provision_snapshot_bindings` | `closing` | 계정·통화별 작업 키를 원본 참조에 영구 결합 |
+| `ecl_provision_run_bindings` | `closing` | 기준일·배치 ID별 전체 스냅샷 집합 지문을 고정 |
 
 FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineage_source_id`도
 읽습니다. `FX_VALUATION`의 `배치ID|평가계정|원천통화`는 보고통화로 전기된 평가액을
@@ -183,7 +186,7 @@ FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineag
 
 API와 Batch의 FX/ECL 원장 조회는 core의 `PostedJournalContributionQuery`를 공유합니다.
 API 실행도 고정 금액을 저장하거나 별도 고정 금액 설정을 사용하지 않습니다. 실행 키와
-전표 건수는 V54에서 기존 이력 테이블에 추가합니다.
+전표 건수는 V55에서 기존 이력 테이블에 추가하고, GH-892 ECL 스냅샷 라인리지는 V57에서 추가됩니다.
 
 ## `allowance_summary` 연결 기준
 
@@ -201,6 +204,8 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `source_exposure_amount`, `stage1_allowance_amount`, `stage2_allowance_amount`, `stage3_allowance_amount` | 원천 exposure 및 Stage별 충당금 증빙; Stage 합계와 목표는 원천 정밀도로 정확히 일치해야 함 |
 
 현재 배치는 JDBC에서 원천 행의 Stage 합계·목표·0 exposure 정책을 먼저 검사하고 동일 run/model·법인·계정/통화별 목표와 Stage 증빙 합계를 합산합니다. 그 뒤 실제 전기 원장에서 기존 거래통화·기능통화 잔액을 대변 양수로 함께 조회합니다. `ecl`은 날짜별 원천 행을 재생성할 수 있으므로 전표가 필요한 그룹의 통화쌍·환율은 Journal 헤더 설명에, 전체 run ID·정확한 목표·exposure·Stage 1 합계는 첫 상세 설명에, 전체 model version·정확한 Stage 2/3 합계는 둘째 상세 설명에 저장합니다. 역분개 설명 확장을 고려해 헤더 120자·각 상세 194자 한도를 전표 쓰기 전에 검사하며, 재시도 시 기존 저장값과 비교합니다. 무전표 그룹에는 Journal 증빙이 없습니다. 기능통화만 저장하는 `gl_balances`는 ECL의 거래통화 잔액으로 사용하지 않습니다. 외화의 기존 기능통화 잔액이 기준일 환율과 맞지 않으면 FX 평가 전기를 요구하며, 동일 통화의 금액 불일치는 원장 원천을 대사해야 합니다. [통화별 계산·반올림·재시도](process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요. 원장에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
+
+V57은 확정 ECL 원천의 run/model/기준일/법인, 합산 목표·노출·Stage 금액, 최초 원장 잔액·환율·조정 차액을 `ecl_provision_snapshots`에 보존합니다. 배치 ID는 별도 binding에만 두며 스냅샷 참조의 원천 지문에 포함하지 않습니다. 전표의 `lineage_source_id`는 72자 `ECLSNAP:<SHA-256>`이고, 해당 참조를 기본키로 조회해 원본을 찾습니다. 기존 전표는 자동 역채움되지 않습니다.
 
 ## 설정 키
 

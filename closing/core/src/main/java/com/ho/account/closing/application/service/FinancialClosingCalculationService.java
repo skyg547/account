@@ -53,13 +53,12 @@ public class FinancialClosingCalculationService implements FinancialClosingCalcu
             LocalDate closingDate,
             Long provisionBatchId) {
         requireDateAndPositiveId(closingDate, provisionBatchId, "closingDate", "provisionBatchId");
-        List<ClosingJournalEntryCommand> commands = commandManifest.loadOrCreate("PROVISION", provisionBatchId, () -> {
-            List<ClosingJournalEntryCommand> prepared = List.copyOf(
-                    eclProvisionService.prepareEclProvision(closingDate, provisionBatchId));
-            requireWithinCommandCap(prepared.size());
-            return prepared;
-        });
-        return toCalculationResult(eclProvisionService.postPreparedEclProvision(commands));
+        EclProvisionService.PreparedEclProvision prepared =
+                eclProvisionService.prepareEclProvisionSnapshot(closingDate, provisionBatchId);
+        requireWithinCommandCap(prepared.commands().size());
+        List<ClosingJournalEntryCommand> commands = commandManifest.loadOrCreate("PROVISION", provisionBatchId,
+                prepared::commands);
+        return toCalculationResult(eclProvisionService.postPreparedEclProvision(prepared, commands));
     }
 
     @Override

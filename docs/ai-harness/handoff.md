@@ -1,3 +1,10 @@
+## 2026-10-09 — GH-892 Draft PR #907 handoff
+
+- [Issue #892](https://github.com/skyg547/account/issues/892) is `status:needs-review`; `agent/892-ecl-snapshot-lineage` in `/tmp/account-892-ecl-snapshot-lineage` is based on `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. [Draft PR #907](https://github.com/skyg547/account/pull/907) uses `Refs #892`; implementation commit `108f4605`.
+- `closing/**` now stores immutable V54 ECL source and reconciliation evidence, binds the complete operation/group set before Journal, and writes a resolvable `ECLSNAP` reference into DRAFT/POSTED lineage. It rejects changed source/replay and legacy slip collisions, while validated original POSTED zero-delta retries remain no-op. Module docs describe V54, source rebuild, and no automatic legacy backfill. Only the three requested shared harness files are added in the record commit; no other module/contract/history edit.
+- Final `./gradlew :closing:test --console=plain --no-daemon` PASS 645 tests (core 374/API 159/Batch 112; no fail/error/skip). Both Closing `bootJar` tasks, H2 Spring contexts/V54 migration, diff, marker, and harness quality 32/32 checks PASS. Separate read-only review: P0–P1 none; Q1–Q4 PASS. PR body contains full evidence and authority split.
+- Limits: actual PostgreSQL, external Journal, distributed failure and load were not tested. P2 POSTED detail reread and P3 per-group lookup/TOCTOU remain. Rollback requires pausing ECL execution and reviewed prior-code redeploy while retaining V54 audit tables. Next owner is the human reviewer/authorized Integrator for current-head CI and deployment gate, then separately authorized Ready, merge, Issue close and resource removal; Draft publication grants none of those actions.
+
 ## 2026-10-09 — GH-854 Draft PR #878 handoff
 
 - [Issue #854](https://github.com/skyg547/account/issues/854) is represented by `agent/854-cashflow-images` in `/tmp/account-854-cashflow-images`, based on `origin/main@6b4998ed89b4518a0f8bb568046c89a34f7ca7dd`; [Draft PR #878](https://github.com/skyg547/account/pull/878) uses `Refs #854`.

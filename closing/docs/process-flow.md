@@ -548,9 +548,25 @@ USD80/KRW112,000으로 맞춘 뒤 실행하면 USD20/KRW28,000을 보충합니�
 재실행은 무처리입니다. 원격 전표 쓰기와 원장 조회는 분산 원자성을 보장하지 않으며,
 동시 원장 변경·부분 전기·변경된 입력은 운영 대사와 승인 절차가 필요합니다.
 
+### ECL 스냅샷 라인리지 (GH-892)
+
+모든 계정·통화 그룹을 계산·검증한 뒤, Closing 소유 V54 테이블에 원천 run/model/기준일/법인과
+목표·노출·Stage 금액 및 최초 원장 잔액·환율·조정 차액을 불변으로 기록합니다. 0원 차액 그룹도
+기록합니다. 전체 그룹 집합 지문은 `(기준일, provisionBatchId)`에 고정되어 동일 작업 키에서
+그룹 추가·삭제·변경을 거부합니다. API command cap도 통과한 후 스냅샷을 예약합니다.
+Batch tasklet이 나중에 실패해도 예약이 롤백되지 않도록 독립 트랜잭션으로 커밋하고,
+그 후 Journal 초안을 만듭니다. `lineage_source_id=ECLSNAP:<SHA-256>`는 배치 실행 ID가
+아닌 스냅샷 참조이며, `ecl_provision_snapshots.snapshot_reference`로 원래 근거를 직접 조회합니다.
+원천 `allowance_summary`가 같은 날짜에 재생성되어도 이 행을 변경하지 않습니다.
+기존 형식 전표에는 자동 역채움이 없으므로 배포 전 V54를 적용하고 legacy 전표는 별도 대사합니다.
+동일 작업 키에 원장 잔액이나 환율이 달라진 재실행은 기본적으로 실패합니다. 단, 같은 원천 집합이고
+원래 참조의 전표가 `POSTED`이며 최초 조정 차액을 더한 잔액이 현재 목표와 정확히 일치하는 경우만
+기존 불변 스냅샷을 그대로 유지하며 무처리합니다. 원래 0원 차액이 새 차액으로 바뀌거나 원천·환율이
+바뀌면 실패합니다. 그 밖의 변경에는 새 작업 키와 승인된 대사가 필요합니다.
+
 조회는 exposure별 호출이 아닌 계정/통화 그룹별 집계입니다. 다만 그룹마다 과거 전표와
 FX 귀속 관계를 읽으므로 운영 규모에서는 PostgreSQL 실행계획·부하 검증과 전기 시 함께
-갱신되는 이중통화 잔액 read model이 필요합니다. 이번 변경은 스키마·데이터를 변경하지 않습니다.
+갱신되는 이중통화 잔액 read model이 필요합니다. ECL 라인리지에는 V54 테이블이 추가됩니다.
 
 실행 파라미터:
 
@@ -558,7 +574,7 @@ FX 귀속 관계를 읽으므로 운영 규모에서는 PostgreSQL 실행계획�
 | --- | --- | --- |
 | `spring.batch.job.name` | `eclProvisionJob` | 실행할 Job |
 | `closingDate` | `2026-04-30` | `allowance_summary.base_date`와 GL 잔액 기준일 |
-| `provisionBatchId` | `20260430` | 전표 lineage와 전표번호 결정성에 사용 |
+| `provisionBatchId` | `20260430` | Closing 작업 키 결합과 결정적 전표번호에 사용; 전표 lineage는 불변 스냅샷 참조 |
 
 ## 연차 손익 대체 (GH-775, GH-776)
 
@@ -664,7 +680,7 @@ loopback 테스트도 이 인증 통합을 증명하지 않습니다.
 - 프로세스가 예고 없이 종료되어 `RUNNING`에 남으면 DB가 실행 키 잠금을 해제합니다. 같은 키의 다음 요청은 잠금을 획득하고 원래 배치 ID와 영속 명령 목록으로 Journal 결과를 다시 확인합니다. `RUNNING`과 복구 필요 상태는 모두 `financialEffectsPending=true`로 노출합니다. 명령 내용이 저장된 전표와 다르면 자동 성공으로 바꾸지 않고 대사를 요구합니다.
 - remote Journal 효과와 로컬 이력/Batch metadata는 원자적이지 않습니다. HTTP timeout·응답 유실이나 부분 전표 뒤 `RECONCILIATION_REQUIRED`이면 결정적 slip/lineage로 원격 전표를 조회하고 헤더·상세·상태를 대사합니다. 원격 DRAFT를 자동 삭제하지 않습니다. 불일치는 권한 있는 담당자가 Journal 승인·정정/역분개 절차로 처리합니다.
 - 다중 전표 ID 조회는 아직 제공하지 않습니다. production PostgreSQL 실행계획·대용량 부하와 validation/posting 사이 동시 source 변경은 별도 검증/운영 통제가 필요합니다.
-- V55가 기존 실행 이력에 실행 키와 전표 건수 컬럼을 추가합니다.
+- V55가 기존 실행 이력에 실행 키와 전표 건수 컬럼을 추가하고, V57이 `ecl_provision_snapshots` 불변 스냅샷 테이블을 추가합니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.
 - 결산 조정 등록은 전표 상세의 차변/대변 합계가 같은지 검증합니다.
 - `dev`의 원격 Journal HTTP 어댑터는 `account.closing.accounting.auto-post-adjustments=true`를 첫 전표 쓰기 전에 거부합니다. maker 승인 요청→별도 checker 승인→poster 전기와 불확실한 응답 후 상태 확인을 위한 신뢰된 서비스 주체 계약이 없기 때문입니다. 기본 `false`의 DRAFT는 Journal 담당자가 별도 승인·전기합니다.

@@ -6,11 +6,14 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryPort;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
+import com.ho.account.closing.application.port.out.ClosingJournalLineage;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
+import com.ho.account.closing.application.port.out.EclProvisionSnapshotPort;
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.closing.domain.ClosingMonetaryPrecision;
 import com.ho.account.closing.domain.EclAllowanceSummary;
+import com.ho.account.closing.domain.EclProvisionSnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,16 +57,18 @@ public class EclProvisionService {
     private final ClosingAccountingProperties accountingProperties;
     private final EclAllowanceResultPort eclAllowanceResultPort;
     private final FxExchangeRateLookupPort fxExchangeRateLookupPort;
+    private final EclProvisionSnapshotPort eclProvisionSnapshotPort;
 
     public List<ClosingJournalEntryResult> processEclProvision(LocalDate closingDate, Long provisionBatchId) {
-        return postPreparedEclProvision(prepareEclProvision(closingDate, provisionBatchId));
+        return postPreparedEclProvision(prepareEclProvisionSnapshot(closingDate, provisionBatchId));
     }
 
     /**
      * Loads and validates the complete finalized ECL snapshot before returning immutable commands.
-     * No Journal write occurs here, so a later group failure cannot leave earlier draft effects.
+     * No Journal write or snapshot reservation occurs here, so a later group failure or API cap
+     * cannot leave earlier draft effects or operation bindings.
      */
-    public List<ClosingJournalEntryCommand> prepareEclProvision(LocalDate closingDate, Long provisionBatchId) {
+    public PreparedEclProvision prepareEclProvisionSnapshot(LocalDate closingDate, Long provisionBatchId) {
         Objects.requireNonNull(closingDate, "closingDate must not be null");
         if (provisionBatchId == null || provisionBatchId <= 0) {
             throw new IllegalArgumentException("provisionBatchId must be positive");
@@ -90,15 +95,57 @@ public class EclProvisionService {
         }
         // Remote Journal writes do not roll back with Closing. Validate every group's units,
         // rates, revaluation and representable command before creating even the first draft.
-        return groups.values().stream()
+        List<PreparedGroup> prepared = groups.values().stream()
                 .sorted(Comparator.comparing(group -> group.key().stableValue()))
                 .map(group -> prepareGroup(group, closingDate, provisionBatchId, functionalCurrency))
-                .flatMap(Optional::stream)
                 .toList();
+        // Carry every group's evidence, including zero-delta groups, to the posting gate.
+        // The gate reserves the full set only after API command limits have passed.
+        return new PreparedEclProvision(
+                prepared.stream().map(PreparedGroup::snapshot).toList(),
+                prepared.stream().map(PreparedGroup::command).flatMap(Optional::stream).toList());
+    }
+
+    public List<ClosingJournalEntryResult> postPreparedEclProvision(PreparedEclProvision prepared) {
+        return postPreparedEclProvision(prepared, prepared.commands());
+    }
+
+    public List<ClosingJournalEntryResult> postPreparedEclProvision(
+            PreparedEclProvision prepared,
+            List<ClosingJournalEntryCommand> commands) {
+        Objects.requireNonNull(prepared, "prepared must not be null");
+        Objects.requireNonNull(commands, "commands must not be null");
+        List<ClosingJournalLineage> expected = prepared.snapshots().stream()
+                .map(snapshot -> new ClosingJournalLineage(
+                        ClosingSlipNoFactory.eclProvision(snapshot.baseDate(),
+                                snapshot.legalEntityCode() + "|" + snapshot.currencyCode()
+                                        + "|" + snapshot.allowanceAccountCode(),
+                                snapshot.provisionBatchId()),
+                        snapshot.baseDate(), snapshot.currencyCode(),
+                        snapshot.reference(), snapshot.operationKey(),
+                        snapshot.adjustmentTransactionAmount().signum() == 0
+                                && snapshot.adjustmentBaseAmount().signum() == 0))
+                .toList();
+        Map<String, String> postedNoopReferences = closingJournalEntryPort.preflightEclLineage(expected);
+        eclProvisionSnapshotPort.recordAll(prepared.snapshots(),
+                Objects.requireNonNull(postedNoopReferences, "ECL lineage preflight result must not be null"));
+        return postCommands(commands);
+    }
+
+    public List<ClosingJournalEntryResult> postPreparedEclProvision(List<ClosingJournalEntryCommand> commands) {
+        return postCommands(commands);
+    }
+
+    public record PreparedEclProvision(List<EclProvisionSnapshot> snapshots,
+                                       List<ClosingJournalEntryCommand> commands) {
+        public PreparedEclProvision {
+            snapshots = List.copyOf(snapshots);
+            commands = List.copyOf(commands);
+        }
     }
 
     /** Posts exactly the already-prepared command list, preserving its deterministic order. */
-    public List<ClosingJournalEntryResult> postPreparedEclProvision(
+    private List<ClosingJournalEntryResult> postCommands(
             List<ClosingJournalEntryCommand> preparedCommands) {
         Objects.requireNonNull(preparedCommands, "preparedCommands must not be null");
         List<ClosingJournalEntryCommand> immutableCommands = List.copyOf(preparedCommands);
@@ -107,7 +154,7 @@ public class EclProvisionService {
                 .toList();
     }
 
-    private Optional<ClosingJournalEntryCommand> prepareGroup(
+    private PreparedGroup prepareGroup(
             ProvisionGroup group,
             LocalDate closingDate,
             Long provisionBatchId,
@@ -144,11 +191,13 @@ public class EclProvisionService {
                 postingTarget.subtract(existing.creditTransactionAmount()));
         BigDecimal baseDifference = ClosingMonetaryPrecision.amount(
                 targetBase.subtract(existing.creditBaseAmount()));
+        EclProvisionSnapshot snapshot = group.snapshot(closingDate, provisionBatchId,
+                existing, rate, transactionDifference, baseDifference);
 
         if (transactionDifference.signum() == 0 && baseDifference.signum() == 0) {
             log.info("ECL provision target equals existing allowance. No journal required. group={}",
                     group.key().stableValue());
-            return Optional.empty();
+            return new PreparedGroup(snapshot, Optional.empty());
         }
         if (transactionDifference.signum() == 0
                 || transactionDifference.signum() != baseDifference.signum()) {
@@ -156,9 +205,9 @@ public class EclProvisionService {
                     + group.key().stableValue());
         }
 
-        return Optional.of(createProvisionJournalEntry(
+        return new PreparedGroup(snapshot, Optional.of(createProvisionJournalEntry(
                 transactionDifference, baseDifference, rate, functionalCurrency,
-                closingDate, provisionBatchId, group));
+                closingDate, provisionBatchId, group, snapshot.reference())));
     }
 
     private BigDecimal closingRate(String transactionCurrency, String functionalCurrency, LocalDate closingDate) {
@@ -180,7 +229,8 @@ public class EclProvisionService {
                                              String functionalCurrency,
                                              LocalDate closingDate,
                                              Long batchId,
-                                             ProvisionGroup group) {
+                                             ProvisionGroup group,
+                                             String snapshotReference) {
         boolean isAdditionalProvision = amount.signum() > 0;
         BigDecimal absAmount = amount.abs();
         BigDecimal absBaseAmount = baseAmount.abs();
@@ -225,7 +275,7 @@ public class EclProvisionService {
                 BATCH_ACTOR,
                 SYSTEM_ACTOR,
                 "ECL_PROVISION",
-                group.lineageSourceId(batchId),
+                snapshotReference,
                 group.key().currencyCode(),
                 rate,
                 ClosingSlipNoFactory.eclProvision(
@@ -460,9 +510,14 @@ public class EclProvisionService {
                     resolvedReversal);
         }
 
-        private String lineageSourceId(Long batchId) {
-            Objects.requireNonNull(batchId, "batchId must not be null");
-            return batchId + "|" + key.allowanceAccountCode() + "|" + key.currencyCode();
+        private EclProvisionSnapshot snapshot(LocalDate date, long batchId, AllowanceBalance existing,
+                                              BigDecimal rate, BigDecimal transactionDelta, BigDecimal baseDelta) {
+            return new EclProvisionSnapshot(date, batchId, runId, modelVersion,
+                    key.legalEntityCode(), key.currencyCode(), key.allowanceAccountCode(),
+                    targetAllowanceAmount, sourceExposureAmount, stage1AllowanceAmount,
+                    stage2AllowanceAmount, stage3AllowanceAmount,
+                    existing.creditTransactionAmount(), existing.creditBaseAmount(), rate,
+                    transactionDelta, baseDelta);
         }
 
         private static void requireSameMapping(
@@ -491,4 +546,7 @@ public class EclProvisionService {
             return current;
         }
     }
+
+    private record PreparedGroup(EclProvisionSnapshot snapshot,
+                                 Optional<ClosingJournalEntryCommand> command) { }
 }
