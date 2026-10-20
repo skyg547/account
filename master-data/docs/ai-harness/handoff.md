@@ -1,5 +1,14 @@
 # Master Data AI Handoff
 
+## Issue #915 / Draft PR #931 — 2026-10-20
+
+- Branch/worktree/base: `agent/915-master-data-http-errors`; `/tmp/account-915-master-data-http-errors`; `origin/main@b29125549504d245aa10b3d275923e407bff8d56`. PR https://github.com/skyg547/account/pull/931 is Draft with `Refs #915`; Issue remains open.
+- Implementation: `MasterDataExceptionHandler` maps expected MVC, missing-record and state errors without leaking raw input/internal details; #913's trusted field-rule messages remain available. Two HTTP test files cover current status contracts with real advice and filter; `docs/process-flow.md` explains the mapping and test command. Only `master-data/**` code, module document, and module-local records changed. Shared kernel, common harness/history, schema, and production data were untouched.
+- Verification: prior RED 400-for-404 and 500-for-409; final required core/API/batch run passed 613/105/5 tests (723 total), zero failures/errors, with 27 PostgreSQL-only API tests skipped. Targeted compatibility run passed 23/23; whitespace/marker gates passed. Independent reviewer was read-only, found no findings, and rated Q1–Q4 PASS; detailed evidence is in the module worklog and PR body.
+- Residual: full-context tests mock the core exceptions, and idempotency/PostgreSQL SCD2 409 paths have separate rather than full-context evidence. The 404/409 adapter checks current core message prefixes, so core wording changes require paired updates. H2 is not PostgreSQL evidence.
+- Remote gate: Harness Validation passed. Agent Merge Guard's implementer-discipline job failed with `TRUST_POLICY_UNCONFIGURED` plus implementation-owner, verification, merge-authority, and Draft-readiness requirements because the workflow explicitly supplies `policy: undefined`. The repository policy owner must configure/review this trust gate before Ready/merge; it cannot be changed inside the module-only allowlist. Keep the PR Draft.
+- Rollback: reviewed issue-scoped revert of code, tests, and module feature document; preserve existing business/audit records. Parent Integrator owns Git/PR and these records. Human reviewer controls Ready, merge, Issue close, and branch/worktree removal.
+
 ## Issue #911 / Draft PR #927 — 2026-10-20
 
 - Branch/worktree/base: `agent/911-bp-bulk-fail-closed`; `/tmp/account-911-bp-bulk-fail-closed`; `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`.

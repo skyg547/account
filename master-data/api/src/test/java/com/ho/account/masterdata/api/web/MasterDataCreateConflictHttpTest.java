@@ -103,6 +103,6 @@ class MasterDataCreateConflictHttpTest {
                         .content(body))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value(conflict.getMessage()));
+                .andExpect(jsonPath("$.message").value("Master-data version conflict"));
     }
 }
