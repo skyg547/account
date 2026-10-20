@@ -33,6 +33,11 @@ public class ClosingCalendar {
 
     private LocalDateTime reopenedAt;
 
+    /** Each successful reopen starts a fresh checklist and approval cycle. */
+    private int cycleNumber = 1;
+
+    /** UTC watermark for changes to journal source state admitted through closing. */
+    private LocalDateTime lastSourceChangedAt;
     private boolean isCurrentPeriod; // 현재 활성 결산 기간 여부
 
     private LocalDateTime createdAt;
@@ -209,6 +214,7 @@ public class ClosingCalendar {
         }
     }
 
+
     // Getter and Setter
     public Long getId() {
         return id;
@@ -318,6 +324,42 @@ public class ClosingCalendar {
         return auditUser;
     }
 
+    public int getCycleNumber() {
+        return cycleNumber;
+    }
+
+    public LocalDateTime getLastSourceChangedAt() {
+        return lastSourceChangedAt;
+    }
+
+    public void recordSourceChange() {
+        requireChecklistMutable();
+        LocalDateTime changedAt = LocalDateTime.now(ZoneOffset.UTC);
+        if (lastSourceChangedAt == null || changedAt.isAfter(lastSourceChangedAt)) {
+            lastSourceChangedAt = changedAt;
+        }
+    }
+
+    /** Legacy reopened calendars need a trusted runtime UTC fence before new close evidence. */
+    public void establishLegacyEvidenceFence() {
+        if (reopenedAt != null && lastSourceChangedAt == null) {
+            recordSourceChange();
+        }
+    }
+
+    /** Invalidates current checklist evidence when an admitted source change follows progress. */
+    public void advanceCycleForSourceChange() {
+        requireChecklistMutable();
+        cycleNumber = Math.incrementExact(cycleNumber);
+    }
+
+    /** Reject stale checklist IDs even while the reopened calendar is mutable. */
+    public void requireActiveCycle(int evidenceCycleNumber) {
+        if (evidenceCycleNumber != cycleNumber) {
+            throw new IllegalStateException("Closing task or gate belongs to a previous close cycle.");
+        }
+    }
+
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
     }
@@ -330,8 +372,8 @@ public class ClosingCalendar {
      * @return 완료 가능 여부
      */
     public boolean isReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
-        java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
-        java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+        java.util.List<ClosingTask> safeTasks = activeTasks(tasks);
+        java.util.List<ClosingGate> safeGates = activeGates(gates);
         if (safeTasks.stream().noneMatch(ClosingTask::isMandatory) || safeGates.isEmpty()) {
             return false;
         }
@@ -357,8 +399,8 @@ public class ClosingCalendar {
      * @param gates 현재 회기의 결산 게이트 목록
      */
     public void validateReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
-        java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
-        java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+        java.util.List<ClosingTask> safeTasks = activeTasks(tasks);
+        java.util.List<ClosingGate> safeGates = activeGates(gates);
         if (safeTasks.stream().noneMatch(ClosingTask::isMandatory)) {
             throw new IllegalStateException("At least one mandatory closing task must be defined.");
         }
@@ -413,10 +455,28 @@ public class ClosingCalendar {
         if (this.status != ClosingCalendarStatus.CLOSED) {
             throw new IllegalStateException("Only a CLOSED closing calendar can be reopened.");
         }
+        this.cycleNumber = Math.incrementExact(cycleNumber);
         this.status = ClosingCalendarStatus.OPEN;
         this.reopenedBy = user.trim();
         this.reopenedAt = LocalDateTime.now();
+        // Also fences the next final-close snapshot when no adjustment follows this reopen.
+        LocalDateTime reopenedFence = LocalDateTime.now(ZoneOffset.UTC);
+        if (lastSourceChangedAt == null || reopenedFence.isAfter(lastSourceChangedAt)) {
+            this.lastSourceChangedAt = reopenedFence;
+        }
         this.auditUser = user.trim();
+    }
+
+    private java.util.List<ClosingTask> activeTasks(java.util.List<ClosingTask> tasks) {
+        return (tasks == null ? java.util.List.<ClosingTask>of() : tasks).stream()
+                .filter(task -> task.getCycleNumber() == cycleNumber)
+                .toList();
+    }
+
+    private java.util.List<ClosingGate> activeGates(java.util.List<ClosingGate> gates) {
+        return (gates == null ? java.util.List.<ClosingGate>of() : gates).stream()
+                .filter(gate -> gate.getCycleNumber() == cycleNumber)
+                .toList();
     }
 
     private void requireActor(String user) {

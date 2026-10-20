@@ -17,6 +17,7 @@ public class ClosingTask {
 
     private ClosingCalendar closingCalendar;
 
+    private int cycleNumber = 1;
     private String name; // 태스크명 (예: "은행잔고 대조 완료", "외화 평가 실행")
 
     private String description;
@@ -53,6 +54,7 @@ public class ClosingTask {
         PENDING, IN_PROGRESS, COMPLETED, FAILED, SKIPPED
     }
 
+
     // Getter and Setter
     public Long getId() {
         return id;
@@ -64,6 +66,35 @@ public class ClosingTask {
 
     public ClosingCalendar getClosingCalendar() {
         return closingCalendar;
+    }
+
+    public int getCycleNumber() {
+        return cycleNumber;
+    }
+
+    public void assignCycle(ClosingCalendar calendar) {
+        if (calendar == null) {
+            throw new IllegalArgumentException("calendar must not be null");
+        }
+        this.closingCalendar = calendar;
+        this.cycleNumber = calendar.getCycleNumber();
+    }
+
+    /** Copies only the checklist definition; completion evidence belongs to the old cycle. */
+    public ClosingTask nextCycle(ClosingCalendar calendar, String actor) {
+        ClosingTask next = new ClosingTask();
+        next.assignCycle(calendar);
+        next.name = name;
+        next.description = description;
+        next.category = category;
+        next.dueDate = dueDate;
+        next.assignedTo = assignedTo;
+        next.completionConditionJson = completionConditionJson;
+        next.isMandatory = isMandatory;
+        next.taskOrder = taskOrder;
+        next.status = ClosingTaskStatus.PENDING;
+        next.auditUser = actor;
+        return next;
     }
 
     public void setClosingCalendar(ClosingCalendar closingCalendar) {

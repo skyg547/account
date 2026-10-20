@@ -20,6 +20,13 @@ public class PeriodLockEntity {
     @Column(name = "fiscal_period_id", nullable = false)
     private Long fiscalPeriodId;
 
+    @Column(name = "active", nullable = false)
+    private boolean active = true;
+
+    // A nullable unique slot lets released rows keep their original fiscal period.
+    @Column(name = "active_fiscal_period_id")
+    private Long activeFiscalPeriodId;
+
     @Transient
     private String fiscalYear;
 
@@ -34,6 +41,12 @@ public class PeriodLockEntity {
     private String lockedBy;
 
     private LocalDateTime lockedAt;
+
+    @Column(name = "unlocked_by", length = 50)
+    private String unlockedBy;
+
+    @Column(name = "unlocked_at")
+    private LocalDateTime unlockedAt;
 
     @Column(length = 1000)
     private String reason;

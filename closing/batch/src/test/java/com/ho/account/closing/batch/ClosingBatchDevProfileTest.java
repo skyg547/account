@@ -5,6 +5,7 @@ import com.ho.account.closing.batch.config.ClosingBatchMonolithConfiguration;
 import com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapter;
 import com.ho.account.closing.infrastructure.source.ClosingReadOnlySources;
 import com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapter;
+import com.zaxxer.hikari.HikariDataSource;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import jakarta.persistence.EntityManagerFactory;
@@ -37,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.flyway.baseline-on-migrate=false", "spring.sql.init.mode=never",
                 "closing.journal-ledger.base-url=http://journal.invalid",
                 "closing.sources.enabled=true",
+                "closing.sources.journal.maximum-pool-size=2",
                 "closing.sources.journal.url=jdbc:postgresql://journal.invalid/seed",
                 "closing.sources.journal.username=seed_test", "closing.sources.journal.password=synthetic",
                 "closing.sources.ecl.url=jdbc:postgresql://ecl.invalid/seed",
@@ -60,6 +62,8 @@ class ClosingBatchDevProfileTest {
                         .isIn("com.ho.account.closing.domain", "com.ho.account.closing.infrastructure.persistence"));
         assertThat(context.getBeansOfType(DataSource.class)).hasSize(1);
         assertThat(context.getBeansOfType(ClosingReadOnlySources.class)).hasSize(1);
+        assertThat(((HikariDataSource) context.getBean(ClosingReadOnlySources.class)
+                .journalDataSource()).getMaximumPoolSize()).isEqualTo(2);
         assertThat(context.getBeansOfType(ClosingBatchMonolithConfiguration.class)).isEmpty();
     }
 

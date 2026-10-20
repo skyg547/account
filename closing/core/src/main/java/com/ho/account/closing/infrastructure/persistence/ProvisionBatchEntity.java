@@ -30,6 +30,12 @@ public class ProvisionBatchEntity {
     @Column(nullable = false, length = 50)
     private ProvisionBatch.ProvisionType provisionType;
 
+    @Column(name = "execution_key", length = 100, unique = true)
+    private String executionKey;
+
+    @Column(name = "journal_count")
+    private Integer journalCount;
+
     @Column(nullable = false)
     private LocalDateTime runDateTime;
 

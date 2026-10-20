@@ -19,6 +19,8 @@ final class ClosingEntityMapper {
         domain.setClosedAt(entity.getClosedAt());
         domain.setReopenedBy(entity.getReopenedBy());
         domain.setReopenedAt(entity.getReopenedAt());
+        domain.setCycleNumber(entity.getCycleNumber());
+        domain.setLastSourceChangedAt(entity.getLastSourceChangedAt());
         domain.setCurrentPeriod(entity.isCurrentPeriod());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
@@ -43,6 +45,8 @@ final class ClosingEntityMapper {
         entity.setClosedAt(domain.getClosedAt());
         entity.setReopenedBy(domain.getReopenedBy());
         entity.setReopenedAt(domain.getReopenedAt());
+        entity.setCycleNumber(domain.getCycleNumber());
+        entity.setLastSourceChangedAt(domain.getLastSourceChangedAt());
         entity.setCurrentPeriod(domain.isCurrentPeriod());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
@@ -64,6 +68,7 @@ final class ClosingEntityMapper {
         ClosingTask domain = new ClosingTask();
         domain.setId(entity.getId());
         domain.setClosingCalendar(calendarReference(entity.getClosingCalendar()));
+        domain.setCycleNumber(entity.getCycleNumber());
         domain.setName(entity.getName());
         domain.setDescription(entity.getDescription());
         domain.setCategory(entity.getCategory());
@@ -84,6 +89,7 @@ final class ClosingEntityMapper {
         ClosingTaskEntity entity = new ClosingTaskEntity();
         entity.setId(domain.getId());
         entity.setClosingCalendar(calendarReference(domain.getClosingCalendar()));
+        entity.setCycleNumber(domain.getCycleNumber());
         entity.setName(domain.getName());
         entity.setDescription(domain.getDescription());
         entity.setCategory(domain.getCategory());
@@ -105,6 +111,7 @@ final class ClosingEntityMapper {
         ClosingGate domain = new ClosingGate();
         domain.setId(entity.getId());
         domain.setClosingCalendar(calendarReference(entity.getClosingCalendar()));
+        domain.setCycleNumber(entity.getCycleNumber());
         domain.setName(entity.getName());
         domain.setDescription(entity.getDescription());
         domain.setStatus(entity.getStatus());
@@ -122,6 +129,7 @@ final class ClosingEntityMapper {
         ClosingGateEntity entity = new ClosingGateEntity();
         entity.setId(domain.getId());
         entity.setClosingCalendar(calendarReference(domain.getClosingCalendar()));
+        entity.setCycleNumber(domain.getCycleNumber());
         entity.setName(domain.getName());
         entity.setDescription(domain.getDescription());
         entity.setStatus(domain.getStatus());
@@ -145,6 +153,10 @@ final class ClosingEntityMapper {
         domain.setLockType(entity.getLockType());
         domain.setLockedBy(entity.getLockedBy());
         domain.setLockedAt(entity.getLockedAt());
+        domain.setActive(entity.isActive());
+        domain.setActiveFiscalPeriodId(entity.getActiveFiscalPeriodId());
+        domain.setUnlockedBy(entity.getUnlockedBy());
+        domain.setUnlockedAt(entity.getUnlockedAt());
         domain.setReason(entity.getReason());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
@@ -161,6 +173,10 @@ final class ClosingEntityMapper {
         entity.setLockType(domain.getLockType());
         entity.setLockedBy(domain.getLockedBy());
         entity.setLockedAt(domain.getLockedAt());
+        entity.setActive(domain.isActive());
+        entity.setActiveFiscalPeriodId(domain.getActiveFiscalPeriodId());
+        entity.setUnlockedBy(domain.getUnlockedBy());
+        entity.setUnlockedAt(domain.getUnlockedAt());
         entity.setReason(domain.getReason());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
@@ -173,6 +189,7 @@ final class ClosingEntityMapper {
         ReopenApproval domain = new ReopenApproval();
         domain.setId(entity.getId());
         domain.setFiscalPeriodId(entity.getFiscalPeriodId());
+        domain.setPendingFiscalPeriodId(entity.getPendingFiscalPeriodId());
         domain.setFiscalYear(entity.getFiscalYear());
         domain.setFiscalPeriod(entity.getFiscalPeriod());
         domain.setRequestedBy(entity.getRequestedBy());
@@ -192,6 +209,7 @@ final class ClosingEntityMapper {
         ReopenApprovalEntity entity = new ReopenApprovalEntity();
         entity.setId(domain.getId());
         entity.setFiscalPeriodId(domain.getFiscalPeriodId());
+        entity.setPendingFiscalPeriodId(domain.getPendingFiscalPeriodId());
         entity.setFiscalYear(domain.getFiscalYear());
         entity.setFiscalPeriod(domain.getFiscalPeriod());
         entity.setRequestedBy(domain.getRequestedBy());
@@ -215,6 +233,8 @@ final class ClosingEntityMapper {
         domain.setFiscalYear(entity.getFiscalYear());
         domain.setFiscalPeriod(entity.getFiscalPeriod());
         domain.setValuationType(entity.getValuationType());
+        domain.setExecutionKey(entity.getExecutionKey());
+        domain.setJournalCount(entity.getJournalCount());
         domain.setRunDateTime(entity.getRunDateTime());
         domain.setStatus(entity.getStatus());
         domain.setGeneratedJournalEntryId(entity.getGeneratedJournalEntryId());
@@ -233,6 +253,8 @@ final class ClosingEntityMapper {
         entity.setFiscalYear(domain.getFiscalYear());
         entity.setFiscalPeriod(domain.getFiscalPeriod());
         entity.setValuationType(domain.getValuationType());
+        entity.setExecutionKey(domain.getExecutionKey());
+        entity.setJournalCount(domain.getJournalCount());
         entity.setRunDateTime(domain.getRunDateTime());
         entity.setStatus(domain.getStatus());
         entity.setGeneratedJournalEntryId(domain.getGeneratedJournalEntryId());
@@ -252,6 +274,8 @@ final class ClosingEntityMapper {
         domain.setFiscalYear(entity.getFiscalYear());
         domain.setFiscalPeriod(entity.getFiscalPeriod());
         domain.setProvisionType(entity.getProvisionType());
+        domain.setExecutionKey(entity.getExecutionKey());
+        domain.setJournalCount(entity.getJournalCount());
         domain.setRunDateTime(entity.getRunDateTime());
         domain.setStatus(entity.getStatus());
         domain.setGeneratedJournalEntryId(entity.getGeneratedJournalEntryId());
@@ -270,6 +294,8 @@ final class ClosingEntityMapper {
         entity.setFiscalYear(domain.getFiscalYear());
         entity.setFiscalPeriod(domain.getFiscalPeriod());
         entity.setProvisionType(domain.getProvisionType());
+        entity.setExecutionKey(domain.getExecutionKey());
+        entity.setJournalCount(domain.getJournalCount());
         entity.setRunDateTime(domain.getRunDateTime());
         entity.setStatus(domain.getStatus());
         entity.setGeneratedJournalEntryId(domain.getGeneratedJournalEntryId());

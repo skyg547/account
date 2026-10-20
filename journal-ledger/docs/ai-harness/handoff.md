@@ -1,3 +1,15 @@
+# GH-894 handoff
+
+Issue [#894](https://github.com/skyg547/account/issues/894) is `status:blocked` on the Loan integration regression. Its module-scoped implementation is on `agent/894-domain-persistence-boundary` in `/tmp/account-894-domain-persistence-boundary`, based on `origin/main@9348966a`. [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`. Other modules and shared harness/history were not edited.
+
+- The domain has no Spring/JPA source references. Infrastructure owns repositories, converter, named XML entity mapping and persistence lifecycle listener. Journal API/Batch opt in; Loan `dev` contexts initialize without Journal schema leakage, while Loan `local` contexts fail to start as noted below.
+- Exact `./gradlew :journal-ledger:test`: 434/434 PASS (core 323, API 74, Batch 37), no failures/errors/skips. Existing POSTED persistence 19/19 PASS. Byte-identical boundary guard `78656bbe...` fails 1/1 on audited `a97d10ab` and passes here. API/Batch bootJar and static gates PASS.
+- Independent read-only review: no remaining journal-ledger P0–P3; Q2–Q4 PASS. Q1 FAIL/P1: Loan API and Batch `local` context tests each fail to start because non-dev composition roots scan the removed Journal repository package and omit named XML mapping. Loan API/Batch dev-profile tests also retain stale `Class.forName` references. Loan is outside the allowlist; do not mark Ready or merge until authorized composition/test corrections and new review.
+- Remote Draft checks on head `2707249d`: journal-ledger, module result, harness validation and merge guard candidate PASS; implementer PR discipline FAIL due owner/verification/merge metadata, Draft state and unconfigured trust policy. This governance gate is separate from the confirmed Loan startup regression.
+- Rollback is a reviewed module-scoped revert; no migration or production data changed. H2/local tests do not establish live PostgreSQL, distributed fault or load behavior. Human reviewer is next owner for scope decision, Loan correction, CI and later PR lifecycle gates.
+
+---
+
 # GH-879 handoff
 
 Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
@@ -40,6 +52,7 @@ Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
 ---
 
 The following is retained historical handoff and is not a current GH-769 report.
+
 
 # GH-763 handoff
 

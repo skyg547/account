@@ -21,6 +21,9 @@ public class ClosingTaskEntity {
     @JoinColumn(name = "calendar_id", nullable = false)
     private ClosingCalendarEntity closingCalendar;
 
+    @Column(name = "cycle_number", nullable = false)
+    private int cycleNumber = 1;
+
     @Column(nullable = false, length = 200)
     private String name; // 태스크명 (예: "은행잔고 대조 완료", "외화 평가 실행")
 
@@ -69,6 +72,8 @@ public class ClosingTaskEntity {
             this.status = ClosingTask.ClosingTaskStatus.PENDING;
         if (this.auditUser == null)
             this.auditUser = "SYSTEM";
+        if (this.cycleNumber <= 0)
+            this.cycleNumber = 1;
     }
     @PreUpdate
     protected void onUpdate() {

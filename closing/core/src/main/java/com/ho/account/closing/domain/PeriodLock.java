@@ -1,6 +1,7 @@
 package com.ho.account.closing.domain;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * Period lock for a fiscal period.
@@ -13,6 +14,10 @@ public class PeriodLock {
 
     private Long fiscalPeriodId;
 
+    private boolean active = true;
+
+    // A nullable unique slot lets released rows keep their original fiscal period.
+    private Long activeFiscalPeriodId;
     private String fiscalYear;
 
     private String fiscalPeriod;
@@ -23,6 +28,9 @@ public class PeriodLock {
 
     private LocalDateTime lockedAt;
 
+    private String unlockedBy;
+
+    private LocalDateTime unlockedAt;
     private String reason;
 
     private LocalDateTime createdAt;
@@ -51,6 +59,9 @@ public class PeriodLock {
 
     public void setFiscalPeriodId(Long fiscalPeriodId) {
         this.fiscalPeriodId = fiscalPeriodId;
+        if (active) {
+            this.activeFiscalPeriodId = fiscalPeriodId;
+        }
     }
 
     public String getFiscalYear() {
@@ -70,9 +81,58 @@ public class PeriodLock {
     }
 
     public void assignFiscalPeriod(Long fiscalPeriodId, String fiscalYear, String fiscalPeriod) {
-        this.fiscalPeriodId = fiscalPeriodId;
+        setFiscalPeriodId(fiscalPeriodId);
         this.fiscalYear = fiscalYear;
         this.fiscalPeriod = fiscalPeriod;
+    }
+
+    public static PeriodLock createActive(
+            Long fiscalPeriodId, String fiscalYear, String fiscalPeriod,
+            PeriodLockType lockType, String actor, String reason) {
+        if (fiscalPeriodId == null || fiscalPeriodId <= 0) {
+            throw new IllegalArgumentException("fiscalPeriodId must be positive");
+        }
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("actor must not be blank");
+        }
+        PeriodLock lock = new PeriodLock();
+        lock.assignFiscalPeriod(fiscalPeriodId, fiscalYear, fiscalPeriod);
+        lock.lockType = Objects.requireNonNull(lockType, "lockType must not be null");
+        lock.lockedBy = actor;
+        lock.lockedAt = LocalDateTime.now();
+        lock.reason = reason;
+        lock.auditUser = actor;
+        return lock;
+    }
+
+    public void release(String actor) {
+        if (!active) {
+            throw new IllegalStateException("Fiscal period lock is already released.");
+        }
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("actor must not be blank");
+        }
+        active = false;
+        activeFiscalPeriodId = null;
+        unlockedBy = actor;
+        unlockedAt = LocalDateTime.now();
+        auditUser = actor;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public Long getActiveFiscalPeriodId() {
+        return activeFiscalPeriodId;
+    }
+
+    public String getUnlockedBy() {
+        return unlockedBy;
+    }
+
+    public LocalDateTime getUnlockedAt() {
+        return unlockedAt;
     }
 
     public PeriodLockType getLockType() {

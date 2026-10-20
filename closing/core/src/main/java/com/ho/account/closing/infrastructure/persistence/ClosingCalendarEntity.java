@@ -44,6 +44,12 @@ public class ClosingCalendarEntity {
 
     private LocalDateTime reopenedAt;
 
+    @Column(name = "cycle_number", nullable = false)
+    private int cycleNumber = 1;
+
+    @Column(name = "last_source_changed_at")
+    private LocalDateTime lastSourceChangedAt;
+
     @Column(nullable = false)
     private boolean isCurrentPeriod; // 현재 활성 결산 기간 여부
 
@@ -89,6 +95,8 @@ public class ClosingCalendarEntity {
             this.status = ClosingCalendar.ClosingCalendarStatus.OPEN;
         if (this.auditUser == null)
             this.auditUser = "SYSTEM";
+        if (this.cycleNumber <= 0)
+            this.cycleNumber = 1;
     }
     @PreUpdate
     protected void onUpdate() {

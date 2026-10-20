@@ -119,9 +119,12 @@ public class HttpClosingMasterDataQueryAdapter implements MasterDataQueryPort {
         if (response == null) {
             throw new IllegalStateException("master-data account lookup returned an empty response body");
         }
+        if (response.accountCategory() == null || response.accountCategory().isBlank()) {
+            throw new IllegalStateException(
+                    "source classification completeness failed: master-data response has no category");
+        }
         if (response.code() == null || !requestedCode.equals(response.code().trim())
-                || response.name() == null || response.name().isBlank()
-                || response.accountCategory() == null || response.accountCategory().isBlank()) {
+                || response.name() == null || response.name().isBlank()) {
             throw new IllegalStateException("master-data account lookup returned an invalid response");
         }
     }

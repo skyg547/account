@@ -81,7 +81,7 @@ KRW 130,000이어야 하며 USD 100을 그대로 공급할 수 없습니다.
 승인 내용과 현재 장부가 달라지므로, `POSTED` 원본은 그대로 두고 정정 사실도 별도 전표로
 남깁니다.
 
-1. 최초 `APPROVED -> POSTED` 전환은 정상 처리됩니다. JPA 콜백은 로드·저장 직후 캡처한
+1. 최초 `APPROVED -> POSTED` 전환은 정상 처리됩니다. `META-INF/journal-ledger-orm.xml`에 연결된 infrastructure lifecycle listener는 로드·저장 직후 캡처한
    persisted 상태와 현재 상태를 함께 보므로, 이 최초 전환을 이미 확정된 이력의 수정으로
    오인하지 않습니다.
 2. 한번 commit된 `POSTED` 전표에서는 헤더·감사 setter, 상세의 금액·차대 구분·계정·차원·적요·
@@ -303,6 +303,24 @@ Kafka listener는 성공/실패를 로그만으로 결정하지 않습니다. �
 V18의 `journal_event_quarantine`에 `(source_topic, source_partition, source_offset)`을 고유
 operation identity로 저장합니다. 같은 broker record의 재전달은 새 예외 행을 만들지 않습니다.
 일반 journal lineage는 한 원천이 여러 전표를 만들 수 있으므로 이 고유 키로 사용하지 않습니다.
+
+Kafka payload의 `accountingDate`는 필수 ISO 날짜 문자열(`YYYY-MM-DD`)입니다. 빠짐, `null`,
+빈 문자열, 잘못된 날짜나 다른 타입은 전표 생성과 quarantine 저장 전에 소비 실패로 처리되어
+아래의 재시도/DLT 경로로 갑니다. 리스너는 소비 시각의 날짜를 대신 쓰지 않습니다. 정상적으로
+격리된 미매칭 이벤트는 최초 수신 시 확정한 회계일을 별도 열에 보존하고, 월말·연말 이후
+재생해도 그 날짜로 규칙과 마감 검증을 다시 실행합니다. 재생 API는 다른 회계일을
+지정하는 파라미터가 없으며, payload의 날짜도 저장된 회계일을 덮어쓰지 못합니다.
+
+원천 회계일이 마감 기간이면 규칙 매칭 후 `ClosingLockValidationFilter`가 해당 날짜를
+거부하고 전표를 저장하지 않습니다. 이는 규칙 미매칭 quarantine과 달리 처리 실패이므로
+재시도/DLT로 조사합니다. 개방 기간에 조정 전표가 필요한 회계 담당자는 원천 Kafka record를
+수정하거나 재생 날짜를 바꾸는 대신, 인증된 별도 HTTP 생성 흐름에서 회계일을 명시합니다.
+예를 들어 `ROLE_ACCOUNTING_ADMIN`과 `X-Auth-User`를 가진 담당자가 유효한 조정 룰 및
+개방 기간을 확인한 후 `POST /api/journals/from-event?accountingDate=2026-10-01`에
+`{"eventData":{"ruleCode":"ADJUSTMENT_RULE","amount":"100.00"}}`를 보냅니다.
+이 API는 maker 역할을 검사하고 요청자 신원을 payload보다 우선하며, 마감 회계일은 생성
+검증에서 거부합니다. 생성된 초안은 기존 승인·전기 흐름과 자기 승인 금지를 따릅니다.
+조정 룰과 개방 기간이 준비되지 않으면 이 예시는 성공하지 않습니다.
 
 `ROLE_ACCOUNTING_ADMIN` 또는 `ROLE_ADMIN`은 `X-Auth-User`와 함께 다음 control API를 사용합니다.
 
@@ -527,6 +545,27 @@ sequenceDiagram
 V15 barrier가 전체 Job 수명 동안 입력과 공개를 통제합니다. 실패하면 부분 잔액은 DB에 남을 수
 있지만 조회·전기에는 수락되지 않습니다. 같은 JobInstance 재시작은 성공한 cleanup/chunk를
 건너뛰고 checkpoint에서 계속하며, 다른 인스턴스는 owner 충돌로 실패합니다.
+
+### GL/SL 잔액 차원 키
+
+전기 시 일별 잔액을 묶는 키와 기간 조회 결과를 묶는 키는 같은 차원 값을 그대로 비교합니다.
+GL은 계정 코드와 통화, SL은 계정 코드·거래처 코드·부서 코드·통화의 순서쌍입니다.
+각 구성요소는 정확한 문자열 값과 `null` 여부로 비교합니다. 따라서 거래처가 없는
+`null`, 빈 문자열 `""`, 실제 코드 `"NULL"`, 구분자 `|`가 든 코드는 서로 다른 값이며,
+다른 차원에 `|`가 들어 있어도 합쳐지지 않습니다. 키를 표시용 문자열로 이어 붙이거나
+`null`을 특정 문자열로 바꾸지 않습니다.
+
+예를 들어 같은 날짜·계정의 거래처 `null` 차변 10과 거래처 `"NULL"` 차변 20은
+SL에 별도 잔액 두 행으로 저장되고, 각 차원의 기간 조회에도 별도로 나타납니다.
+해당 GL 차변은 30이며 두 SL 차변의 합도 30입니다. 기간 조회는 차원별로 가장 이른
+일별 기초를 한 번만 취하고 기간 중 차변·대변을 더해 기말을 계산합니다. 기존에 이미
+잘못 합쳐 저장된 행을 자동 분리하지는 않으므로 과거 데이터는 원본 `POSTED` 전표와
+GL/SL 대사를 거친 재집계 계획이 필요합니다.
+
+저장소 루트에서 `./gradlew :journal-ledger:test`를 실행하면 이 경계의 서비스·영속성
+회귀를 확인할 수 있습니다. 기대 결과는 서로 다른 SL 행과 GL/SL 총액 일치, 테스트
+실패 0입니다. H2 기반 검증은 운영 PostgreSQL 데이터의 과거 오귀속 여부를 증명하지 않습니다.
+
 ## 재시도와 정합성 주의사항
 
 - 동일 반제 참조번호는 다시 적용하지 않습니다.

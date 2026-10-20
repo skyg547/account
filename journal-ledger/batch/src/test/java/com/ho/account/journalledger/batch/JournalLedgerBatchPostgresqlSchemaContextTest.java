@@ -57,9 +57,9 @@ class JournalLedgerBatchPostgresqlSchemaContextTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @EntityScan(basePackages = "com.ho.account.journalledger.domain")
+    @EntityScan(basePackages = "com.ho.account.journalledger.infrastructure.persistence")
     @EnableJpaRepositories(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence.repository",
             "com.ho.account.journalledger.adapter.out.persistence"
     })
     static class SchemaValidationApplication {

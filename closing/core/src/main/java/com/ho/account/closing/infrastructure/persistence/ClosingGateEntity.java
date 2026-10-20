@@ -21,6 +21,9 @@ public class ClosingGateEntity {
     @JoinColumn(name = "calendar_id", nullable = false)
     private ClosingCalendarEntity closingCalendar;
 
+    @Column(name = "cycle_number", nullable = false)
+    private int cycleNumber = 1;
+
     @Column(nullable = false, length = 100)
     private String name; // 게이트명 (예: "PRE-CLOSING 완료", "조정 전표 검토 완료")
 
@@ -59,6 +62,8 @@ public class ClosingGateEntity {
             this.status = ClosingGate.ClosingGateStatus.PENDING;
         if (this.auditUser == null)
             this.auditUser = "SYSTEM";
+        if (this.cycleNumber <= 0)
+            this.cycleNumber = 1;
     }
     @PreUpdate
     protected void onUpdate() {

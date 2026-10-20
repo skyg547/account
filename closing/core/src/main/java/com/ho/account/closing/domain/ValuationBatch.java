@@ -14,6 +14,9 @@ public class ValuationBatch {
 
     private ValuationType valuationType;
 
+    private String executionKey;
+
+    private Integer journalCount;
     private LocalDateTime runDateTime;
 
     private ValuationBatchStatus status;
@@ -40,7 +43,8 @@ public class ValuationBatch {
         RUNNING,
         COMPLETED,
         FAILED,
-        PENDING_APPROVAL
+        PENDING_APPROVAL,
+        RECONCILIATION_REQUIRED
     }
 
     public Long getId() {
@@ -84,6 +88,11 @@ public class ValuationBatch {
     public ValuationType getValuationType() {
         return valuationType;
     }
+
+    public String getExecutionKey() { return executionKey; }
+    public void setExecutionKey(String executionKey) { this.executionKey = executionKey; }
+    public Integer getJournalCount() { return journalCount; }
+    public void setJournalCount(Integer journalCount) { this.journalCount = journalCount; }
 
     public void setValuationType(ValuationType valuationType) {
         this.valuationType = valuationType;

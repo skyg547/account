@@ -80,6 +80,24 @@ public class JpaClosingAggregatePersistenceAdapter implements ClosingAggregatePe
         return gates.stream().map(ClosingEntityMapper::toDomain).toList();
     }
 
+    @Override
+    public List<ClosingTask> refreshActiveTasks(ClosingCalendar calendar) {
+        List<ClosingTaskEntity> tasks = entityManager.createQuery(
+                "select t from ClosingTask t where t.closingCalendar.id = :calendarId and t.cycleNumber = :cycle", ClosingTaskEntity.class)
+                .setParameter("calendarId", calendar.getId()).setParameter("cycle", calendar.getCycleNumber()).getResultList();
+        tasks.forEach(entityManager::refresh);
+        return tasks.stream().map(ClosingEntityMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<ClosingGate> refreshActiveGates(ClosingCalendar calendar) {
+        List<ClosingGateEntity> gates = entityManager.createQuery(
+                "select g from ClosingGate g where g.closingCalendar.id = :calendarId and g.cycleNumber = :cycle", ClosingGateEntity.class)
+                .setParameter("calendarId", calendar.getId()).setParameter("cycle", calendar.getCycleNumber()).getResultList();
+        gates.forEach(entityManager::refresh);
+        return gates.stream().map(ClosingEntityMapper::toDomain).toList();
+    }
+
     private Optional<ClosingCalendar> lock(TypedQuery<ClosingCalendarEntity> query) {
         // A lock query can return an older managed snapshot; refresh after acquiring the row lock.
         Optional<ClosingCalendarEntity> result = query.setLockMode(LockModeType.PESSIMISTIC_WRITE)

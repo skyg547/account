@@ -1,6 +1,6 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
-import com.ho.account.journalledger.adapter.out.persistence.unsettled.UnsettledItemRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.UnsettledItemRepository;
 import com.ho.account.journalledger.application.port.out.UnsettledItemPersistencePort;
 import com.ho.account.journalledger.domain.unsettled.UnsettledItem;
 import jakarta.persistence.EntityManager;

@@ -33,6 +33,11 @@ dependencies {
 }
 jar { enabled = true }
 
+// Some focused contexts use a custom spring.config.name; keep their JPA map explicit.
+tasks.named('test').configure {
+    systemProperty 'spring.jpa.mapping-resources', 'META-INF/journal-ledger-orm.xml'
+}
+
 
 tasks.named('compileJava').configure {
     doFirst {
@@ -48,4 +53,3 @@ tasks.named('processResources').configure {
         into 'db/journal-migration'
     }
 }
-

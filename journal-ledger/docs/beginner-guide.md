@@ -73,6 +73,7 @@ HTTP/Kafka Adapter
 - 자동분개 엔진도 `JournalRuleQueryPort`만 사용하고, 세부 Spring Data 저장소 조회는 `JournalRuleQueryAdapter`가 담당합니다.
 - 전기 서비스는 `LedgerEntryPersistencePort`, 잔액 서비스는 `LedgerBalancePersistencePort`를 사용하므로 애플리케이션 서비스가 JPA Repository를 직접 알지 않습니다.
 - 기본 저장은 JPA 어댑터가 맡고, 운영 대용량 경로는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch/upsert 어댑터를 사용할 수 있습니다.
+- 도메인에는 JPA/Spring import가 없습니다. 저장 테이블·컬럼과 lifecycle 연결은 `core/src/main/resources/META-INF/journal-ledger-orm.xml`, 저장소 인터페이스는 `infrastructure.persistence.repository`에 있습니다. 도메인 규칙을 고칠 때는 도메인 테스트, 매핑을 고칠 때는 JPA 영속성 테스트를 함께 실행합니다.
 - 계층별 책임과 레거시 README 아카이브는 [layer-guide.md](layer-guide.md)를 기준으로 확인합니다.
 
 ## 미결 반제를 읽는 방법
@@ -99,6 +100,11 @@ HTTP/Kafka Adapter
 제어 행이 닫혀 API/Monolith 잔액 조회와 전기가 실패하고, 장애가 나도 자동으로 열리지 않습니다.
 운영자는 같은 JobParameters의 같은 JobInstance를 재시작해야 하며, 마지막 GL/SL 대사가
 성공한 뒤에만 조회와 전기가 다시 열립니다.
+
+Cleanup은 이 기간의 GL/SL 잔액을 **DB에서 날짜 조건으로 직접 삭제**합니다. 시작일과
+종료일을 모두 포함하며, JPA가 대상 잔액을 전부 읽어 Java 목록으로 만들지 않습니다.
+삭제가 실패하면 GL과 SL은 같은 트랜잭션에서 함께 롤백됩니다. 이미 성공한 cleanup은
+같은 JobInstance 재시작 때 건너뛰어, 커밋된 chunk를 다시 지우지 않습니다.
 
 상세 호출 흐름은 [process-flow.md](process-flow.md), 테이블 관계는 [schema.md](schema.md)를 참고합니다.
 

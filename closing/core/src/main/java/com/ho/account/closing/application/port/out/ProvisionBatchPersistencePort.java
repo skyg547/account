@@ -6,4 +6,5 @@ import java.util.Optional;
 public interface ProvisionBatchPersistencePort {
     ProvisionBatch save(ProvisionBatch provisionBatch);
     Optional<ProvisionBatch> findById(Long id);
+    Optional<ProvisionBatch> findByExecutionKey(String executionKey);
 }

@@ -16,6 +16,7 @@ public class ClosingGate {
 
     private ClosingCalendar closingCalendar;
 
+    private int cycleNumber = 1;
     private String name; // 게이트명 (예: "PRE-CLOSING 완료", "조정 전표 검토 완료")
 
     private String description;
@@ -42,6 +43,7 @@ public class ClosingGate {
         PENDING, PASSED, FAILED
     }
 
+
     // Getter and Setter
     public Long getId() {
         return id;
@@ -53,6 +55,30 @@ public class ClosingGate {
 
     public ClosingCalendar getClosingCalendar() {
         return closingCalendar;
+    }
+
+    public int getCycleNumber() {
+        return cycleNumber;
+    }
+
+    public void assignCycle(ClosingCalendar calendar) {
+        if (calendar == null) {
+            throw new IllegalArgumentException("calendar must not be null");
+        }
+        this.closingCalendar = calendar;
+        this.cycleNumber = calendar.getCycleNumber();
+    }
+
+    /** Copies only the gate definition; prior approval remains on its historical row. */
+    public ClosingGate nextCycle(ClosingCalendar calendar, String actor) {
+        ClosingGate next = new ClosingGate();
+        next.assignCycle(calendar);
+        next.name = name;
+        next.description = description;
+        next.checkConditionJson = checkConditionJson;
+        next.status = ClosingGateStatus.PENDING;
+        next.auditUser = actor;
+        return next;
     }
 
     public void setClosingCalendar(ClosingCalendar closingCalendar) {
@@ -140,9 +166,11 @@ public class ClosingGate {
         }
         List<ClosingTask> safeTasks = tasks == null ? List.of() : tasks;
         boolean mandatoryTasksCompleted = safeTasks.stream()
+                .filter(task -> task.getCycleNumber() == cycleNumber)
                 .filter(ClosingTask::isMandatory)
                 .allMatch(task -> task.getStatus() == ClosingTask.ClosingTaskStatus.COMPLETED);
-        if (safeTasks.stream().noneMatch(ClosingTask::isMandatory) || !mandatoryTasksCompleted) {
+        if (safeTasks.stream().filter(task -> task.getCycleNumber() == cycleNumber)
+                .noneMatch(ClosingTask::isMandatory) || !mandatoryTasksCompleted) {
             throw new IllegalStateException("All mandatory closing tasks must be completed before passing a gate.");
         }
         this.status = ClosingGateStatus.PASSED;

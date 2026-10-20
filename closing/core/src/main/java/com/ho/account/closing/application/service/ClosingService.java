@@ -5,6 +5,8 @@ import com.ho.account.closing.application.port.in.ClosingUseCase;
 import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
 import com.ho.account.closing.application.port.in.FinancialClosingCalculationResult;
 import com.ho.account.closing.application.port.out.ClosingAdjustmentPersistencePort;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunLockPort;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunManifestPort;
 import com.ho.account.closing.application.port.out.ClosingAggregatePersistencePort;
 import com.ho.account.closing.application.port.out.ClosingAuditLogPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
@@ -34,14 +36,21 @@ import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
@@ -64,6 +73,8 @@ public class ClosingService implements ClosingUseCase {
     private final PeriodLockPersistencePort periodLockPersistencePort;
     private final ReopenApprovalPersistencePort reopenApprovalPersistencePort;
     private final ClosingBatchExecutionRecorder batchExecutionRecorder;
+    private final ClosingFinancialRunLockPort financialRunGate;
+    private final ClosingFinancialRunManifestPort financialRunManifest;
     private final ClosingAdjustmentPersistencePort closingAdjustmentPersistencePort;
     private final ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
     
@@ -113,7 +124,7 @@ public class ClosingService implements ClosingUseCase {
         if (calendarId == null || calendarId <= 0) {
             throw new IllegalArgumentException("calendarId must be positive");
         }
-        return closingTaskPersistencePort.findByClosingCalendarId(calendarId);
+        return closingTaskPersistencePort.findActiveByClosingCalendarId(calendarId);
     }
 
     @Override
@@ -135,7 +146,8 @@ public class ClosingService implements ClosingUseCase {
         requireNewEntity(closingTask.getId());
         ClosingCalendar calendar = lockCalendar(closingTask.getClosingCalendar().getId());
         calendar.requireChecklistMutable();
-        closingTask.setClosingCalendar(calendar);
+        establishLegacyEvidenceFence(calendar);
+        closingTask.assignCycle(calendar);
         closingTask.setStatus(ClosingTaskStatus.PENDING);
         return closingTaskPersistencePort.save(closingTask);
     }
@@ -147,6 +159,7 @@ public class ClosingService implements ClosingUseCase {
         calendar.requireChecklistMutable();
         ClosingTask task = aggregatePersistencePort.refreshTask(taskId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingTask not found"));
+        calendar.requireActiveCycle(task.getCycleNumber());
         String prevStatus = task.getStatus().name();
         
         // 도메인 메서드 활용
@@ -173,7 +186,8 @@ public class ClosingService implements ClosingUseCase {
         requireNewEntity(closingGate.getId());
         ClosingCalendar calendar = lockCalendar(closingGate.getClosingCalendar().getId());
         calendar.requireChecklistMutable();
-        closingGate.setClosingCalendar(calendar);
+        establishLegacyEvidenceFence(calendar);
+        closingGate.assignCycle(calendar);
         closingGate.setStatus(ClosingGateStatus.PENDING);
         return closingGatePersistencePort.save(closingGate);
     }
@@ -185,13 +199,14 @@ public class ClosingService implements ClosingUseCase {
         calendar.requireChecklistMutable();
         ClosingGate gate = aggregatePersistencePort.refreshGate(gateId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingGate not found"));
+        calendar.requireActiveCycle(gate.getCycleNumber());
         if (hasText(gate.getCheckConditionJson())) {
             // @todo Introduce a typed ClosingGateEvidencePort. The gate may pass only after the
             // external evidence is verified and stored with source ID, result and verification time.
             throw new IllegalStateException(
                     "Configured gate conditions require a typed evidence evaluator.");
         }
-        List<ClosingTask> tasks = aggregatePersistencePort.refreshTasks(calendar);
+        List<ClosingTask> tasks = aggregatePersistencePort.refreshActiveTasks(calendar);
         gate.pass(user, tasks);
         ClosingGate saved = closingGatePersistencePort.save(gate);
 
@@ -215,14 +230,19 @@ public class ClosingService implements ClosingUseCase {
         requireActor(user, "user");
         Objects.requireNonNull(lockType, "lockType must not be null");
 
-        PeriodLock periodLock = new PeriodLock();
-        periodLock.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
-        periodLock.setLockType(lockType);
-        periodLock.setLockedBy(user);
-        periodLock.setLockedAt(LocalDateTime.now());
-        periodLock.setReason(reason);
-        periodLock.setAuditUser(user);
-        PeriodLock saved = periodLockPersistencePort.save(periodLock);
+        PeriodLock periodLock = PeriodLock.createActive(
+                fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod(),
+                lockType, user, reason);
+        PeriodLock saved;
+        try {
+            // Force the unique active-slot check before the audit log and response.
+            saved = periodLockPersistencePort.saveAndFlush(periodLock);
+        } catch (DataIntegrityViolationException failure) {
+            if (!isSlotConflict(failure, "uk_period_lock_active_period")) {
+                throw failure;
+            }
+            throw new IllegalStateException("Fiscal period is already locked.", failure);
+        }
 
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar,
@@ -250,9 +270,9 @@ public class ClosingService implements ClosingUseCase {
                 fiscalPeriod.closingStatus(),
                 user,
                 "Period lock released"));
-        // @todo Preserve the row with active=false, unlockedBy/At/reason after a forward migration.
-        // The immutable audit log above is the current recovery trail; deleting it is not allowed.
-        periodLockPersistencePort.delete(lock);
+        // Keep the original lock and its actor/time lineage; only release its unique active slot.
+        lock.release(user);
+        periodLockPersistencePort.save(lock);
     }
 
     @Override
@@ -277,7 +297,17 @@ public class ClosingService implements ClosingUseCase {
         ReopenApproval approval = new ReopenApproval();
         approval.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
         approval.request(requestedBy, reason);
-        ReopenApproval saved = reopenApprovalPersistencePort.save(approval);
+        ReopenApproval saved;
+        try {
+            // The pending-slot constraint is the final arbiter across application instances.
+            saved = reopenApprovalPersistencePort.saveAndFlush(approval);
+        } catch (DataIntegrityViolationException failure) {
+            if (!isSlotConflict(failure, "uk_reopen_approval_pending_period")) {
+                throw failure;
+            }
+            throw new IllegalStateException(
+                    "A pending reopen request already exists for the fiscal period.", failure);
+        }
 
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar, ActionType.REOPEN_REQUEST, "CLOSED", "REOPEN_PENDING", requestedBy, reason));
@@ -291,57 +321,171 @@ public class ClosingService implements ClosingUseCase {
         return periodTransitions.decide(approvalId, newStatus, approvedBy);
     }
 
+    /** The key is scoped to this endpoint and binds period, type and trusted actor. */
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType, String runBy) {
+    public ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType,
+                                            String runBy, String executionKey) {
         requireSupportedValuationType(valuationType);
         requireActor(runBy, "runBy");
-        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
+        String key = requireExecutionKey(executionKey);
+        FiscalPeriodRef period = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-
-        // @todo Add an explicit execution key with a unique constraint. Completion requires
-        // period/type/business-date/key lookup plus duplicate-request and crash-recovery tests.
-        ValuationBatch batch = batchExecutionRecorder.startValuation(
-                fiscalPeriod, valuationType, runBy);
-
+        ValuationBatch batch;
         try {
-            FinancialClosingCalculationResult result = financialClosingCalculation.runFxValuation(
-                    fiscalPeriod.endDate(), batch.getId());
-            return finishValuation(batch.getId(), result, runBy);
-        } catch (RuntimeException e) {
-            markValuationFailedPreservingCause(batch.getId(), runBy, e);
-            throw e;
+            batch = batchExecutionRecorder.claimValuation(period, valuationType, runBy, key);
+        } catch (DataIntegrityViolationException duplicate) {
+            // A concurrent insert won the unique key. Its committed run is the retry result.
+            ValuationBatch existing;
+            try {
+                existing = batchExecutionRecorder.findValuationByKey(key);
+            } catch (EntityNotFoundException unrelatedConstraint) {
+                duplicate.addSuppressed(unrelatedConstraint);
+                throw duplicate;
+            }
+            requireSameValuationRequest(existing, fiscalPeriodId, valuationType, runBy);
+            batch = existing;
         }
+        Long batchId = batch.getId();
+        AtomicReference<Integer> knownCount = new AtomicReference<>();
+        AtomicBoolean startedFinancialWork = new AtomicBoolean();
+        try {
+            return financialRunGate.withExclusiveRun("VALUATION", key,
+                    () -> executeValuationRun(key, period, runBy, batchId, knownCount, startedFinancialWork));
+        } catch (RuntimeException failure) {
+            if (startedFinancialWork.get()) markValuationFailure(batchId, knownCount.get(), runBy, failure);
+            throw failure;
+        }
+    }
+
+    private ValuationBatch executeValuationRun(String key, FiscalPeriodRef period, String runBy,
+                                               Long batchId, AtomicReference<Integer> knownCount,
+                                               AtomicBoolean startedFinancialWork) {
+        // The gate's DB row lock proves that no previous worker is still posting this key.
+        ValuationBatch current = batchExecutionRecorder.findValuationByKey(key);
+        if (current.getStatus() == ValuationBatch.ValuationBatchStatus.COMPLETED
+                || current.getStatus() == ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL) return current;
+        startedFinancialWork.set(true);
+        FinancialClosingCalculationResult result = financialClosingCalculation.runFxValuation(period.endDate(), batchId);
+        knownCount.set(result.journalCount());
+        return batchExecutionRecorder.finishValuation(batchId, result.journalCount(),
+                result.singleJournalEntryId(),
+                closingAccountingProperties.isAutoPostAdjustments() || result.allPosted(), runBy);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType, String runBy) {
+    public ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType,
+                                            String runBy, String executionKey) {
         requireSupportedProvisionType(provisionType);
         requireActor(runBy, "runBy");
-        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
+        String key = requireExecutionKey(executionKey);
+        FiscalPeriodRef period = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-
-        ProvisionBatch batch = batchExecutionRecorder.startProvision(
-                fiscalPeriod, provisionType, runBy);
-
+        ProvisionBatch batch;
         try {
-            FinancialClosingCalculationResult result = financialClosingCalculation.runEclProvision(
-                    fiscalPeriod.endDate(), batch.getId());
-            return finishProvision(batch.getId(), result, runBy);
-        } catch (RuntimeException e) {
-            markProvisionFailedPreservingCause(batch.getId(), runBy, e);
-            throw e;
+            batch = batchExecutionRecorder.claimProvision(period, provisionType, runBy, key);
+        } catch (DataIntegrityViolationException duplicate) {
+            ProvisionBatch existing;
+            try {
+                existing = batchExecutionRecorder.findProvisionByKey(key);
+            } catch (EntityNotFoundException unrelatedConstraint) {
+                duplicate.addSuppressed(unrelatedConstraint);
+                throw duplicate;
+            }
+            requireSameProvisionRequest(existing, fiscalPeriodId, provisionType, runBy);
+            batch = existing;
+        }
+        Long batchId = batch.getId();
+        AtomicReference<Integer> knownCount = new AtomicReference<>();
+        AtomicBoolean startedFinancialWork = new AtomicBoolean();
+        try {
+            return financialRunGate.withExclusiveRun("PROVISION", key,
+                    () -> executeProvisionRun(key, period, runBy, batchId, knownCount, startedFinancialWork));
+        } catch (RuntimeException failure) {
+            if (startedFinancialWork.get()) markProvisionFailure(batchId, knownCount.get(), runBy, failure);
+            throw failure;
+        }
+    }
+
+    private ProvisionBatch executeProvisionRun(String key, FiscalPeriodRef period, String runBy,
+                                               Long batchId, AtomicReference<Integer> knownCount,
+                                               AtomicBoolean startedFinancialWork) {
+        ProvisionBatch current = batchExecutionRecorder.findProvisionByKey(key);
+        if (current.getStatus() == ProvisionBatch.ProvisionBatchStatus.COMPLETED
+                || current.getStatus() == ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL) return current;
+        startedFinancialWork.set(true);
+        FinancialClosingCalculationResult result = financialClosingCalculation.runEclProvision(period.endDate(), batchId);
+        knownCount.set(result.journalCount());
+        return batchExecutionRecorder.finishProvision(batchId, result.journalCount(),
+                result.singleJournalEntryId(),
+                closingAccountingProperties.isAutoPostAdjustments() || result.allPosted(), runBy);
+    }
+
+    private String requireExecutionKey(String key) {
+        if (key == null || key.isBlank() || key.length() > 100 || !key.equals(key.trim())) {
+            throw new IllegalArgumentException("executionKey must be 1-100 non-blank characters without surrounding whitespace");
+        }
+        return key;
+    }
+
+    private void requireSameValuationRequest(ValuationBatch batch, Long periodId,
+                                              ValuationBatch.ValuationType type, String actor) {
+        if (!Objects.equals(batch.getFiscalPeriodId(), periodId) || batch.getValuationType() != type
+                || !Objects.equals(batch.getRunBy(), actor.trim())) {
+            throw new IllegalStateException("Execution key already belongs to different business content");
+        }
+    }
+
+    private void requireSameProvisionRequest(ProvisionBatch batch, Long periodId,
+                                              ProvisionBatch.ProvisionType type, String actor) {
+        if (!Objects.equals(batch.getFiscalPeriodId(), periodId) || batch.getProvisionType() != type
+                || !Objects.equals(batch.getRunBy(), actor.trim())) {
+            throw new IllegalStateException("Execution key already belongs to different business content");
+        }
+    }
+
+    private void markValuationFailure(Long id, Integer count, String actor, RuntimeException failure) {
+        try {
+            if (manifestExistsOrUnknown("VALUATION", id, failure)) {
+                batchExecutionRecorder.valuationOutcomeUnknown(id, count, actor);
+            } else {
+                batchExecutionRecorder.valuationNoEffectFailure(id, actor);
+            }
+        } catch (RuntimeException recorderFailure) {
+            failure.addSuppressed(recorderFailure);
+        }
+    }
+
+    private void markProvisionFailure(Long id, Integer count, String actor, RuntimeException failure) {
+        try {
+            if (manifestExistsOrUnknown("PROVISION", id, failure)) {
+                batchExecutionRecorder.provisionOutcomeUnknown(id, count, actor);
+            } else {
+                batchExecutionRecorder.provisionNoEffectFailure(id, actor);
+            }
+        } catch (RuntimeException recorderFailure) {
+            failure.addSuppressed(recorderFailure);
+        }
+    }
+
+    private boolean manifestExistsOrUnknown(String scope, Long id, RuntimeException failure) {
+        try {
+            return financialRunManifest.exists(scope, id);
+        } catch (RuntimeException lookupFailure) {
+            failure.addSuppressed(lookupFailure);
+            return true;
         }
     }
 
     @Override
     public ClosingAdjustment createClosingAdjustment(Long fiscalPeriodId, Long journalEntryId, ClosingAdjustment.AdjustmentType adjustmentType, String description, String approvedBy) {
+        requireActor(approvedBy, "approvedBy");
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
 
         ClosingCalendar calendar = lockCalendar(fiscalPeriod);
-        calendar.requireNoTransition();
+        calendar.requireChecklistMutable();
         fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
         // Read admission again under the same calendar lock used by close/reopen.
@@ -387,13 +531,35 @@ public class ClosingService implements ClosingUseCase {
         adjustment.setAuditUser(approvedBy);
         ClosingAdjustment saved = closingAdjustmentPersistencePort.save(adjustment);
 
+        // This journal changes the financial source under the same root lock as task/gate progress.
+        // Completed controls must be rerun; untouched definitions can remain in the current cycle.
+        List<ClosingTask> activeTasks = aggregatePersistencePort.refreshActiveTasks(calendar);
+        List<ClosingGate> activeGates = aggregatePersistencePort.refreshActiveGates(calendar);
+        int previousCycle = calendar.getCycleNumber();
+        boolean controlsProgressed = activeTasks.stream()
+                .anyMatch(task -> task.getStatus() != ClosingTaskStatus.PENDING)
+                || activeGates.stream().anyMatch(gate -> gate.getStatus() != ClosingGateStatus.PENDING);
+        if (controlsProgressed) {
+            calendar.advanceCycleForSourceChange();
+            for (ClosingTask task : activeTasks) {
+                closingTaskPersistencePort.save(task.nextCycle(calendar, approvedBy));
+            }
+            for (ClosingGate gate : activeGates) {
+                closingGatePersistencePort.save(gate.nextCycle(calendar, approvedBy));
+            }
+        }
+        calendar.recordSourceChange();
+        closingCalendarPersistencePort.save(calendar);
+
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar,
                 ActionType.ADJUSTMENT_CREATED,
                 null,
                 "CREATED",
                 approvedBy,
-                "Adjustment Entry ID: " + journalEntryId));
+                "Adjustment Entry ID: " + journalEntryId
+                        + "; previousCycle=" + previousCycle
+                        + "; activeCycle=" + calendar.getCycleNumber()));
 
         return saved;
     }
@@ -414,37 +580,43 @@ public class ClosingService implements ClosingUseCase {
                 .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found"));
     }
 
+    private boolean isSlotConflict(DataIntegrityViolationException failure, String slotConstraint) {
+        boolean uniqueViolation = false;
+        boolean expectedConstraint = false;
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+                uniqueViolation = true;
+                expectedConstraint |= namesConstraint(sql.getMessage(), slotConstraint);
+            }
+            if (cause instanceof ConstraintViolationException violation) {
+                expectedConstraint |= namesConstraint(violation.getConstraintName(), slotConstraint);
+            }
+        }
+        // A different unique key (for example, a drifted primary-key sequence) is not a period conflict.
+        return uniqueViolation && expectedConstraint;
+    }
+
+    private boolean namesConstraint(String value, String constraint) {
+        if (value == null) {
+            return false;
+        }
+        // H2 reports the backing index name with _INDEX_<n>; PostgreSQL reports the constraint name.
+        return Pattern.compile("(?i)(?<![a-z0-9_])" + Pattern.quote(constraint)
+                + "(?:_INDEX_[0-9]+)?(?![a-z0-9_])").matcher(value).find();
+    }
+
     private void requireNewEntity(Long id) {
         if (id != null) {
             throw new IllegalArgumentException("Creation cannot overwrite an existing closing aggregate entity.");
         }
     }
 
-    private ValuationBatch finishValuation(
-            Long batchId,
-            FinancialClosingCalculationResult result,
-            String actor) {
-        String reportLink = "/reports/valuation/" + batchId;
-        if (result.journalCount() == 0 || closingAccountingProperties.isAutoPostAdjustments()) {
-            return batchExecutionRecorder.markValuationCompleted(
-                    batchId, result.singleJournalEntryId(), reportLink, actor);
+    private void establishLegacyEvidenceFence(ClosingCalendar calendar) {
+        if (calendar.getReopenedAt() != null && calendar.getLastSourceChangedAt() == null) {
+            calendar.establishLegacyEvidenceFence();
+            closingCalendarPersistencePort.save(calendar);
         }
-        return batchExecutionRecorder.markValuationPendingApproval(
-                batchId, result.singleJournalEntryId(), reportLink, actor);
     }
-
-    private ProvisionBatch finishProvision(
-            Long batchId,
-            FinancialClosingCalculationResult result,
-            String actor) {
-        if (result.journalCount() == 0 || closingAccountingProperties.isAutoPostAdjustments()) {
-            return batchExecutionRecorder.markProvisionCompleted(
-                    batchId, result.singleJournalEntryId(), actor);
-        }
-        return batchExecutionRecorder.markProvisionPendingApproval(
-                batchId, result.singleJournalEntryId(), actor);
-    }
-
     private void requireSupportedValuationType(ValuationBatch.ValuationType valuationType) {
         if (valuationType != ValuationBatch.ValuationType.FX_RATE) {
             throw new IllegalArgumentException("Only FX_RATE valuation is supported");
@@ -467,19 +639,4 @@ public class ClosingService implements ClosingUseCase {
         return value != null && !value.trim().isEmpty();
     }
 
-    private void markValuationFailedPreservingCause(Long batchId, String actor, Exception cause) {
-        try {
-            batchExecutionRecorder.markValuationFailed(batchId, actor);
-        } catch (RuntimeException recorderFailure) {
-            cause.addSuppressed(recorderFailure);
-        }
-    }
-
-    private void markProvisionFailedPreservingCause(Long batchId, String actor, Exception cause) {
-        try {
-            batchExecutionRecorder.markProvisionFailed(batchId, actor);
-        } catch (RuntimeException recorderFailure) {
-            cause.addSuppressed(recorderFailure);
-        }
-    }
 }

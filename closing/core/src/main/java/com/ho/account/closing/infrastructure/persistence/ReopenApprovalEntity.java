@@ -20,6 +20,10 @@ public class ReopenApprovalEntity {
     @Column(name = "fiscal_period_id", nullable = false)
     private Long fiscalPeriodId;
 
+    // A nullable unique slot lets decided requests remain as immutable history.
+    @Column(name = "pending_fiscal_period_id")
+    private Long pendingFiscalPeriodId;
+
     @Transient
     private String fiscalYear;
 
@@ -60,8 +64,14 @@ public class ReopenApprovalEntity {
         this.updatedAt = LocalDateTime.now();
         if (this.status == null)
             this.status = ReopenApproval.ReopenApprovalStatus.PENDING;
+        syncPendingFiscalPeriodId();
         if (this.auditUser == null)
             this.auditUser = "SYSTEM";
+    }
+
+    private void syncPendingFiscalPeriodId() {
+        this.pendingFiscalPeriodId = this.status == ReopenApproval.ReopenApprovalStatus.PENDING
+                ? this.fiscalPeriodId : null;
     }
     @PreUpdate
     protected void onUpdate() {

@@ -30,6 +30,9 @@ journal-ledger:
 spring:
   application:
     name: journal-ledger-api
+  jpa:
+    # Explicit mapping avoids loading journal tables in other services that depend on core.
+    mapping-resources: META-INF/journal-ledger-orm.xml
   jackson:
     # Untyped financial decimals must not pass through binary floating point; integers stay integral.
     deserialization:

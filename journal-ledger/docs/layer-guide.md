@@ -10,7 +10,7 @@
 - [archive/domain-layer-readme-legacy.md](archive/domain-layer-readme-legacy.md)
 - [archive/adapter-layer-readme-legacy.md](archive/adapter-layer-readme-legacy.md)
 
-레거시 문서의 설명은 학습에는 유용하지만, 현재 코드에서는 JPA 엔티티가 `domain` 패키지에 남아 있는 등 일부 규칙이 실제와 다릅니다. 새 개발자는 이 문서를 기준으로 보고, 과거 표현이 필요한 경우 archive를 참고합니다.
+레거시 문서의 설명은 학습에는 유용하지만, 저장 기술의 위치가 지금과 다릅니다. 새 개발자는 이 문서를 기준으로 보고, 과거 표현이 필요한 경우 archive를 참고합니다.
 
 ## 전체 의존 방향
 
@@ -42,7 +42,7 @@ application 계층은 유즈케이스 흐름을 조정합니다.
 
 domain 계층은 전표, 전표 라인, 자동분개 규칙, 원장, 미결 항목의 핵심 업무 의미를 담습니다.
 
-현재 저장소에서는 일부 JPA 엔티티가 domain 패키지에 위치합니다. 이상적인 순수 도메인과 완전히 같지는 않으므로, 새 기능을 넣을 때는 아래 기준을 따릅니다.
+도메인 Java 소스는 Spring/JPA를 가져오지 않습니다. JPA는 `core/src/main/resources/META-INF/journal-ledger-orm.xml`에서 이 도메인 객체들의 필드와 관계를 명시적으로 매핑합니다. Spring Data 저장소와 `YearMonth` 변환기는 `infrastructure.persistence`에 있습니다. 새 기능을 넣을 때는 아래 기준을 따릅니다.
 
 - 상태 전이와 금액 검증은 도메인 메서드에 둡니다.
 - 외부 저장소 조회, HTTP 호출, 캐시, JDBC SQL은 domain에 두지 않습니다.
@@ -86,6 +86,8 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 ## infrastructure/persistence와 adapter/out 계층
 
 저장 기술은 출력 포트 뒤에 둡니다.
+
+영속성 입력은 도메인 객체입니다. JPA 어댑터는 infrastructure XML 매핑을 이용해 같은 객체를 저장하고 반환하며, `DomainPersistenceLifecycle`이 최초 저장 기본값과 수정·삭제 전 `POSTED` 이력 검사를 호출합니다. 로드 후에는 상태와 부모 참조만 캡처하므로 상세 컬렉션을 추가 조회하지 않습니다. `JournalEntry`의 상세 소유권과 cascade/orphan removal, `DECIMAL(19,2)`/환율 `DECIMAL(19,8)` 매핑은 기존과 같습니다. SQL bulk 경로와 트랜잭션 경계는 해당 출력 포트의 기존 계약을 따릅니다.
 
 | 기능 | 출력 포트 | 기본 어댑터 | 대량 어댑터 |
 | --- | --- | --- | --- |
