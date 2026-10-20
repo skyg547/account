@@ -197,6 +197,94 @@ class EclProvisionCurrencyUnitsTest {
         verifyNoInteractions(fixture.posting, fixture.query);
     }
 
+    @Test
+    void laterUnreconciledJdbcSourceGroupPreventsAnyRemoteWrite() {
+        fixture.target("EUR", "100");
+        fixture.target("USD", "100");
+        fixture.jdbc.update("UPDATE allowance_summary SET stage1_allowance_amount = 99.9999 "
+                + "WHERE currency_code = 'USD'");
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("source row reconciliation");
+        verifyNoInteractions(fixture.posting, fixture.query);
+    }
+
+    @Test
+    void reconciledHighPrecisionJdbcRowsRoundOnlyAfterGroupSum() {
+        fixture.target("USD", "50.0040");
+        fixture.jdbc.update("""
+                INSERT INTO allowance_summary
+                SELECT base_date, run_id, model_version, legal_entity_code, currency_code,
+                       '12100', allowance_account_code, bad_debt_expense_account_code,
+                       reversal_income_account_code, target_allowance_amount, source_exposure_amount,
+                       stage1_allowance_amount, stage2_allowance_amount, stage3_allowance_amount
+                FROM allowance_summary
+                """);
+        fixture.rate("USD", "KRW", "1300");
+
+        fixture.service.processEclProvision(DATE, 781L);
+
+        assertThat(fixture.commands).hasSize(1);
+        assertCommand(0, "USD", "1300", "550100", "129100", "100.01", "130013.00");
+    }
+
+    @Test
+    void rebuiltSourceWithSameTargetButDifferentStagesCannotReuseDraft() {
+        fixture.target("USD", "100.0000");
+        fixture.rate("USD", "KRW", "1300");
+        fixture.service.processEclProvision(DATE, 781L);
+        // The upstream ECL job can replace its date's source rows while the old Journal draft remains.
+        fixture.jdbc.update("DELETE FROM allowance_summary WHERE currency_code = 'USD'");
+        fixture.target("USD", "100.0000");
+        fixture.jdbc.update("UPDATE allowance_summary SET stage1_allowance_amount = 40.0000, "
+                + "stage2_allowance_amount = 60.0000 WHERE currency_code = 'USD'");
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different business content");
+        assertThat(fixture.commands).hasSize(1);
+    }
+
+    @Test
+    void persistedDraftContainsExactSourceTotalsAndSnapshotIdentity() {
+        fixture.target("USD", "100.0001");
+        fixture.rate("USD", "KRW", "1300");
+
+        fixture.service.processEclProvision(DATE, 781L);
+
+        var command = fixture.commands.get(0);
+        assertThat(command.description()).contains("USD/KRW @ 1300").doesNotContain(";t=", ";s1=");
+        assertThat(command.lines().get(0).detailDescription())
+                .contains("run=RUN-781", "t=100.0001", "e=10000", "s1=100.0001");
+        assertThat(command.lines().get(1).detailDescription())
+                .contains("model=MODEL-781", "s2=0", "s3=0");
+        assertThat(command.description().length()).isLessThanOrEqualTo(120);
+        assertThat(command.lines()).allSatisfy(line ->
+                assertThat(line.detailDescription().length()).isLessThanOrEqualTo(194));
+        assertThat(fixture.jdbc.queryForObject("SELECT description FROM journal_entries WHERE slip_no = ?",
+                String.class, command.slipNo())).isEqualTo(command.description());
+        assertThat(fixture.jdbc.queryForList(
+                "SELECT description FROM journal_details ORDER BY id", String.class))
+                .containsExactly(command.lines().get(0).detailDescription(),
+                        command.lines().get(1).detailDescription())
+                .anySatisfy(description -> assertThat(description).contains("run=RUN-781"))
+                .anySatisfy(description -> assertThat(description).contains("model=MODEL-781"));
+    }
+
+    @Test
+    void rebuiltSourceWithSameTotalsButNewRunIdCannotReuseDraft() {
+        fixture.target("USD", "100");
+        fixture.rate("USD", "KRW", "1300");
+        fixture.service.processEclProvision(DATE, 781L);
+        fixture.jdbc.update("UPDATE allowance_summary SET run_id = 'RUN-NEW' WHERE currency_code = 'USD'");
+
+        assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("different business content");
+        assertThat(fixture.commands).hasSize(1);
+    }
+
     @ParameterizedTest
     @CsvSource({
             "run_id, RUN-OTHER, one finalized run/model",

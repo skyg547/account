@@ -168,30 +168,14 @@
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
 
-## GH-890 — bounded Closing remediation; full acceptance on HOLD
+## GH-891 — ECL stage-total reconciliation
 
-- Issue [#890](https://github.com/skyg547/account/issues/890) OPEN; `agent/890-closing-http-autopost-recovery` in `/tmp/account-890-closing-http-autopost-recovery`; base `origin/main@9348966a`. Scope `closing/**`, including these module-local records; common harness and other modules untouched.
-- Status: unknown/blank/null existing Journal status now fails closed after content comparison. Current HTTP auto-post remains disabled by the #777 maker/checker/poster control. APPROVED→POSTED and response-loss recovery acceptance are unmet; keep Draft and Issue open.
-- Verification: pre-fix RED four Batch assertions; targeted GREEN; required Closing643/643 PASS (API159/Batch111/Core373), failures/errors/skips0. Independent read-only `/root/independent_review`: Q1–Q4 PASS for bounded diff, Issue findings P1/P2. Parent Integrator owns records, commit, push and Draft publication. Test writer owned the single Batch test file; no shared-file writing overlap.
-- Next owner: human Draft reviewer and trusted Journal principal/Gateway integration owner. Ready, merge, Issue close, deployment and resource deletion are separate gates.
+- Issue [#891](https://github.com/skyg547/account/issues/891), CL19/P2; branch `agent/891-ecl-stage-reconciliation`, isolated worktree `/tmp/account-891-ecl-stage-reconciliation`, base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. Scope is `closing/**` only; these records are module-local. Shared harness, other modules and migrations are unchanged.
+- Requested tier `gpt-6-sol` / high. `/root/closing_writer` owned Closing code, tests and feature docs; independent `/root/closing_review` was read-only. Parent Integrator owns these records and Git/GitHub publication.
+- Status: implementation verified and independently APPROVED, no P0–P3; Q1–Q4 PASS. Initial review findings on replaceable source evidence and Journal reversal length were returned to the writer and fixed. Final forced `./gradlew :closing:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=2` passed Core380/API159/Batch111 = 650 tests, failures/errors/skips0. Exact requested `./gradlew :closing:test` also exited0; independent focused replay passed56 tests.
+- Direct and JDBC per-row Stage totals reconcile before any Journal write. Journal details preserve exact grouped totals and run/model identity; a short header preserves currency/rate and reversal room. Empty source fails; explicit zero source with zero balance is a no-op. Draft publication with `Refs #891` is the authorized delivery; Ready, merge, Issue close, deployment and resource cleanup remain separate human gates.
+- Residual gates: live PostgreSQL plan/load, distributed source/posting timing and production data were not tested. No-op groups create no Journal evidence; old-format drafts require manual reconciliation; unusually long reversal reasons remain subject to Journal's own 200-character limit. Next owner after Draft is the human current-head/CI reviewer and accounting operations owner for source freeze and live validation.
 
-### GH-890 Draft published
+### GH-891 Draft publication
 
-- [PR #905](https://github.com/skyg547/account/pull/905) is OPEN/DRAFT with `Refs #890`, initial head `4a779bee`. Issue #890 remains OPEN; the worktree is retained. PR publication does not satisfy the outstanding #890 P1/P2 acceptance gaps.
-- 2026-10-09 re-audit: `:closing:test` PASS (up-to-date); forced API159/Batch111/Core373 = 643/643 PASS with 29 tasks executed. Independent read-only review reconfirmed Q1–Q4 PASS for the bounded diff and P1/P2 unmet Issue criteria. Gateway routes omit `/api/v1/journals/posting` and rebuild actor/role headers only from validated JWTs; Closing-only changes cannot establish the required trusted maker/checker/poster flow.
-
-### GH-890 Draft #905 follow-up, 2026-10-09
-
-- Existing branch/worktree `agent/890-closing-http-autopost-recovery` / `/tmp/account-890-closing-http-autopost-recovery`; Issue OPEN, PR #905 OPEN/DRAFT. Only `closing/**` changed; this follow-up added FX/ECL-shaped HTTP **create** response-loss/restart tests, while the prior status allowlist and remote auto-post block remain.
-- Focused HTTP48 PASS; isolated forced `./gradlew :closing:test --rerun-tasks --console=plain --max-workers=2 --no-daemon` PASS645 (API159/Batch111/Core375), failures/errors/skips0. A prior concurrent Gradle XML collision was superseded by this single-process run. Independent read-only review found Q1–Q4 PASS for the bounded change and retained P1/P2 full-Issue acceptance gaps. Details and evidence table are in [worklog](worklog.md).
-- Next owner: authorized Journal/Gateway identity and route contract owner, then Closing implementation/test owner for APPROVED/POSTED and create/approve/post response-loss coverage. Human review owns Ready/merge; parent Integrator owns module records and Draft publication. No production remote, PostgreSQL, or distributed fault proof is claimed.
-
-### GH-890 independent re-review, 2026-10-09
-
-- The required `./gradlew :closing:test --console=plain --max-workers=2 --no-daemon` passed on `667356c5` with all 29 tasks up to date; the prior forced run on that head passed 645 tests. No Java behavior changed in this follow-up.
-- Independent read-only review found an additional P2 full-Issue gap: shared `JournalSummary` omits `exchangeRate`, so an ECL journal with the same rounded lines but a different rate can be reused. The process and beginner guides now state this limit. Full-Issue Q1 remains FAIL; the status guard itself is unchanged. Keep PR #905 Draft and Issue #890 open.
-
-### GH-890 current-head audit, 2026-10-09
-
-- Existing branch/worktree and Draft PR #905 retained. Fresh required `:closing:test` PASS (up-to-date); forced `:closing:test --rerun-tasks` PASS645/645 (API159/Batch111/Core375, zero failures/errors/skips, 29 executed tasks). Independent read-only `/root/review_890` confirmed the bounded status guard but full-Issue Q1 FAIL: no APPROVED/POSTED HTTP recovery, missing authoritative rate comparison, and a reused POSTED journal may leave Closing history `PENDING_APPROVAL`. Approve/post response-loss and FX/ECL service-to-HTTP tests remain absent. Details and Q1-Q4 evidence are in [worklog](worklog.md).
-- Next owner needs a separately scoped trusted Journal/Gateway identity and route contract, then Closing phase recovery, rate/status accounting and fault tests. Current authority is `closing/**`; common harness and other modules remain unchanged. Keep Issue open and PR Draft; do not claim completion.
+- Published [Draft PR #906](https://github.com/skyg547/account/pull/906), OPEN/DRAFT and initially MERGEABLE, `Refs #891`, implementation head `2ee7ae3841fd17181ac97bc84175dbe143403da0`. Initial hosted module detection, merge guard and harness checks were PENDING when observed; no hosted pass is claimed. Issue #891 remains OPEN; branch and worktree are retained for human current-head/CI review.

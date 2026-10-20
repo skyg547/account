@@ -45,6 +45,9 @@ public class EclProvisionService {
 
     private static final String SYSTEM_ACTOR = "SYSTEM";
     private static final String BATCH_ACTOR = "BATCH";
+    private static final int JOURNAL_DESCRIPTION_MAX_LENGTH = 200;
+    private static final int REVERSIBLE_HEADER_MAX_LENGTH = 120;
+    private static final int REVERSIBLE_LINE_MAX_LENGTH = JOURNAL_DESCRIPTION_MAX_LENGTH - "[역분개] ".length();
 
     private final AllowanceBalanceLookupPort allowanceBalanceLookupPort;
     private final ClosingJournalEntryPort closingJournalEntryPort;
@@ -181,26 +184,43 @@ public class EclProvisionService {
         boolean isAdditionalProvision = amount.signum() > 0;
         BigDecimal absAmount = amount.abs();
         BigDecimal absBaseAmount = baseAmount.abs();
+        // Keep exact evidence in the two compared detail descriptions. Journal's reversal
+        // prepends a reason to the header, so source totals must not consume its headroom.
+        String firstEvidence = requireJournalDescriptionLength(
+                "ECL run=" + group.runId()
+                        + ";t=" + exactDecimal(group.targetAllowanceAmount())
+                        + ";e=" + exactDecimal(group.sourceExposureAmount())
+                        + ";s1=" + exactDecimal(group.stage1AllowanceAmount()),
+                "line");
+        String secondEvidence = requireJournalDescriptionLength(
+                "ECL model=" + group.modelVersion()
+                        + ";s2=" + exactDecimal(group.stage2AllowanceAmount())
+                        + ";s3=" + exactDecimal(group.stage3AllowanceAmount()),
+                "line");
 
         List<ClosingJournalLineCommand> lines = isAdditionalProvision
                 ? additionalProvisionLines(
                         absAmount,
                         absBaseAmount,
                         group.badDebtExpenseAccountCode(),
-                        group.key().allowanceAccountCode())
+                        group.key().allowanceAccountCode(),
+                        firstEvidence, secondEvidence)
                 : reversalLines(
                         absAmount,
                         absBaseAmount,
                         group.key().allowanceAccountCode(),
-                        requireText(group.reversalIncomeAccountCode(), "reversalIncomeAccountCode"));
+                        requireText(group.reversalIncomeAccountCode(), "reversalIncomeAccountCode"),
+                        firstEvidence, secondEvidence);
 
-        // JournalSummary omits exchangeRate. Persist its normalized value and both units in the
-        // compared description so a rate-only restart change cannot silently reuse an old draft.
+        // JournalSummary omits exchangeRate; retain its normalized value in the header.
+        // Leave room for JournalEntry.createReversal's prefix, reason and suffix.
+        String description = requireReversibleHeaderLength(
+                "Month-end ECL Provision (Impairment) [" + group.key().currencyCode() + "/"
+                        + functionalCurrency + " @ " + exactDecimal(rate) + "]");
         return new ClosingJournalEntryCommand(
                 closingDate,
                 closingDate,
-                "Month-end ECL Provision (Impairment) [" + group.key().currencyCode() + "/"
-                        + functionalCurrency + " @ " + rate.stripTrailingZeros().toPlainString() + "]",
+                description,
                 "CLOSING_ADJUSTMENT",
                 BATCH_ACTOR,
                 SYSTEM_ACTOR,
@@ -228,39 +248,63 @@ public class EclProvisionService {
     private List<ClosingJournalLineCommand> additionalProvisionLines(BigDecimal amount,
                                                                      BigDecimal baseAmount,
                                                                      String expenseAccount,
-                                                                     String allowanceAccount) {
+                                                                     String allowanceAccount,
+                                                                     String firstEvidence,
+                                                                     String secondEvidence) {
         return List.of(
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.DEBIT,
                         expenseAccount,
                         amount,
                         baseAmount,
-                        "Bad Debt Expense (ECL Addition)"),
+                        firstEvidence),
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.CREDIT,
                         allowanceAccount,
                         amount,
                         baseAmount,
-                        "Allowance for Doubtful Accounts (ECL Addition)"));
+                        secondEvidence));
     }
 
     private List<ClosingJournalLineCommand> reversalLines(BigDecimal amount,
                                                           BigDecimal baseAmount,
                                                           String allowanceAccount,
-                                                          String reversalIncomeAccount) {
+                                                          String reversalIncomeAccount,
+                                                          String firstEvidence,
+                                                          String secondEvidence) {
         return List.of(
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.DEBIT,
                         allowanceAccount,
                         amount,
                         baseAmount,
-                        "Allowance for Doubtful Accounts (ECL Reversal)"),
+                        firstEvidence),
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.CREDIT,
                         reversalIncomeAccount,
                         amount,
                         baseAmount,
-                        "Allowance Reversal Income (ECL Reversal)"));
+                        secondEvidence));
+    }
+
+    private String requireReversibleHeaderLength(String description) {
+        if (description.length() > REVERSIBLE_HEADER_MAX_LENGTH) {
+            throw new IllegalStateException("ECL Journal header description exceeds reversible limit "
+                    + REVERSIBLE_HEADER_MAX_LENGTH + " characters");
+        }
+        return description;
+    }
+
+    private String requireJournalDescriptionLength(String description, String field) {
+        if (description.length() > REVERSIBLE_LINE_MAX_LENGTH) {
+            throw new IllegalStateException("ECL Journal " + field + " description exceeds reversible limit "
+                    + REVERSIBLE_LINE_MAX_LENGTH + " characters");
+        }
+        return description;
+    }
+
+    private String exactDecimal(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private String resolveRequiredAccount(String primary, String fallback, String fieldName) {
@@ -352,9 +396,24 @@ public class EclProvisionService {
 
     private record ProvisionGroup(
             ProvisionKey key,
+            String runId,
+            String modelVersion,
             BigDecimal targetAllowanceAmount,
+            BigDecimal sourceExposureAmount,
+            BigDecimal stage1AllowanceAmount,
+            BigDecimal stage2AllowanceAmount,
+            BigDecimal stage3AllowanceAmount,
             String badDebtExpenseAccountCode,
             String reversalIncomeAccountCode) {
+
+        private ProvisionGroup {
+            // Carry the reconciled source totals through command preparation at full precision.
+            // For posted groups, Journal descriptions retain them across source-row rebuilds.
+            if (stage1AllowanceAmount.add(stage2AllowanceAmount).add(stage3AllowanceAmount)
+                    .compareTo(targetAllowanceAmount) != 0) {
+                throw new IllegalStateException("ECL grouped stage allowance total does not match target");
+            }
+        }
 
         private static ProvisionGroup first(
                 ProvisionKey key,
@@ -363,7 +422,13 @@ public class EclProvisionService {
                 String reversalAccount) {
             return new ProvisionGroup(
                     key,
+                    summary.runId(),
+                    summary.modelVersion(),
                     summary.targetAllowanceAmount(),
+                    summary.sourceExposureAmount(),
+                    summary.stage1AllowanceAmount(),
+                    summary.stage2AllowanceAmount(),
+                    summary.stage3AllowanceAmount(),
                     expenseAccount,
                     reversalAccount);
         }
@@ -384,7 +449,13 @@ public class EclProvisionService {
                     key);
             return new ProvisionGroup(
                     key,
+                    runId,
+                    modelVersion,
                     targetAllowanceAmount.add(summary.targetAllowanceAmount()),
+                    sourceExposureAmount.add(summary.sourceExposureAmount()),
+                    stage1AllowanceAmount.add(summary.stage1AllowanceAmount()),
+                    stage2AllowanceAmount.add(summary.stage2AllowanceAmount()),
+                    stage3AllowanceAmount.add(summary.stage3AllowanceAmount()),
                     badDebtExpenseAccountCode,
                     resolvedReversal);
         }
