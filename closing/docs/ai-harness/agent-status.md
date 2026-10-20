@@ -1,14 +1,5 @@
 # Closing agent status
 
-## GH-888 — annual source snapshot, Draft handoff
-
-- Issue [#888](https://github.com/skyg547/account/issues/888), CL12; branch `agent/888-annual-close-aggregate`; worktree `/tmp/account-888-annual-close-aggregate`; base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`.
-- Scope `closing/**` only. Common harness and other modules are excluded by the user's explicit allowlist. This module-local record is parent Integrator owned.
-- GPT-6 Sol / high implementation writer; separate read-only GPT-6 Sol / high reviewer. The parent owns records, commit, branch push and Draft PR. Review found no remaining P0–P3; Q1–Q4 PASS.
-- Final required `./gradlew :closing:test --console=plain`: PASS, Core 379 (1 opt-in PostgreSQL skip), API 164, Batch 102; 645 total, 644 executed, failures/errors 0. Separate PostgreSQL opt-in test: 1/1 PASS with sanitized XML in `../annual-close-postgres-junit.xml`. API/Batch bootJar PASS.
-- Audited `a97d10ab` RED 1/1 for the no-N+1 dependency guard; current branch GREEN. Synthetic 20,000 balanced journals and 250,000-journal/500,000-detail PostgreSQL plan, cutoff, timeout and restart evidence are recorded in `../annual-close-postgresql-evidence.md`.
-- Status: [Draft PR #903](https://github.com/skyg547/account/pull/903) published with `Refs #888` from implementation commit `56ac870aab70b3ac262e9b65d1ce52586f7894f1`; Issue remains OPEN / `status:needs-review`. Implementation-head hosted Harness Validation and Closing Module Validation passed; Agent Merge Guard failed with `TRUST_POLICY_UNCONFIGURED` and authority-evidence requirements. 100M rows, production PostgreSQL, remote latency, heap peak and distributed faults remain unverified; human review, CI policy configuration and operating-scale evidence are the next gates before Ready/merge/Issue close.
-
 ## GH-772 historical status
 
 - Issue: [#772](https://github.com/skyg547/account/issues/772), CL02.
@@ -177,9 +168,9 @@
 - [PR #819](https://github.com/skyg547/account/pull/819) is OPEN/DRAFT and initially MERGEABLE with `Refs #777`; initial head `5e4c428e`. Issue #777 is OPEN / `status:needs-review`; PR #808 remains CLOSED; worktree retained.
 - Hosted module/harness/merge-guard jobs did not start because GitHub annotations report a recent-payment or spending-limit restriction. They do not invalidate the local 597-test/bootJar PASS, and no hosted test success is claimed. Human review and current-head CI remain required.
 
-## GH-886 — 2026-10-09 Draft review handoff
+## GH-889 — Draft PR #904, human review pending (2026-10-09)
 
-- Issue [#886](https://github.com/skyg547/account/issues/886), CL10/P2, OPEN/`status:needs-review`; branch `agent/886-closing-run-idempotency`, worktree `/tmp/account-886-closing-run-idempotency`, base `origin/main@9348966a`, implementation `7690a7ff`, [Draft PR #901](https://github.com/skyg547/account/pull/901) (`Refs #886`).
-- Scope: only `closing/**`; module-local worklog/status/handoff are parent-owned records. `gpt-6-sol`/high writer and independent read-only reviewer were separate. No shared harness or other module change.
-- Status: requested module suite PASS653 (API168/Batch103/Core382), API/Batch bootJar PASS, local API startup and missing-key HTTP400 PASS, diff/scope/marker PASS. Independent review Q1–Q4 PASS, no open P0–P3. PR is OPEN/DRAFT, initially MERGEABLE; hosted checks were QUEUED at publication, not a CI PASS.
-- Residual gates: live PostgreSQL, actual process kill, remote Journal response-loss injection, production load and human current-head review. Next owner: human reviewer and deployment/financial operations owner. Ready, merge, Issue close, deployment and resource deletion are unperformed.
+- Issue #889 / CL13: OPEN, `status:needs-review`, `agent:codex`. Branch `agent/889-annual-close-classification`, worktree `/tmp/account-889-annual-close-classification`, base `origin/main@9348966a`, implementation commit `af0c8926`, Draft [#904](https://github.com/skyg547/account/pull/904) with `Refs #889`.
+- Closing-only annual classification control is implemented and frozen. Current-base RED 3; final `:closing:test` core380/API159/batch102 = 641 PASS, zero failure/error/skip; harness quality32 PASS; diff/marker gates PASS. Independent read-only `/root/closing_review_889`: no remaining P0–P3, Q1–Q4 PASS. The audited older commit was not separately run.
+- Residual: Journal-returned lines are checked, not provider-omitted lines; no live PostgreSQL, distributed fault/snapshot, deployed HTTP or production load evidence. Next owner: human Draft reviewer for current head/base and hosted CI; accounting/operations owner for deployment gates. AI writer, reviewer and parent Integrator permissions remain separate. No Ready, merge, Issue close, deployment or cleanup.
+- Hosted check snapshot on `44d39113`: Harness Validation PASS; Agent Merge Guard metadata FAIL (Draft and unconfigured trust/authority requirements); Module Validation pending without job evidence. These are not a final-head CI pass. Human reviewer must inspect the published final head before Ready.

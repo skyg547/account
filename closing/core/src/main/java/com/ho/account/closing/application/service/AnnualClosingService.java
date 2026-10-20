@@ -166,6 +166,11 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         boolean[] digestStarted = { false };
         BigDecimal[] baseTotals = { BigDecimal.ZERO, BigDecimal.ZERO }; // debit, credit
         int[] annualDetailCount = { 0 };
+        long[] incomeDetailCount = { 0 };
+        long[] excludedDetailCount = { 0 };
+        BigDecimal[] incomeGrossBaseAmount = { BigDecimal.ZERO };
+        BigDecimal[] excludedGrossBaseAmount = { BigDecimal.ZERO };
+
         AnnualJournalReadPort.SourceControl control = annualJournalReadPort.scan(startDate, endDate,
                 (summary, details) -> {
                     validateSummaryIdentity(summary);
@@ -193,6 +198,8 @@ public class AnnualClosingService implements AnnualClosingUseCase {
                         baseTotals[side] = baseTotals[side].add(detail.getBaseAmount());
                         String category = resolveAccountCategory(detail, categories);
                         if (REVENUE.equals(category) || EXPENSES.equals(category)) {
+                            incomeDetailCount[0]++;
+                            incomeGrossBaseAmount[0] = incomeGrossBaseAmount[0].add(detail.getBaseAmount());
                             String accountCode = detail.getAccountCode().trim();
                             incomeCategories.merge(accountCode, category, (left, right) -> {
                                 if (!left.equals(right)) {
@@ -203,6 +210,9 @@ public class AnnualClosingService implements AnnualClosingUseCase {
                             });
                             sourceBalances.merge(accountCode,
                                     signed(detail.getSide(), detail.getBaseAmount()), BigDecimal::add);
+                        } else {
+                            excludedDetailCount[0]++;
+                            excludedGrossBaseAmount[0] = excludedGrossBaseAmount[0].add(detail.getBaseAmount());
                         }
                         canonicalDetails.add(canonicalSourceDetail(detail, category));
                     }
@@ -239,6 +249,13 @@ public class AnnualClosingService implements AnnualClosingUseCase {
                 || control.debitBase().compareTo(baseTotals[0]) != 0
                 || control.creditBase().compareTo(baseTotals[1]) != 0) {
             throw invalid("posted source rows do not reconcile with provider control totals");
+        }
+        // Account for each returned POSTED line as P&L or explicitly excluded, even if net amounts
+        // cancel. This cannot detect lines omitted by the upstream Journal provider.
+        if (observed[1] != incomeDetailCount[0] + excludedDetailCount[0]
+                || baseTotals[0].add(baseTotals[1]).compareTo(
+                        incomeGrossBaseAmount[0].add(excludedGrossBaseAmount[0])) != 0) {
+            throw invalid("source classification completeness failed: line count or gross base amount differs");
         }
         if (incomeCategories.containsKey(retainedAccount)) {
             throw invalid("retained earnings account must not be an income statement account");
@@ -579,20 +596,19 @@ public class AnnualClosingService implements AnnualClosingUseCase {
                 && accountCategoryCache.size() >= MAX_CLASSIFICATION_KEYS) {
             throw invalid("annual dated classifications exceed bounded review limit");
         }
-        String suppliedCategory = detail.getAccountCategory();
-        String category;
-        if (suppliedCategory != null && !suppliedCategory.isBlank()) {
-            category = suppliedCategory.trim();
-            String previous = accountCategoryCache.putIfAbsent(key, category);
-            if (previous != null && !previous.equals(category)) {
-                throw invalid("inconsistent dated journal account classification: " + accountCode);
-            }
-        } else {
-            category = accountCategoryCache.computeIfAbsent(
-                    key, ignored -> lookupAccountCategory(accountCode, detail.getAccountingDate()));
-        }
+        // Journal's category is evidence to cross-check, never authority to skip dated Master.
+        String category = accountCategoryCache.computeIfAbsent(
+                key, ignored -> lookupAccountCategory(accountCode, detail.getAccountingDate()));
         if (!ACCOUNT_CATEGORIES.contains(category)) {
-            throw invalid("journal detail accountCategory is unsupported: " + category);
+            throw invalid("source classification completeness failed: unsupported Master category for "
+                    + accountCode);
+        }
+        String suppliedCategory = detail.getAccountCategory();
+        if (suppliedCategory != null && !suppliedCategory.isBlank()) {
+            if (!category.equals(suppliedCategory.trim())) {
+                throw invalid("source classification completeness failed: Journal classification does not match "
+                        + "dated Master for " + accountCode);
+            }
         }
         return category;
     }
@@ -627,13 +643,15 @@ public class AnnualClosingService implements AnnualClosingUseCase {
     private String lookupAccountCategory(String accountCode, LocalDate accountingDate) {
         AccountSubjectRef account = masterDataQueryPort.findAccountSubjectAt(accountCode, accountingDate)
                 .orElseThrow(() -> invalid(
-                        "account classification is missing for " + accountCode + " at " + accountingDate));
+                        "source classification completeness failed: classification is missing for "
+                                + accountCode + " at " + accountingDate));
         if (account.code() == null || !accountCode.equals(account.code().trim())) {
-            throw invalid("master-data returned a different or invalid account code");
+            throw invalid("source classification completeness failed: Master returned a different account code");
         }
         String category = account.accountCategory();
         if (category == null || category.isBlank()) {
-            throw invalid("master-data returned an account without classification: " + accountCode);
+            throw invalid("source classification completeness failed: Master returned no category for "
+                    + accountCode);
         }
         return category.trim();
     }
