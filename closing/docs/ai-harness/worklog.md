@@ -434,3 +434,26 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 - The PR body includes the final 597-test XML breakdown, bootJar and Journal/harness checks, Q1–Q4 independent review, rollback, residual gates and explicit implementation/review/Integrator/human authority separation.
 - Initial hosted [Module Validation](https://github.com/skyg547/account/actions/runs/36764864113), [Harness Validation](https://github.com/skyg547/account/actions/runs/36764864173), and [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36764864117) did not start test jobs. Each run annotation reports failed recent account payments or spending-limit restriction. These are external infrastructure failures, not code/test results or hosted PASS; no billing settings were accessed or changed. The final record-only head will be checked again after push.
 - Next owner: repository account owner to restore hosted Actions availability, then human current-head reviewer and authorized accounting/operations owners for the documented trusted Journal and production-data gates. Ready, merge, Issue close, deployment and resource deletion were not performed.
+
+## 2026-10-09 — GH-891 ECL Stage 합계와 전기 목표 대사
+
+- Issue #891 / CL19, `agent/891-ecl-stage-reconciliation`, `/tmp/account-891-ecl-stage-reconciliation`, fetched base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`. 변경과 기록은 `closing/**`에만 있다. 공용 하네스, 타 모듈, 공용 계약, migration, 운영 데이터는 변경하지 않았다.
+- 입력→처리→출력: `EclAllowanceSummary` 직접 포트는 음수/null과 Stage 1+2+3 대 목표를 원래 `BigDecimal` 정밀도로 검사한다. JDBC는 그룹별 `invalid_source_rows`를 같은 bounded query로 집계해 서로 상쇄되는 행별 오류까지 거부한 뒤 정확한 목표·exposure·Stage 합계를 반환한다. Core는 전체 그룹을 검증·준비한 다음 전기 경계에서 그룹 목표를 한 번 소수 2자리로 반올림한다. 나중 그룹의 실패도 첫 Journal 쓰기 전에 전파된다.
+- `allowance_summary`는 날짜별 재생성될 수 있다. 생성되는 전표의 두 Journal 상세 설명에는 정확한 그룹 목표·exposure·Stage 1/2/3 및 전체 run ID/model version을 보존하고, 짧은 헤더에는 통화쌍·환율을 보존한다. 전표 재시도는 기존 헤더·상세와 비교하므로 같은 반올림 금액이라도 원천 합계·run이 달라지면 초안을 재사용하지 않는다. 헤더120자·상세194자 제한은 Journal 역분개 접두사/사유 공간을 남기며 초과는 쓰기 전에 실패한다. 빈 결과는 실패, 명시적인 0 exposure/0 target/0 stages와 잔액0은 무전표다.
+- 수정 전 RED: 직접 summary 3개 중2개 실패(불일치·0 exposure), JDBC 그룹 4개 중1개 실패(상쇄 오차), 기존 초안의 재생성 원천/증빙 회귀2개 실패, 큰 정상 전표의 실제 Journal 역분개1개 실패. 수정 후 이 회귀와 기존 FX/ECL 통제가 통과했다.
+- 최종 전체 검증: `./gradlew :closing:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=2` exit0, XML Core380/API159/Batch111 =650 tests, 0 failures/errors/skips, 29 executed tasks. 요청한 `./gradlew :closing:test` exit0 (직전 전체 실행의 child tasks up-to-date; aggregator `:closing:test`는 NO-SOURCE). 독립 읽기 전용 `/root/closing_review`의 최종 집중 재실행56/56 PASS; `git diff --check`, 변경 파일 conflict marker 및 범위 확인 PASS. 독립 리뷰 중 발견된 source evidence/P2와 reversal/P2는 원 작성자가 수정했고 최종 P0–P3 없음.
+- Rollback: Closing 실행을 멈추고 이미 생성된 DRAFT/POSTED 전표와 lineage를 보존·대사한 뒤 이 Issue의 Closing 변경만 검토하여 되돌린다. 새 설명 형식의 초안은 자동 재사용을 가정하지 않는다. 스키마·데이터 rollback은 없다. 무전표 그룹에는 Journal 증빙이 없고, 기존 형식 초안은 수동 대사가 필요하다. 실 PostgreSQL 실행계획·부하, 분산 원천 재생성/전기 경쟁, 운영 데이터·배포는 미검증이며 Draft 이후 사람/운영 검증 게이트다.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `core/domain/EclAllowanceSummary.java:45`, `core/infrastructure/source/JdbcEclAllowanceResultAdapter.java:32`, `core/application/service/EclProvisionService.java:187`; 전체650·집중56 PASS | 해당 없음: 금융 코드 변경 | 실 PostgreSQL 계획·대량 입력 후속 | `/root/closing_review`, P0–P3 없음 |
+| Q2 | PASS | `docs/process-flow.md:474`의 원천→대사→그룹→반올림→전표·재시도·역분개 설명; 실제 역분개 회귀 | 해당 없음: 핵심 흐름 변경 | 분산 snapshot/재시도 실환경 후속 | 동일 리뷰어 코드·문서 대조 |
+| Q3 | PASS | `README.md`, `docs/beginner-guide.md`, `docs/schema.md:157`, `docs/local-run.md:408`; 전체650 PASS | 해당 없음: 기능 사용·실패 의미 변경 | 구형 초안·무전표 한계 운영 인계 | 동일 리뷰어 기능 문서 확인 |
+| Q4 | PASS | `EclAllowanceSummary.java:49`, `JdbcEclAllowanceResultAdapter.java:103`, `EclProvisionService.java:187,215`의 정밀 대사·상쇄 방지·역분개 여유 의도; 집중56 PASS | 해당 없음: 비자명 로직 변경 | 설명 길이와 Journal 장문 사유 제한 | 동일 리뷰어 변경 주석 확인 |
+
+- 권한 분리: `gpt-6-sol` / high 작성자는 Closing만 수정했고 독립 리뷰어는 읽기 전용이다. 부모 Integrator만 모듈 기록·commit·push·Draft PR을 수행한다. AI 리뷰는 사람/GitHub 승인을 대체하지 않는다. Draft에는 `Refs #891`을 사용하고 Ready·merge·Issue close·배포·branch/worktree 삭제는 수행하지 않는다.
+
+### GH-891 Draft PR 게시
+
+- 부모가 검증된 Closing-only head `2ee7ae3841fd17181ac97bc84175dbe143403da0`을 push하고 [Draft PR #906](https://github.com/skyg547/account/pull/906)을 `main` 대상으로 생성했다. 원격은 OPEN/DRAFT, 초기 MERGEABLE, 본문은 `Refs #891`, 650개 전체/56개 독립 검증, Q1–Q4, rollback, 남은 위험과 구현·리뷰·인간 권한 분리를 포함한다. Issue는 OPEN이다.
+- 게시 직후 hosted module detection, merge guard, harness check는 PENDING이었다. 이는 CI 통과 증거가 아니다. 이 기록만 추가한 최종 head에 대해 사람 리뷰와 current-head CI를 다시 확인해야 한다. Ready, merge, Issue close, 배포, 자원 삭제는 수행하지 않았다.

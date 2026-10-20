@@ -86,7 +86,7 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
             JournalSummary summary = existing.get();
             List<JournalDetailSummary> details = journalQueryPort.getJournalDetails(summary.getId());
             requireSameClosingRequest(command, summary, details);
-            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo());
+            return new ClosingJournalEntryResult(summary.getId(), summary.getSlipNo(), summary.getStatus());
         }
 
         JournalEntryCommand journalCommand = new JournalEntryCommand(
@@ -146,9 +146,13 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
             throw new IllegalStateException(
                     "Closing slip already exists with different business content: " + command.slipNo());
         }
-        if ("REJECTED".equals(persisted.getStatus()) || "REVERSED".equals(persisted.getStatus())) {
+        String status = persisted.getStatus();
+        // Only known Journal workflow states can represent the same adjustment on a rerun.
+        // An unknown state must not be treated as a reusable financial result.
+        if (!("DRAFT".equals(status) || "REQUESTED".equals(status)
+                || "APPROVED".equals(status) || "POSTED".equals(status))) {
             throw new IllegalStateException(
-                    "Closing slip exists in a non-reusable status " + persisted.getStatus()
+                    "Closing slip exists in a non-reusable status " + status
                             + ": " + command.slipNo());
         }
     }

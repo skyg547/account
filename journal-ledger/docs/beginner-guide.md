@@ -100,6 +100,11 @@ HTTP/Kafka Adapter
 운영자는 같은 JobParameters의 같은 JobInstance를 재시작해야 하며, 마지막 GL/SL 대사가
 성공한 뒤에만 조회와 전기가 다시 열립니다.
 
+Cleanup은 이 기간의 GL/SL 잔액을 **DB에서 날짜 조건으로 직접 삭제**합니다. 시작일과
+종료일을 모두 포함하며, JPA가 대상 잔액을 전부 읽어 Java 목록으로 만들지 않습니다.
+삭제가 실패하면 GL과 SL은 같은 트랜잭션에서 함께 롤백됩니다. 이미 성공한 cleanup은
+같은 JobInstance 재시작 때 건너뛰어, 커밋된 chunk를 다시 지우지 않습니다.
+
 상세 호출 흐름은 [process-flow.md](process-flow.md), 테이블 관계는 [schema.md](schema.md)를 참고합니다.
 
 ## 로컬 실행

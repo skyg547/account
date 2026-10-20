@@ -40,6 +40,8 @@ class FinancialClosingCalculationServiceTest {
     private FxValuationService fx;
     @Mock
     private EclProvisionService ecl;
+    @Mock
+    private com.ho.account.closing.application.port.out.ClosingFinancialRunManifestPort manifest;
 
     private ClosingAccountingProperties properties;
     private FinancialClosingCalculationService service;
@@ -47,7 +49,9 @@ class FinancialClosingCalculationServiceTest {
     @BeforeEach
     void setUp() {
         properties = new ClosingAccountingProperties();
-        service = new FinancialClosingCalculationService(evidence, fx, ecl, properties);
+        service = new FinancialClosingCalculationService(evidence, fx, ecl, properties, manifest);
+        org.mockito.Mockito.lenient().when(manifest.loadOrCreate(any(), any(), any()))
+                .thenAnswer(call -> ((java.util.function.Supplier<?>) call.getArgument(2)).get());
     }
 
     @Test
@@ -64,6 +68,33 @@ class FinancialClosingCalculationServiceTest {
                 .hasMessageContaining("FX rate not found");
 
         verify(fx, never()).postPreparedFxValuation(any());
+    }
+
+    @Test
+    void postedReplayReportsCompletedFinancialOutcome() {
+        ClosingJournalEntryCommand prepared = command("ECL-POSTED");
+        when(ecl.prepareEclProvision(DATE, 88L)).thenReturn(List.of(prepared));
+        when(ecl.postPreparedEclProvision(List.of(prepared)))
+                .thenReturn(List.of(new ClosingJournalEntryResult(901L, prepared.slipNo(), "POSTED")));
+
+        FinancialClosingCalculationResult result = service.runEclProvision(DATE, 88L);
+
+        assertThat(result.allPosted()).isTrue();
+        assertThat(result.singleJournalEntryId()).isEqualTo(901L);
+    }
+
+    @Test
+    void mixedPostedAndDraftReplayRequiresReconciliation() {
+        ClosingJournalEntryCommand a = command("ECL-A");
+        ClosingJournalEntryCommand b = command("ECL-B");
+        when(ecl.prepareEclProvision(DATE, 88L)).thenReturn(List.of(a, b));
+        when(ecl.postPreparedEclProvision(List.of(a, b))).thenReturn(List.of(
+                new ClosingJournalEntryResult(901L, a.slipNo(), "POSTED"),
+                new ClosingJournalEntryResult(902L, b.slipNo(), "DRAFT")));
+
+        assertThatThrownBy(() -> service.runEclProvision(DATE, 88L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("mixed posted and draft");
     }
 
     @Test

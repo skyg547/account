@@ -20,6 +20,9 @@ public class ProvisionBatchDto {
     private LocalDateTime runDateTime;
     private ProvisionBatch.ProvisionBatchStatus status;
     private Long generatedJournalEntryId;
+    private String executionKey;
+    private Integer journalCount;
+    private boolean financialEffectsPending;
     private String reportLink;
     private String runBy;
     private LocalDateTime createdAt;
@@ -36,6 +39,11 @@ public class ProvisionBatchDto {
                 .runDateTime(entity.getRunDateTime())
                 .status(entity.getStatus())
                 .generatedJournalEntryId(entity.getGeneratedJournalEntryId())
+                .executionKey(entity.getExecutionKey())
+                .journalCount(entity.getJournalCount())
+                .financialEffectsPending(entity.getStatus() == ProvisionBatch.ProvisionBatchStatus.RUNNING
+                        || entity.getStatus() == ProvisionBatch.ProvisionBatchStatus.RECONCILIATION_REQUIRED
+                        || entity.getStatus() == ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL)
                 .reportLink(entity.getReportLink())
                 .runBy(entity.getRunBy())
                 .createdAt(entity.getCreatedAt())
