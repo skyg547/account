@@ -130,17 +130,19 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 | --- | --- |
 | `transition_id` | 한 번의 마감/재오픈 작업 UUID |
 | `transition_target` | Master와 캘린더가 도달할 `OPEN` 또는 `CLOSED` |
-| `transition_stage` | 아직 전송 권한을 획득하지 않은 `PREPARED`, 전송 여부가 불명확할 수 있는 `DISPATCHED` |
+| `transition_stage` | 로컬 의도 `PREPARED`, 원격 준비 시작 `DISPATCHED`, 재오픈 승인 확정 `AUTHORIZED`, Master 확인 전 최종화 `READY_TO_CONFIRM` |
 | `transition_fiscal_period_id` | Master 회계기간 ID |
 | `transition_approval_id` | 재오픈 승인 ID; 마감에서는 null |
 | `transition_actor`, `transition_prepared_at` | 원 결정자와 준비 시각 |
+| `transition_protocol` | V58 이후 `RECEIPT_V1`; null인 기존 직접 PUT 의도는 자동 복구 차단 |
 
-전이 완료는 캘린더 상태 변경·감사 기록·전이 컬럼 제거를 한 로컬 트랜잭션으로 처리합니다.
-실패하면 전이 기록을 보존합니다. DB CHECK 제약은 전이 컬럼의 부분 저장을 거부하고,
-재오픈 의도는 `CLOSED` 캘린더와 승인 ID, 마감 의도는 `IN_PROGRESS` 캘린더와 연결되게 합니다.
+V58은 재오픈 `AUTHORIZED`/`READY_TO_CONFIRM` 상태에서 캘린더 `OPEN`과 작업 ID가 함께 유지되도록 CHECK 제약을
+확장합니다. 이 상태에는 승인·새 체크리스트·감사가 이미 확정되어 있으며, Master `OPEN` 적용
+이후까지 Closing 입장은 작업 ID로 차단됩니다. DB CHECK 제약은 전이 컬럼의 부분 저장을 거부합니다.
 준비·완료·복구 감사 기록에는 작업 ID와 원 결정자를 남깁니다. 완료 감사는 회계기간 ID와 승인 ID도
 보존해 전이 필드를 비운 뒤에도 원 승인을 추적할 수 있으며, 복구 기록의 처리자는 별도로 보존합니다.
-전송 전 재개와 전송 후 종료 확인에 따른 복구는 감사 사유로 구분합니다. `reopen_approvals.status=APPROVED`만으로 실제 재오픈 완료를
+Master 작업 영수증은 operation ID, 기간 ID, 기대·목표 상태, 원 결정자와 PREPARED/APPLIED/CONFIRMED/CANCELLED 단계를
+포함합니다. 같은 ID의 다른 요청은 거부되며, 복구는 전체 내용을 대사합니다. `reopen_approvals.status=APPROVED`만으로 실제 재오픈 완료를
 판단하지 말고 캘린더 상태와 미완료 전이를 함께 확인해야 합니다.
 동시성 경계와 운영 복구 조건은 [업무 흐름](process-flow.md#월말-동시-결정과-복구-gh-774)에 설명합니다.
 
@@ -172,7 +174,7 @@ forward-only입니다. 롤백 시 증빙이나 미완료 전이를 삭제하지 
 
 ## 재오픈 회차와 체크리스트 이력 (GH-885)
 
-V54는 `closing_calendars`, `closing_tasks`, `closing_gates`에 양수 `cycle_number`를 추가하고 캘린더에 `last_source_changed_at`(UTC)을 추가합니다. 기존 자식 행은 1회차로 backfill합니다. 재오픈 이력이 없는 캘린더도 1회차입니다. 이미 재오픈된 기존 캘린더(`reopened_at IS NOT NULL`)는 자식 행의 정확한 과거 회차를 복구할 수 없으므로 캘린더만 2회차로 두어 과거 완료/통과 행을 차단합니다. 해당 기간은 운영자가 새 태스크·게이트를 정의해야 다시 마감할 수 있습니다. 캘린더의 번호가 현재 회차이며 각 태스크·게이트 행의 번호가 해당 행의 이력 회차입니다. 승인된 재오픈의 원격 `OPEN` 결과를 확인한 뒤 한 로컬 트랜잭션에서 번호를 올리고 직전 회차 정의를 `PENDING` 행으로 복제합니다. 완료/통과 상태, 작업자, 통과 시각은 복제하지 않습니다. 원본 행과 감사 기록은 보존합니다.
+V54는 `closing_calendars`, `closing_tasks`, `closing_gates`에 양수 `cycle_number`를 추가하고 캘린더에 `last_source_changed_at`(UTC)을 추가합니다. 기존 자식 행은 1회차로 backfill합니다. 재오픈 이력이 없는 캘린더도 1회차입니다. 이미 재오픈된 기존 캘린더(`reopened_at IS NOT NULL`)는 자식 행의 정확한 과거 회차를 복구할 수 없으므로 캘린더만 2회차로 두어 과거 완료/통과 행을 차단합니다. 해당 기간은 운영자가 새 태스크·게이트를 정의해야 다시 마감할 수 있습니다. 캘린더의 번호가 현재 회차이며 각 태스크·게이트 행의 번호가 해당 행의 이력 회차입니다. 승인된 재오픈은 원격 `OPEN` 적용 전에 한 로컬 트랜잭션에서 번호를 올리고 직전 회차 정의를 `PENDING` 행으로 복제합니다. 완료/통과 상태, 작업자, 통과 시각은 복제하지 않습니다. 원본 행과 감사 기록은 보존합니다.
 
 현재 회차만 일반 태스크 조회, 게이트 선행조건, 최종 마감 준비에 참여하고, 이전 회차 ID의 상태 변경은 거부합니다. 동일한 원천 상태에도 체크리스트 증빙을 자동 이월하지 않습니다. 새 마감은 새 시작 시각 뒤의 최종 마감 증빙을 요구합니다. V54 적용 전 오래된 writer를 배출하고, 롤백은 회차 행을 삭제하거나 번호를 되돌리는 방식으로 하지 않습니다. 원천별 권위 있는 변경 워터마크가 없으므로 공급자 제출 이후의 모든 외부 변경을 DB 회차 번호만으로 감지할 수는 없습니다.
 Closing이 조정 전표를 승인해 등록하면 `last_source_changed_at`을 갱신합니다. 현재 회차에서 통제가 진행됐다면 회차를 올리고 새로운 `PENDING` 정의를 복제하며, 이전 완료 행은 보존합니다. 마감 증빙의 `observedAt`은 현재 시작 시각과 이 원천 변경 시각 양쪽보다 늦어야 합니다. 이 시각은 Closing을 통과한 조정만 포착하며 다른 모듈이 직접 전기한 거래의 워터마크가 아닙니다.

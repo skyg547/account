@@ -47,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.sql.init.mode=never",
                 "closing.master-data.remote.enabled=true",
                 "closing.master-data.base-url=http://master-data.test",
+                "closing.master-data.internal-auth.secret=0123456789abcdef0123456789abcdef",
                 "closing.journal-ledger.base-url=http://journal-ledger.test",
                 "closing.sources.enabled=true",
                 "closing.sources.journal.url=jdbc:postgresql://localhost:1/closing-dev-journal",

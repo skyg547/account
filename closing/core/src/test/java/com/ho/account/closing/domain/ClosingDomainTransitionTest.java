@@ -78,6 +78,34 @@ class ClosingDomainTransitionTest {
     }
 
     @Test
+    void reopenRequiresDurableAuthorizationBeforeItsTransitionCanFinish() {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        calendar.prepareTransition("OPEN", 20L, 30L, null, "checker");
+        String operationId = calendar.getTransitionId();
+
+        assertThatThrownBy(() -> calendar.authorizeReopen(operationId)).isInstanceOf(IllegalStateException.class);
+        calendar.markTransitionDispatched(operationId);
+        assertThatThrownBy(() -> calendar.finishTransition(operationId)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("finalization");
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+
+        calendar.authorizeReopen(operationId);
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.AUTHORIZED);
+        assertThat(calendar.getTransitionId()).isEqualTo(operationId);
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+        assertThatThrownBy(() -> calendar.authorizeReopen(operationId)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> calendar.finishTransition(operationId)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("finalization");
+        calendar.readyToConfirmReopen(operationId);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.READY_TO_CONFIRM);
+        calendar.finishTransition(operationId);
+        assertThat(calendar.getTransitionId()).isNull();
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+    }
+
+    @Test
     void reopenWithoutNewActivityCannotReusePriorCompletedTaskAndPassedGate() {
         ClosingCalendar calendar = new ClosingCalendar();
         calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.OPEN);

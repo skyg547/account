@@ -244,7 +244,7 @@ class EclProvisionCurrencyUnitsTest {
 
         assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("different business content");
+                .hasMessageContaining("different snapshot lineage");
         assertThat(fixture.commands).hasSize(1);
     }
 
@@ -283,7 +283,7 @@ class EclProvisionCurrencyUnitsTest {
 
         assertThatThrownBy(() -> fixture.service.processEclProvision(DATE, 781L))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("different business content");
+                .hasMessageContaining("different snapshot lineage");
         assertThat(fixture.commands).hasSize(1);
     }
 

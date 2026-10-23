@@ -9,3 +9,8 @@ spring:
     table: flyway_schema_history_closing
     baseline-on-migrate: false
     baseline-version: 49
+
+closing:
+  master-data:
+    internal-auth:
+      secret: ${MASTER_DATA_CLOSING_ASSERTION_SECRET:}

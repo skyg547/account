@@ -180,3 +180,12 @@
 
 - [Draft PR #910](https://github.com/skyg547/account/pull/910) is OPEN/DRAFT with `Refs #895`, targeting `main` from `agent/895-closing-pure-domain`; implementation commit `76cea97532eab0d9828525fd380314df6f94def3`. Issue #895 remains OPEN and is `status:needs-review`; [review handoff comment](https://github.com/skyg547/account/issues/895#issuecomment-6081357887) records the gates. The isolated worktree is retained.
 - PR body contains the forced 636-test verification, both boot JARs, independent Q1–Q4, rollback, remaining live-environment gates and explicit authority separation. Human current-head/CI review is next; Ready, merge, Issue close, deployment and cleanup were not performed.
+
+## GH-773 — verified cross-module Draft handoff (2026-10-23)
+
+- Issue: [#773](https://github.com/skyg547/account/issues/773), CL03/P1; audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Branch/worktree: `agent/773-remote-fiscal-transition-v2` / `/tmp/account-773-remote-fiscal-transition-v2`; base `origin/main@ed539846a92f46e09896d0a56ab808a4f94cacc7`.
+- Allowlist: `master-data/**`, `closing/**`, `contracts/**`. These module-local records satisfy the requested AI harness update while the user's shared-harness prohibition remains in force.
+- Model/roles: GPT-6 Sol/xhigh module writers with disjoint file ownership; independent read-only reviewer `/root/review_design`; parent Integrator alone owns records and Git/GitHub publication.
+- Status: implementation frozen; exact combined command PASS (Master 840/38 skipped, Closing 757/1 skipped, Contracts 10/0 skipped; failures/errors 0). Isolated PostgreSQL V14 test and four API/Batch bootJar tasks PASS. Audited RED/current GREEN regression proved. Independent review Q1–Q4 PASS with no blocking finding. Draft PR publication is the authorized next step.
+- Next owner: human reviewer and authorized release/operator for current-head hosted CI, legacy DISPATCHED reconciliation, Gateway isolation and deployed multi-service fault testing. Ready, merge, Issue close, deployment and branch/worktree deletion require separate gates.

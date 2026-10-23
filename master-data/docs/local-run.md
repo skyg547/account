@@ -267,3 +267,10 @@ API 테스트 성공은 해당 화면의 호환성 검증을 대신하지 않습
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD` 변경 요청은 typed applier와 버전 조회 어댑터가 함께 추가되기 전까지 접수 단계에서 fail-closed 됩니다.
 - 직접 CRUD 쓰기 엔드포인트는 유효한 Bearer JWT가 필요하며 `MasterDataDirectWritePolicy`에 의해 관리자 보정 권한(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN` 등)으로 제한됩니다. 자격증명이 없거나 무효이거나 전달된 `X-Auth-Roles`가 JWT claim과 다르면 HTTP 401, 검증된 JWT에 관리자 역할이 없으면 HTTP 403입니다.
 - `apply-due`는 최대 500건을 선택해 요청별 트랜잭션으로 처리합니다. 응답 배열에는 성공 `APPLIED`와 확정적 실패 `FAILED_CONFLICT`/`FAILED_INVALID`가 선택 순서로 나타나며, 실패 건에는 안전한 `failureReason`과 `failedAt`이 있습니다. 같은 호출을 다시 실행하면 처리 완료 건은 제외됩니다. SQL 연결·잠금 등 인프라 오류는 호출을 실패시키고 해당 건을 `APPROVED`로 남겨 재시도할 수 있게 합니다. 로컬 H2와 합성 PostgreSQL 두 작업자 테스트가 있으며 운영 규모의 잠금 대기·처리량은 검증하지 않았습니다. `SKIP LOCKED` 파티셔닝은 아직 없습니다.
+# 회계기간 전이 회귀 검증 (Issue #773)
+
+`./gradlew :master-data:core:test --tests '*FiscalPeriodTransitionPersistenceTest' :master-data:api:test --tests '*InternalFiscalPeriodControllerTest' --console=plain --no-daemon`는 H2의 영속 영수증, 기대 상태 적용, 감사 실패 롤백, 재시도 및 서명된 HTTP 경계를 검증합니다. `./gradlew :master-data:test`는 전체 모듈 검증입니다. 로컬 API는 Flyway target 8.1을 유지하며 `db/local/schema-fiscal-period-transitions.sql`로 receipt 테이블을 만듭니다. PostgreSQL `V14`와 partial unique index는 배포 migration-runner에서 적용해야 하므로 H2 테스트만으로 PostgreSQL DDL 검증을 주장할 수 없습니다.
+
+격리된 **테스트 전용** PostgreSQL URL이 있으면 `MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:<port>/postgres ./gradlew :master-data:core:test --tests '*FiscalPeriodTransitionPostgresqlMigrationTest' --console=plain --no-daemon`으로 전체 Flyway V14 적용, 준비 상태 단일성, `APPLIED`/`CANCELLED` 후 재준비 가능 여부, SQL 기대 상태 갱신과 `CONFIRMED` 전후의 단일 SQL 입장 상태 조회를 확인합니다. 테스트는 매번 새 임의 schema를 만들고 기존 schema를 삭제하지 않습니다.
+
+배포 순서는 기존 Closing의 미완료 `DISPATCHED` 명령과 Master 기간 상태를 먼저 조사·재조정하고, 기존 내부 직접 PUT 호출을 배출한 다음, `V14` migration과 새 Closing/Master 프로토콜을 배포하는 순서입니다. 과거 요청에는 operation receipt가 없어 새 조회 API가 커밋 여부를 증명하지 않습니다. 장애 재시도는 동일 operation ID의 `GET /api/internal/fiscal-periods/transitions/{operationId}`를 우선 확인하고, 결과를 로컬 승인·캘린더·감사와 대조합니다.

@@ -41,10 +41,19 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
     private static final Logger log = LoggerFactory.getLogger(MasterDataIngressAuthenticationFilter.class);
     private static final Pattern RAW_DETAIL_PATH = Pattern.compile(
             "^/api/master-data/change-requests/(-?[0-9]{1,19})/raw-detail$");
+    private static final Pattern TRANSITION_PREPARE_PATH = Pattern.compile(
+            "^/api/internal/fiscal-periods/([1-9][0-9]{0,18})/transitions/([A-Za-z0-9._:-]{1,128})$");
+    private static final Pattern TRANSITION_RECEIPT_PATH = Pattern.compile(
+            "^/api/internal/fiscal-periods/transitions/([A-Za-z0-9._:-]{1,128})$");
+    private static final Pattern TRANSITION_CONFIRM_PATH = Pattern.compile(
+            "^/api/internal/fiscal-periods/transitions/([A-Za-z0-9._:-]{1,128})/confirm$");
     public static final String VERIFIED_SERVICE = MasterDataIngressAuthenticationFilter.class.getName() + ".service";
     public static final String VERIFIED_ACTOR = MasterDataIngressAuthenticationFilter.class.getName() + ".actor";
     public static final String VERIFIED_PERIOD_ID = MasterDataIngressAuthenticationFilter.class.getName() + ".periodId";
     public static final String VERIFIED_CLOSING_STATUS = MasterDataIngressAuthenticationFilter.class.getName() + ".closingStatus";
+    public static final String VERIFIED_OPERATION_ID = MasterDataIngressAuthenticationFilter.class.getName() + ".operationId";
+    public static final String VERIFIED_EXPECTED_STATUS = MasterDataIngressAuthenticationFilter.class.getName() + ".expectedStatus";
+    public static final String VERIFIED_TARGET_STATUS = MasterDataIngressAuthenticationFilter.class.getName() + ".targetStatus";
     private static final String INTERNAL_AUDIENCE = "master-data-internal";
     private static final Set<String> DELEGATED_ROLES = Set.of(
             "ROLE_ADMIN", "ROLE_SYSTEM_ADMIN", "ROLE_ACCOUNTING_ADMIN");
@@ -180,6 +189,51 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
             throw new IllegalArgumentException("closing principal required");
         }
         String actor = safeAuditActor(claims.get("actor", String.class));
+        String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+        Matcher prepare = TRANSITION_PREPARE_PATH.matcher(requestPath);
+        Matcher receipt = TRANSITION_RECEIPT_PATH.matcher(requestPath);
+        Matcher confirm = TRANSITION_CONFIRM_PATH.matcher(requestPath);
+        if (prepare.matches() || receipt.matches() || confirm.matches()) {
+            if (!"closing-fiscal-transition".equals(claims.get("serviceAuthority", String.class))) {
+                throw new IllegalArgumentException("signed fiscal transition service authority required");
+            }
+            String method = request.getMethod();
+            if (!method.equals(claims.get("method", String.class))
+                    || !requestPath.equals(claims.get("path", String.class))
+                    || (prepare.matches() && !"PUT".equals(method))
+                    || (receipt.matches() && !Set.of("POST", "GET", "DELETE").contains(method))
+                    || (confirm.matches() && !"POST".equals(method))) {
+                throw new IllegalArgumentException("service assertion target mismatch");
+            }
+            String operationId = prepare.matches() ? prepare.group(2)
+                    : receipt.matches() ? receipt.group(1) : confirm.group(1);
+            if (!operationId.equals(claims.get("operationId", String.class))) {
+                throw new IllegalArgumentException("signed operation ID required");
+            }
+            if (prepare.matches()) {
+                long periodId = Long.parseLong(prepare.group(1));
+                Object periodClaim = claims.get("fiscalPeriodId");
+                if (!(periodClaim instanceof Number periodNumber)
+                        || periodNumber.longValue() != periodId
+                        || !Long.toString(periodNumber.longValue()).equals(periodNumber.toString())) {
+                    throw new IllegalArgumentException("signed fiscal period ID required");
+                }
+                String expected = claims.get("expectedStatus", String.class);
+                String target = claims.get("targetStatus", String.class);
+                if (expected == null || target == null || expected.equals(target)
+                        || !Set.of("OPEN", "CLOSED", "PERMANENTLY_CLOSED").contains(expected)
+                        || !Set.of("OPEN", "CLOSED", "PERMANENTLY_CLOSED").contains(target)) {
+                    throw new IllegalArgumentException("signed transition states required");
+                }
+                request.setAttribute(VERIFIED_PERIOD_ID, periodId);
+                request.setAttribute(VERIFIED_EXPECTED_STATUS, expected);
+                request.setAttribute(VERIFIED_TARGET_STATUS, target);
+            }
+            request.setAttribute(VERIFIED_SERVICE, "closing");
+            request.setAttribute(VERIFIED_ACTOR, actor);
+            request.setAttribute(VERIFIED_OPERATION_ID, operationId);
+            return request;
+        }
         if (roles(claims.get("actorRoles")).stream().noneMatch(DELEGATED_ROLES::contains)) {
             throw new IllegalArgumentException("delegated actor role required");
         }
@@ -194,7 +248,6 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
             throw new IllegalArgumentException("signed closing status required");
         }
         String targetPath = "/api/internal/fiscal-periods/" + periodId + "/closing-status";
-        String requestPath = request.getRequestURI().substring(request.getContextPath().length());
         // A signed assertion is valid for one operation and one target, even while it remains unexpired.
         if (!"PUT".equals(request.getMethod()) || !"PUT".equals(claims.get("method", String.class))
                 || !targetPath.equals(requestPath) || !targetPath.equals(claims.get("path", String.class))) {

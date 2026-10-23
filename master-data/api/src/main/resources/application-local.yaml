@@ -25,7 +25,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/local/schema-business-partner-screening.sql
+      schema-locations: classpath:db/local/schema-business-partner-screening.sql,classpath:db/local/schema-fiscal-period-transitions.sql
       data-locations: classpath:data-local.sql
 
 eureka:

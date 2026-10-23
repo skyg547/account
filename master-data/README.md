@@ -1,5 +1,7 @@
 # 📂 Master Data Service (기준 정보 관리)
 
+회계기간 close/reopen은 [영속 operation 영수증과 signed prepare/apply/lookup/confirm 절차](docs/process-flow.md#수신-서비스-인증)를 사용합니다. 기존 내부 단일 PUT은 410으로 닫혔습니다. 준비 중인 close와 아직 확인되지 않은 reopen은 공개 조회에서 effective `CLOSED`로 표시되어 신규 전표 입장을 막습니다. reopen의 공개 `OPEN`은 Closing의 로컬 완료와 Master 확인이 끝난 뒤에만 반환됩니다. [스키마](docs/schema.md#fiscal-transition-receipts-issue-773)와 [검증·배포 순서](docs/local-run.md#회계기간-전이-회귀-검증-issue-773)를 참조하세요.
+
 `master-data` 모듈은 전체 시스템의 '단일 진실의 원천(Single Source of Truth)'입니다. 모든 모듈이 공유하는 계정과목, 거래처, 부서, 통화 등의 핵심 데이터를 관리하며, 이력 보존(SCD2)과 변경 승인 프로세스를 통해 데이터의 신뢰성을 보장합니다.
 
 ### 거래처 도메인과 저장 모델의 경계

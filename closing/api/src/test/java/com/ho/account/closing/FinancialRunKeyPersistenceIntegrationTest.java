@@ -7,6 +7,8 @@ import com.ho.account.closing.domain.ProvisionBatch;
 import com.ho.account.closing.domain.ValuationBatch;
 import com.ho.account.closing.infrastructure.persistence.ProvisionBatchRepository;
 import com.ho.account.closing.infrastructure.persistence.ValuationBatchRepository;
+import com.ho.account.closing.infrastructure.persistence.ValuationBatchEntity;
+import com.ho.account.closing.infrastructure.persistence.ProvisionBatchEntity;
 import java.time.LocalDateTime;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -30,7 +32,7 @@ class FinancialRunKeyPersistenceIntegrationTest {
 
     @Test
     void valuationKeyIsUniqueAndFindsOriginalRun() {
-        ValuationBatch original = valuationBatches.saveAndFlush(valuation("same-key"));
+        ValuationBatchEntity original = valuationBatches.saveAndFlush(valuation("same-key"));
         assertThat(valuationBatches.findByExecutionKey("same-key")).contains(original);
         assertThatThrownBy(() -> valuationBatches.saveAndFlush(valuation("same-key")))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -38,7 +40,7 @@ class FinancialRunKeyPersistenceIntegrationTest {
 
     @Test
     void provisionKeyIsUniqueAndFindsOriginalRun() {
-        ProvisionBatch original = provisionBatches.saveAndFlush(provision("same-key"));
+        ProvisionBatchEntity original = provisionBatches.saveAndFlush(provision("same-key"));
         assertThat(provisionBatches.findByExecutionKey("same-key")).contains(original);
         assertThatThrownBy(() -> provisionBatches.saveAndFlush(provision("same-key")))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -52,7 +54,7 @@ class FinancialRunKeyPersistenceIntegrationTest {
         CountDownLatch allowCommit = new CountDownLatch(1);
         try {
             var first = executor.submit(() -> new TransactionTemplate(transactions).execute(status -> {
-                ValuationBatch batch = valuationBatches.saveAndFlush(valuation("concurrent-key"));
+                ValuationBatchEntity batch = valuationBatches.saveAndFlush(valuation("concurrent-key"));
                 firstInserted.countDown();
                 try {
                     if (!allowCommit.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("timed out");
@@ -80,8 +82,8 @@ class FinancialRunKeyPersistenceIntegrationTest {
         }
     }
 
-    private ValuationBatch valuation(String key) {
-        ValuationBatch batch = new ValuationBatch();
+    private ValuationBatchEntity valuation(String key) {
+        ValuationBatchEntity batch = new ValuationBatchEntity();
         batch.setFiscalPeriodId(1L);
         batch.setValuationType(ValuationBatch.ValuationType.FX_RATE);
         batch.setRunDateTime(LocalDateTime.now());
@@ -91,8 +93,8 @@ class FinancialRunKeyPersistenceIntegrationTest {
         return batch;
     }
 
-    private ProvisionBatch provision(String key) {
-        ProvisionBatch batch = new ProvisionBatch();
+    private ProvisionBatchEntity provision(String key) {
+        ProvisionBatchEntity batch = new ProvisionBatchEntity();
         batch.setFiscalPeriodId(1L);
         batch.setProvisionType(ProvisionBatch.ProvisionType.ECL);
         batch.setRunDateTime(LocalDateTime.now());

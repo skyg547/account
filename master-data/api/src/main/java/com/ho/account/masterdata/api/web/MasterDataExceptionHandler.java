@@ -2,6 +2,8 @@ package com.ho.account.masterdata.api.web;
 
 import com.ho.account.masterdata.core.domain.exception.MasterDataIdempotencyConflictException;
 import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
+import com.ho.account.masterdata.core.domain.exception.FiscalPeriodTransitionConflictException;
+import com.ho.account.masterdata.core.domain.exception.FiscalPeriodTransitionNotFoundException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules.FieldValidationException;
 import com.ho.account.shared.finance.dto.ApiResponse;
 import com.ho.account.shared.finance.exception.GlobalExceptionAdvice;
@@ -67,6 +69,20 @@ public class MasterDataExceptionHandler extends GlobalExceptionAdvice {
                     .body(ApiResponse.failure("Change request state conflict"));
         }
         return handleUnexpected(exception);
+    }
+
+    @ExceptionHandler(FiscalPeriodTransitionConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFiscalTransitionConflict(
+            FiscalPeriodTransitionConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure("Fiscal transition conflict"));
+    }
+
+    @ExceptionHandler(FiscalPeriodTransitionNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFiscalTransitionNotFound(
+            FiscalPeriodTransitionNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failure("Fiscal transition not found"));
     }
 
     @ExceptionHandler(MasterDataVersionConflictException.class)

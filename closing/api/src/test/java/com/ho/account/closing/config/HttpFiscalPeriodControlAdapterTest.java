@@ -1,6 +1,10 @@
 package com.ho.account.closing.config;
 
 import com.ho.account.closing.infrastructure.external.HttpFiscalPeriodControlAdapter;
+import com.ho.account.contracts.masterdata.FiscalPeriodClosingStatus;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionCommand;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.time.Duration;
 import java.time.LocalDate;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +27,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class HttpFiscalPeriodControlAdapterTest {
     private static final String BASE = "http://master-data.test";
+    private static final String SECRET = "separate-closing-assertion-test-key-123456789";
     private static final String PERIOD = """
             {"id":9,"fiscalYear":"2026","fiscalPeriod":"09",
              "startDate":"2026-09-01","endDate":"2026-09-30","closingStatus":"CLOSED"}
@@ -35,7 +40,8 @@ class HttpFiscalPeriodControlAdapterTest {
         RestClient.Builder builder = spy(RestClient.builder());
         server = MockRestServiceServer.bindTo(builder).build();
         doReturn(builder).when(builder).requestFactory(any(ClientHttpRequestFactory.class));
-        adapter = new HttpFiscalPeriodControlAdapter(builder, BASE, "2s", "5s");
+        adapter = new HttpFiscalPeriodControlAdapter(builder, BASE,
+                Duration.ofSeconds(2), Duration.ofSeconds(5), SECRET);
     }
 
     @AfterEach
@@ -74,43 +80,145 @@ class HttpFiscalPeriodControlAdapterTest {
     }
 
     @Test
-    void statusUpdateCarriesServiceIdentityAndAuditActor() {
-        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/closing-status"))
-                .andExpect(method(HttpMethod.PUT))
+    void retiredDirectUpdateFailsBeforeAnyHttpRequest() {
+        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "CLOSED", "operator"))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("operation-bound transition");
+    }
+
+    @Test
+    void reopenOperationRoutesSendBoundSignedServiceAssertionAndValidateReceipt() throws Exception {
+        String operationId = "2a28494e-8b9c-47e1-a443-3ce7b732973a";
+        String preparePath = "/api/internal/fiscal-periods/9/transitions/" + operationId;
+        String receiptPath = "/api/internal/fiscal-periods/transitions/" + operationId;
+        String prepared = "{\"operationId\":\"" + operationId + "\",\"fiscalPeriodId\":9,"
+                + "\"expectedStatus\":\"CLOSED\",\"targetStatus\":\"OPEN\","
+                + "\"auditUser\":\"operator\",\"phase\":\"PREPARED\"}";
+        String applied = prepared.replace("PREPARED", "APPLIED");
+        var command = new FiscalPeriodTransitionCommand(operationId, 9L,
+                FiscalPeriodClosingStatus.CLOSED, FiscalPeriodClosingStatus.OPEN, "operator");
+        server.expect(requestTo(BASE + preparePath)).andExpect(method(HttpMethod.PUT))
                 .andExpect(header("X-Service-Identity", "closing"))
-                .andExpect(content().json("{\"closingStatus\":\"CLOSED\",\"auditUser\":\"operator\"}"))
-                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
-        assertThat(adapter.updateClosingStatus(9L, "CLOSED", "operator").closingStatus()).isEqualTo("CLOSED");
+                .andExpect(request -> verifyAssertion(request.getHeaders().getFirst("X-Service-Assertion"),
+                        "PUT", preparePath, operationId, "operator"))
+                .andExpect(content().json("{\"expectedStatus\":\"CLOSED\",\"targetStatus\":\"OPEN\"}"))
+                .andRespond(withSuccess(prepared, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + receiptPath)).andExpect(method(HttpMethod.GET))
+                .andExpect(request -> verifyAssertion(request.getHeaders().getFirst("X-Service-Assertion"),
+                        "GET", receiptPath, operationId, "closing-service"))
+                .andRespond(withSuccess(prepared, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + receiptPath)).andExpect(method(HttpMethod.POST))
+                .andExpect(request -> verifyAssertion(request.getHeaders().getFirst("X-Service-Assertion"),
+                        "POST", receiptPath, operationId, "closing-service"))
+                .andRespond(withSuccess(applied, MediaType.APPLICATION_JSON));
+        String confirmPath = receiptPath + "/confirm";
+        server.expect(requestTo(BASE + confirmPath)).andExpect(method(HttpMethod.POST))
+                .andExpect(request -> verifyAssertion(request.getHeaders().getFirst("X-Service-Assertion"),
+                        "POST", confirmPath, operationId, "closing-service"))
+                .andRespond(withSuccess(prepared.replace("PREPARED", "CONFIRMED"), MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.prepareClosingTransition(command).matches(command)).isTrue();
+        assertThat(adapter.findTransitionReceipt(operationId).orElseThrow().matches(command)).isTrue();
+        assertThat(adapter.applyClosingTransition(operationId).phase().name()).isEqualTo("APPLIED");
+        assertThat(adapter.confirmClosingTransition(operationId).phase().name()).isEqualTo("CONFIRMED");
+    }
+
+    @Test
+    void preparedCloseCancellationUsesItsOwnBoundOperationAndSignedActor() {
+        String operationId = "e44d9d1b-6a66-4c3d-9335-462d3bb01e82";
+        String preparePath = "/api/internal/fiscal-periods/9/transitions/" + operationId;
+        String receiptPath = "/api/internal/fiscal-periods/transitions/" + operationId;
+        String prepared = "{\"operationId\":\"" + operationId + "\",\"fiscalPeriodId\":9,"
+                + "\"expectedStatus\":\"OPEN\",\"targetStatus\":\"CLOSED\","
+                + "\"auditUser\":\"operator\",\"phase\":\"PREPARED\"}";
+        var command = new FiscalPeriodTransitionCommand(operationId, 9L,
+                FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "operator");
+        server.expect(requestTo(BASE + preparePath)).andExpect(method(HttpMethod.PUT))
+                .andExpect(header("X-Service-Identity", "closing"))
+                .andExpect(request -> verifyAssertion(request.getHeaders().getFirst("X-Service-Assertion"),
+                        "PUT", preparePath, operationId, "operator", "OPEN", "CLOSED"))
+                .andExpect(content().json("{\"expectedStatus\":\"OPEN\",\"targetStatus\":\"CLOSED\"}"))
+                .andRespond(withSuccess(prepared, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + receiptPath)).andExpect(method(HttpMethod.DELETE))
+                .andExpect(request -> verifyAssertion(request.getHeaders().getFirst("X-Service-Assertion"),
+                        "DELETE", receiptPath, operationId, "recovery-operator"))
+                .andRespond(withSuccess(prepared.replace("PREPARED", "CANCELLED"), MediaType.APPLICATION_JSON));
+
+        assertThat(adapter.prepareClosingTransition(command).matches(command)).isTrue();
+        assertThat(adapter.cancelClosingTransition(operationId, "recovery-operator").phase().name())
+                .isEqualTo("CANCELLED");
+    }
+
+    private static void verifyAssertion(String assertion, String method, String path,
+            String operationId, String actor) {
+        verifyAssertion(assertion, method, path, operationId, actor, "CLOSED", "OPEN");
+    }
+
+    private static void verifyAssertion(String assertion, String method, String path,
+            String operationId, String actor, String expectedStatus, String targetStatus) {
+        try {
+            assertThat(assertion).isNotBlank();
+            String[] parts = assertion.split("\\.");
+            assertThat(parts).hasSize(3);
+            var mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] signed = mac.doFinal((parts[0] + "." + parts[1]).getBytes(StandardCharsets.US_ASCII));
+            assertThat(Base64.getUrlDecoder().decode(parts[2])).containsExactly(signed);
+            var claims = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                    Base64.getUrlDecoder().decode(parts[1]));
+            assertThat(claims.path("iss").asText()).isEqualTo("closing-service");
+            assertThat(claims.path("aud").asText()).isEqualTo("master-data-internal");
+            assertThat(claims.path("sub").asText()).isEqualTo("closing");
+            assertThat(claims.path("method").asText()).isEqualTo(method);
+            assertThat(claims.path("path").asText()).isEqualTo(path);
+            assertThat(claims.path("operationId").asText()).isEqualTo(operationId);
+            assertThat(claims.path("actor").asText()).isEqualTo(actor);
+            assertThat(claims.path("serviceAuthority").asText()).isEqualTo("closing-fiscal-transition");
+            assertThat(claims.path("actorRoles").isMissingNode()).isTrue();
+            if ("PUT".equals(method)) {
+                assertThat(claims.path("fiscalPeriodId").asLong()).isEqualTo(9L);
+                assertThat(claims.path("expectedStatus").asText()).isEqualTo(expectedStatus);
+                assertThat(claims.path("targetStatus").asText()).isEqualTo(targetStatus);
+            }
+        } catch (Exception failure) {
+            throw new AssertionError("Cannot verify signed Closing service assertion", failure);
+        }
     }
 
     @ParameterizedTest
     @ValueSource(ints = {401, 403})
-    void rejectedServiceIdentityFailsWithoutRetryOrResponseLeak(int status) {
-        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/closing-status"))
+    void rejectedSignedOperationFailsWithoutRetryOrResponseLeak(int status) {
+        var command = new FiscalPeriodTransitionCommand("operation-1", 9L,
+                FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "operator");
+        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/transitions/operation-1"))
                 .andRespond(withStatus(HttpStatus.valueOf(status)).body("sensitive-fixture-detail"));
-        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "CLOSED", "operator"))
+        assertThatThrownBy(() -> adapter.prepareClosingTransition(command))
                 .isInstanceOf(SecurityException.class).hasMessageNotContaining("sensitive-fixture-detail").hasNoCause();
     }
 
     @Test
-    void emptyUpdateBodyAndServerFailureCannotReportSuccessfulTransition() {
-        String uri = BASE + "/api/internal/fiscal-periods/9/closing-status";
+    void emptyPrepareBodyAndServerFailureCannotReportSuccessfulTransition() {
+        var command = new FiscalPeriodTransitionCommand("operation-1", 9L,
+                FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "operator");
+        String uri = BASE + "/api/internal/fiscal-periods/9/transitions/operation-1";
         server.expect(requestTo(uri)).andRespond(withSuccess());
         server.expect(requestTo(uri)).andRespond(withServerError());
-        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "CLOSED", "operator")).isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "CLOSED", "operator")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> adapter.prepareClosingTransition(command)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> adapter.prepareClosingTransition(command)).isInstanceOf(IllegalStateException.class);
     }
 
     @ParameterizedTest
     @ValueSource(ints = {301, 302, 303, 307, 308})
-    void redirectWithValidPeriodBodyCannotReportSuccessfulTransition(int status) {
-        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/closing-status"))
+    void redirectWithReceiptBodyCannotReportSuccessfulTransition(int status) {
+        var command = new FiscalPeriodTransitionCommand("operation-1", 9L,
+                FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "operator");
+        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/transitions/operation-1"))
                 .andExpect(method(HttpMethod.PUT))
                 .andRespond(withStatus(HttpStatus.valueOf(status))
                         .header("Location", "https://sensitive-fixture.invalid/closing")
                         .body(PERIOD).contentType(MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "CLOSED", "operator"))
+        assertThatThrownBy(() -> adapter.prepareClosingTransition(command))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("HTTP " + status)
                 .hasMessageNotContaining("sensitive-fixture").hasNoCause();
@@ -146,19 +254,20 @@ class HttpFiscalPeriodControlAdapterTest {
     }
 
     @Test
-    void successfulHttpUpdateStillRequiresRequestedPeriodAndTargetStatus() {
-        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/10/closing-status"))
-                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
-        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/closing-status"))
-                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> adapter.updateClosingStatus(10L, "CLOSED", "operator"))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different period or status");
-        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "OPEN", "operator"))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different period or status");
+    void successfulHttpPrepareStillRejectsWrongReceiptBinding() {
+        var command = new FiscalPeriodTransitionCommand("operation-1", 9L,
+                FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "operator");
+        String receipt = "{\"operationId\":\"operation-1\",\"fiscalPeriodId\":10,"
+                + "\"expectedStatus\":\"OPEN\",\"targetStatus\":\"CLOSED\","
+                + "\"auditUser\":\"operator\",\"phase\":\"PREPARED\"}";
+        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/transitions/operation-1"))
+                .andRespond(withSuccess(receipt, MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.prepareClosingTransition(command))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("does not match request");
     }
 
     @Test
-    void actualTransportRejectsPutRedirectAndNeverFollowsGetRedirectToSuccessfulPeriod() throws Exception {
+    void actualTransportRejectsPrepareRedirectAndNeverFollowsGetRedirectToSuccessfulPeriod() throws Exception {
         var forwardedRequests = new java.util.concurrent.atomic.AtomicInteger();
         var originalRequests = new java.util.concurrent.atomic.AtomicInteger();
         var http = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
@@ -181,8 +290,11 @@ class HttpFiscalPeriodControlAdapterTest {
         http.start();
         try {
             var direct = new HttpFiscalPeriodControlAdapter(RestClient.builder(),
-                    "http://127.0.0.1:" + http.getAddress().getPort(), "2s", "2s");
-            assertThatThrownBy(() -> direct.updateClosingStatus(9L, "CLOSED", "operator"))
+                    "http://127.0.0.1:" + http.getAddress().getPort(),
+                    Duration.ofSeconds(2), Duration.ofSeconds(2), SECRET);
+            var command = new FiscalPeriodTransitionCommand("operation-1", 9L,
+                    FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "operator");
+            assertThatThrownBy(() -> direct.prepareClosingTransition(command))
                     .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
             assertThatThrownBy(() -> direct.findFiscalPeriodById(9L))
                     .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
@@ -200,6 +312,14 @@ class HttpFiscalPeriodControlAdapterTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new HttpFiscalPeriodControlAdapter(RestClient.builder(), BASE, "2s", timeout))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void remoteBeanCannotStartWithoutSharedAssertionSecret() {
+        assertThatThrownBy(() -> new HttpFiscalPeriodControlAdapter(
+                RestClient.builder(), BASE, "2s", "5s", "short"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("assertion key is not configured");
     }
 
     @Test

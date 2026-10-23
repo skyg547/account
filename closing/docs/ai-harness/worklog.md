@@ -454,3 +454,30 @@ Rollback: 먼저 annual-close endpoint를 중지하고 기존 DRAFT/POSTED 전�
 
 - Published [OPEN Draft PR #910](https://github.com/skyg547/account/pull/910) with `Refs #895`, initially MERGEABLE, from `agent/895-closing-pure-domain` to `main`; reviewed implementation head `76cea97532eab0d9828525fd380314df6f94def3`. Issue #895 is OPEN / `status:needs-review` with [review handoff](https://github.com/skyg547/account/issues/895#issuecomment-6081357887). Worktree stays available.
 - PR body includes 636-test final-head evidence, API/Batch packaging, architecture RED/GREEN static evidence, independent Q1–Q4, rollback, untested PostgreSQL/distributed/load gates and writer/reviewer/Integrator/human authority separation. Ready, merge, Issue close, deployment and cleanup were not performed. Current-head hosted checks and human review remain pending.
+
+## 2026-10-23 — GH-773 durable fiscal transition remediation
+
+Issue #773/CL03 was reproduced with one identical test source in detached audited `a97d10a` and this worktree: `./gradlew :closing:api:test --tests com.ho.account.closing.FiscalTransitionRedBaselineTest --console=plain` failed on the audited version (remote OPEN committed while local approval stayed PENDING) and passed after remediation. The isolated audited checkout is `/tmp/account-773-audited-red`; no production data was used.
+
+The contracts module defines exact operation ID, period ID, expected/target status and original actor matching. Master persists PREPARED/APPLIED/CANCELLED/CONFIRMED receipts with row lock, expected-state CAS, unique active-operation constraints and audit in the same apply transaction. A single SQL statement projects admission CLOSED for a PREPARED close and for an APPLIED but unconfirmed reopen. The signed internal API binds operation ID, method, path and prepare payload; legacy direct HTTP status PUT returns 410.
+
+Closing commits intent and approval locally, prepares the exact remote operation, commits reopen approval/calendar/checklist/audit before remote OPEN apply, then commits READY_TO_CONFIRM before Master confirmation can expose OPEN. Same-ID receipt lookup recovers lost prepare/apply/confirm/cancel responses. A prepared close whose evidence expired can be cancelled with verified recovery actor and audit; an applied close cannot be cancelled. V58 marks receipt-backed rows; legacy DISPATCHED rows require operator preflight rather than inferred success. Functional flow and rollout details are in `closing/docs/process-flow.md`, `closing/docs/local-run.md`, and the corresponding Master/Contracts module documents.
+
+| Verification | Result |
+| --- | --- |
+| Required `./gradlew :master-data:test :closing:test :contracts:test` after final test fix | PASS, exit 0, 1m25s; XML: Master 840 (38 PostgreSQL opt-in skipped), Closing 757 (1 PostgreSQL opt-in skipped), Contracts 10; failures/errors 0 |
+| `MASTER_DATA_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:55473/postgres ./gradlew :master-data:core:test --tests '*FiscalPeriodTransitionPostgresqlMigrationTest'` | PASS against disposable PostgreSQL 16: V14, partial unique constraints, expected-state CAS and admission projection through confirmation |
+| `./gradlew :master-data:api:bootJar :master-data:batch:bootJar :closing:api:bootJar :closing:batch:bootJar` | PASS, exit 0, 18s |
+| Audited/current focused regression | Audited RED 1/1; current GREEN 1/1; identical test source |
+| `git diff --check`; conflict-marker and unmerged-index searches; changed-path scope | PASS; all changed paths in three allowed modules |
+
+The API recovery matrix injects remote commit/response loss, local checklist/audit/calendar save and before-commit failures, post-confirm recovery audit/calendar/commit failures, expired close evidence, and lost cancellation response. Master H2/API and isolated PostgreSQL tests cover receipt binding, rollback/audit, close-confirm rejection, public effective status and concurrency. Synthetic Closing Master approximates remote behavior; no combined deployed HTTP/PostgreSQL/Journal failure or production load test was run.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `ClosingPeriodTransitionService.java:76`, `ClosingTransitionTransactions.java:298`, `MonolithFiscalPeriodControlAdapter.java:85`; exact combined 1607 tests, 0 failure/error | 해당 없음: 코드 경계·상태 전이 변경 | 배포 다중 서비스 결합 검증 필요 | `/root/review_design`: 차단 결함 없음 |
+| Q2 | PASS | `closing/docs/process-flow.md:284`; `ClosingTransitionRecoveryIntegrationTest.java:115` 저장·커밋 장애와 동일 ID 복구 | 해당 없음: 비자명 분산 흐름 변경 | Journal 조회→커밋 경합은 #762 후속 통제 | 동일 리뷰어가 흐름·실패 지점 확인 |
+| Q3 | PASS | Closing/Master/Contracts README, process-flow, schema, beginner/local-run; V14/V58 및 signed route 설명 | 해당 없음: 기능·운영 문서 변경 | legacy DISPATCHED 배포 전 대사 필요 | 동일 리뷰어가 문서와 명령 대조 |
+| Q4 | PASS | `ClosingTransitionTransactions.java:380`, `FiscalPeriodTransitionRepository.java:11`, V14/V58 주석; PostgreSQL 단일 조회 증거 | 해당 없음: 비자명 잠금·입장 fence 변경 | PostgreSQL 부하/실행계획 미검증 | 동일 리뷰어가 의도 주석과 구현 대조 |
+
+Review found no remaining blocker. Master CONFIRMED response loss may briefly leave Journal's remote Master read OPEN while Closing's retained local transition ID conservatively denies admission; all approval/audit/finalization records are already durable. Journal may also have read OPEN before a close fence and commit afterward; that write-side race is outside this allowlist. Closing recovery/cancellation ingress relies on the existing Gateway-rebuilt `X-Auth-*` headers and direct API port isolation, which must be verified before deployment.
