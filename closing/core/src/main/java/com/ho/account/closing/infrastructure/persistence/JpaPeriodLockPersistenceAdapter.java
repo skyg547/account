@@ -13,6 +13,12 @@ public class JpaPeriodLockPersistenceAdapter implements PeriodLockPersistencePor
 
     @Override
     public PeriodLock save(PeriodLock value) {
+        return saveAndFlush(value);
+    }
+
+    @Override
+    public PeriodLock saveAndFlush(PeriodLock value) {
+        // Surface unique-slot conflicts here, where the application maps them to a period conflict.
         return ClosingEntityMapper.toDomain(
                 repository.saveAndFlush(ClosingEntityMapper.toEntity(value)));
     }
@@ -20,10 +26,5 @@ public class JpaPeriodLockPersistenceAdapter implements PeriodLockPersistencePor
     @Override
     public Optional<PeriodLock> findByFiscalPeriodId(Long id) {
         return repository.findByFiscalPeriodId(id).map(ClosingEntityMapper::toDomain);
-    }
-
-    @Override
-    public void delete(PeriodLock value) {
-        repository.deleteById(value.getId());
     }
 }

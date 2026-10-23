@@ -11,6 +11,7 @@ import com.ho.account.closing.infrastructure.persistence.ClosingFinancialRunLock
 import com.ho.account.closing.infrastructure.persistence.JpaClosingFinancialRunLockAdapter;
 import com.ho.account.closing.infrastructure.persistence.JpaClosingFinancialRunManifestAdapter;
 import com.ho.account.closing.infrastructure.persistence.ValuationBatchRepository;
+import com.ho.account.closing.infrastructure.persistence.ValuationBatchEntity;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
@@ -23,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,20 +52,20 @@ class ClosingFinancialRunLockIntegrationTest {
 
         Long recovered = gate.withExclusiveRun("VALUATION", "crash-key", () -> {
             assertThat(manifest.loadOrCreate("VALUATION", id, List::of)).isEmpty();
-            assertThat(jpaBatches().findById(id).orElseThrow().getStatus())
+            assertThat(batches.findById(id).orElseThrow().getStatus())
                     .isEqualTo(ValuationBatch.ValuationBatchStatus.RUNNING);
             Long draftId = journal.computeIfAbsent(id, ignored -> 999L);
-            ValuationBatch batch = jpaBatches().findById(id).orElseThrow();
+            ValuationBatchEntity batch = batches.findById(id).orElseThrow();
             batch.setGeneratedJournalEntryId(draftId);
             batch.setStatus(ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
-            jpaBatches().save(batch);
+            batches.save(batch);
             return draftId;
         });
 
         assertThat(recovered).isEqualTo(901L);
         assertThat(journal).hasSize(1);
         Long persisted = new TransactionTemplate(transactions).execute(status ->
-                jpaBatches().findById(id).orElseThrow().getGeneratedJournalEntryId());
+                batches.findById(id).orElseThrow().getGeneratedJournalEntryId());
         assertThat(persisted).isEqualTo(901L);
     }
 
@@ -151,7 +151,7 @@ class ClosingFinancialRunLockIntegrationTest {
     private Long seed(String key) {
         return new TransactionTemplate(transactions).execute(status -> {
             locks.saveAndFlush(new ClosingFinancialRunLock("VALUATION", key));
-            ValuationBatch batch = new ValuationBatch();
+            ValuationBatchEntity batch = new ValuationBatchEntity();
             batch.setFiscalPeriodId(1L);
             batch.setValuationType(ValuationBatch.ValuationType.FX_RATE);
             batch.setRunDateTime(LocalDateTime.now());
@@ -160,10 +160,5 @@ class ClosingFinancialRunLockIntegrationTest {
             batch.setRunBy("ADMIN");
             return batches.saveAndFlush(batch).getId();
         });
-    }
-
-    @SuppressWarnings("unchecked")
-    private JpaRepository<ValuationBatch, Long> jpaBatches() {
-        return (JpaRepository<ValuationBatch, Long>) batches;
     }
 }

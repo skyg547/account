@@ -1,5 +1,7 @@
 package com.ho.account.journalledger.application.service.ledger;
 
+import com.ho.account.journalledger.application.port.out.JournalMonetaryAdmissionPort;
+
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
@@ -46,6 +48,9 @@ class LedgerServiceTest {
     @Mock
     private BalanceReaggregationControlPort reaggregationControlPort;
 
+    @Mock
+    private JournalMonetaryAdmissionPort monetaryAdmission;
+
     private LedgerService ledgerService;
 
     @BeforeEach
@@ -53,7 +58,7 @@ class LedgerServiceTest {
         lenient().when(reaggregationControlPort.snapshot()).thenReturn(
                 new BalanceReaggregationControlPort.ControlSnapshot(
                         BalanceReaggregationControlPort.Status.OPEN, null, null, null, 0));
-        ledgerService = new LedgerService(ledgerBalancePersistencePort, reaggregationControlPort);
+        ledgerService = new LedgerService(ledgerBalancePersistencePort, reaggregationControlPort, monetaryAdmission);
     }
 
     @Test

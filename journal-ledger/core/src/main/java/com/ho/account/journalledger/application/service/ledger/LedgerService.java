@@ -5,6 +5,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
+import com.ho.account.journalledger.application.port.out.JournalMonetaryAdmissionPort;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.BalanceAccount;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.GlBalanceDelta;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.SlBalanceDelta;
@@ -42,9 +43,17 @@ public class LedgerService {
 
     private final LedgerBalancePersistencePort ledgerBalancePersistencePort;
     private final BalanceReaggregationControlPort reaggregationControlPort;
+    private final JournalMonetaryAdmissionPort monetaryAdmission;
+
+    /** Posting must acquire admission before its first journal or ledger mutation. */
+    @Transactional
+    public void admitMonetaryMovement(LocalDate accountingDate) {
+        monetaryAdmission.admit(accountingDate);
+    }
 
     @Transactional
     public void updateLedgerBalances(JournalDetail journalDetail, LocalDate accountingDate) {
+        monetaryAdmission.admit(accountingDate);
         String accountCode = journalDetail.getAccountCode();
         String currencyCode = journalDetail.getJournalEntry().getCurrencyCode();
 
@@ -70,6 +79,7 @@ public class LedgerService {
     @Transactional
     public void reaggregateLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
         requireDateRange(startDate, endDate);
+        monetaryAdmission.beginReaggregation(startDate);
         ledgerBalancePersistencePort.lockAllBalanceAccounts();
         reaggregationControlPort.assertOpen();
         LocalDate effectiveEndDate = expandReaggregationEndDate(endDate);
@@ -87,6 +97,10 @@ public class LedgerService {
     public void updateLedgerBalancesBulk(List<JournalDetail> journalDetails) {
         if (journalDetails == null || journalDetails.isEmpty()) return;
 
+        // The earliest movement can alter every successor balance, even in a later fenced period.
+        monetaryAdmission.admit(journalDetails.stream()
+                .map(detail -> detail.getJournalEntry().getAccountingDate())
+                .min(LocalDate::compareTo).orElseThrow());
         // Lock the complete account set before the first balance read. Locking line by line
         // would invert the order for journals whose debit/credit account order differs.
         ledgerBalancePersistencePort.lockBalanceAccounts(journalDetails.stream()

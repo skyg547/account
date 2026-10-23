@@ -613,6 +613,8 @@ class ClosingTransitionRecoveryIntegrationTest {
     private Fixture closedFixture(String year, String period) {
         long periodId = master.create(year, period, "CLOSED");
         ClosingCalendar calendar = newCalendar(year, period, ClosingCalendarStatus.CLOSED);
+        calendar.restoreJournalFenceCommand(FinalCloseEvidenceFixtures.closedFence(periodId, year, period));
+        calendars.save(calendar);
         ReopenApproval approval = closing.requestPeriodReopen(periodId, "requester", "synthetic correction");
         return new Fixture(periodId, calendar.getId(), approval.getId());
     }

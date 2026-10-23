@@ -17,6 +17,7 @@ import com.ho.account.closing.domain.ReopenApproval;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
 import com.ho.account.closing.domain.FinalCloseEvidenceSet;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
+import com.ho.account.contracts.journal.JournalPeriodFenceCommand;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.Objects;
@@ -107,7 +108,12 @@ public class ClosingTransitionTransactions {
         }
         // Master identity is authoritative; validate under the same calendar lock before any durable intent.
         FinalCloseEvidenceSet selected = finalCloseEvidence.requireForFinalClose(calendar, period);
+        if (selected.journalCheckpoint() == null) {
+            throw new FinalCloseEvidenceValidationException("Journal checkpoint is required");
+        }
         calendar.prepareTransition("CLOSED", period.id(), null, selected.evidenceSetId(), actor);
+        calendar.bindJournalFence(new JournalPeriodFenceCommand(calendar.getTransitionId(),
+                selected.journalCheckpoint(), calendar.getTransitionActor()));
         savePrepared(calendar);
         return calendar;
     }
@@ -132,6 +138,10 @@ public class ClosingTransitionTransactions {
             throw new IllegalStateException("Reopen request fiscal period changed.");
         }
         if (decision == ReopenApprovalStatus.APPROVED) {
+            calendar.requireJournalFence();
+            if (!periodId.equals(calendar.getJournalFenceCommand().checkpoint().scope().fiscalPeriodId())) {
+                throw new IllegalStateException("Retained Journal fence belongs to another fiscal period");
+            }
             approval.approve(actor);
         } else {
             approval.reject(actor);
@@ -155,12 +165,35 @@ public class ClosingTransitionTransactions {
         return new PreparedDecision(approval, calendar);
     }
 
+    /** Reads/revalidates intent in a short transaction, then releases the calendar lock before Journal drain. */
+    public JournalPeriodFenceCommand requirePreparedFence(Long calendarId, String operationId) {
+        ClosingCalendar calendar = lock(calendarId);
+        calendar.requireTransition(operationId);
+        if (calendar.getTransitionStage() != TransitionStage.PREPARED) {
+            throw new IllegalStateException("Close is no longer prepared");
+        }
+        calendar.requireJournalFence();
+        if (!"CLOSED".equals(calendar.getTransitionTarget())
+                || !operationId.equals(calendar.getJournalFenceCommand().operationId())) {
+            throw new IllegalStateException("Journal fence does not match this close operation");
+        }
+        requireBoundEvidence(calendar);
+        return calendar.getJournalFenceCommand();
+    }
+
     public void markDispatched(Long calendarId, String operationId) {
         ClosingCalendar calendar = lock(calendarId);
         calendar.requireTransition(operationId);
         if (calendar.getTransitionStage() != TransitionStage.PREPARED) {
             throw new IllegalStateException("A dispatched fiscal period transition cannot be replayed.");
         }
+        requireBoundEvidence(calendar);
+        requireTransitionFence(calendar);
+        calendar.markTransitionDispatched(operationId);
+        calendars.save(calendar);
+    }
+
+    private void requireBoundEvidence(ClosingCalendar calendar) {
         if ("CLOSED".equals(calendar.getTransitionTarget())) {
             if (finalCloseEvidence == null) {
                 throw new FinalCloseEvidenceValidationException("mandatory evidence service is unavailable");
@@ -178,11 +211,14 @@ public class ClosingTransitionTransactions {
             }
             // Under the calendar lock, validate the original immutable ID at the last local gate.
             // A newer snapshot may only be used by cancelling and preparing a new operation.
-            finalCloseEvidence.requireBoundForFinalClose(
+            FinalCloseEvidenceSet selected = finalCloseEvidence.requireBoundForFinalClose(
                     calendar, period, calendar.getTransitionEvidenceSetId());
+            calendar.requireJournalFence();
+            if (selected.journalCheckpoint() == null
+                    || !selected.journalCheckpoint().equals(calendar.getJournalFenceCommand().checkpoint())) {
+                throw new FinalCloseEvidenceValidationException("bound Journal checkpoint changed");
+            }
         }
-        calendar.markTransitionDispatched(operationId);
-        calendars.save(calendar);
     }
 
     public ClosingCalendar cancelPreparedClose(Long calendarId, String operationId, String reason, String actor) {
@@ -200,13 +236,40 @@ public class ClosingTransitionTransactions {
         requirePeriodId(calendar.getTransitionFiscalPeriodId(), period);
         requirePeriod(calendar, period, "OPEN");
         String priorBinding = transitionEvidence(calendar);
-        calendar.cancelPreparedClose(operationId, normalizedActor);
+        calendar.prepareCancellation(operationId);
+        calendar.setAuditUser(normalizedActor);
         ClosingCalendar saved = calendars.save(calendar);
-        // This append keeps the original operation and evidence lineage after the intent is cleared.
+        // Commit cancellation lineage with the pending stage; remote release must precede clearing the intent.
         audits.save(ClosingAuditLog.create(saved, ActionType.PERIOD_TRANSITION_CANCELLED,
                 "PENDING_CLOSED", saved.getStatus().name(), normalizedActor,
                 priorBinding + "; reason=" + normalizedReason));
         return saved;
+    }
+
+    public ClosingCalendar finishCancellation(Long calendarId, String operationId, String recoveryActor) {
+        ClosingCalendar calendar = lock(calendarId);
+        calendar.requireTransition(operationId);
+        String lineage = transitionEvidence(calendar);
+        calendar.cancelPreparedClose(operationId, calendar.getAuditUser());
+        auditReleaseRecovery(calendar, lineage, recoveryActor);
+        return calendars.save(calendar);
+    }
+
+    public ClosingCalendar finishJournalRelease(Long calendarId, String operationId, String recoveryActor) {
+        ClosingCalendar calendar = lock(calendarId);
+        calendar.requireTransition(operationId);
+        String lineage = transitionEvidence(calendar);
+        calendar.finishJournalRelease(operationId);
+        auditReleaseRecovery(calendar, lineage, recoveryActor);
+        return calendars.save(calendar);
+    }
+
+    private void auditReleaseRecovery(ClosingCalendar calendar, String lineage, String recoveryActor) {
+        if (recoveryActor != null) {
+            audits.save(ClosingAuditLog.create(calendar, ActionType.PERIOD_TRANSITION_RECOVERED,
+                    calendar.getStatus().name(), calendar.getStatus().name(), recoveryActor,
+                    lineage + "; Journal release acknowledged"));
+        }
     }
 
     public ClosingCalendar dispatchAndFinish(Long calendarId, String operationId, String recoveryActor) {
@@ -215,6 +278,7 @@ public class ClosingTransitionTransactions {
         if (calendar.getTransitionStage() != TransitionStage.DISPATCHED) {
             throw new IllegalStateException("Fiscal period transition has not been dispatched.");
         }
+        requireTransitionFence(calendar);
         // DISPATCHED committed before this call. A rollback here must never make the PUT replayable.
         // Holding the root lock also prevents a recovery call overtaking an active synchronous PUT.
         FiscalPeriodRef result = master.updateClosingStatus(calendar.getTransitionFiscalPeriodId(),
@@ -310,9 +374,25 @@ public class ClosingTransitionTransactions {
                 .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found with id: " + id));
     }
 
+    private void requireTransitionFence(ClosingCalendar calendar) {
+        calendar.requireJournalFence();
+        JournalPeriodFenceCommand command = calendar.getJournalFenceCommand();
+        if (!Objects.equals(calendar.getTransitionFiscalPeriodId(), command.checkpoint().scope().fiscalPeriodId())
+                || ("CLOSED".equals(calendar.getTransitionTarget())
+                    && (!Objects.equals(calendar.getTransitionId(), command.operationId())
+                        || !Objects.equals(calendar.getTransitionActor(), command.actor())))) {
+            throw new IllegalStateException("Journal fence does not match the durable transition");
+        }
+    }
+
     private void requireTarget(ClosingCalendar calendar, FiscalPeriodRef result) {
         requirePeriod(calendar, result, calendar.getTransitionTarget());
         requirePeriodId(calendar.getTransitionFiscalPeriodId(), result);
+        calendar.requireJournalFence();
+        var scope = calendar.getJournalFenceCommand().checkpoint().scope();
+        if (!Objects.equals(scope.startDate(), result.startDate()) || !Objects.equals(scope.endDate(), result.endDate())) {
+            throw new IllegalStateException("Master period range changed; transition remains fenced");
+        }
     }
 
     private void requirePeriodId(Long expectedId, FiscalPeriodRef result) {

@@ -1,5 +1,7 @@
 package com.ho.account.journalledger.adapter.in.web.ledger;
 
+import com.ho.account.journalledger.application.port.out.JournalMonetaryAdmissionPort;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,7 +60,7 @@ class LedgerPeriodBalanceQueryTest {
         BalanceReaggregationControlPort control = mock(BalanceReaggregationControlPort.class);
         when(control.snapshot()).thenReturn(new BalanceReaggregationControlPort.ControlSnapshot(
                 BalanceReaggregationControlPort.Status.OPEN, null, null, null, 0));
-        LedgerService service = new LedgerService(persistencePort, control);
+        LedgerService service = new LedgerService(persistencePort, control, mock(JournalMonetaryAdmissionPort.class));
         mockMvc = MockMvcBuilders.standaloneSetup(new LedgerController(service), new GlSlController(service))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();

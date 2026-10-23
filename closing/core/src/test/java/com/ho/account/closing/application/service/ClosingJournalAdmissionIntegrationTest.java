@@ -100,6 +100,7 @@ class ClosingJournalAdmissionIntegrationTest {
         verify(journals).save(entry);
         ArgumentCaptor<GeneralLedger> ledger = ArgumentCaptor.forClass(GeneralLedger.class);
         verify(ledgers).save(ledger.capture());
+        verify(balances).admitMonetaryMovement(ACCOUNTING_DATE);
         verify(balances).updateLedgerBalancesBulk(entry.getDetails());
         verifyNoMoreInteractions(journals, ledgers, balances);
         assertThat(ledger.getValue().accountingDate()).isEqualTo(ACCOUNTING_DATE);

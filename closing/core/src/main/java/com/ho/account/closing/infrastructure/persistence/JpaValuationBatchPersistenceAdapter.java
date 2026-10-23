@@ -21,4 +21,9 @@ public class JpaValuationBatchPersistenceAdapter implements ValuationBatchPersis
     public Optional<ValuationBatch> findById(Long id) {
         return repository.findById(id).map(ClosingEntityMapper::toDomain);
     }
+
+    @Override
+    public Optional<ValuationBatch> findByExecutionKey(String executionKey) {
+        return repository.findByExecutionKey(executionKey).map(ClosingEntityMapper::toDomain);
+    }
 }

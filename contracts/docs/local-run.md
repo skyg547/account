@@ -28,6 +28,15 @@ Master Data 기준일 계약까지 변경했을 때:
 
 ## 실패를 읽는 순서
 
+기간 admission 계약을 변경했을 때는 저장소 루트에서 다음 세 모듈을 함께 검증합니다.
+
+```bash
+./gradlew :journal-ledger:test :closing:test :contracts:test
+```
+
+`JournalPeriodFenceContractTest`는 HTTP JSON 왕복에서 명령 전체의 동일성과 기간·revision·actor
+입력 경계를 검사합니다. DB 잠금과 응답 유실 검증은 구현 모듈 테스트가 담당합니다.
+
 1. `contracts:compileJava`: 계약 자체 문법/타입 오류
 2. 소비 모듈 `compileJava`: 공개 메서드·생성자 호환 오류
 3. 제공 모듈 테스트: Adapter 구현/업무 의미 오류

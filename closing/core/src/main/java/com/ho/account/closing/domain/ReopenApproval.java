@@ -61,6 +61,15 @@ public class ReopenApproval {
         syncPendingFiscalPeriodId();
     }
 
+    public Long getPendingFiscalPeriodId() {
+        return pendingFiscalPeriodId;
+    }
+
+    /** Restores the unique pending slot without making a new approval decision. */
+    public void setPendingFiscalPeriodId(Long pendingFiscalPeriodId) {
+        this.pendingFiscalPeriodId = pendingFiscalPeriodId;
+    }
+
     public String getFiscalYear() {
         return fiscalYear;
     }

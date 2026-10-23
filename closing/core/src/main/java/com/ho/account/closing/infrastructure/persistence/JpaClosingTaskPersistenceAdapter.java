@@ -38,6 +38,13 @@ public class JpaClosingTaskPersistenceAdapter implements ClosingTaskPersistenceP
                 .map(ClosingEntityMapper::toDomain).toList();
     }
 
+    @Override
+    public List<ClosingTask> findActiveByClosingCalendarId(Long calendarId) {
+        // Filter by the calendar's current cycle in SQL so completed historical tasks cannot authorize a new close.
+        return repository.findActiveByClosingCalendarId(calendarId).stream()
+                .map(ClosingEntityMapper::toDomain).toList();
+    }
+
     private ClosingTaskEntity attach(ClosingTaskEntity entity) {
         entity.setClosingCalendar(calendarRepository.getReferenceById(entity.getClosingCalendar().getId()));
         return entity;

@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.SlBalanceRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;

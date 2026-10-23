@@ -13,6 +13,12 @@ public class JpaReopenApprovalPersistenceAdapter implements ReopenApprovalPersis
 
     @Override
     public ReopenApproval save(ReopenApproval value) {
+        return saveAndFlush(value);
+    }
+
+    @Override
+    public ReopenApproval saveAndFlush(ReopenApproval value) {
+        // Surface unique-slot conflicts here, where the application maps them to a period conflict.
         return ClosingEntityMapper.toDomain(
                 repository.saveAndFlush(ClosingEntityMapper.toEntity(value)));
     }

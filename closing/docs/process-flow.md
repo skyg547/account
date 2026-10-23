@@ -102,6 +102,7 @@ sequenceDiagram
     participant Service as ClosingService
     participant Domain as ClosingCalendar
     participant Master as FiscalPeriodControlPort
+    participant Journal as JournalPeriodFencePort
     participant Store as Persistence Port
 
     User->>API: 결산 캘린더 생성
@@ -118,6 +119,11 @@ sequenceDiagram
     API->>Service: updateClosingTaskStatus / checkAndPassClosingGate
     Service->>Store: 상태와 감사 로그 저장
 
+    User->>Evidence: 인증된 checkpoint 요청
+    Evidence->>Journal: Master 기간 범위로 checkpoint (기존 전기 drain)
+    Journal-->>User: scope + revision
+    User->>Evidence: 새 primary 읽기 트랜잭션으로 수집한 증빙 + checkpoint
+    Evidence->>Journal: 제출 시 현재 revision 검증
     User->>API: 마감 완료 판정
     API->>Service: determineClosingStatus
     Service->>Store: 캘린더 잠금, 최신 태스크/게이트 조회
@@ -127,7 +133,9 @@ sequenceDiagram
     Service->>Domain: CLOSED 전이 의도 준비
     Service->>Store: PREPARED 커밋
     Service->>Evidence: 바인딩한 ID의 현재 유효성 재검증
-    Service->>Store: DISPATCHED 커밋
+    Service->>Journal: DB 잠금 밖에서 같은 명령 fence (revision CAS)
+    Journal-->>Service: 정확한 ACTIVE 영수증
+    Service->>Store: 증빙 재검증 후 DISPATCHED 커밋
     Service->>Master: FiscalPeriod CLOSED 한 번 전송
     Service->>Store: 결과 확인 후 캘린더/감사 로그 커밋
 ```
@@ -142,9 +150,9 @@ sequenceDiagram
 
 첫 마감 회차는 `cycleNumber=1`입니다. 승인된 재오픈이 Master와 Closing 양쪽에서 완료될 때 회차를 하나 올리고, 직전 회차의 태스크·게이트 **정의**를 새 행으로 복제합니다. 새 태스크와 게이트는 모두 `PENDING`이고 이전 완료자·통과자 및 시각은 이월하지 않습니다. 이전 행은 회차 번호와 함께 이력으로 보존되며 이전 ID로 상태를 변경하거나 게이트를 다시 통과시킬 수 없습니다. 재오픈 준비·전송 실패 또는 반려에서는 새 회차를 만들지 않습니다.
 
-원천 거래가 달라졌든 그대로든 증빙 자동 이월은 허용하지 않습니다. 현재 회차의 필수 태스크를 다시 완료하고 모든 게이트를 다시 통과시켜야 합니다. 마감 시작 뒤 새로 관측한 최종 마감 증빙도 별도로 필요합니다. 현재 회차만 화면 조회·게이트 선행조건·마감 준비 판정에 사용하므로 과거 `COMPLETED`/`PASSED` 행으로 재마감할 수 없습니다. 외부 원장의 권위 있는 변경 워터마크는 현재 Closing 계약에 없으므로, 공급자 증빙 이후 외부 전기까지 자동 검출했다고 해석해서는 안 됩니다.
+원천 거래가 달라졌든 그대로든 증빙 자동 이월은 허용하지 않습니다. 현재 회차의 필수 태스크를 다시 완료하고 모든 게이트를 다시 통과시켜야 합니다. 마감 시작 뒤 새로 관측한 최종 마감 증빙도 별도로 필요합니다. 현재 회차만 화면 조회·게이트 선행조건·마감 준비 판정에 사용하므로 과거 `COMPLETED`/`PASSED` 행으로 재마감할 수 없습니다. 회차 번호와 별도로 GH-762 Journal checkpoint가 증빙 이후의 금액 전기를 revision 변경으로 검출합니다. 공급자는 checkpoint 응답 뒤 새 primary 읽기 트랜잭션으로 원천을 수집해야 하며, 기존 MVCC snapshot이나 지연된 replica는 사용할 수 없습니다.
 V54 이전에 이미 재오픈된 캘린더는 과거 자식 행의 회차를 신뢰할 수 없어 새 회차를 비워 둡니다. 이 경우 새 체크리스트 정의부터 다시 등록해야 합니다. 기존 재오픈 시각의 시간대도 신뢰할 수 없어 신규 태스크·게이트 등록 또는 조정 등록으로 UTC 증빙 경계를 만든 뒤, 그 이후 관측한 최종 증빙만 사용합니다.
-Closing이 승인된 조정 전표를 등록할 때도 원천 변경 시각을 기록합니다. 현재 회차에서 태스크가 시작되었거나 게이트가 진행됐다면 그 회차 행을 보존하고 다시 새 `PENDING` 회차를 만듭니다. 아직 모두 `PENDING`이면 같은 회차를 유지합니다. 어느 쪽이든 최종 마감 증빙의 관측 시각은 조정 전표 등록 이후여야 합니다. 이 로컬 경로는 직접 원장에 전기된 모든 변경을 감지하는 전역 워터마크가 아닙니다.
+Closing이 승인된 조정 전표를 등록할 때도 원천 변경 시각을 기록합니다. 현재 회차에서 태스크가 시작되었거나 게이트가 진행됐다면 그 회차 행을 보존하고 다시 새 `PENDING` 회차를 만듭니다. 아직 모두 `PENDING`이면 같은 회차를 유지합니다. 어느 쪽이든 최종 마감 증빙의 관측 시각은 조정 전표 등록 이후여야 합니다. 이 로컬 시각은 체크리스트 갱신 경계입니다. 직접 원장 전기를 포함한 금액 변경은 별도의 Journal 전역 revision으로 검출하고 최종 fence CAS에서 오래된 증빙을 거부합니다.
 
 ## 최종 마감 증빙 (GH-778)
 
@@ -173,7 +181,12 @@ Closing이 승인된 조정 전표를 등록할 때도 원천 변경 시각을 �
 같은 통제 안의 계정·대문자 통화 차원은 중복될 수 없습니다. 활동이 없어도 합계 목록을 비우지 않고
 공급자 계약에서 합의한 차원을 `0/0`으로 명시합니다. Closing은 누락 차원을 0으로 추정하지 않습니다.
 
-제출 시 캘린더를 잠그고 미완료 전이가 없는 `IN_PROGRESS`인지, path/body의 `calendarId`와
+공급자는 먼저 같은 인증의 `POST /api/closing/calendars/{calendarId}/final-close-evidence/checkpoint`를
+호출합니다. Closing은 Master의 정확한 기간 ID·시작일·종료일을 Journal에 보내 기존 금액 트랜잭션의
+커밋을 기다리고 typed `journalCheckpoint`를 받습니다. **이 응답 후** 권위 있는 primary 원천에서 새
+트랜잭션을 시작해 증빙을 읽어야 합니다. 이전 MVCC snapshot이나 지연 replica를 재사용하면 안 됩니다.
+제출에는 이 토큰을 그대로 포함합니다. 서버는 캘린더 잠금을 잡기 전에 Journal 현재 revision과
+Master 범위를 대조하며, 이후 캘린더를 잠그고 미완료 전이가 없는 `IN_PROGRESS`인지, path/body의 `calendarId`와
 캘린더의 `fiscalYear`/`fiscalPeriod`가 같은지, canonical digest가 같은지 확인하고 미래 `observedAt`은
 저장 전에 거부합니다. 미래 값은 최신 선택 순서를 장기간 점유해 올바른 재제출을 막을 수 있기 때문입니다.
 최종 마감 시에는
@@ -191,7 +204,8 @@ PostgreSQL `TIMESTAMP WITH TIME ZONE` 저장 정밀도에 맞춰 `observedAt`은
 입력에 동일하게 사용해야 합니다. 예를 들어 `...00.123456789Z`는 `...00.123456Z`가 되며, 응답과
 영속화된 값도 정규화된 시각입니다.
 
-1. `FINAL_CLOSE_EVIDENCE_V1`, `evidenceSetId`, `calendarId`, `fiscalPeriodId`, `fiscalYear`,
+1. `FINAL_CLOSE_EVIDENCE_V2`, checkpoint의 `scope.fiscalPeriodId`, `scope.startDate`,
+   `scope.endDate`, `revision`, `evidenceSetId`, `calendarId`, `fiscalPeriodId`, `fiscalYear`,
    `fiscalPeriod`, `ledgerCutoff`, `observedAt`, Gateway가 정한 `submittedBy`, 통제 개수
 2. 통제를 enum 선언 순서 → `sourceSystem` → `sourceRunId`로 정렬한 뒤, 각 통제의 `type`,
    `sourceSystem`, `sourceRunId`, `outcome`, `blockingItemCount`, 합계 개수
@@ -199,16 +213,27 @@ PostgreSQL `TIMESTAMP WITH TIME ZONE` 저장 정밀도에 맞춰 `observedAt`은
    `currencyCode`, `sourceTotal`, `postedTotal`
 
 본문의 `contentDigest` 자체는 digest 입력에 넣지 않습니다.
-같은 `evidenceSetId`/digest 재제출은 기존 행을 돌려주지만, 같은 ID의 다른 내용은 거부합니다.
+같은 `evidenceSetId`/digest 재제출은 현재 checkpoint·캘린더 검증도 통과하면 기존 행을 돌려주지만, 같은 ID의 다른 내용은 거부합니다.
 `submittedBy`는 본문에 없고 `X-Auth-User`만 사용하므로 공급자는 최종 Gateway actor까지 포함해
 digest를 계산해야 합니다.
 
 최종 마감 준비 트랜잭션은 체크리스트와 Master OPEN identity를 확인한 다음 최신 증빙을 검증하고,
-선택한 `evidenceSetId`를 `transition_evidence_set_id`에 기록한 뒤에만 `PREPARED`를 커밋합니다.
+선택한 `evidenceSetId`와 전체 Journal 명령(operation ID=전이 ID, 같은 checkpoint, 결정 actor)을
+기록한 뒤 `PREPARED`를 커밋합니다. 캘린더 잠금을 풀고 Journal `fence`를 호출하여 진행 중인
+금액 트랜잭션을 drain하고 정확한 revision CAS에 성공해야 Master 쓰기로 넘어갑니다.
+범위 밖 미래 전기를 포함한 **모든 Journal 금액 커밋**이 revision을 바꾸므로, 증빙 수집 후 어느
+전기라도 있었다면 마감을 거부합니다. 이는 단일 Journal DB의 보수적인 전역 revision 계약입니다. 금액 트랜잭션은 같은 guard를
+커밋까지 점유하므로 동시 처리량과 긴 트랜잭션의 대기 영향을 부하 환경에서 검증해야 합니다.
+`REBUILDING` 중 checkpoint/fence도 실패합니다. `IN_PROGRESS` 시작에는 Journal을 봉인하지 않아
+필수 FX/ECL/연차 조정 전기는 계속 완료할 수 있습니다. 활성 봉인은 종료일 이하의 날짜를 막아
+이전 기간 전기로 인한 후속 잔액 변경도 차단합니다.
 누락·FAIL·blocking item·빈/불일치 합계·오래됨·미래 시각·기간/cutoff/digest 불일치는 이 단계에서
 실패하므로 Master 상태 변경 호출 전에 차단됩니다. 최초 전송 또는 `PREPARED` 복구의
 `PREPARED → DISPATCHED` 직전에는 캘린더 잠금 아래 **원래 바인딩한 ID**를 다시 조회하고
-Master 기간·마감 cycle·digest·필수 통제·현재 시각의 freshness를 재검증합니다. 만료되었거나
+Master 기간·마감 cycle·digest·필수 통제·현재 시각의 freshness를 재검증합니다. Master 응답/복구
+조회에서도 저장된 checkpoint의 시작일·종료일을 비교합니다. 별도의 Master 기간 정의 변경과
+원자적 트랜잭션은 아니므로 close/reopen 전이가 끝날 때까지 기간 정의 변경을 동결해야 합니다.
+범위가 바뀐 응답은 완료로 받아들이지 않고 영속 전이를 남겨 대사합니다. 만료되었거나
 행이 없거나 내용이 맞지 않으면 `DISPATCHED`로 전이하지 않으며 Master 쓰기 횟수는 0입니다.
 현재 최신 스냅샷으로 조용히 갈아끼우지 않습니다. `DISPATCHED`는 원격 결과가 불확실하므로
 재전송하거나 취소하지 않고 기존 operation ID와 증빙 ID로 Master 결과만 대사합니다.
@@ -217,7 +242,10 @@ Master 기간·마감 cycle·digest·필수 통제·현재 시각의 freshness�
 한 번도 표시되지 않았음을 확인한 뒤, 정확한 operation ID와 사유를 넣어
 `POST /api/closing/calendars/{calendarId}/transition/cancel-prepared`를 호출합니다. 서버는 캘린더를
 잠그고 `CLOSED` 목표·`PREPARED` 단계와 Master 기간을 재확인한 후 이전 operation·증빙 ID·사유·
-실행자를 감사 로그에 남기고 **전이 의도만** 해제합니다. 기존 증빙과 PREPARED 감사 기록은 보존합니다.
+실행자를 감사 로그에 남기고 `CANCEL_RELEASE_PENDING`을 먼저 커밋합니다. 그 후 같은 Journal
+명령을 release/tombstone하고, 확인 응답 후 전이 의도를 지웁니다. 이 순서는 취소와 recovery가
+경쟁해도 마감이 재전송되지 않게 합니다. release가 fence보다 먼저 도착해도 tombstone이 늦은
+fence를 거부합니다. 기존 증빙과 PREPARED 감사 기록은 보존합니다.
 그 다음 신뢰된 공급자가 새 ID의 최신 증빙을 append하고 운영자가 일반 마감 명령을 다시 실행합니다.
 이는 수동 통과나 증빙 교체가 아닙니다. `DISPATCHED`에는 취소를 허용하지 않습니다.
 증빙 없는 legacy CLOSED 전이는 V53 이행을 위해
@@ -237,8 +265,26 @@ V53 전환 전의 `IN_PROGRESS` 캘린더는 이전 서버의 시간대 없는 `
 헤더와 로컬 allowlist는 그 자체로 암호학적 서비스 identity를 증명하지 않습니다. production 준비에는
 Closing 포트의 사설 네트워크 격리와 Gateway의 외부 헤더 제거/검증된 헤더 재구성을 end-to-end로
 확인해야 합니다. 향후에는 mTLS 또는 서명된 서비스 토큰 같은 강한 서비스 인증을 사용할 수 있습니다.
-원천 서비스/Gateway의 생산 계약과 실제 PostgreSQL·분산 호출 TOCTOU는 Closing 단위 테스트만으로
-증명되지 않으므로 사람이 감독하는 end-to-end/운영 검증이 필요합니다.
+Journal HTTP 제어는 별도의 32바이트 이상 내부 Bearer 자격증명과 `X-Service-Identity: closing`을
+함께 사용하고 redirect를 따르지 않습니다. 응답의 전체 명령과 상태가 요청과 같아야 합니다.
+이 비밀은 secret 주입으로 전달하고 TLS/사설 통신 경계를 검증해야 합니다. 증빙 공급자/Gateway
+인증은 위 기존 계약을 따르며 이 Journal 제어용 토큰과 별개입니다.
+
+Journal timeout/응답 유실은 `PREPARED`와 원래 명령을 보존하여 같은 명령으로 재시도합니다.
+`DISPATCHED` Master 쓰기는 기존과 같이 자동 재전송하지 않습니다. 승인된 재개방은 Master OPEN
+확인 후 Closing OPEN·새 checklist 회차·`RELEASE_PENDING`을 먼저 커밋한 다음 **이전 close의**
+Journal 명령만 해제합니다. 해제 응답이 유실되면 `transition/recover`를 같은 reopen operation ID로
+호출합니다. 대기 중에는 증빙 수집·새 마감·일반 admission을 막습니다. 오래된 release가 새 회차의
+봉인을 지우지 못합니다. 이전 달을 재개방해도 더 늦은 CLOSED 기간의 봉인이 남아 있으면
+그 이전 날짜의 금액 쓰기는 계속 차단됩니다. 후속 잔액 보호를 위해 관련 후속 기간까지 승인된
+재개방·봉인 해제·대사를 완료한 뒤 수정해야 합니다.
+V58 이전 CLOSED 행에 원래 봉인 명령이 없으면 자동 재개방을 거부하며,
+운영자가 쓰기를 drain하고 별도 검토된 Journal 봉인/이력 대사를 수행해야 합니다. 가짜 checkpoint를
+채우거나 OPEN stub으로 우회하지 않습니다.
+
+공급자의 fresh primary 읽기, Gateway 인증과 실제 배포·부하는 별도 운영 검증입니다. 자동 테스트의
+loopback 응답 유실과 합성 DB 증거는 운영망 장애·부하 또는 모든 원천 서비스의 snapshot 일관성을
+증명하지 않습니다.
 
 ## 기간 잠금과 재오픈
 
@@ -286,24 +332,25 @@ HTTP 409로 반환하고 두 번째 잠금/요청과 감사 기록은 커밋하�
 1. 캘린더 잠금 아래 조건을 검증하고 `PREPARED`를 커밋합니다. CLOSED 목표는 검증한
    `transition_evidence_set_id`도 함께 고정합니다. 재오픈 승인은 이때
    `APPROVED`로 확정되지만 캘린더는 아직 `CLOSED`입니다. 승인이 원격 반영 완료를 뜻하지 않습니다.
-2. `DISPATCHED`를 별도 커밋한 실행자만 Master 상태 PUT을 한 번 보냅니다.
-3. 같은 기간·목표 상태의 정상 결과를 확인하면 캘린더를 목표 상태로 바꾸고 완료 감사 기록을 남깁니다.
+2. CLOSED 목표는 캘린더 잠금 밖에서 같은 명령의 Journal fence를 확보하고 정확한 `ACTIVE` 응답을 확인합니다. 증빙을 재검증한 뒤 `DISPATCHED`를 별도 커밋한 실행자만 Master 상태 PUT을 한 번 보냅니다.
+3. 같은 기간 ID·날짜 범위·목표 상태의 정상 결과를 확인하면 캘린더를 목표 상태로 바꾸고 완료 감사 기록을 남깁니다. 재오픈은 새 회차와 `RELEASE_PENDING`을 함께 커밋한 뒤 원래 Journal fence를 해제하며, 응답 확인 전에는 새 작업을 차단합니다.
    준비·전송 중에는 마감 캘린더가 `IN_PROGRESS`, 재오픈 캘린더가 `CLOSED`여서 일반 전표를 차단합니다.
 4. 응답 유실, 원격 예외 또는 로컬 완료 저장 실패 시 전송 표시를 보존합니다. 경쟁 변경은 계속 차단합니다.
 
-복구는 작업 ID와 준비 때 바인딩한 최종 마감 증빙 ID에 묶입니다. 아직 `PREPARED`이면 바인딩 증빙을 현재 시각으로 재검증한 뒤 최초 전송을 진행할 수 있지만,
+복구는 작업 ID와 준비 때 바인딩한 최종 마감 증빙 ID 및 Journal 명령에 묶입니다. 아직 `PREPARED`이면 바인딩 증빙을 현재 시각으로 재검증하고 같은 Journal 명령을 재시도한 뒤 최초 Master 전송을 진행할 수 있지만,
 `DISPATCHED`이면 자동 재전송하지 않습니다. 권한 있는 운영자가 원 요청이 더 이상 실행될 수 없음을
 확인한 뒤 Master를 재조회하고, 목표 상태와 일치할 때만 로컬 완료를 확정합니다.
 재조회에서도 원래 상태가 보이면 차단을 유지하고 별도 Master 운영 절차로 정합성을 해결해야 합니다.
 원격 호출 전 중단과 응답 유실을 GET+PUT만으로 구분할 수 없기 때문입니다.
 종료 확인 값은 운영자의 확인 기록이며 원격 작업 종료를 시스템이 증명하는 토큰은 아닙니다.
+준비된 마감 취소는 먼저 `CANCEL_RELEASE_PENDING`을 커밋해 복구의 전송을 막고 원래 Journal 명령을 해제합니다. 두 해제 대기 상태의 복구는 같은 명령의 release만 재시도하며 정확한 `RELEASED` 응답 뒤에만 대기를 지웁니다.
 
 초보자 설명: 승인 도장을 먼저 기록하고 외부 시스템에 한 번 전달한 뒤 수신 결과를 확인하는 흐름입니다.
 전화가 끊겼다고 같은 지시를 무조건 다시 보내지 않습니다. 이전 지시가 뒤늦게 도착해 이후 마감을
 뒤집을 수 있으므로, 확인이 끝나기 전까지 해당 기간의 변경을 멈춥니다.
 
 이 프로토콜은 Closing 명령을 직렬화합니다. Master 직접 변경과 다른 배포의 오래된 Closing writer를
-원격에서 차단하는 작업 키·버전 계약은 제공하지 않습니다. 배포 시 V53까지 먼저 적용하고 오래된 월말
+원격에서 차단하는 작업 키·버전 계약은 제공하지 않습니다. 배포 시 Closing V58과 Journal V20 및 기존 이력 대사·인증을 먼저 적용하고 오래된 월말
 writer를 모두 중지·배출한 뒤 새 버전을 사용해야 합니다. 미해결 전이가 있으면 기록을 지우거나 이전
 버전으로 바로 돌아가지 말고 먼저 원 요청 종료와 두 시스템 상태를 대사합니다.
 구체적인 조회·복구 API와 검증 범위는 [로컬 실행 가이드](local-run.md#월말-전이-조회와-복구-gh-774)를 참조하세요.
@@ -663,12 +710,15 @@ Content-Type: application/json
 안 됩니다. 이 순서는 통제된 포트 회귀 테스트의 기대 결과이며 실제 배포 API를 순서대로 호출해 확인한
 결과가 아닙니다.
 
-현재 source snapshot은 공급자가 한 시점에 고정해 반환하는 DB snapshot이 아닙니다. summary 조회 후
-전표별 상세를 다시 읽는 N+1 방식이고, 원격 조회와 원격 초안 생성도 하나의 분산 트랜잭션이 아닙니다.
-동시 원천 변경을 막는 안정적 pagination/snapshot 포트, 실 PostgreSQL 실행계획·대량 부하, 분산 장애와
-운영 데이터 복구는 검증하지 않았습니다. 실행 전후 원천과 생성 전표를 운영 대사해야 하며 배포 준비나
-운영 원자성을 이 흐름만으로 주장하지 않습니다. Journal에 법인 차원이 생기기 전에는
-여러 법인 원천이 한 실행에 섞이지 않음을 구조적으로 증명할 수 없으므로 런타임을 법인별로 분리합니다.
+현재 `JdbcAnnualJournalReadAdapter`는 하나의 PostgreSQL `REPEATABLE READ READ ONLY`
+트랜잭션에서 같은 정렬 cursor를 두 번 순회하고 독립 SQL 통제 합계를 읽습니다. 세 조회는 같은
+MVCC snapshot을 공유하며 전표별 상세 N+1 호출이나 원천 전체 목록을 만들지 않습니다. 합성
+PostgreSQL 테스트는 순회 사이에 커밋된 전기를 현재 snapshot에서 제외하고 다음 실행에서 읽는지
+확인합니다. 별도 Master 분류 조회와 원격 DRAFT 생성까지 묶는 분산 원자성은 제공하지 않습니다.
+운영 규모의 실행계획·대량 부하, 실제 배포의 분산 장애와 운영 데이터 복구는 별도 검증이 필요합니다.
+실행 전후 원천과 생성 전표를 운영 대사해야 하며 이 테스트만으로 배포 준비나 운영 원자성을
+주장하지 않습니다. Journal에 법인 차원이 생기기 전에는 여러 법인 원천이 한 실행에 섞이지 않음을
+구조적으로 증명할 수 없으므로 런타임을 법인별로 분리합니다.
 
 독립 Journal의 쓰기 API는 신뢰된 service principal을 `X-Auth-User`와 `X-Auth-Roles`로 요구합니다.
 현재 Closing의 `HttpClosingJournalAdapter`는 maker 헤더를 전달하지만, 이 값만으로 신뢰된
