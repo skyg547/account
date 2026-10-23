@@ -1,7 +1,7 @@
 # GH-762 — period admission remediation
 
 - Issue: [#762](https://github.com/skyg547/account/issues/762), `Refs #762`; branch `agent/762-period-admission`; worktree `/tmp/account-762-period-admission`; base `origin/main@ed539846a92f46e09896d0a56ab808a4f94cacc7` (remote base rechecked unchanged before publication).
-- Status: implementation, verification and independent review complete; Draft PR publication is the next parent-owned step.
+- Status: implementation, verification and independent review complete; [Draft PR #940](https://github.com/skyg547/account/pull/940) is open with `Refs #762`.
 - Scope: exactly `journal-ledger/**`, `closing/**`, `contracts/**`. User forbids common harness/history edits; these three module-local records carry the cross-module handoff. Original checkout and prior blocked worktree remain untouched.
 - Model/ownership: requested `gpt-6-astra`, `xhigh`. `journal_writer` and `closing_writer` owned disjoint modules; `closing_test_writer` received bounded Closing test/config/adapter allowlists. Parent owns contracts, cross-module proof, these records and Git/GitHub. `/root/journal_analysis` and `/root/closing_analysis` reviewed read-only and changed no production/test files.
 - Result: every monetary write holds the durable Journal revision lock through its enclosing commit. Fresh-source evidence binds that revision; final-close CAS drains in-flight writes and rejects changed snapshots. Durable ACTIVE/RELEASED operation receipts protect timeout/restart/cancel/reopen without delayed reactivation or stale release. V20/V58 and dedicated internal service authentication support embedded and HTTP adapters.
@@ -22,6 +22,10 @@
 | Q2 | PASS | Journal posting-concurrency:374; Closing process-flow:176; Contracts process-flow:78 | 해당 없음: 프로토콜 변경 적용 | 새 primary snapshot·Master 정의 동결 | 두 reviewer, 흐름 대조 |
 | Q3 | PASS | 모듈 README/schema/beginner/local-run; issue-762/verification.md | 해당 없음: 사용·배포 변경 적용 | 역사적 봉인 대사·TLS·운영 검증 | 두 reviewer, 정정 후 재검토 |
 | Q4 | PASS | Journal commit/tombstone 주석; Closing coordinator:90/transactions:242 | 해당 없음: 비자명 상태 전이 적용 | 후속 변경의 순서 보존 | 두 reviewer, 코드 인접 주석 |
+
+- Publication: reviewed implementation commit `709811a9ae59ce3fcee06d7785d1e011fa71f514` was pushed to the dedicated branch; Draft #940 is OPEN/DRAFT/MERGEABLE with verification and authority separation in its body and `agent:codex` ownership. The GitHub connector could read but returned403 on PR creation; the existing authenticated GitHub CLI completed the authorized publication.
+- Remote CI: Actions started for the implementation head; final record-commit checks are tracked on the PR and remain a separate review gate. Local verification is complete; no remote CI PASS is inferred from queued/running checks. This publication update changes only module-local records.
+- Resources/next owner: task-only PostgreSQL container `account-762-period-admission-pg` is stopped and retained; runtime JVMs exited; both worktrees remain. Human reviewer owns CI disposition, historical fence/bootstrap and load/TLS deployment review, then later Ready/merge/Issue-close gates.
 
 ---
 

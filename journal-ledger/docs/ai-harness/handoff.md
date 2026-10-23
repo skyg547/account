@@ -1,6 +1,6 @@
 # GH-762 handoff
 
-Implementation and verified independent review are complete. Parent publication of a Draft with `Refs #762` is next.
+Implementation and verified independent review are complete. [Draft PR #940](https://github.com/skyg547/account/pull/940) is open with `Refs #762`.
 
 - Issue: [#762](https://github.com/skyg547/account/issues/762).
 - Branch/worktree: `agent/762-period-admission`, `/tmp/account-762-period-admission`; fetched base `ed539846a92f46e09896d0a56ab808a4f94cacc7` remains current.
@@ -14,6 +14,10 @@ Implementation and verified independent review are complete. Parent publication 
 - Retained evidence: `/tmp/account-762-evidence/`, task PostgreSQL container `account-762-period-admission-pg`, and `/tmp/account-762-audited-proof` at `a97d10ab`. Runtime smoke child JVMs exited. Historical RED is a synthetic-outbound probe; current real protocol tests and actual JVM durability proof have separate documented scopes.
 
 [Detailed commands, test counts and limitations](../issue-762/verification.md) · [Q1–Q4 and work log](worklog.md).
+
+- Publication: reviewed implementation commit `709811a9ae59ce3fcee06d7785d1e011fa71f514` was pushed to the dedicated branch; Draft #940 is OPEN/DRAFT/MERGEABLE with verification and authority separation in its body and `agent:codex` ownership. The GitHub connector could read but returned403 on PR creation; the existing authenticated GitHub CLI completed the authorized publication.
+- Remote CI: Actions started for the implementation head; final record-commit checks are tracked on the PR and remain a separate review gate. Local verification is complete; no remote CI PASS is inferred from queued/running checks. This publication update changes only module-local records.
+- Resources/next owner: task-only PostgreSQL container `account-762-period-admission-pg` is stopped and retained; runtime JVMs exited; both worktrees remain. Human reviewer owns CI disposition, historical fence/bootstrap and load/TLS deployment review, then later Ready/merge/Issue-close gates.
 
 ---
 

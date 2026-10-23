@@ -1,6 +1,6 @@
 # GH-762 agent status
 
-- [Issue #762](https://github.com/skyg547/account/issues/762): implementation, verification and independent review complete; Draft publication is next. Branch `agent/762-period-admission`, worktree `/tmp/account-762-period-admission`, base `ed539846a92f46e09896d0a56ab808a4f94cacc7`.
+- [Issue #762](https://github.com/skyg547/account/issues/762): implementation, verification and independent review complete; [Draft PR #940](https://github.com/skyg547/account/pull/940) is open with `Refs #762`. Branch `agent/762-period-admission`, worktree `/tmp/account-762-period-admission`, base `ed539846a92f46e09896d0a56ab808a4f94cacc7`.
 - Scope: Journal25/Closing56/Contracts10 =91 changed files, all inside the three authorized directories. User forbids shared harness/history changes, so records remain module-local.
 - Result: transaction-held Journal revision admission, checkpoint-bound final-close evidence, durable ACTIVE/RELEASED receipts, and recoverable cancel/reopen release with dedicated HTTP service authentication.
 - Literal requested aggregate PASS: **1,255 PASS / 1 optional PG skip / 0 failures/errors**. Separate PostgreSQL22 PASS includes the skipped case. Actual Journal JVM kill/restart smoke and all four API/Batch bootJARs PASS; V20/V58 packaged bytes match source.
@@ -10,6 +10,10 @@
 - Deployment gates: one authoritative DB, READ_COMMITTED writes, global serialization load validation, historical closed-period fence bootstrap, fresh primary snapshots, frozen Master definitions, and trusted TLS transport. Preserve revision/receipt/tombstone history during reviewed rollback.
 
 See [worklog.md](worklog.md) for commands and Q1–Q4, and [handoff.md](handoff.md) for next ownership.
+
+- Publication: reviewed implementation commit `709811a9ae59ce3fcee06d7785d1e011fa71f514` was pushed to the dedicated branch; Draft #940 is OPEN/DRAFT/MERGEABLE with verification and authority separation in its body and `agent:codex` ownership. The GitHub connector could read but returned403 on PR creation; the existing authenticated GitHub CLI completed the authorized publication.
+- Remote CI: Actions started for the implementation head; final record-commit checks are tracked on the PR and remain a separate review gate. Local verification is complete; no remote CI PASS is inferred from queued/running checks. This publication update changes only module-local records.
+- Resources/next owner: task-only PostgreSQL container `account-762-period-admission-pg` is stopped and retained; runtime JVMs exited; both worktrees remain. Human reviewer owns CI disposition, historical fence/bootstrap and load/TLS deployment review, then later Ready/merge/Issue-close gates.
 
 ---
 
