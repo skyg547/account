@@ -21,6 +21,12 @@
 | Q3 feature and beginner docs | PASS | `README.md`, `docs/beginner-guide.md`, `docs/layer-guide.md`, `docs/schema.md` describe HTTP header precedence, key aliases, version families and migration V20 | None: API/schema changed | Human review of deploy prerequisites | `/root/independent_review`: PASS |
 | Q4 nearby intent comments | PASS | `JournalEntryService` pre-rule receipt rationale, `JournalEventRequestFingerprint` canonical form, `JournalCreationOperationWriteLock` V20 error, `KafkaTransactionListener` alias normalization | None: nontrivial logic changed | Keep canonicalization aligned across adapters | `/root/independent_review`: PASS |
 
+## Draft publication and handoff
+
+- Parent Integrator committed the reviewed work on `agent/765-journal-idempotency` as checkpoint `33300693` plus latest-main integration merge `f6811275` (base `origin/main@ed539846`). The net PR diff contains only `contracts/**` (6 files), `journal-ledger/**` (54), `payable/**` (28), and `receivable/**` (29); the primary dirty checkout was preserved. No unmerged index files, added conflict markers or net-diff whitespace errors remained.
+- Parent pushed only the agent branch and opened [Draft PR #941](https://github.com/skyg547/account/pull/941) against `main` with `Refs #765`. Issue #765 remains OPEN and its label moved from `status:ready` to `status:needs-review`. The Draft body records verification, Q1–Q4, rollback, deployment risks and writer/reviewer/Integrator authority separation.
+- At initial PR inspection, it was OPEN/DRAFT/MERGEABLE; Module Validation and Harness Validation were in progress and Agent Merge Guard was queued. No remote CI PASS is claimed. The next owner is a human reviewer for the Draft diff, cutover/producer compatibility and remote check results. Ready, merge, Issue close, deployment and branch/worktree cleanup remain separate gates.
+
 ---
 
 The following blocked review record is retained history from the prior narrower allowlist.

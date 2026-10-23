@@ -1,4 +1,4 @@
-# GH-765 resumed handoff — 2026-10-23
+# GH-765 Draft PR handoff — 2026-10-23
 
 The journal-ledger portion now uses an explicit operation key independent of `slipNo`, a V20 atomic creation receipt, fingerprint conflict checks, and distinct keys for legitimate multi-journal sources. Kafka processing and quarantine replay call the same identity-aware use case while preserving V18 completeness controls and V19 slip-number allocation. HTTP returns 409 for key/content conflict and 503 for typed allocation failure.
 
@@ -9,7 +9,8 @@ Final review correction: event HTTP/Kafka creation now compares a canonical vers
 - Latest-main verification: final full `./gradlew :journal-ledger:test` 500/500 PASS (core373/API89/batch38), failures/errors/skips0. The requested `./gradlew :journal-ledger:test :payable:test :receivable:test :contracts:test` passed; test reports show journal-ledger500, payable70, receivable74 and contracts11 with no failures/errors/skips. Explicit payable/receivable API and batch forced rerun and six API/batch bootJARs passed. Disposable PostgreSQL16 migration/concurrency 7/7 PASS using `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:39405/postgres` with forced offline rerun; the added test covers concurrent version 2 event requests. Parent Integrator's audited `a97d10ab` RED rerun failed 1/1 as expected at assertion 62. Independent read-only review found no remaining blocking new-change defect and marked Q1–Q4 PASS in all four modules.
 - Cutover gate: V20 cannot infer old operation keys/fingerprints. Stop every old/new writer, reconcile in-flight outbox/Kafka/client retries with old journals, migrate remaining out-of-scope producers, then start only V20-aware writers. A delayed predeployment retry can otherwise duplicate an old journal.
 - Rollback retains V18 quarantine, V19 sequence, V20 registry/locks and journal evidence; fence creation traffic while restoring equivalent protection. PostgreSQL verification used only a disposable local test container; no production database/data, broker fault injection or load verification is claimed.
-- Parent Integrator owns PR and shared state; independent reviewer assesses Q1–Q4 and financial regressions; human review owns later Ready, merge, Issue close and deployment.
+- Parent Integrator published integration commit `f6811275` on `agent/765-journal-idempotency` and opened [Draft PR #941](https://github.com/skyg547/account/pull/941) against `main` with `Refs #765`. Issue #765 remains OPEN and moved from `status:ready` to `status:needs-review`. Initial remote checks were queued/in progress at publication; no remote CI PASS is claimed.
+- Module writers used disjoint allowlists; `/root/independent_review` was read-only and independently marked Q1–Q4 PASS across all four modules. Parent Integrator owns PR and module-local records; human review owns later Ready, merge, Issue close, deployment and branch/worktree cleanup. The shared root harness is untouched under the explicit allowlist.
 
 ---
 
