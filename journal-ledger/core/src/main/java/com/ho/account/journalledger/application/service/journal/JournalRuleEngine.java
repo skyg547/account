@@ -296,8 +296,9 @@ public class JournalRuleEngine {
     }
 
     private String resolveEntryDescription(JournalRule rule, Map<String, Object> eventData) {
+        // The display name is editable; using it here would change the creation fingerprint on a retry.
         return firstNonBlankValue(eventData, "description", "memo", "title")
-                .orElse(rule.getRuleName());
+                .orElse(rule.getRuleCode());
     }
 
     private String resolveLineDescription(JournalRuleDetail ruleDetail, JournalEntry entry, Map<String, Object> eventData) {

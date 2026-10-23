@@ -98,6 +98,7 @@ class SalesServiceTest {
                 .containsExactly("AR-001", "REV-001", "VAT-001");
         assertThat(commandCaptor.getValue().createdBy()).isEqualTo("sales-user");
         assertThat(commandCaptor.getValue().auditUser()).isEqualTo("sales-user");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("PRIMARY");
     }
 
     @Test

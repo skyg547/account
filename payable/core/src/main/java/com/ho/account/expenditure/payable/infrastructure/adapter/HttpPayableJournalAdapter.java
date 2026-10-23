@@ -3,6 +3,7 @@ package com.ho.account.expenditure.payable.infrastructure.adapter;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.expenditure.application.service.PayableOperationConflictException;
 import java.time.Duration;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * HTTP REST outbound adapter for Journal Ledger posting in payable module.
@@ -86,6 +88,12 @@ public class HttpPayableJournalAdapter implements JournalPostingPort {
                 throw new IllegalStateException("Journal ledger posting returned null result");
             }
             return result;
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 409) {
+                throw new PayableOperationConflictException(
+                        "Journal creation operationKey conflicts with different financial content", e);
+            }
+            throw new IllegalStateException("Journal ledger posting failed", e);
         } catch (RestClientException e) {
             throw new IllegalStateException("Journal ledger posting failed", e);
         }

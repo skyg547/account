@@ -86,7 +86,7 @@ public class CollectionService implements CollectionUseCase {
 
     @Override
     public void attemptAutoMatching(Long collectionId) {
-        Collection collection = collectionPersistencePort.findById(collectionId)
+        Collection collection = collectionPersistencePort.findByIdForUpdate(collectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + collectionId));
 
         validateAccountingPeriodOpen(collection.getCollectionDate());
@@ -102,7 +102,10 @@ public class CollectionService implements CollectionUseCase {
         Receivable match = collectionMatchingPolicyPort.selectMatch(collection, openReceivables).orElse(null);
 
         if (match != null) {
-            processMatch(collection, match, collection.getUnallocatedAmount());
+            Receivable lockedMatch = receivablePersistencePort.findByIdForUpdate(match.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + match.getId()));
+            // Auto matching consumes the full remainder once for this collection/receivable pair.
+            processMatch(collection, lockedMatch, collection.getUnallocatedAmount(), "AUTO:" + match.getId());
         } else {
             collection.markAsUnmatched();
             collectionPersistencePort.save(collection);
@@ -114,20 +117,33 @@ public class CollectionService implements CollectionUseCase {
         Long collectionId = command.collectionId();
         Long receivableId = command.receivableId();
         BigDecimal amount = command.matchingAmount();
-        Collection collection = collectionPersistencePort.findById(collectionId)
+        Collection collection = collectionPersistencePort.findByIdForUpdate(collectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + collectionId));
+        // A used key must report a payload conflict before validating a new candidate receivable.
+        String operationId = "MANUAL:" + command.operationId();
+        Optional<CollectionAllocation> previous = collectionAllocationPersistencePort
+                .findByCollectionIdAndOperationId(collectionId, operationId);
+        if (previous.isPresent()) {
+            CollectionAllocation allocation = previous.get();
+            if (!allocation.getReceivable().getId().equals(receivableId)
+                    || allocation.getMatchedAmount().compareTo(amount) != 0) {
+                throw new ReceivableOperationConflictException("Matching operation ID conflicts with a prior allocation: "
+                        + command.operationId());
+            }
+            return;
+        }
 
-        validateAccountingPeriodOpen(collection.getCollectionDate());
-
-        Receivable receivable = receivablePersistencePort.findById(receivableId)
+        Receivable receivable = receivablePersistencePort.findByIdForUpdate(receivableId)
                 .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + receivableId));
+        requireSameCustomer(collection, receivable);
+        validateAccountingPeriodOpen(collection.getCollectionDate());
 
         if (amount.compareTo(collection.getUnallocatedAmount()) > 0
                 || amount.compareTo(receivable.getOutstandingAmount()) > 0) {
             throw new IllegalArgumentException("Invalid match amount.");
         }
 
-        processMatch(collection, receivable, amount);
+        processMatch(collection, receivable, amount, operationId);
     }
 
     @Override
@@ -135,13 +151,9 @@ public class CollectionService implements CollectionUseCase {
         return collectionPersistencePort.findByUnmatched();
     }
 
-    private void processMatch(Collection collection, Receivable receivable, BigDecimal amount) {
+    private void processMatch(Collection collection, Receivable receivable, BigDecimal amount, String operationId) {
         // 자동 매칭 후보도 이 경로를 지나므로 고객 귀속을 상태 변경 전에 함께 검증합니다.
-        String customerCode = collection.getCustomerCode();
-        if (customerCode == null || customerCode.isBlank()
-                || !customerCode.equals(receivable.getCustomerCode())) {
-            throw new IllegalArgumentException("Collection and receivable customer codes must match.");
-        }
+        requireSameCustomer(collection, receivable);
 
         // DDD: 엔티티 내부 로직 호출
         receivable.applyCollection(amount);
@@ -150,7 +162,7 @@ public class CollectionService implements CollectionUseCase {
         receivablePersistencePort.save(receivable);
         collectionPersistencePort.save(collection);
         // 매칭 결과와 양쪽 잔액을 별도 이력으로 남겨 부분 매칭과 후속 매칭을 추적할 수 있습니다.
-        collectionAllocationPersistencePort.save(CollectionAllocation.record(collection, receivable, amount));
+        collectionAllocationPersistencePort.save(CollectionAllocation.record(collection, receivable, amount, operationId));
 
         // 연관 인보이스 상태 업데이트
         if (receivable.getSalesInvoice() != null) {
@@ -161,7 +173,15 @@ public class CollectionService implements CollectionUseCase {
 
         // 매칭 전표 발행 (AR Clearing -> AR)
         BusinessPartnerRef customer = validateCustomer(collection.getCustomerCode());
-        postMatchJournal(collection, receivable, amount, customer);
+        postMatchJournal(collection, receivable, amount, customer, operationId);
+    }
+
+    private void requireSameCustomer(Collection collection, Receivable receivable) {
+        String customerCode = collection.getCustomerCode();
+        if (customerCode == null || customerCode.isBlank()
+                || !customerCode.equals(receivable.getCustomerCode())) {
+            throw new IllegalArgumentException("Collection and receivable customer codes must match.");
+        }
     }
 
     private Collection toCollection(CollectionCommand command) {
@@ -188,10 +208,11 @@ public class CollectionService implements CollectionUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 collection.getCollectionDate(),
                 collection.getCollectionDate(),
-                "Collection: " + customer.name() + " - " + collection.getAmount(),
+                "Collection: " + collection.getCustomerCode() + " - " + collection.getAmount(),
                 "COLLECTION_RECOGNITION",
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION", collection.getId().toString(),
+                null, "PRIMARY",
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.cashAccountCode(), collection.getAmount(), null, null,
                                 customer.code(), "Cash/Bank Increase"),
@@ -202,7 +223,8 @@ public class CollectionService implements CollectionUseCase {
         journalPostingPort.createDraftEntry(command);
     }
 
-    private void postMatchJournal(Collection collection, Receivable receivable, BigDecimal amount, BusinessPartnerRef customer) {
+    private void postMatchJournal(Collection collection, Receivable receivable, BigDecimal amount,
+                                  BusinessPartnerRef customer, String operationId) {
         ReceivableAccountMappingPort.CollectionMatchAccounts accounts =
                 receivableAccountMappingPort.resolveCollectionMatchAccounts(collection, receivable);
         requireAccounts(accounts.requiredAccountCodes());
@@ -210,10 +232,11 @@ public class CollectionService implements CollectionUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 collection.getCollectionDate(),
                 collection.getCollectionDate(),
-                "Match: " + customer.name() + " - " + amount,
+                "Match: " + collection.getCustomerCode() + " - " + amount,
                 "AR_CLEARING",
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION_MATCH", collection.getId().toString(),
+                null, operationId,
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.arClearingAccountCode(), amount, null, null,
                                 customer.code(), "AR Clearing decrease"),

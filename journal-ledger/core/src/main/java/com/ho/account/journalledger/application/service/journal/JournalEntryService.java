@@ -1,21 +1,27 @@
 package com.ho.account.journalledger.application.service.journal;
 
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import com.ho.account.journalledger.application.port.out.JournalCreationOperationPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
+import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
+import com.ho.account.journalledger.domain.journal.domain.JournalCreationOperation;
+import com.ho.account.journalledger.domain.journal.domain.JournalCurrencyConversionPolicy;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
 import com.ho.account.journalledger.domain.journal.domain.ReversalOperationStatus;
-import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -63,6 +69,24 @@ public class JournalEntryService implements JournalUseCase {
     private static final Pattern AUTOMATIC_SLIP_NAMESPACE =
             Pattern.compile("JE-[0-9]{8}-[0-9A-Z]{8}");
 
+    private static final JournalCreationOperationPersistencePort UNAVAILABLE_CREATION_PERSISTENCE =
+            new JournalCreationOperationPersistencePort() {
+                @Override
+                public void acquireOperationLock(JournalCreationIdentity identity) {
+                    throw unavailableCreationPersistence();
+                }
+
+                @Override
+                public Optional<JournalCreationOperation> findByIdentity(JournalCreationIdentity identity) {
+                    throw unavailableCreationPersistence();
+                }
+
+                @Override
+                public JournalCreationOperation save(JournalCreationOperation operation) {
+                    throw unavailableCreationPersistence();
+                }
+            };
+
     private static final JournalReversalPersistencePort UNAVAILABLE_REVERSAL_PERSISTENCE =
             new JournalReversalPersistencePort() {
                 @Override
@@ -88,6 +112,9 @@ public class JournalEntryService implements JournalUseCase {
      */
     private final JournalPersistencePort journalPersistencePort;
 
+    /** One durable identity/fingerprint link for each externally retryable creation command. */
+    private final JournalCreationOperationPersistencePort journalCreationOperationPersistencePort;
+
     /** 원본별 단일 역분개 작업과 그 수명주기를 저장합니다. */
     private final JournalReversalPersistencePort journalReversalPersistencePort;
 
@@ -110,15 +137,17 @@ public class JournalEntryService implements JournalUseCase {
      */
     private final JournalValidationEngine journalValidationEngine;
 
-    /** Production wiring uses the durable reversal operation port. */
+    /** Production wiring uses both durable creation and V17 reversal operation ports. */
     @Autowired
     public JournalEntryService(
             JournalPersistencePort journalPersistencePort,
+            JournalCreationOperationPersistencePort journalCreationOperationPersistencePort,
             JournalReversalPersistencePort journalReversalPersistencePort,
             JournalRuleEngine journalRuleEngine,
             PostingService postingService,
             JournalValidationEngine journalValidationEngine) {
         this.journalPersistencePort = journalPersistencePort;
+        this.journalCreationOperationPersistencePort = journalCreationOperationPersistencePort;
         this.journalReversalPersistencePort = journalReversalPersistencePort;
         this.journalRuleEngine = journalRuleEngine;
         this.postingService = postingService;
@@ -135,12 +164,39 @@ public class JournalEntryService implements JournalUseCase {
             JournalRuleEngine journalRuleEngine,
             PostingService postingService,
             JournalValidationEngine journalValidationEngine) {
-        this(journalPersistencePort, UNAVAILABLE_REVERSAL_PERSISTENCE,
+        this(journalPersistencePort, UNAVAILABLE_CREATION_PERSISTENCE, UNAVAILABLE_REVERSAL_PERSISTENCE,
+                journalRuleEngine, postingService, journalValidationEngine);
+    }
+
+    /** Compatibility constructor for reversal-focused callers that do not exercise creation identity. */
+    public JournalEntryService(
+            JournalPersistencePort journalPersistencePort,
+            JournalReversalPersistencePort journalReversalPersistencePort,
+            JournalRuleEngine journalRuleEngine,
+            PostingService postingService,
+            JournalValidationEngine journalValidationEngine) {
+        this(journalPersistencePort, UNAVAILABLE_CREATION_PERSISTENCE, journalReversalPersistencePort,
+                journalRuleEngine, postingService, journalValidationEngine);
+    }
+
+    /** Compatibility constructor for creation-focused callers that do not exercise managed reversal. */
+    public JournalEntryService(
+            JournalPersistencePort journalPersistencePort,
+            JournalCreationOperationPersistencePort journalCreationOperationPersistencePort,
+            JournalRuleEngine journalRuleEngine,
+            PostingService postingService,
+            JournalValidationEngine journalValidationEngine) {
+        this(journalPersistencePort, journalCreationOperationPersistencePort, UNAVAILABLE_REVERSAL_PERSISTENCE,
                 journalRuleEngine, postingService, journalValidationEngine);
     }
 
     private static IllegalStateException unavailableReversalPersistence() {
         return new IllegalStateException("역분개 작업 영속성이 구성되지 않아 역분개 명령을 처리할 수 없습니다.");
+    }
+
+    private static IllegalStateException unavailableCreationPersistence() {
+        return new IllegalStateException(
+                "전표 생성 작업 영속성이 구성되지 않아 멱등 생성 명령을 처리할 수 없습니다.");
     }
 
     /**
@@ -156,13 +212,113 @@ public class JournalEntryService implements JournalUseCase {
     @Override
     @Transactional
     public JournalEntry createJournalEntry(JournalEntry journalEntry) {
+        assertGenericCreationAllowed(journalEntry);
+        if (journalCreationOperationPersistencePort == UNAVAILABLE_CREATION_PERSISTENCE) {
+            // Only source-compatible direct constructions used by legacy embedded tests reach this
+            // fallback. Spring production wiring always supplies the durable operation port.
+            return validateAndSaveJournalEntry(journalEntry);
+        }
+        // A slip number is a result identifier, not proof of the caller's retry identity.
+        throw new IllegalArgumentException("Explicit journal creation operation identity is required");
+    }
+
+    @Override
+    @Transactional
+    public JournalEntry createJournalEntry(
+            JournalCreationIdentity identity,
+            JournalEntry journalEntry) {
+        if (identity == null) {
+            throw new IllegalArgumentException("journal creation identity must not be null");
+        }
+        assertGenericCreationAllowed(journalEntry);
+        canonicalizeCreationFields(journalEntry);
+
+        // The lock row exists independently of the operation row, so even two first attempts serialize.
+        // Its transaction-scoped lock makes find/compare/create/link one atomic application flow.
+        journalCreationOperationPersistencePort.acquireOperationLock(identity);
+        assertIdentityMatchesLineage(identity, journalEntry);
+        Optional<JournalCreationOperation> existingOperation =
+                journalCreationOperationPersistencePort.findByIdentity(identity);
+        String fingerprint = JournalCreationFingerprint.calculate(journalEntry);
+        if (existingOperation.isPresent()) {
+            return resolveExistingCreation(existingOperation.get(), JournalCreationFingerprint.CURRENT_VERSION, fingerprint);
+        }
+
+        JournalEntry savedEntry = validateAndSaveJournalEntry(journalEntry);
+        if (savedEntry.getId() == null || savedEntry.getId() <= 0) {
+            throw new IllegalStateException("저장된 전표 ID가 없습니다.");
+        }
+        journalCreationOperationPersistencePort.save(JournalCreationOperation.create(
+                identity.sourceType(),
+                identity.sourceId(),
+                identity.operationKey(),
+                JournalCreationFingerprint.CURRENT_VERSION,
+                fingerprint,
+                savedEntry.getId()));
+        return savedEntry;
+    }
+
+    private JournalEntry resolveExistingCreation(
+            JournalCreationOperation operation,
+            int candidateVersion,
+            String candidateFingerprint) {
+        if (!operation.matchesFingerprint(
+                candidateVersion,
+                candidateFingerprint)) {
+            throw new JournalCreationConflictException();
+        }
+        return journalPersistencePort.findByIdWithDetailsWithoutLock(operation.getJournalEntryId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Journal creation operation references a missing journal entry."));
+    }
+
+    private static void canonicalizeCreationFields(JournalEntry journalEntry) {
+        String entryType = journalEntry.getEntryType();
+        journalEntry.setEntryType(entryType == null || entryType.isBlank()
+                ? "NORMAL"
+                : entryType.trim().toUpperCase(Locale.ROOT));
+        String currencyCode = journalEntry.getCurrencyCode();
+        if (currencyCode == null || currencyCode.isBlank()) {
+            journalEntry.setCurrencyCode(JournalCurrencyConversionPolicy.BASE_CURRENCY_CODE);
+        }
+        if (JournalCurrencyConversionPolicy.BASE_CURRENCY_CODE.equals(journalEntry.getCurrencyCode())
+                && journalEntry.getExchangeRate() == null) {
+            // A missing KRW rate has always meant same-unit conversion; persist the effective value
+            // so null and explicit-one retries share both the fingerprint and stored audit evidence.
+            journalEntry.setExchangeRate(BigDecimal.ONE);
+        }
+        // Creation audit identity is derived from the canonical maker; caller payload audit fields
+        // are not a second identity source and therefore are not separate fingerprint material.
+        journalEntry.setAuditUser(journalEntry.getCreatedBy());
+        journalEntry.getDetails().forEach(
+                detail -> detail.setAuditUser(journalEntry.getCreatedBy()));
+    }
+
+    private static void assertIdentityMatchesLineage(
+            JournalCreationIdentity identity,
+            JournalEntry journalEntry) {
+        String entrySourceType = normalizedText(journalEntry.getLineageSourceType());
+        String entrySourceId = normalizedText(journalEntry.getLineageSourceId());
+        if (!identity.sourceType().equals(entrySourceType)
+                || !identity.sourceId().equals(entrySourceId)) {
+            throw new IllegalArgumentException(
+                    "Journal creation identity must match the journal lineage source.");
+        }
+    }
+
+    private static String normalizedText(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private static void assertGenericCreationAllowed(JournalEntry journalEntry) {
+        if (journalEntry == null) {
+            throw new IllegalArgumentException("journalEntry must not be null");
+        }
         if (journalEntry.isReversal()) {
-            // 공개 생성 포트가 operation claim 없이 REVERSAL을 만들 수 있으면 exactly-once 통제를
-            // 우회합니다. 역분개는 reverseJournalEntry가 원본 잠금과 작업 저장을 함께 수행합니다.
+            // Generic creation cannot claim the V17 original-journal lock/operation relationship.
             throw new IllegalArgumentException(
                     "역분개 전표는 reverseJournalEntry 유스케이스로만 생성할 수 있습니다.");
         }
-        return validateAndSaveJournalEntry(journalEntry);
     }
 
     /** 검증과 채번을 공유하되 역분개 우회 권한을 외부 유스케이스에 노출하지 않습니다. */
@@ -224,6 +380,48 @@ public class JournalEntryService implements JournalUseCase {
     public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, Object> eventData, LocalDate accountingDate) {
         return journalRuleEngine.generateJournalEntry(eventData, accountingDate)
                 .map(this::createJournalEntry);
+    }
+
+    @Override
+    @Transactional
+    public Optional<JournalEntry> createJournalEntryFromEvent(
+            JournalCreationIdentity identity,
+            Map<String, Object> eventData,
+            LocalDate accountingDate) {
+        if (identity == null) {
+            throw new IllegalArgumentException("journal creation identity must not be null");
+        }
+        if (!identity.equals(JournalCreationIdentity.fromEvent(eventData))) {
+            throw new IllegalArgumentException("Journal creation identity must match the event source and operation key");
+        }
+        String fingerprint = JournalEventRequestFingerprint.calculate(eventData, accountingDate);
+
+        // An already committed event must resolve before mutable rule lookup. The same lock also
+        // serializes two first deliveries and keeps journal plus receipt in this transaction.
+        journalCreationOperationPersistencePort.acquireOperationLock(identity);
+        Optional<JournalCreationOperation> existing =
+                journalCreationOperationPersistencePort.findByIdentity(identity);
+        if (existing.isPresent()) {
+            return Optional.of(resolveExistingCreation(existing.get(),
+                    JournalEventRequestFingerprint.VERSION, fingerprint));
+        }
+
+        Optional<JournalEntry> generated = journalRuleEngine.generateJournalEntry(eventData, accountingDate);
+        if (generated.isEmpty()) {
+            return Optional.empty();
+        }
+        JournalEntry entry = generated.get();
+        assertGenericCreationAllowed(entry);
+        canonicalizeCreationFields(entry);
+        assertIdentityMatchesLineage(identity, entry);
+        JournalEntry saved = validateAndSaveJournalEntry(entry);
+        if (saved.getId() == null || saved.getId() <= 0) {
+            throw new IllegalStateException("저장된 전표 ID가 없습니다.");
+        }
+        journalCreationOperationPersistencePort.save(JournalCreationOperation.create(
+                identity.sourceType(), identity.sourceId(), identity.operationKey(),
+                JournalEventRequestFingerprint.VERSION, fingerprint, saved.getId()));
+        return Optional.of(saved);
     }
 
     /**

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
 import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
@@ -47,14 +48,14 @@ class JournalEventPrecisionMvcTest {
     @Test
     void eventAllocatorOutageReturnsServiceUnavailable() throws Exception {
         org.mockito.Mockito.doThrow(new SlipNumberAllocationException("database unavailable"))
-                .when(journalUseCase).createJournalEntryFromEvent(any(), any());
+                .when(journalUseCase).createJournalEntryFromEvent(any(), any(), any());
 
         mockMvc.perform(post("/api/journals/from-event")
                         .queryParam("accountingDate", ACCOUNTING_DATE.toString())
                         .header("X-Auth-User", "journal-maker")
                         .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"eventData\":{}}"))
+                        .content("{\"eventData\":{\"ruleCode\":\"PRECISION_RULE\",\"eventId\":\"EVENT-764\",\"journalOperationKey\":\"EVENT-764:v1\"}}"))
                 .andExpect(status().isServiceUnavailable());
     }
 
@@ -70,9 +71,10 @@ class JournalEventPrecisionMvcTest {
         receivedEvent = new AtomicReference<>();
         generatedEntry = new AtomicReference<>();
 
-        when(journalUseCase.createJournalEntryFromEvent(any(), any())).thenAnswer(invocation -> {
-            Map<String, Object> event = invocation.getArgument(0);
-            LocalDate accountingDate = invocation.getArgument(1);
+        when(journalUseCase.createJournalEntryFromEvent(
+                any(JournalCreationIdentity.class), any(), any())).thenAnswer(invocation -> {
+            Map<String, Object> event = invocation.getArgument(1);
+            LocalDate accountingDate = invocation.getArgument(2);
             receivedEvent.set(event);
             Optional<JournalEntry> result = ruleEngine.generateJournalEntry(event, accountingDate);
             result.ifPresent(generatedEntry::set);
@@ -89,7 +91,7 @@ class JournalEventPrecisionMvcTest {
                         .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"eventData":{"ruleCode":"PRECISION_RULE","amount":900719925474099.11,
+                                {"eventData":{"ruleCode":"PRECISION_RULE","eventId":"PRECISION-764","journalOperationKey":"MAIN:v1","amount":900719925474099.11,
                                   "createdBy":"payload-attacker","auditUser":"payload-attacker"}}
                                 """))
                 .andExpect(status().isOk());
@@ -114,7 +116,7 @@ class JournalEventPrecisionMvcTest {
                         .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"eventData":{"ruleCode":"PRECISION_RULE","amount":100.000000000000001}}
+                                {"eventData":{"ruleCode":"PRECISION_RULE","eventId":"PRECISION-764","journalOperationKey":"MAIN:v1","amount":100.000000000000001}}
                                 """))
                 .andExpect(status().isBadRequest());
 

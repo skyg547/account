@@ -23,8 +23,9 @@ import org.springframework.stereotype.Component;
  *
  * 2. 멱등성(Idempotency)과 최종 정합성(Eventual Consistency) 보장:
  *    - 비동기 메세지 릴레이(Kafka, Outbox Relay 등)는 네트워크 재시도로 인해 At-Least-Once Delivery 특성을 갖습니다.
- *    - 수신된 이벤트를 `JournalPostingPort.createDraftEntry()`로 전달하면, 
- *      내부 어댑터에서 `lineageSourceType`과 `lineageSourceId` 중복 검사를 거쳐 멱등하게 전표가 발행됩니다.
+ *    - 수신된 이벤트를 `JournalPostingPort.createDraftEntry()`로 전달하면,
+ *      내부 어댑터가 lineage와 명시적 operationKey를 durable operation identity로 만들고,
+ *      요청 fingerprint까지 비교하여 동일한 재전송만 기존 전표로 수렴시킵니다.
  * ───────────────────────────────────────────────────────────────────────────────────
  */
 @Slf4j
@@ -44,8 +45,7 @@ public class JournalPostingEventListener {
      */
     @EventListener
     public JournalPostingResult handleJournalPostingEvent(JournalEntryCommand command) {
-        log.info("Received Async Journal Posting Event for lineageSourceId: {}, type: {}",
-                command.lineageSourceId(), command.lineageSourceType());
+        log.info("Received Async Journal Posting Event");
         
         try {
             JournalPostingResult result = journalPostingPort.createDraftEntry(withTrustedMaker(command));
@@ -53,8 +53,9 @@ public class JournalPostingEventListener {
                     result.slipNo(), result.journalEntryId());
             return result;
         } catch (Exception e) {
-            log.error("Failed to process Async Journal Posting Event for lineageSourceId: {}",
-                    command.lineageSourceId(), e);
+            // The event infrastructure observes the rethrown exception; avoid duplicating payload-derived details.
+            log.error("Failed to process Async Journal Posting Event; failureType={}",
+                    e.getClass().getSimpleName());
             throw e;
         }
     }
@@ -64,6 +65,7 @@ public class JournalPostingEventListener {
         return new JournalEntryCommand(
                 command.slipDate(), command.accountingDate(), command.description(), command.entryType(),
                 command.currencyCode(), command.exchangeRate(), SPRING_EVENT_MAKER, SPRING_EVENT_MAKER,
-                command.lineageSourceType(), command.lineageSourceId(), command.slipNo(), command.lines());
+                command.lineageSourceType(), command.lineageSourceId(), command.slipNo(),
+                command.operationKey(), command.lines());
     }
 }

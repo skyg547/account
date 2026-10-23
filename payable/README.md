@@ -117,6 +117,7 @@ erDiagram
 - 거래처별 지급 현황이나 Aging 분석 시 `LedgerQueryPort`를 활용하세요.
 - 지급 런은 각 `Payment`에 `payableId`를 저장합니다. 실행 시 공급업체/금액으로 다시 찾지 않고 해당 채무만 차감합니다.
 - 실제 송금은 `PaymentExecutionPort`를 호출하며 `PAYMENT:{paymentId}` 멱등 키를 사용합니다. 실패 시 채무는 차감하지 않고 실패 사유와 시도 횟수를 남겨 재시도할 수 있습니다.
+- 선급금 상계 요청에는 호출자가 생성한 `operationId`와 고정된 `accountingDate`가 필수입니다. 같은 채무의 재시도에는 두 값을 유지하고, 새 상계에는 새 ID를 사용합니다. 자세한 요청 예와 전표 키는 [process-flow.md](./docs/process-flow.md)에 있습니다.
 - 거래처 조회는 `contracts`의 `MasterDataQueryPort`만 사용하므로 payable 애플리케이션 계층은 master-data 내부 저장소에 의존하지 않습니다.
 
 ## 5. 문서 읽기 순서

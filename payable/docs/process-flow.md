@@ -100,18 +100,20 @@ flowchart TD
     C --> D[선급금 전표 초안 생성]
     D --> E[AdvancePaymentResponse 반환]
 
-    F[POST /api/payments/offset-payable] --> G[OffsetPayableCommand]
-    G --> H[Payable 행 잠금 후 조회]
-    H --> H1{IN_PAYMENT인가?}
+    F[POST /api/payments/offset-payable + operationId + accountingDate] --> G[OffsetPayableCommand]
+    G --> H[Payable 행 잠금 및 작업 이력 조회]
+    H --> H0{같은 operationId 처리 이력?}
+    H0 -->|동일 내용| O[현재 Payable 반환]
+    H0 -->|내용 충돌| X[업무 예외: 변경 없이 거부]
+    H0 -->|새 작업| H1{IN_PAYMENT인가?}
     H1 -->|예| H2[상계 거부, 잔액 유지]
-    H1 -->|아니오| I[AdvancePayment 조회]
-    H --> J{두 vendorCode가 비어 있지 않고 같은가?}
-    I --> J
+    H1 -->|아니오| I[AdvancePayment 행 잠금]
+    I --> J{두 vendorCode가 비어 있지 않고 같은가?}
     J -->|아니오| X[업무 예외: 변경 없이 거부]
     J -->|예| K[Payable.applyOffset]
     K --> L[AdvancePayment.applyOffset]
     L --> M[잔액과 상태 저장]
-    M --> N[상계 전표 초안 생성]
+    M --> N[상계 전표 초안 생성 및 작업 이력 저장]
     N --> O[PayableResponse 반환]
 ```
 
@@ -122,10 +124,16 @@ flowchart TD
 예를 들어 채무 ID 100(잔액 500.00)과 같은 공급업체 선급금 ID 200(잔액 200.00)이 있을 때 다음 본문으로 요청한다.
 
 ```json
-{"payableId":100,"advancePaymentId":200,"offsetAmount":100.00}
+{"payableId":100,"advancePaymentId":200,"offsetAmount":100.00,"operationId":"a0fc4e2f-14e6-4535-b15c-dc49664e6af4","accountingDate":"2026-05-29"}
 ```
 
 채무 잔액은 400.00(`PARTIAL_PAID`), 선급금 잔액은 100.00(`ACTIVE`)이 되고 차변·대변에 각각 100.00인 전표 초안을 요청한다. 두 잔액이 모두 500.00일 때 500.00을 상계하면 채무는 `PAID`, 선급금은 `OFFSET`이 되며 양쪽 잔액은 0이다. 다른 공급업체 선급금 ID로 같은 요청을 보내면 두 잔액·상태가 그대로 남고 전표 초안도 생성하지 않는다. 요청 금액은 양쪽 잔액을 넘을 수 없다.
+
+`operationId`는 호출자가 한 채무의 상계 한 건에 부여하는 60자 이하의 문자열이고, `accountingDate`는 그 업무의 고정 회계일이다. 응답을 잃어 다음 날 다시 요청해도 두 값을 유지한다. 같은 채무와 선급금을 다시 상계하는 새 업무에는 새 ID를 보낸다. `payableId`가 다르면 같은 클라이언트 ID를 써도 별도 사건으로 저장된다. 같은 `(payableId, operationId)`의 재시도는 이력을 확인하고 잔액과 전표를 다시 만들지 않는다. 그 키의 선급금·금액·회계일이 달라지면 `409 OPERATION_CONFLICT`로 실패한다. 저널 서버가 동일 키의 다른 재무 내용을 `409`로 거부해도 payable API는 같은 충돌 코드를 돌려준다. `offsetAmount`는 DB의 소수 둘째 자리까지 정확히 표현할 수 있어야 하며, 반올림이 필요한 값은 잔액 변경 전에 거부한다. 현재 성공 응답은 원래 시점의 잔액 스냅샷이 아니라 조회 시점의 최신 채무 상태를 반환한다.
+
+저널 생성 키는 매입 인식 `PURCHASE_RECOGNITION:{invoiceNo}:{vendorCode}`, 지급 `PAYMENT_EXECUTION:{paymentId}`, 선급금 `ADVANCE_PAYMENT:{advancePaymentId}`, 상계 `AP_ADVANCE_OFFSET:{payableId}:{operationId}`다. 같은 채무의 두 상계는 라인리지를 공유할 수 있지만 서로 다른 전표 생성 사건으로 취급된다. 전표 번호 `slipNo`는 이 식별자와 독립적이다.
+
+네 전표 유형의 설명에는 조회 시점에 바뀔 수 있는 거래처 표시명 대신 원천 객체에 저장된 `vendorCode`를 사용한다. 원격 원장 생성은 성공했지만 payable 트랜잭션이 롤백된 뒤 표시명이 바뀌거나 거래처 조회가 일시적으로 불가능해져도, 같은 업무 입력으로 만든 전표 명령의 지문이 바뀌지 않도록 하기 위해서다.
 
 ## 전표 유형과 차대변
 

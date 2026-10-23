@@ -106,7 +106,8 @@ class JournalCommandAuthorizationMvcTest {
         draft.setCreatedBy("accounting-admin");
         draft.initializeDraft();
         org.mockito.Mockito.when(useCase.createJournalEntryFromEvent(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.of(draft));
 
         mvc.perform(post("/api/journals/from-event")
@@ -114,14 +115,15 @@ class JournalCommandAuthorizationMvcTest {
                         .header("X-Auth-User", "accounting-admin")
                         .header("X-Auth-Roles", "ROLE_ACCOUNTING_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"eventData\":{\"ruleCode\":\"ADJUSTMENT\",\"sourceEventDate\":\"2026-08-31\",\"createdBy\":\"untrusted\"}}"))
+                        .content("{\"eventData\":{\"ruleCode\":\"ADJUSTMENT\",\"eventId\":\"ADJUSTMENT-884\",\"journalOperationKey\":\"ADJUSTMENT-884:v1\",\"sourceEventDate\":\"2026-08-31\",\"createdBy\":\"untrusted\"}}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(884))
                 .andExpect(jsonPath("$.status").value("DRAFT"));
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> event = ArgumentCaptor.forClass(Map.class);
-        verify(useCase).createJournalEntryFromEvent(event.capture(), org.mockito.ArgumentMatchers.eq(chosenDate));
+        verify(useCase).createJournalEntryFromEvent(org.mockito.ArgumentMatchers.any(),
+                event.capture(), org.mockito.ArgumentMatchers.eq(chosenDate));
         assertThat(event.getValue()).containsEntry("createdBy", "accounting-admin")
                 .containsEntry("auditUser", "accounting-admin")
                 .containsEntry("sourceEventDate", "2026-08-31");

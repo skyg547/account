@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.application.service.journal;
 
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.KafkaJournalEventUseCase;
 import com.ho.account.journalledger.application.port.out.JournalEventPayloadCodec;
 import com.ho.account.journalledger.application.port.out.JournalEventQuarantinePort;
@@ -44,7 +45,9 @@ public class KafkaJournalEventService implements KafkaJournalEventUseCase {
                     quarantine.getId());
         }
 
-        var journal = journalUseCase.createJournalEntryFromEvent(event, accountingDate);
+        // Use the business event/version identity; broker offsets only identify deliveries.
+        JournalCreationIdentity identity = JournalCreationIdentity.fromEvent(event);
+        var journal = journalUseCase.createJournalEntryFromEvent(identity, event, accountingDate);
         if (journal.isPresent()) {
             return new ProcessingResult(
                     ProcessingResult.Disposition.JOURNAL_CREATED,
@@ -81,9 +84,9 @@ public class KafkaJournalEventService implements KafkaJournalEventUseCase {
         }
 
         quarantine.noteReplayAttempt(canonicalActor, Instant.now());
-        var generated = journalUseCase.createJournalEntryFromEvent(
-                payloadCodec.decode(quarantine.getPayloadJson()),
-                quarantine.getAccountingDate());
+        Map<String, Object> event = payloadCodec.decode(quarantine.getPayloadJson());
+        JournalCreationIdentity identity = JournalCreationIdentity.fromEvent(event);
+        var generated = journalUseCase.createJournalEntryFromEvent(identity, event, quarantine.getAccountingDate());
         if (generated.isEmpty()) {
             quarantinePort.save(quarantine);
             return new ReplayResult(false, false, null, quarantine);

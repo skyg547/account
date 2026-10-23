@@ -151,10 +151,11 @@ public class SalesService implements SalesUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 invoice.getIssueDate(),
                 invoice.getIssueDate(),
-                "Sales: " + invoice.getInvoiceNo() + " - " + customer.name(),
+                "Sales: " + invoice.getInvoiceNo() + " - " + invoice.getCustomerCode(),
                 "SALES_RECOGNITION",
                 null, null, invoice.getCreatedBy(), invoice.getCreatedBy(),
                 "SALES_INVOICE", invoice.getId().toString(),
+                null, "PRIMARY",
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsReceivableAccountCode(), invoice.getTotalAmount(), null, null,
                                 customer.code(), "Accounts Receivable"),

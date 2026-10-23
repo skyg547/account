@@ -4,7 +4,7 @@ import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
-import com.ho.account.contracts.masterdata.BusinessPartnerRef;
+import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.application.port.in.*;
 import com.ho.account.expenditure.application.port.out.*;
@@ -37,6 +37,7 @@ public class PaymentService implements PaymentUseCase {
     private final PayablePersistencePort payablePersistencePort;
     private final PaymentRunPersistencePort paymentRunPersistencePort;
     private final AdvancePaymentPersistencePort advancePaymentPersistencePort;
+    private final PayableOffsetOperationPersistencePort offsetOperationPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final PayableAccountMappingPort payableAccountMappingPort;
@@ -47,6 +48,7 @@ public class PaymentService implements PaymentUseCase {
                           PayablePersistencePort payablePersistencePort,
                           PaymentRunPersistencePort paymentRunPersistencePort,
                           AdvancePaymentPersistencePort advancePaymentPersistencePort,
+                          PayableOffsetOperationPersistencePort offsetOperationPersistencePort,
                           MasterDataQueryPort masterDataQueryPort,
                           JournalPostingPort journalPostingPort,
                           PayableAccountMappingPort payableAccountMappingPort,
@@ -56,6 +58,7 @@ public class PaymentService implements PaymentUseCase {
         this.payablePersistencePort = payablePersistencePort;
         this.paymentRunPersistencePort = paymentRunPersistencePort;
         this.advancePaymentPersistencePort = advancePaymentPersistencePort;
+        this.offsetOperationPersistencePort = offsetOperationPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
         this.payableAccountMappingPort = payableAccountMappingPort;
@@ -233,29 +236,39 @@ public class PaymentService implements PaymentUseCase {
 
         AdvancePayment advancePayment = toAdvancePayment(command);
         String vendorCode = advancePayment.getVendorCode();
-        BusinessPartnerRef vendor = validateVendor(vendorCode);
+        validateVendor(vendorCode);
 
         AdvancePayment savedAdvancePayment = advancePaymentPersistencePort.save(advancePayment);
 
-        postAdvanceJournal(savedAdvancePayment, vendor.name());
+        postAdvanceJournal(savedAdvancePayment);
 
         return savedAdvancePayment;
     }
 
     @Override
     public Payable offsetPayableWithAdvancePayment(OffsetPayableCommand command) {
-        validateAccountingPeriodOpen(LocalDate.now());
-
         Long payableId = command.payableId();
         Long advancePaymentId = command.advancePaymentId();
         BigDecimal offsetAmount = command.offsetAmount();
-        // 지급 claim과 상계를 같은 채무 행에서 직렬화해 선점된 지급 후보를 다시 열지 않습니다.
+        // 지급 claim과 상계를 같은 채무 행에서 직렬화하고 커밋된 재시도 작업을 잔액 변경 전에 찾습니다.
         Payable payable = payablePersistencePort.findByIdForUpdate(payableId)
                 .orElseThrow(() -> new IllegalArgumentException("Payable not found: " + payableId));
+        Optional<PayableOffsetOperation> existing = offsetOperationPersistencePort
+                .findByPayableIdAndOperationId(payableId, command.operationId());
+        if (existing.isPresent()) {
+            if (!existing.get().matches(payableId, advancePaymentId, offsetAmount, command.accountingDate())) {
+                throw new PayableOperationConflictException(
+                        "Offset operationId was already used with different financial content");
+            }
+            return payable;
+        }
+
+        validateAccountingPeriodOpen(command.accountingDate());
         if (payable.getStatus() == PayableStatus.IN_PAYMENT) {
             throw new IllegalStateException("Payable is already in payment: " + payableId);
         }
-        AdvancePayment advancePayment = advancePaymentPersistencePort.findById(advancePaymentId)
+        // 다른 채무도 같은 선급금을 쓸 수 있으므로 잔액 확인 전 선급금 행도 잠급니다.
+        AdvancePayment advancePayment = advancePaymentPersistencePort.findByIdForUpdate(advancePaymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Advance payment not found: " + advancePaymentId));
 
         // 전표는 채무의 공급업체 코드로 기록되므로 잔액 변경 전에 선급금 소유자를 확인한다.
@@ -271,7 +284,11 @@ public class PaymentService implements PaymentUseCase {
         payablePersistencePort.save(payable);
         advancePaymentPersistencePort.save(advancePayment);
 
-        postOffsetJournal(payable, offsetAmount);
+        JournalPostingResult journal = postOffsetJournal(payable, advancePayment, offsetAmount,
+                command.operationId(), command.accountingDate());
+        offsetOperationPersistencePort.save(new PayableOffsetOperation(
+                command.operationId(), payableId, advancePaymentId, offsetAmount,
+                command.accountingDate(), journal.journalEntryId()));
 
         return payable;
     }
@@ -285,8 +302,8 @@ public class PaymentService implements PaymentUseCase {
         return advancePayment;
     }
 
-    private BusinessPartnerRef validateVendor(String vendorCode) {
-        return masterDataQueryPort.findBusinessPartner(vendorCode)
+    private void validateVendor(String vendorCode) {
+        masterDataQueryPort.findBusinessPartner(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor info missing: " + vendorCode));
     }
 
@@ -295,18 +312,17 @@ public class PaymentService implements PaymentUseCase {
                 payableAccountMappingPort.resolvePaymentExecutionAccounts(payment);
         requireAccounts(accounts.requiredAccountCodes());
 
-        String vendorName = masterDataQueryPort.findBusinessPartner(payment.getVendorCode())
-                .map(BusinessPartnerRef::name)
-                .orElse(payment.getVendorCode());
         String actor = resolveActor(payment);
 
         JournalEntryCommand command = new JournalEntryCommand(
                 payment.getPaymentDate(),
                 payment.getPaymentDate(),
-                "Payment: " + vendorName + " - " + payment.getAmount(),
+                // Use the persisted code so a vendor rename cannot alter an existing operation fingerprint.
+                "Payment: " + payment.getVendorCode() + " - " + payment.getAmount(),
                 "PAYMENT_EXECUTION",
                 null, null, actor, actor,
                 "PAYMENT", payment.getId().toString(),
+                null, "PAYMENT_EXECUTION:" + payment.getId(),
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), payment.getAmount(), null, null,
                                 payment.getVendorCode(), "AP Decrease"),
@@ -317,7 +333,7 @@ public class PaymentService implements PaymentUseCase {
         journalPostingPort.createDraftEntry(command);
     }
 
-    private void postAdvanceJournal(AdvancePayment advance, String vendorName) {
+    private void postAdvanceJournal(AdvancePayment advance) {
         PayableAccountMappingPort.AdvancePaymentAccounts accounts =
                 payableAccountMappingPort.resolveAdvancePaymentAccounts(advance);
         requireAccounts(accounts.requiredAccountCodes());
@@ -325,10 +341,11 @@ public class PaymentService implements PaymentUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 advance.getPaymentDate(),
                 advance.getPaymentDate(),
-                "Advance: " + vendorName + " - " + advance.getAmount(),
+                "Advance: " + advance.getVendorCode() + " - " + advance.getAmount(),
                 "ADVANCE_PAYMENT",
                 null, null, "SYSTEM", "SYSTEM",
                 "ADVANCE_PAYMENT", advance.getId().toString(),
+                null, "ADVANCE_PAYMENT:" + advance.getId(),
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.advanceAccountCode(), advance.getAmount(), null, null,
                                 advance.getVendorCode(), "Advance recognized"),
@@ -339,21 +356,20 @@ public class PaymentService implements PaymentUseCase {
         journalPostingPort.createDraftEntry(command);
     }
 
-    private void postOffsetJournal(Payable payable, BigDecimal amount) {
+    private JournalPostingResult postOffsetJournal(Payable payable, AdvancePayment advance,
+                                                   BigDecimal amount, String operationId, LocalDate accountingDate) {
         PayableAccountMappingPort.AdvanceOffsetAccounts accounts =
                 payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable);
         requireAccounts(accounts.requiredAccountCodes());
 
-        String vendorName = masterDataQueryPort.findBusinessPartner(payable.getVendorCode())
-                .map(BusinessPartnerRef::name)
-                .orElse(payable.getVendorCode());
-
         JournalEntryCommand command = new JournalEntryCommand(
-                LocalDate.now(), LocalDate.now(),
-                "Offset: " + vendorName + " - " + amount,
+                accountingDate, accountingDate,
+                // Display names can change after a remote success; the source vendor code keeps retry fingerprints stable.
+                "Offset: " + payable.getVendorCode() + " - " + amount,
                 "AP_ADVANCE_OFFSET",
                 null, null, "SYSTEM", "SYSTEM",
-                "PAYABLE_OFFSET", payable.getId().toString(),
+                "PAYABLE_OFFSET", payable.getId() + ":" + advance.getId(),
+                null, "AP_ADVANCE_OFFSET:" + payable.getId() + ":" + operationId,
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), amount, null, null,
                                 payable.getVendorCode(), "AP Offset"),
@@ -361,7 +377,7 @@ public class PaymentService implements PaymentUseCase {
                                 payable.getVendorCode(), "Advance Offset")));
 
         validateJournalBalance(command);
-        journalPostingPort.createDraftEntry(command);
+        return journalPostingPort.createDraftEntry(command);
     }
 
     private void requireAccounts(List<String> accountCodes) {

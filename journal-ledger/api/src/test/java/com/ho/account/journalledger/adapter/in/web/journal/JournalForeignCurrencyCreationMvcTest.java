@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,8 +28,9 @@ class JournalForeignCurrencyCreationMvcTest {
     void setUp() {
         JournalUseCase journalUseCase = org.mockito.Mockito.mock(JournalUseCase.class);
         receivedEntry = new AtomicReference<>();
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
+        when(journalUseCase.createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(1);
             receivedEntry.set(entry);
             // Standalone MVC still exercises the same aggregate validation used by the real service.
             entry.validateInvariants();
@@ -50,6 +52,7 @@ class JournalForeignCurrencyCreationMvcTest {
         mockMvc.perform(post("/api/journals")
                         .header("X-Auth-User", "manual-fx-maker")
                         .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .header("Idempotency-Key", "FX-INVALID")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody("100.00")))
                 .andExpect(status().isBadRequest());
@@ -65,6 +68,7 @@ class JournalForeignCurrencyCreationMvcTest {
         mockMvc.perform(post("/api/journals")
                         .header("X-Auth-User", "manual-fx-maker")
                         .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .header("Idempotency-Key", "FX-VALID")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody("130000.00")))
                 .andExpect(status().isOk());

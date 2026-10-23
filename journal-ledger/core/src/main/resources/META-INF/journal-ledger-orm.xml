@@ -191,6 +191,25 @@
       </version>
     </attributes>
   </entity>
+  <entity class="com.ho.account.journalledger.domain.journal.domain.JournalCreationOperation" name="JournalCreationOperation" metadata-complete="true" access="FIELD">
+    <table name="journal_creation_operations">
+      <unique-constraint name="uk_journal_creation_operation_identity">
+        <column-name>source_type</column-name>
+        <column-name>source_id</column-name>
+        <column-name>operation_key</column-name>
+      </unique-constraint>
+    </table>
+    <attributes>
+      <id name="id"><generated-value strategy="IDENTITY"/></id>
+      <basic name="sourceType"><column name="source_type" nullable="false" updatable="false" length="50"/></basic>
+      <basic name="sourceId"><column name="source_id" nullable="false" updatable="false" length="100"/></basic>
+      <basic name="operationKey"><column name="operation_key" nullable="false" updatable="false" length="100"/></basic>
+      <basic name="fingerprintVersion"><column name="fingerprint_version" nullable="false" updatable="false"/></basic>
+      <basic name="requestFingerprint"><column name="request_fingerprint" nullable="false" updatable="false" length="64"/></basic>
+      <basic name="journalEntryId"><column name="journal_entry_id" nullable="false" updatable="false" unique="true"/></basic>
+      <basic name="createdAt"><column name="created_at" nullable="false" updatable="false"/></basic>
+    </attributes>
+  </entity>
   <entity class="com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation" name="JournalReversalOperation" metadata-complete="true" access="FIELD">
     <table name="journal_reversal_operations"/>
     <attributes>

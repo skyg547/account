@@ -1,6 +1,7 @@
 package com.ho.account.receivable.application.port.in;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 
 /**
@@ -9,7 +10,7 @@ import java.util.Objects;
  * <p>초보자용 설명: 자동 매칭이 실패했거나 사람이 직접 판단해야 할 때, 어떤 수납과 어떤 채권을
  * 얼마만큼 연결할지 한 번에 전달합니다. 두 잔액을 함께 줄여야 하므로 세 값이 모두 필요합니다.</p>
  */
-public record ManualMatchingCommand(Long collectionId, Long receivableId, BigDecimal matchingAmount) {
+public record ManualMatchingCommand(Long collectionId, Long receivableId, BigDecimal matchingAmount, String operationId) {
     public ManualMatchingCommand {
         if (collectionId == null || collectionId <= 0) {
             throw new IllegalArgumentException("collectionId must be greater than zero");
@@ -20,6 +21,19 @@ public record ManualMatchingCommand(Long collectionId, Long receivableId, BigDec
         matchingAmount = Objects.requireNonNull(matchingAmount, "matchingAmount is required");
         if (matchingAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("matchingAmount must be greater than zero");
+        }
+        try {
+            // Persisted balances use NUMERIC(19,2); reject fractional cents before any state change.
+            matchingAmount = matchingAmount.setScale(2, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("matchingAmount must be exactly representable to two decimal places", ex);
+        }
+        if (operationId == null || operationId.isBlank()) {
+            throw new IllegalArgumentException("operationId is required for retry-safe matching");
+        }
+        operationId = operationId.trim();
+        if (operationId.length() > 90) {
+            throw new IllegalArgumentException("operationId must not exceed 90 characters");
         }
     }
 }

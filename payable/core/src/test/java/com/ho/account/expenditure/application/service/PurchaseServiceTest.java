@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -92,8 +93,37 @@ class PurchaseServiceTest {
 
         assertThat(journalCommand.createdBy()).isEqualTo("buyer-user");
         assertThat(journalCommand.auditUser()).isEqualTo("buyer-user");
+        assertThat(journalCommand.operationKey()).isEqualTo("PURCHASE_RECOGNITION:PI-001:V001");
+        assertThat(journalCommand.description()).isEqualTo("Purchase: PI-001 - V001");
         assertThat(journalCommand.lines()).extracting("accountCode")
                 .containsExactly("EXP-001", "VAT-001", "AP-001");
+    }
+
+    @Test
+    void purchaseJournalCommandIsStableWhenVendorDisplayNameChangesBeforeSourceRetry() {
+        PurchaseInvoiceCommand source = createCommand("buyer-user");
+        when(masterDataQueryPort.findBusinessPartner("V001"))
+                .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Old Name", "VENDOR", true)),
+                        Optional.of(new BusinessPartnerRef("V001", "Renamed Vendor", "VENDOR", true)));
+        when(purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode("PI-001", "V001"))
+                .thenReturn(Optional.empty());
+        when(purchaseInvoicePersistencePort.save(any(PurchaseInvoice.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(payablePersistencePort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(payableAccountMappingPort.resolvePurchaseRecognitionAccounts(any(PurchaseInvoice.class)))
+                .thenReturn(new PayableAccountMappingPort.PurchaseRecognitionAccounts("EXP-001", "VAT-001", "AP-001"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+        when(journalPostingPort.createDraftEntry(any()))
+                .thenReturn(new JournalPostingResult(10L, "SLIP-1", "DRAFT"));
+
+        service.createPurchaseInvoice(source);
+        service.createPurchaseInvoice(source);
+
+        ArgumentCaptor<JournalEntryCommand> commands = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort, times(2)).createDraftEntry(commands.capture());
+        assertThat(commands.getAllValues().get(0)).isEqualTo(commands.getAllValues().get(1));
+        assertThat(commands.getAllValues().get(0).description()).isEqualTo("Purchase: PI-001 - V001");
     }
 
     @Test

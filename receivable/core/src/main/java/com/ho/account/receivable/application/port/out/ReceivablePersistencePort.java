@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface ReceivablePersistencePort {
     Receivable save(Receivable receivable);
     Optional<Receivable> findById(Long id);
+    Optional<Receivable> findByIdForUpdate(Long id);
     List<Receivable> findByDueDateBeforeAndStatusNot(LocalDate date, ReceivableStatus status);
     List<Receivable> findByCustomerCodeAndStatus(String customerCode, ReceivableStatus status);
     List<Receivable> findOpenItemsByCustomerCode(String customerCode);

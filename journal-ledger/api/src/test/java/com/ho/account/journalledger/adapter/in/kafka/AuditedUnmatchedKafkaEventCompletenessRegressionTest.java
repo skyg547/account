@@ -24,6 +24,8 @@ class AuditedUnmatchedKafkaEventCompletenessRegressionTest {
 
         assertThatThrownBy(() -> listener.listenTransactionEvent(Map.of(
                         "ruleCode", "MISSING_GL18_RULE",
+                        "eventId", "AUDITED-769",
+                        "journalOperationKey", "AUDITED-769:v1",
                         "accountingDate", "2026-09-28",
                         "amount", "100.00")))
                 .isInstanceOf(RuntimeException.class)

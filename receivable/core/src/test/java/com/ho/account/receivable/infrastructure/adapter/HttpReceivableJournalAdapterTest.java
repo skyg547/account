@@ -3,6 +3,7 @@ package com.ho.account.receivable.infrastructure.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -11,6 +12,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.receivable.application.service.ReceivableOperationConflictException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -31,6 +33,7 @@ class HttpReceivableJournalAdapterTest {
 
         server.expect(requestTo("http://journal-ledger.test/api/v1/journals/posting"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.operationKey").value("MANUAL:allocation-3001"))
                 .andRespond(withSuccess("""
                         {"journalEntryId":301,"slipNo":"JE-AR-301","status":"DRAFT"}
                         """, MediaType.APPLICATION_JSON));
@@ -46,6 +49,8 @@ class HttpReceivableJournalAdapterTest {
                 "AR_USER",
                 "RECEIVABLE",
                 "3001",
+                null,
+                "MANUAL:allocation-3001",
                 List.of(
                         new JournalLineCommand("DEBIT", "11200", BigDecimal.valueOf(8000), BigDecimal.valueOf(8000), "D-1", "CUST-1", "Debit AR"),
                         new JournalLineCommand("CREDIT", "41000", BigDecimal.valueOf(8000), BigDecimal.valueOf(8000), "D-1", "CUST-1", "Credit Sales")
@@ -106,6 +111,25 @@ class HttpReceivableJournalAdapterTest {
         assertThatThrownBy(() -> adapter.createDraftEntry(command))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Journal ledger posting failed");
+        server.verify();
+    }
+
+    @Test
+    void mapsJournalConflictToTypedOperationConflict() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://journal-ledger.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpReceivableJournalAdapter adapter = new HttpReceivableJournalAdapter(builder.build());
+        server.expect(requestTo("http://journal-ledger.test/api/v1/journals/posting"))
+                .andRespond(withStatus(HttpStatus.CONFLICT));
+        JournalEntryCommand command = new JournalEntryCommand(
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 1), "retry", "AR_CLEARING",
+                null, null, "SYSTEM", "SYSTEM", "COLLECTION_MATCH", "20",
+                null, "MANUAL:retry-1",
+                List.of(new JournalLineCommand("DEBIT", "11200", BigDecimal.ONE, null, null, "C001", "Debit")));
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(command))
+                .isInstanceOf(ReceivableOperationConflictException.class)
+                .hasMessageContaining("different financial content");
         server.verify();
     }
 }

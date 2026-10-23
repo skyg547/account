@@ -4,6 +4,7 @@ import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.journalledger.application.service.journal.JournalCreationConflictException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -38,6 +40,8 @@ class JournalPostingEventListenerTest {
                 "spoofed-auditor",
                 "LOAN",
                 "LOAN-999",
+                null,
+                "LOAN-999:MAIN:v1",
                 List.of(debit, credit)
         );
 
@@ -57,6 +61,34 @@ class JournalPostingEventListenerTest {
         assertThat(trustedCommand.createdBy()).isEqualTo("service:journal-spring-event-maker");
         assertThat(trustedCommand.auditUser()).isEqualTo("service:journal-spring-event-maker");
         assertThat(trustedCommand.lineageSourceId()).isEqualTo(command.lineageSourceId());
+        assertThat(trustedCommand.operationKey()).isEqualTo(command.operationKey());
         assertThat(trustedCommand.lines()).isEqualTo(command.lines());
+    }
+
+    @Test
+    void equivalentReplayReturnsSameResultAndChangedReplayConflictPropagates() {
+        JournalPostingPort port = mock(JournalPostingPort.class);
+        JournalPostingEventListener listener = new JournalPostingEventListener(port);
+        JournalEntryCommand command = command(new BigDecimal("100.00"));
+        JournalPostingResult existing = new JournalPostingResult(765L, "SPRING-765", "DRAFT");
+        when(port.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenReturn(existing, existing)
+                .thenThrow(new JournalCreationConflictException());
+
+        assertThat(listener.handleJournalPostingEvent(command)).isEqualTo(existing);
+        assertThat(listener.handleJournalPostingEvent(command(new BigDecimal("100.0")))).isEqualTo(existing);
+        assertThatThrownBy(() -> listener.handleJournalPostingEvent(command(new BigDecimal("101.00"))))
+                .isInstanceOf(JournalCreationConflictException.class)
+                .hasMessage("Journal creation identity is already linked to different request content.");
+        verify(port, times(3)).createDraftEntry(any(JournalEntryCommand.class));
+    }
+
+    private static JournalEntryCommand command(BigDecimal amount) {
+        return new JournalEntryCommand(
+                LocalDate.of(2026, 9, 25), LocalDate.of(2026, 9, 25),
+                "spring event retry", "NORMAL", "KRW", BigDecimal.ONE,
+                "payload-maker", "payload-maker", "PAYABLE", "INV-765", null, "INV-765:MAIN:v1", List.of(
+                        new JournalLineCommand("DEBIT", "10100", amount, amount, null, null, "debit"),
+                        new JournalLineCommand("CREDIT", "20100", amount, amount, null, null, "credit")));
     }
 }

@@ -7,8 +7,11 @@ flowchart LR
     SOURCE[업무 모듈 / 사용자 / Kafka] --> IN[HTTP·Kafka Inbound Adapter]
     IN --> USECASE[Journal Use Case]
     USECASE --> RULE[JournalRuleEngine 또는 수동 전표 변환]
-    RULE --> VALIDATE[JournalValidationEngine]
-    VALIDATE --> DRAFT[DRAFT 전표 저장]
+    RULE --> IDEM[생성 identity 잠금 / fingerprint 비교]
+    IDEM -->|최초 요청| VALIDATE[JournalValidationEngine]
+    IDEM -->|같은 fingerprint| DRAFT
+    IDEM -->|다른 fingerprint| CONFLICT[충돌 / 쓰기 없음]
+    VALIDATE --> DRAFT[DRAFT 전표 + 생성 registry 저장]
     DRAFT --> REQUEST[REQUESTED 승인 요청]
     REQUEST --> APPROVE[APPROVED]
     APPROVE --> POST[PostingService]
@@ -32,6 +35,79 @@ flowchart LR
 | 전기 | `POSTED` | posting 역할, 승인 증거·차대·환산·상세 ID 검증 후 회계기간 재확인 | 승인 증거 유지, 최종 actor, GL/SL 엔트리와 잔액 |
 
 재무 잔액과 기간 집계에는 `POSTED` 전표만 포함합니다. `APPROVED`는 승인됐지만 아직 원장에 반영되지 않은 상태입니다.
+
+### 전표 생성 멱등성
+
+초보자 설명: HTTP 응답이 끊기거나 Kafka가 같은 메시지를 다시 보내도 “같은 생성 작업”이면
+전표를 하나만 남겨야 합니다. 반대로 같은 원천 문서에서 본 전표와 수수료 전표처럼 여러 전표를
+만드는 일은 허용해야 합니다. 그래서 lineage 두 값만 보지 않고
+`(sourceType, sourceId, operationKey)` 세 값을 생성 identity로 사용합니다.
+
+| 입력 경로 | 작업 키 매핑 | 호출자 책임 |
+| --- | --- | --- |
+| 수동 `POST /api/journals` | 필수 `Idempotency-Key` 헤더 | 응답 유실 후에도 같은 키를 재사용; lineage 생략 시 `MANUAL_JOURNAL` + trusted maker 사용 |
+| 이벤트 `POST /api/journals/from-event` | `Idempotency-Key` 또는 payload의 `journalOperationKey`/`operationKey` 필수; 헤더가 우선 | 같은 업무 이벤트 재전송에 같은 값 사용 |
+| Kafka `transaction-events` | payload의 `journalOperationKey`/`operationKey` 필수 | producer 재전송·redelivery에서도 안정적으로 유지 |
+| `JournalPostingPort` contract, Spring event 및 Posting REST | command의 `operationKey` 필수; `slipNo`와 별개 | 같은 lineage의 합법적 여러 전표는 각각 고유한 작업 키 사용 |
+
+`PRIMARY`는 호출자가 본 전표에 명시적으로 지정할 수 있는 작업 키 예시이며 자동 기본값이 아닙니다.
+키가 없으면 전표 번호나 lineage에서 추측하지 않고 생성 전에 거부합니다. 같은 source에서 여러
+전표가 필요하면 `MAIN:v1`, `FEE:v1`, `TAX:v1`처럼 서로 다른 안정적인 작업 키를 지정해야 합니다.
+이벤트 source type은 `lineageSourceType` → `eventType` → `ruleCode`, source ID는
+`lineageSourceId` → `eventId` → `sourceId` → `documentId` → `assetCode` → `contractNo`의 첫
+안정적인 scalar 값을 사용합니다. source 두 값이 없으면 추측하지 않고 요청을 거부합니다.
+identity 값은 앞뒤 공백을 제거한 뒤 source type 최대 50자, source ID와 operation key 최대
+100자로 제한하며 대소문자는 구분합니다. 호출자는 재시도 때 같은 표기를 안정적으로 유지해야 합니다.
+
+수동 HTTP와 contract 명령은 전표로 저장될 생성 의미를 정규화하고 version 1 SHA-256
+fingerprint를 계산합니다.
+전표·회계 일자, 설명, 유형, 통화·환율, trusted maker/audit identity, lineage와 각 라인의 차대·계정·금액·
+기준금액·부서·거래처·적요가 대상입니다. 숫자의 불필요한 scale과 라인 순서는 결과를
+바꾸지 않지만, 같은 라인이 두 번 나타나는 multiplicity는 보존합니다. 서버가 생성한 `slipNo`와
+생성 뒤의 lifecycle 상태는 fingerprint에 넣지 않습니다. 따라서 재시도 여부는 JSON 문자열의
+공백이나 map 순서가 아니라 저장 의미로 판단합니다. 이벤트 HTTP/Kafka는 별도의 version 2
+요청 fingerprint를 회계일과 trusted maker가 반영된 이벤트 payload에서 계산합니다. 중첩 map의
+키 순서는 무시하고 숫자 scale은 정규화하지만, 배열 순서·문자열·금액·회계일·maker 변경은
+서로 다른 요청입니다. `journalOperationKey`와 `operationKey`는 선택된 작업 키로 함께
+정규화하므로 규칙 수식의 별칭 접근과 재시도 fingerprint가 동일하게 동작합니다. 같은 identity의
+기존 receipt는 DB 잠금 아래에서 이 요청 fingerprint로
+먼저 비교하므로 활성 규칙이 삭제·비활성화되거나 수정된 뒤에도 같은 이벤트면 기존 전표를
+반환합니다. 첫 전달에서만 현재 규칙을 평가합니다. 기존 receipt가 없고 규칙이 매칭되지 않으면
+receipt를 만들지 않아 나중에 규칙 보정 뒤 다시 처리할 수 있습니다.
+자동분개 설명은 payload의 `description` → `memo` → `title`을 우선합니다. 모두 없으면
+변경 가능한 규칙 표시명(`ruleName`) 대신 안정적인 `ruleCode`를 전표 설명으로 사용합니다.
+라인 설명 수식이 비어 있을 때도 이 전표 설명을 사용합니다. 규칙 표시명 등 규칙 정의만 바뀌어도
+완료된 이벤트 요청의 기존 전표는 다시 생성하지 않습니다. 반면 같은 키로 이벤트 payload의 금액·
+명시적 설명 등이 바뀌면 충돌로 거부합니다.
+같은 identity와 같은 fingerprint면 V20 registry가 가리키는 기존 전표를 반환합니다. identity는
+같지만 fingerprint가 다르면 원 요청이 바뀐 것이므로 기존 전표를 반환하지
+않고 명시적인 생성 충돌로 실패합니다. 오류 응답과 로그에는 fingerprint나 원 요청 내용을
+노출하지 않습니다. HTTP는 이를 `409 Conflict`로 매핑하고, contract는 예외를
+호출자에게 전달하며, Kafka는 listener 실패를 다시 던져 배포된 retry/DLQ 정책이 처리하게 합니다.
+충돌은 기존 전표와 registry를 변경하지 않습니다.
+Kafka 미매칭은 별도 V18 quarantine에 broker 좌표와 원본 payload를 보존합니다. 관리자 replay도
+보존된 업무 키·lineage·회계일로 V20 생성 유스케이스를 호출하고 전표와 quarantine 상태를 한
+트랜잭션에 commit합니다. 서로 다른 transport의 maker principal이 달라지면 감사 내용이 다르므로
+같은 operation key라도 fingerprint 충돌로 거부합니다. 수동·contract version 1과 이벤트
+HTTP·Kafka version 2는 비교 대상이 다른 요청 표현이므로, 동일한 source에서 이 경로들이
+충돌하지 않도록 operation key namespace를 분리해야 합니다.
+
+DB stripe 잠금은 아직 registry 행이 없는 첫 요청끼리도 같은 identity에 대해 순서를 정합니다.
+잠금을 잡은 뒤 registry를 다시 조회하고, 첫 요청만 검증·전표 저장·registry 연결을 하나의
+트랜잭션에서 commit합니다. 검증, 전표 저장 또는 registry 저장이 실패하면 전부 rollback되므로
+완료되지 않은 receipt가 남지 않습니다. 호출자는 모호한 실패 뒤 동일한 세 키와 payload로 전체
+명령을 재시도할 수 있습니다. V20 UNIQUE는 애플리케이션 잠금의 마지막 방어선이며, 제약 경쟁도
+성공한 기존 결과를 새 트랜잭션에서 다시 확인해야 하지 무조건 성공으로 간주하지 않습니다.
+
+관리형 역분개는 V17의 `journal_reversal_operations`와 원본 전표 잠금으로 소유권을 정하며 이 일반
+생성 registry의 `PRIMARY`를 재사용하지 않습니다. 원본당 단일 역분개, 취소 후 재생성, 전기 경쟁
+규칙은 아래 [원본당 단일 역분개 작업](#원본당-단일-역분개-작업)의 독립 계약을 유지합니다.
+identity 없는 core 호환 생성 메서드는 production wiring에서 생성 전에 거부합니다. 테스트용
+embedded 호환 구성에는 V20 receipt가 없으므로 외부 재시도 경로가 사용하면 안 됩니다.
+이 문서의 멱등 보장은 위 표의 identity-aware 경로에 한정됩니다.
+V20 이전 전표는 registry에 자동 연결되지 않습니다. 배포 전 처리됐지만 응답이 유실된 이벤트를
+새 코드에 그대로 다시 보내면 기존 전표를 찾지 못해 중복 생성할 수 있으므로, cutover 전에 모든
+writer와 입력을 fence하고 대기 중인 outbox/Kafka/클라이언트 재시도를 기존 전표와 대사해야 합니다.
 
 ### 거래통화에서 기준통화(KRW)로 환산
 
@@ -340,9 +416,10 @@ Kafka payload의 `accountingDate`는 필수 ISO 날짜 문자열(`YYYY-MM-DD`)�
 404로 축소하지 않습니다. summary의 두 상태 count와 가장 오래된 미해결 시각은 세 번 조회하지
 않고 하나의 조건부 aggregate SQL로 읽어 READ_COMMITTED에서도 같은 statement snapshot을 봅니다.
 
-이 통제는 Kafka broker record에 한정됩니다. HTTP/contract/manual 생성의 범용 operation key와
-fingerprint를 정의하는 GL10(#765)은 별도 미해결 과제이며, 이 구현은 lineage 전체에 unique를
-추가하거나 null slip 번호 같은 불안정 fallback을 만들지 않습니다.
+V18 quarantine은 Kafka broker record의 미매칭 완전성을 관리합니다. 일반 전표 생성의
+HTTP/contract/manual/Kafka 재시도는 위 V20 operation key와 versioned fingerprint로
+별도 보호합니다. replay가 나중에 전표를 만들 때도 같은 V20 업무 identity를 사용합니다.
+lineage 전체에 UNIQUE를 추가하지 않으며 null slip 번호에서 작업 키를 추측하지 않습니다.
 
 룰 평가·검증·DB 예외처럼 quarantine 정상 처리가 아닌 실패는 설정된 `DefaultErrorHandler`가
 기본 1초 간격으로 2회 재시도합니다. 최초 시도를 포함한 세 번째 실패 뒤 같은 partition의
@@ -478,8 +555,9 @@ future가 끝나지 않는지 확인하고, PostgreSQL에서는 독립 backend P
 
 | 기능 | 엔드포인트 | 주요 입력 |
 | --- | --- | --- |
-| 전표 생성 | `POST /api/journals` | 전표 DTO, `X-Auth-User`, maker role; caller 지정 `REVERSAL`은 `400` |
-| 이벤트 기반 전표 생성 | `POST /api/journals/from-event` | 이벤트 데이터, `X-Auth-User`, maker role |
+| 전표 생성 | `POST /api/journals` | 전표 DTO, 필수 `Idempotency-Key`, `X-Auth-User`, maker role; caller 지정 `REVERSAL`은 `400`, 생성 identity 충돌은 `409` |
+| 이벤트 기반 전표 생성 | `POST /api/journals/from-event` | 이벤트 데이터, 선택 `Idempotency-Key`, `X-Auth-User`, maker role; 생성 identity 충돌은 `409` |
+| Contract posting 생성 | `POST /api/v1/journals/posting` | `JournalEntryCommand.operationKey` 필수, `X-Auth-User`, maker role; 생성 identity 충돌은 `409` |
 | 승인 요청 | `POST /api/journals/{id}/request-approval` | `X-Auth-User`, maker role |
 | 승인 | `POST /api/journals/{id}/approve` | `X-Auth-User`, approver role |
 | 전기 | `POST /api/journals/{id}/post` | `X-Auth-User`, poster role |
@@ -568,6 +646,7 @@ GL/SL 대사를 거친 재집계 계획이 필요합니다.
 
 ## 재시도와 정합성 주의사항
 
+- 같은 생성 identity의 동등 요청은 V20 receipt가 가리키는 기존 전표를 반환합니다. 내용이 다르면 기존 결과를 성공으로 오인하지 않고 충돌하며, 실패한 트랜잭션은 버리고 같은 identity·payload로 전체 명령을 재시도합니다.
 - 동일 반제 참조번호는 다시 적용하지 않습니다.
 - 같은 전표의 동시 요청은 DB 헤더 잠금으로 직렬화합니다. 커밋 후 재요청은 최신 `POSTED` 상태를 읽고 승인 상태 검증으로 거부하므로 추가 GL/SL·잔액 효과가 없습니다. 상세 동작과 검증은 [동시 전기 제어](posting-concurrency.md)를 참고합니다.
 - 서로 다른 전표도 계정·통화별 공통 잠금을 먼저 확보하여 GL/SL의 최신 금액에 누적합니다. 신규 잔액과 NULL SL 차원도 포함합니다. 데드락 실패는 호출자의 전체 트랜잭션을 롤백한 뒤 새 트랜잭션으로 재시도합니다.

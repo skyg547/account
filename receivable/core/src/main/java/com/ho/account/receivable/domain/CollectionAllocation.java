@@ -2,6 +2,7 @@ package com.ho.account.receivable.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * 한 수금액이 어떤 채권에 얼마만큼 배분되었는지 기록하는 감사 이력 엔티티 (Pure Java POJO).
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 public class CollectionAllocation {
 
     private Long id;
+    private String operationId;
     private Collection collection;
     private Receivable receivable;
     private BigDecimal matchedAmount;
@@ -25,8 +27,13 @@ public class CollectionAllocation {
     public static CollectionAllocation record(
             Collection collection,
             Receivable receivable,
-            BigDecimal matchedAmount) {
+            BigDecimal matchedAmount,
+            String operationId) {
         CollectionAllocation allocation = new CollectionAllocation();
+        allocation.operationId = Objects.requireNonNull(operationId, "operationId is required");
+        if (operationId.isBlank() || operationId.length() > 100) {
+            throw new IllegalArgumentException("operationId must contain 1 to 100 characters");
+        }
         allocation.collection = collection;
         allocation.receivable = receivable;
         allocation.matchedAmount = matchedAmount;
@@ -37,6 +44,9 @@ public class CollectionAllocation {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getOperationId() { return operationId; }
+    public void setOperationId(String operationId) { this.operationId = operationId; }
 
     public Collection getCollection() { return collection; }
     public void setCollection(Collection collection) { this.collection = collection; }

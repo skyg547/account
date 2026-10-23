@@ -6,6 +6,8 @@ import com.ho.account.expenditure.infrastructure.persistence.entity.AdvancePayme
 import com.ho.account.expenditure.infrastructure.persistence.mapper.AdvancePaymentMapper;
 import com.ho.account.expenditure.repository.AdvancePaymentRepository;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -35,6 +37,13 @@ public class AdvancePaymentPersistenceAdapter implements AdvancePaymentPersisten
     @Override
     public Optional<AdvancePayment> findById(Long id) {
         return advancePaymentRepository.findById(id)
+                .map(advancePaymentMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<AdvancePayment> findByIdForUpdate(Long id) {
+        return advancePaymentRepository.findByIdForUpdate(id)
                 .map(advancePaymentMapper::toDomain);
     }
 }

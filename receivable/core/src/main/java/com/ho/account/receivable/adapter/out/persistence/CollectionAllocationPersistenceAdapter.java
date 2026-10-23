@@ -6,6 +6,7 @@ import com.ho.account.receivable.infrastructure.persistence.entity.CollectionAll
 import com.ho.account.receivable.infrastructure.persistence.mapper.CollectionAllocationMapper;
 import com.ho.account.receivable.repository.CollectionAllocationRepository;
 import org.springframework.stereotype.Component;
+import java.util.Optional;
 
 @Component
 public class CollectionAllocationPersistenceAdapter implements CollectionAllocationPersistencePort {
@@ -22,7 +23,14 @@ public class CollectionAllocationPersistenceAdapter implements CollectionAllocat
     @Override
     public CollectionAllocation save(CollectionAllocation allocation) {
         CollectionAllocationJpaEntity entity = collectionAllocationMapper.toEntity(allocation);
-        CollectionAllocationJpaEntity savedEntity = repository.save(entity);
+        // Reserve the unique operation before calling journal-ledger so duplicates fail in this transaction.
+        CollectionAllocationJpaEntity savedEntity = repository.saveAndFlush(entity);
         return collectionAllocationMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public Optional<CollectionAllocation> findByCollectionIdAndOperationId(Long collectionId, String operationId) {
+        return repository.findByCollectionIdAndOperationId(collectionId, operationId)
+                .map(collectionAllocationMapper::toDomain);
     }
 }
