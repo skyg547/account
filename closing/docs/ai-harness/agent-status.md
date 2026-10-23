@@ -189,3 +189,8 @@
 - Model/roles: GPT-6 Sol/xhigh module writers with disjoint file ownership; independent read-only reviewer `/root/review_design`; parent Integrator alone owns records and Git/GitHub publication.
 - Status: implementation frozen; exact combined command PASS (Master 840/38 skipped, Closing 757/1 skipped, Contracts 10/0 skipped; failures/errors 0). Isolated PostgreSQL V14 test and four API/Batch bootJar tasks PASS. Audited RED/current GREEN regression proved. Independent review Q1–Q4 PASS with no blocking finding. Draft PR publication is the authorized next step.
 - Next owner: human reviewer and authorized release/operator for current-head hosted CI, legacy DISPATCHED reconciliation, Gateway isolation and deployed multi-service fault testing. Ready, merge, Issue close, deployment and branch/worktree deletion require separate gates.
+
+### GH-773 Draft publication
+
+- [Draft PR #942](https://github.com/skyg547/account/pull/942) is OPEN/DRAFT, initially MERGEABLE, `Refs #773`; verified implementation commit `9ffc4f49`. Issue #773 remains OPEN / `status:needs-review`.
+- Initial hosted module/merge-guard/harness checks were pending at publication; local verification above is separate. This publication-only append does not alter production or test files.

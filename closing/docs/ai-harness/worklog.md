@@ -481,3 +481,8 @@ The API recovery matrix injects remote commit/response loss, local checklist/aud
 | Q4 | PASS | `ClosingTransitionTransactions.java:380`, `FiscalPeriodTransitionRepository.java:11`, V14/V58 주석; PostgreSQL 단일 조회 증거 | 해당 없음: 비자명 잠금·입장 fence 변경 | PostgreSQL 부하/실행계획 미검증 | 동일 리뷰어가 의도 주석과 구현 대조 |
 
 Review found no remaining blocker. Master CONFIRMED response loss may briefly leave Journal's remote Master read OPEN while Closing's retained local transition ID conservatively denies admission; all approval/audit/finalization records are already durable. Journal may also have read OPEN before a close fence and commit afterward; that write-side race is outside this allowlist. Closing recovery/cancellation ingress relies on the existing Gateway-rebuilt `X-Auth-*` headers and direct API port isolation, which must be verified before deployment.
+
+### GH-773 Draft publication
+
+- Published [Draft PR #942](https://github.com/skyg547/account/pull/942), OPEN/DRAFT and initially MERGEABLE, from `agent/773-remote-fiscal-transition-v2` to `main`, with `Refs #773` and the verification/authority table above. Implementation commit: `9ffc4f49`.
+- Issue #773 stays OPEN and moved to `status:needs-review`. Initial hosted checks were pending when observed; no hosted pass is claimed. Parent Integrator's final publication append changes module-local records only.

@@ -247,3 +247,8 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Limits: no production data, production load, or deployed Closing–Master–Journal HTTP/PostgreSQL process-kill test. Journal read→commit admission race remains a separate write-side control (#762). After CONFIRMED response loss, remote Journal may see authorized OPEN while local Closing admission stays conservatively CLOSED until same-ID recovery. Gateway must strip/rebuild `X-Auth-*` and keep Closing command port private; new privileged cancellation uses that existing trust boundary.
 - 권한 분리: 모듈별 구현자는 disjoint allowlist의 코드·테스트를 작성했고 독립 리뷰어는 읽기 전용으로 검증했습니다. 부모 Integrator만 기록, commit, push, Draft PR을 수행합니다. Draft와 AI 리뷰는 사람의 Ready·merge·Issue close·배포 승인을 대신하지 않습니다. Branch/worktree 삭제도 별도 사용자 요청이 필요합니다.
 - Next owner: human current-head/CI reviewer and authorized deployment/accounting operator for migration order, old-operation reconciliation, Gateway isolation and deployed distributed fault validation. Keep PR Draft and Issue open until those gates are resolved.
+
+### GH-773 published Draft
+
+- [PR #942](https://github.com/skyg547/account/pull/942): OPEN/DRAFT, initially MERGEABLE, `Refs #773`; implementation commit `9ffc4f49` on the dedicated branch. Issue #773 is OPEN / `status:needs-review`.
+- Hosted checks were pending at first observation. Use the PR's current-head checks for human review; the local 1607-test result and isolated PostgreSQL test are separate evidence. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.
