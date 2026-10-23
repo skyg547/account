@@ -51,7 +51,8 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
         if (calendar.getTransitionStage() == TransitionStage.PREPARED) {
             return dispatch(calendar, recoveredBy.trim());
         }
-        return transactions.reconcile(calendarId, operationId, remoteRequestTerminated, recoveredBy.trim());
+        // The same operation ID is safe to retry even when the previous response was lost.
+        return resume(calendarId, operationId, recoveredBy.trim());
     }
 
     @Override
@@ -59,7 +60,21 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
         return transactions.cancelPreparedClose(calendarId, operationId, reason, actor);
     }
 
+    @Override
+    public ClosingCalendar cancelDispatchedClose(Long calendarId, String operationId, String reason, String actor) {
+        if (reason == null || reason.isBlank() || reason.trim().length() > 300) {
+            throw new IllegalArgumentException("reason must be 1-300 non-blank characters");
+        }
+        transactions.cancelRemoteClose(calendarId, operationId, actor);
+        try {
+            return transactions.clearCancelledClose(calendarId, operationId, reason, actor);
+        } catch (RuntimeException failure) {
+            throw new ClosingTransitionPendingException(operationId, failure);
+        }
+    }
+
     private ClosingCalendar dispatch(ClosingCalendar calendar, String recoveryActor) {
+        requireReceiptProtocol(calendar);
         String operationId = calendar.getTransitionId();
         try {
             transactions.markDispatched(calendar.getId(), operationId);
@@ -69,11 +84,38 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
         } catch (RuntimeException failure) {
             throw new ClosingTransitionPendingException(operationId, failure);
         }
+        return resume(calendar.getId(), operationId, recoveryActor);
+    }
+
+    private ClosingCalendar resume(Long calendarId, String operationId, String recoveryActor) {
         try {
-            return transactions.dispatchAndFinish(calendar.getId(), operationId, recoveryActor);
+            ClosingCalendar current = findTransition(calendarId);
+            current.requireTransition(operationId);
+            requireReceiptProtocol(current);
+            if (current.getTransitionStage() == TransitionStage.DISPATCHED) {
+                transactions.prepareRemote(calendarId, operationId);
+                if ("OPEN".equals(current.getTransitionTarget())) {
+                    transactions.authorizeReopen(calendarId, operationId);
+                }
+            }
+            if (current.getTransitionStage() != TransitionStage.READY_TO_CONFIRM) {
+                current = transactions.applyAndFinish(calendarId, operationId, recoveryActor);
+            }
+            if (current.getTransitionStage() == TransitionStage.READY_TO_CONFIRM) {
+                return transactions.confirmAndFinishReopen(calendarId, operationId, recoveryActor);
+            }
+            return current;
+        } catch (ClosingTransitionPendingException pending) {
+            throw pending;
         } catch (RuntimeException failure) {
-            // DISPATCHED is committed; the original remote outcome may be uncertain.
             throw new ClosingTransitionPendingException(operationId, failure);
+        }
+    }
+
+    private void requireReceiptProtocol(ClosingCalendar calendar) {
+        if (!"RECEIPT_V1".equals(calendar.getTransitionProtocol())) {
+            throw new IllegalStateException(
+                    "Legacy fiscal transition has no operation receipt provenance; operator preflight is required.");
         }
     }
 }

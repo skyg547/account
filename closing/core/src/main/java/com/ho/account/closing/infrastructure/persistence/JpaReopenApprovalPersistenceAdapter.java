@@ -18,6 +18,11 @@ public class JpaReopenApprovalPersistenceAdapter implements ReopenApprovalPersis
     }
 
     @Override
+    public ReopenApproval saveAndFlush(ReopenApproval value) {
+        return save(value);
+    }
+
+    @Override
     public Optional<ReopenApproval> findById(Long id) {
         return repository.findById(id).map(ClosingEntityMapper::toDomain);
     }

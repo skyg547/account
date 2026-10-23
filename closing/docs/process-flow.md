@@ -210,8 +210,9 @@ digest를 계산해야 합니다.
 `PREPARED → DISPATCHED` 직전에는 캘린더 잠금 아래 **원래 바인딩한 ID**를 다시 조회하고
 Master 기간·마감 cycle·digest·필수 통제·현재 시각의 freshness를 재검증합니다. 만료되었거나
 행이 없거나 내용이 맞지 않으면 `DISPATCHED`로 전이하지 않으며 Master 쓰기 횟수는 0입니다.
-현재 최신 스냅샷으로 조용히 갈아끼우지 않습니다. `DISPATCHED`는 원격 결과가 불확실하므로
-재전송하거나 취소하지 않고 기존 operation ID와 증빙 ID로 Master 결과만 대사합니다.
+현재 최신 스냅샷으로 조용히 갈아끼우지 않습니다. `DISPATCHED` 이후에는 같은 operation ID와
+증빙 ID만 사용합니다. Master 영수증이 동일한 기간·기대 상태·목표 상태·결정자를 증명할 때만
+멱등 prepare/apply 또는 로컬 완료를 진행합니다.
 
 만료된 `PREPARED`를 다시 준비하려면 권한 있는 운영자가 Master가 아직 `OPEN`이고 원격 전송이
 한 번도 표시되지 않았음을 확인한 뒤, 정확한 operation ID와 사유를 넣어
@@ -219,7 +220,11 @@ Master 기간·마감 cycle·digest·필수 통제·현재 시각의 freshness�
 잠그고 `CLOSED` 목표·`PREPARED` 단계와 Master 기간을 재확인한 후 이전 operation·증빙 ID·사유·
 실행자를 감사 로그에 남기고 **전이 의도만** 해제합니다. 기존 증빙과 PREPARED 감사 기록은 보존합니다.
 그 다음 신뢰된 공급자가 새 ID의 최신 증빙을 append하고 운영자가 일반 마감 명령을 다시 실행합니다.
-이는 수동 통과나 증빙 교체가 아닙니다. `DISPATCHED`에는 취소를 허용하지 않습니다.
+이는 수동 통과나 증빙 교체가 아닙니다. `cancel-prepared`는 `DISPATCHED`에 허용하지 않습니다.
+단, Master가 이 작업의 영수증을 `PREPARED`로 보유하고 아직 적용하지 않은 최종 마감은
+별도의 `cancel-dispatched-close` 명령으로 취소할 수 있습니다. Master `CANCELLED` 영수증을
+먼저 확인하고 로컬 의도 해제와 취소 감사를 함께 커밋합니다. 응답 유실은 같은 작업 ID로
+취소를 재시도합니다. 영수증이 없거나 `APPLIED`이면 해제하지 않습니다.
 증빙 없는 legacy CLOSED 전이는 V53 이행을 위해
 DB에는 남을 수 있지만 런타임 dispatch/finish는 fail-closed합니다.
 
@@ -286,26 +291,64 @@ HTTP 409로 반환하고 두 번째 잠금/요청과 감사 기록은 커밋하�
 1. 캘린더 잠금 아래 조건을 검증하고 `PREPARED`를 커밋합니다. CLOSED 목표는 검증한
    `transition_evidence_set_id`도 함께 고정합니다. 재오픈 승인은 이때
    `APPROVED`로 확정되지만 캘린더는 아직 `CLOSED`입니다. 승인이 원격 반영 완료를 뜻하지 않습니다.
-2. `DISPATCHED`를 별도 커밋한 실행자만 Master 상태 PUT을 한 번 보냅니다.
-3. 같은 기간·목표 상태의 정상 결과를 확인하면 캘린더를 목표 상태로 바꾸고 완료 감사 기록을 남깁니다.
-   준비·전송 중에는 마감 캘린더가 `IN_PROGRESS`, 재오픈 캘린더가 `CLOSED`여서 일반 전표를 차단합니다.
-4. 응답 유실, 원격 예외 또는 로컬 완료 저장 실패 시 전송 표시를 보존합니다. 경쟁 변경은 계속 차단합니다.
+2. `DISPATCHED`를 별도 커밋한 뒤 Master에 동일 작업 ID와 기대 상태를 보낸다. Master는 먼저
+   `PREPARED` 영수증만 기록하고, 기간별 미완료 작업은 하나로 제한한다.
+3. 재오픈은 Master가 아직 `CLOSED`인 동안 로컬 캘린더 `OPEN`, 새 `PENDING` 체크리스트,
+   `APPROVED` 승인, `REOPEN_APPROVED` 감사를 한 트랜잭션으로 확정하고 `AUTHORIZED` 단계를 유지한다.
+   그 다음에만 Master에 같은 작업 ID의 `CLOSED → OPEN` 적용을 요청한다. `APPLIED` 영수증이
+   있어도 Master 공개 조회는 `CLOSED`를 반환한다. Closing이 `READY_TO_CONFIRM`을 커밋한 뒤
+   Master `CONFIRMED`를 요청하며, 그때부터 Journal이 `OPEN`을 읽는다.
+4. 마감은 Master `OPEN → CLOSED` 적용 영수증 뒤 로컬 캘린더와 감사를 확정한다. 두 방향 모두
+   적용/확인 영수증과 현재 Master 기간·상태를 확인한 뒤 전이 ID를 지운다. 중간 실패는 ID를 보존하고
+   Closing 입장 판정을 계속 차단한다.
 
-복구는 작업 ID와 준비 때 바인딩한 최종 마감 증빙 ID에 묶입니다. 아직 `PREPARED`이면 바인딩 증빙을 현재 시각으로 재검증한 뒤 최초 전송을 진행할 수 있지만,
-`DISPATCHED`이면 자동 재전송하지 않습니다. 권한 있는 운영자가 원 요청이 더 이상 실행될 수 없음을
-확인한 뒤 Master를 재조회하고, 목표 상태와 일치할 때만 로컬 완료를 확정합니다.
-재조회에서도 원래 상태가 보이면 차단을 유지하고 별도 Master 운영 절차로 정합성을 해결해야 합니다.
-원격 호출 전 중단과 응답 유실을 GET+PUT만으로 구분할 수 없기 때문입니다.
-종료 확인 값은 운영자의 확인 기록이며 원격 작업 종료를 시스템이 증명하는 토큰은 아닙니다.
+Master가 최종 마감 `PREPARED` 영수증을 저장하면 공개 기간 조회에는 유효 상태 `CLOSED`를
+반환하여 Journal의 신규 입력을 차단합니다. Closing은 적용 재시도 직전에 원래 바인딩한 증빙을
+다시 검증합니다. 이 두 동작 사이의 Journal 검증→커밋 경합과 Closing 밖 원천 변경 감지는
+별도의 원장 측 동시성 통제가 필요합니다. 이 범위의 테스트는 해당 경합을 해결했다고 주장하지 않습니다.
 
-초보자 설명: 승인 도장을 먼저 기록하고 외부 시스템에 한 번 전달한 뒤 수신 결과를 확인하는 흐름입니다.
-전화가 끊겼다고 같은 지시를 무조건 다시 보내지 않습니다. 이전 지시가 뒤늦게 도착해 이후 마감을
-뒤집을 수 있으므로, 확인이 끝나기 전까지 해당 기간의 변경을 멈춥니다.
+재오픈 적용 응답이 유실되면 Master 영수증은 `APPLIED`여도 공개 기간 조회는 `CLOSED`를
+유지합니다. 승인·달력 `OPEN`·새 체크리스트·감사는 이미 확정되어 있고, 같은 ID로 재개해
+로컬 `READY_TO_CONFIRM`과 Master `CONFIRMED`를 차례로 수행합니다. 확인 응답이 유실되어
+Master가 `OPEN`인데 Closing 작업 ID가 남아 있는 짧은 구간에는 Journal이 전표를 허용하고
+Closing의 자체 입장 조회는 계속 차단됩니다. 이때도 승인 근거와 로컬 최종화 표시가 이미
+확정되어 있습니다. 두 입장 판정의 완전한 동기화에는 Journal이 Closing 작업 fence를 사용하거나
+더 강한 분산 프로토콜이 필요하며, 이 변경 범위에서 구현하지 않습니다.
 
-이 프로토콜은 Closing 명령을 직렬화합니다. Master 직접 변경과 다른 배포의 오래된 Closing writer를
-원격에서 차단하는 작업 키·버전 계약은 제공하지 않습니다. 배포 시 V53까지 먼저 적용하고 오래된 월말
-writer를 모두 중지·배출한 뒤 새 버전을 사용해야 합니다. 미해결 전이가 있으면 기록을 지우거나 이전
-버전으로 바로 돌아가지 말고 먼저 원 요청 종료와 두 시스템 상태를 대사합니다.
+복구는 작업 ID와 준비 때 바인딩한 최종 마감 증빙 ID에 묶입니다. 아직 `PREPARED`이면 바인딩
+증빙을 현재 시각으로 재검증합니다. `DISPATCHED`/`AUTHORIZED`/`READY_TO_CONFIRM`은 Master 작업 영수증을 조회하고
+기간 ID·원 결정자·기대 상태·목표 상태가 로컬 기록과 모두 같을 때만 같은 ID를 재시도합니다.
+마감 `APPLIED` 또는 재오픈 `CONFIRMED` 영수증과 현재 Master 상태·기간 ID가 맞아야 전이 ID를 지웁니다. 영수증이 누락되거나
+다르면 차단을 유지합니다. 기존 API의 `remoteRequestTerminated` 입력은 호환용이며 복구 권한의
+증거로 사용하지 않습니다.
+
+### 구버전 DISPATCHED 전이 배포 전 점검
+
+구버전 직접 PUT으로 만든 `DISPATCHED` 행에는 Master 작업 영수증이 없습니다. 새 코드가 현재
+Master 상태만 보고 그 행을 특정 작업의 결과로 귀속하지 않습니다. 새 writer를 켜기 전에 구버전
+writer를 중지하고 Closing DB에서 아래 읽기 전용 조회를 실행해 모든 행을 조사합니다.
+
+```sql
+SELECT id, fiscal_year, fiscal_period, status, transition_id, transition_target,
+       transition_stage, transition_fiscal_period_id, transition_approval_id, transition_protocol
+FROM closing_calendars
+WHERE transition_stage = 'DISPATCHED';
+```
+
+결과가 있으면 각 기간의 Master 실제 상태, 원 요청 로그, Closing 승인·감사 이력을 확인하고
+권한 있는 운영 절차로 정합성을 복구한 뒤 배포합니다. 영수증이 없는 행은 이 버전의 자동 복구가
+차단합니다. 특히 Master가 `OPEN`인데 로컬 캘린더가 `CLOSED`이면 Journal 입력을 운영 경계에서
+격리해야 합니다. 임의 영수증 생성이나 다른 작업 ID로 재시도하지 않습니다.
+
+초보자 설명: 한 작업 번호로 양쪽의 기록을 찾습니다. 재오픈은 로컬 승인과 체크리스트를 먼저
+확정하고 나서 외부 기간을 엽니다. 응답이 끊기면 같은 번호의 영수증을 확인하고 이어서 처리합니다.
+
+이 프로토콜은 Closing 명령과 Master 작업 ID를 직렬화합니다. Master는 기간당 미완료 준비 작업을
+하나로 제한하고 기대 상태를 적용 시 다시 검증합니다. 구버전 직접 변경 경로와 오래된 Closing writer는
+새 영수증 계약 밖에 있으므로, 배포 시 V58과 Master 전이 저장소를 먼저 적용하고 오래된 writer를
+모두 중지·배출한 뒤 위 DISPATCHED 점검을 마쳐야 합니다. 새 의도는 `transition_protocol=RECEIPT_V1`로
+표시됩니다. 값이 없는 기존 의도는 자동 복구하지 않습니다. 미해결 전이를 지우거나 이전 버전으로
+바로 돌아가지 말고 두 시스템 상태를 대사합니다.
 구체적인 조회·복구 API와 검증 범위는 [로컬 실행 가이드](local-run.md#월말-전이-조회와-복구-gh-774)를 참조하세요.
 
 ## 일반 전표 허용 판정 (GH-772)

@@ -8,6 +8,8 @@ import com.ho.account.closing.infrastructure.external.ClosingStatusAdapter;
 import com.ho.account.contracts.journal.*;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionCommand;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionReceipt;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -617,17 +619,12 @@ public class ClosingServiceTest {
         when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
         FinalCloseEvidenceSet bound = validEvidence("unit-success", calendar, openPeriod);
         when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod)).thenReturn(bound);
-        when(fiscalPeriodControlPort.findFiscalPeriodById(openPeriod.id())).thenReturn(Optional.of(openPeriod));
+        AtomicReference<FiscalPeriodRef> master = new AtomicReference<>(openPeriod);
+        when(fiscalPeriodControlPort.findFiscalPeriodById(openPeriod.id()))
+                .thenAnswer(invocation -> Optional.of(master.get()));
         when(finalCloseEvidenceService.requireBoundForFinalClose(calendar, openPeriod, bound.evidenceSetId()))
                 .thenReturn(bound);
-        when(fiscalPeriodControlPort.updateClosingStatus(1L, "CLOSED", "ADMIN")).thenReturn(
-                new FiscalPeriodRef(
-                        1L,
-                        "2026",
-                        "01",
-                        LocalDate.of(2026, 1, 1),
-                        LocalDate.of(2026, 1, 31),
-                        "CLOSED"));
+        stubRemoteTransitions(master);
         when(closingCalendarPersistencePort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -636,8 +633,9 @@ public class ClosingServiceTest {
         // then
         assertThat(result.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
         assertThat(result.getClosedBy()).isEqualTo("ADMIN");
-        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
-        verify(finalCloseEvidenceService).requireBoundForFinalClose(calendar, openPeriod, bound.evidenceSetId());
+        verify(fiscalPeriodControlPort).applyClosingTransition(any());
+        verify(finalCloseEvidenceService, atLeastOnce())
+                .requireBoundForFinalClose(calendar, openPeriod, bound.evidenceSetId());
     }
 
     @Test
@@ -673,6 +671,46 @@ public class ClosingServiceTest {
         return new FinalCloseEvidenceSet(id, calendar.getId(), period.id(), period.fiscalYear(), period.fiscalPeriod(),
                 period.endDate(), java.time.Instant.parse("2026-02-01T00:00:00Z"), "provider",
                 "a".repeat(64), List.of());
+    }
+
+    private void stubRemoteTransitions(AtomicReference<FiscalPeriodRef> master) {
+        Map<String, FiscalPeriodTransitionReceipt> receipts = new HashMap<>();
+        when(fiscalPeriodControlPort.findTransitionReceipt(any())).thenAnswer(call ->
+                Optional.ofNullable(receipts.get(call.getArgument(0))));
+        when(fiscalPeriodControlPort.prepareClosingTransition(any())).thenAnswer(call -> {
+            FiscalPeriodTransitionCommand command = call.getArgument(0);
+            FiscalPeriodTransitionReceipt receipt = new FiscalPeriodTransitionReceipt(command.operationId(),
+                    command.fiscalPeriodId(), command.expectedStatus(), command.targetStatus(), command.auditUser(),
+                    FiscalPeriodTransitionReceipt.Phase.PREPARED);
+            receipts.put(command.operationId(), receipt);
+            return receipt;
+        });
+        when(fiscalPeriodControlPort.applyClosingTransition(any())).thenAnswer(call -> {
+            String operationId = call.getArgument(0);
+            FiscalPeriodTransitionReceipt prepared = receipts.get(operationId);
+            FiscalPeriodRef period = master.get();
+            if (prepared.targetStatus() == com.ho.account.contracts.masterdata.FiscalPeriodClosingStatus.CLOSED) {
+                master.set(new FiscalPeriodRef(period.id(), period.fiscalYear(), period.fiscalPeriod(),
+                        period.startDate(), period.endDate(), prepared.targetStatus().name()));
+            }
+            FiscalPeriodTransitionReceipt applied = new FiscalPeriodTransitionReceipt(prepared.operationId(),
+                    prepared.fiscalPeriodId(), prepared.expectedStatus(), prepared.targetStatus(), prepared.auditUser(),
+                    FiscalPeriodTransitionReceipt.Phase.APPLIED);
+            receipts.put(operationId, applied);
+            return applied;
+        });
+        lenient().when(fiscalPeriodControlPort.confirmClosingTransition(any())).thenAnswer(call -> {
+            String operationId = call.getArgument(0);
+            FiscalPeriodTransitionReceipt applied = receipts.get(operationId);
+            FiscalPeriodRef period = master.get();
+            master.set(new FiscalPeriodRef(period.id(), period.fiscalYear(), period.fiscalPeriod(),
+                    period.startDate(), period.endDate(), applied.targetStatus().name()));
+            FiscalPeriodTransitionReceipt confirmed = new FiscalPeriodTransitionReceipt(applied.operationId(),
+                    applied.fiscalPeriodId(), applied.expectedStatus(), applied.targetStatus(), applied.auditUser(),
+                    FiscalPeriodTransitionReceipt.Phase.CONFIRMED);
+            receipts.put(operationId, confirmed);
+            return confirmed;
+        });
     }
 
     @Test
@@ -759,12 +797,7 @@ public class ClosingServiceTest {
                 .thenAnswer(invocation -> Optional.of(master.get()));
         when(fiscalPeriodControlPort.findFiscalPeriodById(1L))
                 .thenAnswer(invocation -> Optional.of(master.get()));
-        when(fiscalPeriodControlPort.updateClosingStatus(eq(1L), any(), any())).thenAnswer(invocation -> {
-            FiscalPeriodRef updated = new FiscalPeriodRef(
-                    1L, "2026", "01", openPeriod.startDate(), openPeriod.endDate(), invocation.getArgument(1));
-            master.set(updated);
-            return updated;
-        });
+        stubRemoteTransitions(master);
         when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
                 .thenReturn(Optional.of(calendar));
         when(closingCalendarPersistencePort.findById(10L)).thenReturn(Optional.of(calendar));
@@ -811,8 +844,7 @@ public class ClosingServiceTest {
         closingService.unlockPeriod(1L, "APPROVER");
         assertThat(adapter.isClosed(accountingDate)).isFalse();
 
-        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "CLOSER");
-        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "OPEN", "APPROVER");
+        verify(fiscalPeriodControlPort, times(2)).applyClosingTransition(any());
         verifyNoInteractions(financialClosingCalculation, journalQueryPort);
     }
 

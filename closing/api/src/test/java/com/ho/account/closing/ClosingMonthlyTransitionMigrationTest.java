@@ -42,5 +42,23 @@ class ClosingMonthlyTransitionMigrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForObject("SELECT status FROM closing_calendars WHERE id=10", String.class))
                 .isEqualTo("CLOSED");
+        // V58 permits OPEN only after the durable authorization stage, while retaining the fence.
+        jdbc.update("UPDATE closing_calendars SET transition_protocol='RECEIPT_V1' WHERE id=10");
+        assertThatThrownBy(() -> jdbc.update("UPDATE closing_calendars SET transition_stage='AUTHORIZED' WHERE id=10"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        jdbc.update("UPDATE closing_calendars SET transition_stage='AUTHORIZED', status='OPEN' WHERE id=10");
+        assertThat(jdbc.queryForMap("SELECT status, transition_stage, transition_protocol FROM closing_calendars WHERE id=10"))
+                .containsEntry("STATUS", "OPEN")
+                .containsEntry("TRANSITION_STAGE", "AUTHORIZED")
+                .containsEntry("TRANSITION_PROTOCOL", "RECEIPT_V1");
+        jdbc.update("UPDATE closing_calendars SET transition_stage='READY_TO_CONFIRM' WHERE id=10");
+        assertThat(jdbc.queryForObject("SELECT transition_stage FROM closing_calendars WHERE id=10", String.class))
+                .isEqualTo("READY_TO_CONFIRM");
+        assertThatThrownBy(() -> jdbc.update("UPDATE closing_calendars SET transition_protocol='UNKNOWN' WHERE id=10"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE closing_calendars SET transition_target='CLOSED' WHERE id=10"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE closing_calendars SET transition_approval_id=NULL WHERE id=10"))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 }

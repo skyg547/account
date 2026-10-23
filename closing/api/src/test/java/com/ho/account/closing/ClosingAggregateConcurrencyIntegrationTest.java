@@ -25,6 +25,9 @@ import com.ho.account.closing.web.ClosingController;
 import com.ho.account.closing.web.ClosingExceptionHandler;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
+import com.ho.account.contracts.masterdata.FiscalPeriodClosingStatus;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionCommand;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionReceipt;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
@@ -553,6 +556,10 @@ class ClosingAggregateConcurrencyIntegrationTest {
         final AtomicInteger writes = new AtomicInteger();
         final AtomicInteger attempts = new AtomicInteger();
         private final java.util.Map<Long, Fault> faults = new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.Set<String> lostCancelResponses = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        private final java.util.Set<String> lostConfirmResponses = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        // Independent provider receipts survive every rollback of the Closing datasource.
+        private final java.util.Map<String, FiscalPeriodTransitionReceipt> receipts = new java.util.concurrent.ConcurrentHashMap<>();
         volatile long wrongReadIdentityPeriod;
         volatile long pausedPeriod;
         volatile Pause updatePause;
@@ -577,17 +584,124 @@ class ClosingAggregateConcurrencyIntegrationTest {
             return read.pause();
         }
         void failNextUpdate(long id, Fault fault) { faults.put(id, fault); }
+        void loseNextCancelResponse(String operationId) { lostCancelResponses.add(operationId); }
+        void loseNextConfirmResponse(String operationId) { lostConfirmResponses.add(operationId); }
+        void replaceReceipt(FiscalPeriodTransitionReceipt receipt) { receipts.put(receipt.operationId(), receipt); }
+        @Override public synchronized FiscalPeriodTransitionReceipt prepareClosingTransition(FiscalPeriodTransitionCommand command) {
+            FiscalPeriodTransitionReceipt existing = receipts.get(command.operationId());
+            if (existing != null) {
+                if (!existing.matches(command)) throw new IllegalStateException("Operation payload changed");
+                return existing;
+            }
+            FiscalPeriodRef period = rawPeriodById(command.fiscalPeriodId()).orElseThrow();
+            if (!period.closingStatus().equals(command.expectedStatus().name())) {
+                throw new IllegalStateException("Expected fiscal period status changed");
+            }
+            FiscalPeriodTransitionReceipt prepared = new FiscalPeriodTransitionReceipt(command.operationId(),
+                    command.fiscalPeriodId(), command.expectedStatus(), command.targetStatus(), command.auditUser(),
+                    FiscalPeriodTransitionReceipt.Phase.PREPARED);
+            receipts.put(command.operationId(), prepared);
+            return prepared;
+        }
+        @Override public synchronized FiscalPeriodTransitionReceipt applyClosingTransition(String operationId) {
+            FiscalPeriodTransitionReceipt receipt = receipts.get(operationId);
+            if (receipt == null) throw new IllegalStateException("Transition was not prepared");
+            attempts.incrementAndGet();
+            Pause pause = updatePause;
+            if (receipt.fiscalPeriodId() == pausedPeriod && pause != null) pause.stop();
+            Fault fault = faults.remove(receipt.fiscalPeriodId());
+            if (receipt.phase() == FiscalPeriodTransitionReceipt.Phase.APPLIED) return receipt;
+            if (fault == Fault.BEFORE_REMOTE_WRITE) throw new IllegalStateException("Synthetic transport unavailable before apply");
+            FiscalPeriodRef period = rawPeriodById(receipt.fiscalPeriodId()).orElseThrow();
+            if (!period.closingStatus().equals(receipt.expectedStatus().name())) {
+                throw new IllegalStateException("Expected fiscal period status changed");
+            }
+            if (receipt.targetStatus() == FiscalPeriodClosingStatus.CLOSED) {
+                jdbc.update("update periods set status=? where id=?", receipt.targetStatus().name(), receipt.fiscalPeriodId());
+            }
+            writes.incrementAndGet();
+            FiscalPeriodTransitionReceipt applied = new FiscalPeriodTransitionReceipt(receipt.operationId(),
+                    receipt.fiscalPeriodId(), receipt.expectedStatus(), receipt.targetStatus(), receipt.auditUser(),
+                    FiscalPeriodTransitionReceipt.Phase.APPLIED);
+            receipts.put(operationId, applied);
+            if (fault == Fault.LOST_RESPONSE) throw new IllegalStateException("Synthetic response lost after committed Master write");
+            if (fault == Fault.LOCAL_FINALIZE_ROLLBACK) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void beforeCommit(boolean readOnly) {
+                                throw new IllegalStateException("Synthetic local commit failure after Master success");
+                            }
+                        });
+            }
+            if (fault == Fault.WRONG_RESPONSE_ID) {
+                return new FiscalPeriodTransitionReceipt(applied.operationId(), applied.fiscalPeriodId() + 10000,
+                        applied.expectedStatus(), applied.targetStatus(), applied.auditUser(), applied.phase());
+            }
+            return applied;
+        }
+        @Override public synchronized FiscalPeriodTransitionReceipt confirmClosingTransition(String operationId) {
+            FiscalPeriodTransitionReceipt receipt = receipts.get(operationId);
+            if (receipt == null || receipt.targetStatus() != FiscalPeriodClosingStatus.OPEN) {
+                throw new IllegalStateException("Prepared reopen receipt is missing");
+            }
+            if (receipt.phase() == FiscalPeriodTransitionReceipt.Phase.CONFIRMED) return receipt;
+            if (receipt.phase() != FiscalPeriodTransitionReceipt.Phase.APPLIED) {
+                throw new IllegalStateException("Reopen has not applied");
+            }
+            // The synthetic provider exposes OPEN only when the matching local READY_TO_CONFIRM has committed.
+            jdbc.update("update periods set status='OPEN' where id=?", receipt.fiscalPeriodId());
+            FiscalPeriodTransitionReceipt confirmed = new FiscalPeriodTransitionReceipt(receipt.operationId(),
+                    receipt.fiscalPeriodId(), receipt.expectedStatus(), receipt.targetStatus(), receipt.auditUser(),
+                    FiscalPeriodTransitionReceipt.Phase.CONFIRMED);
+            receipts.put(operationId, confirmed);
+            if (lostConfirmResponses.remove(operationId)) {
+                throw new IllegalStateException("Synthetic confirm response lost after committed Master OPEN");
+            }
+            return confirmed;
+        }
+        @Override public Optional<FiscalPeriodTransitionReceipt> findTransitionReceipt(String operationId) {
+            return Optional.ofNullable(receipts.get(operationId));
+        }
+        @Override public synchronized FiscalPeriodTransitionReceipt cancelClosingTransition(String operationId, String actor) {
+            FiscalPeriodTransitionReceipt receipt = receipts.get(operationId);
+            if (receipt == null) throw new IllegalStateException("Transition was not prepared");
+            if (receipt.phase() == FiscalPeriodTransitionReceipt.Phase.APPLIED) {
+                throw new IllegalStateException("Applied transition cannot be cancelled");
+            }
+            FiscalPeriodTransitionReceipt cancelled = new FiscalPeriodTransitionReceipt(receipt.operationId(),
+                    receipt.fiscalPeriodId(), receipt.expectedStatus(), receipt.targetStatus(), receipt.auditUser(),
+                    FiscalPeriodTransitionReceipt.Phase.CANCELLED);
+            receipts.put(operationId, cancelled);
+            if (lostCancelResponses.remove(operationId)) {
+                throw new IllegalStateException("Synthetic DELETE response lost after committed cancellation");
+            }
+            return cancelled;
+        }
         @Override public Optional<FiscalPeriodRef> findFiscalPeriodById(Long id) {
-            Optional<FiscalPeriodRef> result = jdbc.query("select * from periods where id=?", (rs, row) -> ref(rs.getLong("id"),
-                    rs.getString("fiscal_year"), rs.getString("fiscal_period"), rs.getString("status")), id).stream().findFirst();
+            Optional<FiscalPeriodRef> result = rawPeriodById(id).map(this::admissionView);
             ReadPause read = readPauses.get(Thread.currentThread().getName());
             if (read != null && id == read.periodId() && read.calls().incrementAndGet() == read.ordinal()) read.pause().stop();
             if (id == wrongReadIdentityPeriod) return result.map(this::wrongIdentity);
             return result;
         }
+        private Optional<FiscalPeriodRef> rawPeriodById(Long id) {
+            Optional<FiscalPeriodRef> result = jdbc.query("select * from periods where id=?", (rs, row) -> ref(rs.getLong("id"),
+                    rs.getString("fiscal_year"), rs.getString("fiscal_period"), rs.getString("status")), id).stream().findFirst();
+            return result;
+        }
         @Override public Optional<FiscalPeriodRef> findFiscalPeriod(String year, String period) {
             return jdbc.query("select * from periods where fiscal_year=? and fiscal_period=?", (rs, row) -> ref(rs.getLong("id"),
-                    rs.getString("fiscal_year"), rs.getString("fiscal_period"), rs.getString("status")), year, period).stream().findFirst();
+                    rs.getString("fiscal_year"), rs.getString("fiscal_period"), rs.getString("status")), year, period)
+                    .stream().findFirst().map(this::admissionView);
+        }
+        private FiscalPeriodRef admissionView(FiscalPeriodRef period) {
+            boolean fenced = receipts.values().stream().anyMatch(receipt ->
+                    receipt.fiscalPeriodId().equals(period.id())
+                            && ((receipt.phase() == FiscalPeriodTransitionReceipt.Phase.PREPARED
+                                    && receipt.targetStatus() == FiscalPeriodClosingStatus.CLOSED)
+                                || (receipt.phase() == FiscalPeriodTransitionReceipt.Phase.APPLIED
+                                    && receipt.targetStatus() == FiscalPeriodClosingStatus.OPEN)));
+            return fenced ? ref(period.id(), period.fiscalYear(), period.fiscalPeriod(), "CLOSED") : period;
         }
         @Override public FiscalPeriodRef updateClosingStatus(Long id, String status, String actor) {
             attempts.incrementAndGet();

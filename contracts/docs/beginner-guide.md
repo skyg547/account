@@ -62,3 +62,29 @@ Closing FX 평가일
 코드의 `@todo`는 빈 구현을 허용한다는 뜻이 아닙니다. 현재 호환 경로와 목표 구조 사이의
 마이그레이션 조건을 적습니다. 예를 들어 기준일 조회 default 제거 TODO는 모든 어댑터가 실제
 SCD2 조회를 구현했다는 증거가 갖춰져야 완료할 수 있습니다.
+
+## 6. 원격 회계기간 전이를 다시 확인하는 방법
+
+Closing이 기간을 다시 열 때 Master Data에 먼저 `OPEN`을 저장하면, 응답 유실이나 로컬
+승인 저장 실패 후에는 승인되지 않은 기간에 전표가 입력될 수 있습니다. 새 계약은
+`FiscalPeriodTransitionCommand`의 동일한 `operationId`와 원본 상태·목표 상태·actor를
+Master Data에 준비시키고, 영수증을 조회하여 재시도 결과를 확인합니다. `PREPARED`는 아직
+기간 행에 저장된 상태가 바뀌지 않았고 `APPLIED`는 Master Data의 상태 변경이 완료된
+뜻입니다. 단, 닫기 준비 중 조회 결과는 전표를 막기 위해 `CLOSED`로 보입니다. 재개 준비
+중에는 `OPEN`으로 보이지 않습니다. 재개가 `APPLIED`여도 전표 허용용 조회는 `CLOSED`를
+유지합니다. Closing의 승인·달력·감사 기록이 커밋된 뒤 `CONFIRMED`가 되어야 `OPEN`으로
+보입니다.
+
+닫기 준비에 필요한 로컬 증거가 만료되면 권한 있는 담당자가 같은 작업 ID와 별도 취소
+actor로 준비를 취소합니다. `CANCELLED` 영수증은 더 이상 적용할 수 없는 종료 결과입니다.
+이미 적용된 작업을 취소로 되돌릴 수는 없습니다.
+
+로컬 개발에서는 저장소 루트에서 다음 검사를 실행합니다.
+
+```bash
+./gradlew :contracts:test --console=plain --max-workers=1 --no-daemon
+```
+
+성공 시 `BUILD SUCCESSFUL`이 출력됩니다. 이 검사는 계약 필드 검증과 영수증의 전체 명령
+일치 여부를 확인합니다. 실제 응답 유실·DB 복구는 Closing과 Master Data의 통합 테스트로
+확인해야 합니다. 자세한 적용 순서는 [process-flow.md](./process-flow.md)를 참조하세요.

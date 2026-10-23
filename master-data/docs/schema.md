@@ -226,3 +226,18 @@ Rollback은 Issue 코드의 검토된 revert와 **새 forward schema correction*
 - `MasterDataQueryPort`: 다른 모듈이 기준일 기준정보를 이름표 DTO로 조회하는 계약.
 - `FiscalPeriodPersistencePort`: 외부 Closing 계약 어댑터가 JPA Repository를 직접 호출하지 않고 조회/잠금/저장을 요청하는 출력 포트.
 - JPA 어댑터와 `*JpaEntity`는 `core.infrastructure.persistence` 아래에 두고 core application/domain은 Spring Data와 JPA annotation을 직접 참조하지 않습니다.
+# Fiscal transition receipts (Issue #773)
+
+PostgreSQL `V14__fiscal_period_transition_receipts.sql` adds `fiscal_period_transitions`.
+`operation_id` is the immutable 128-character maximum primary key; period ID, exact expected/target
+status, original actor, and `PREPARED`/`APPLIED`/`CANCELLED`/`CONFIRMED` phase are stored with timestamps. A partial unique
+index permits only one `PREPARED` operation per period. A second partial unique index permits
+only one unconfirmed applied reopen per period. The application also checks both while
+holding the `fiscal_periods` row lock, including on H2 local where the PostgreSQL partial index is
+not applied. Status, append-only audit and `APPLIED` receipt commit in one transaction.
+The local H2 startup schema creates the equivalent receipt table but does not prove the PostgreSQL
+partial index. A prepared close is an admission fence: public status reads report effective
+`CLOSED` although the stored fiscal period remains `OPEN` until apply. An applied reopen keeps
+effective admission `CLOSED` even though the stored period is `OPEN`; the read projection releases
+`OPEN` only after a separate confirmed receipt follows durable Closing completion. Both public
+read forms use one SQL statement to observe period and receipt in the same database snapshot.

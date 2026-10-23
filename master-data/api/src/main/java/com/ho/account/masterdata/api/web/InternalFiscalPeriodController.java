@@ -2,13 +2,19 @@ package com.ho.account.masterdata.api.web;
 
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionCommand;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionReceipt;
 import com.ho.account.masterdata.api.web.dto.FiscalPeriodStatusUpdateRequestDto;
+import com.ho.account.masterdata.api.web.dto.FiscalPeriodTransitionRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,28 +39,64 @@ public class InternalFiscalPeriodController {
             @PathVariable Long id,
             HttpServletRequest request,
             @Valid @RequestBody FiscalPeriodStatusUpdateRequestDto requestDto) {
-        String service = (String) request.getAttribute(MasterDataIngressAuthenticationFilter.VERIFIED_SERVICE);
-        String actor = (String) request.getAttribute(MasterDataIngressAuthenticationFilter.VERIFIED_ACTOR);
-        Object signedPeriodId = request.getAttribute(MasterDataIngressAuthenticationFilter.VERIFIED_PERIOD_ID);
-        String signedStatus = (String) request.getAttribute(
-                MasterDataIngressAuthenticationFilter.VERIFIED_CLOSING_STATUS);
-        if (!"closing".equals(service) || actor == null || actor.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Only authenticated 'closing' service is authorized to update fiscal period status.");
-        }
-        // Bind the parsed body to the signed command before entering the fiscal-period use case.
-        if (!(signedPeriodId instanceof Long verifiedId) || !verifiedId.equals(id)
-                || !requestDto.getClosingStatus().equals(signedStatus)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                    "Closing assertion does not match requested fiscal period mutation.");
-        }
-        // The column is 50 characters; the filter caps actor at 42 to retain both verified identities.
-        FiscalPeriodRef updatedRef = fiscalPeriodControlPort.updateClosingStatus(
-                id,
-                requestDto.getClosingStatus(),
-                service + ":" + actor);
+        // Legacy direct mutation bypasses durable operation identity and is intentionally retired.
+        throw new ResponseStatusException(HttpStatus.GONE, "Use the fiscal transition operation protocol");
+    }
 
-        return ResponseEntity.ok(updatedRef);
+    @PutMapping("/{id}/transitions/{operationId}")
+    public ResponseEntity<FiscalPeriodTransitionReceipt> prepareTransition(
+            @PathVariable Long id, @PathVariable String operationId, HttpServletRequest request,
+            @Valid @RequestBody FiscalPeriodTransitionRequestDto body) {
+        verifyOperation(request, operationId);
+        Object signedId = request.getAttribute(MasterDataIngressAuthenticationFilter.VERIFIED_PERIOD_ID);
+        if (!(signedId instanceof Long periodId) || !periodId.equals(id)
+                || !body.expectedStatus().name().equals(request.getAttribute(
+                        MasterDataIngressAuthenticationFilter.VERIFIED_EXPECTED_STATUS))
+                || !body.targetStatus().name().equals(request.getAttribute(
+                        MasterDataIngressAuthenticationFilter.VERIFIED_TARGET_STATUS))) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Signed transition payload mismatch");
+        }
+        String actor = (String) request.getAttribute(MasterDataIngressAuthenticationFilter.VERIFIED_ACTOR);
+        return ResponseEntity.ok(fiscalPeriodControlPort.prepareClosingTransition(
+                new FiscalPeriodTransitionCommand(operationId, id, body.expectedStatus(),
+                        body.targetStatus(), actor)));
+    }
+
+    @PostMapping("/transitions/{operationId}")
+    public ResponseEntity<FiscalPeriodTransitionReceipt> applyTransition(
+            @PathVariable String operationId, HttpServletRequest request) {
+        verifyOperation(request, operationId);
+        return ResponseEntity.ok(fiscalPeriodControlPort.applyClosingTransition(operationId));
+    }
+
+    @GetMapping("/transitions/{operationId}")
+    public ResponseEntity<FiscalPeriodTransitionReceipt> findTransition(
+            @PathVariable String operationId, HttpServletRequest request) {
+        verifyOperation(request, operationId);
+        return fiscalPeriodControlPort.findTransitionReceipt(operationId)
+                .map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/transitions/{operationId}")
+    public ResponseEntity<FiscalPeriodTransitionReceipt> cancelTransition(
+            @PathVariable String operationId, HttpServletRequest request) {
+        verifyOperation(request, operationId);
+        String actor = (String) request.getAttribute(MasterDataIngressAuthenticationFilter.VERIFIED_ACTOR);
+        return ResponseEntity.ok(fiscalPeriodControlPort.cancelClosingTransition(operationId, actor));
+    }
+
+    @PostMapping("/transitions/{operationId}/confirm")
+    public ResponseEntity<FiscalPeriodTransitionReceipt> confirmTransition(
+            @PathVariable String operationId, HttpServletRequest request) {
+        verifyOperation(request, operationId);
+        return ResponseEntity.ok(fiscalPeriodControlPort.confirmClosingTransition(operationId));
+    }
+
+    private void verifyOperation(HttpServletRequest request, String operationId) {
+        if (!"closing".equals(request.getAttribute(MasterDataIngressAuthenticationFilter.VERIFIED_SERVICE))
+                || !operationId.equals(request.getAttribute(
+                        MasterDataIngressAuthenticationFilter.VERIFIED_OPERATION_ID))) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Signed operation identity required");
+        }
     }
 }

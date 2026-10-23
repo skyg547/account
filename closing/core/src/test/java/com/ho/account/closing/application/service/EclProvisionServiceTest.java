@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -173,7 +174,8 @@ class EclProvisionServiceTest {
                 .thenReturn(balance("KRW", "0", "0"));
 
         assertThat(service.processEclProvision(date, 47L)).isEmpty();
-        verifyNoInteractions(closingJournalEntryPort);
+        verify(closingJournalEntryPort).preflightEclLineage(any());
+        verify(closingJournalEntryPort, never()).createDraftAdjustment(any());
     }
 
     @Test
@@ -220,7 +222,7 @@ class EclProvisionServiceTest {
         when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
                 .thenReturn(balance("KRW", "0", "0"));
 
-        ClosingJournalEntryCommand command = service.prepareEclProvision(date, 47L).get(0);
+        ClosingJournalEntryCommand command = service.prepareEclProvisionSnapshot(date, 47L).commands().get(0);
         JournalEntry posted = new JournalEntry();
         posted.setId(741L);
         posted.setSlipNo(command.slipNo());

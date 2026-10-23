@@ -7,6 +7,7 @@ import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubje
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaBusinessPartnerPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaMasterDataAuditAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.AccountSubjectMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.DepartmentMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
@@ -46,6 +47,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         JpaAccountSubjectPersistenceAdapter.class,
         AccountSubjectMapper.class,
         JpaBusinessPartnerPersistenceAdapter.class,
+        JpaMasterDataAuditAdapter.class,
         JpaDepartmentPersistenceAdapter.class,
         DepartmentMapper.class
 })

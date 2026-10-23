@@ -18,11 +18,15 @@ public class JpaPeriodLockPersistenceAdapter implements PeriodLockPersistencePor
     }
 
     @Override
+    public PeriodLock saveAndFlush(PeriodLock value) {
+        return save(value);
+    }
+
+    @Override
     public Optional<PeriodLock> findByFiscalPeriodId(Long id) {
         return repository.findByFiscalPeriodId(id).map(ClosingEntityMapper::toDomain);
     }
 
-    @Override
     public void delete(PeriodLock value) {
         repository.deleteById(value.getId());
     }
