@@ -131,6 +131,21 @@ class JpaBusinessPartnerPersistenceAdapterTest {
     }
 
     @Test
+    void existenceIncludesFutureAndExpiredRowsRegardlessOfUseFlag() {
+        LocalDate today = LocalDate.now();
+        adapter.save(reconstitute("BP-FUTURE-EXISTS", "미래 거래처", true,
+                today.plusDays(21), today.plusDays(30), List.of()));
+        adapter.save(reconstitute("BP-HISTORY-EXISTS", "과거 거래처", false,
+                today.minusDays(60), today.minusDays(30), List.of()));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(adapter.existsByBusinessPartnerCode("BP-FUTURE-EXISTS")).isTrue();
+        assertThat(adapter.existsByBusinessPartnerCode("BP-HISTORY-EXISTS")).isTrue();
+        assertThat(adapter.existsByBusinessPartnerCode("BP-NEW-KEY")).isFalse();
+    }
+
+    @Test
     void savesCopiedAccountsAsDifferentRowsForEachScd2Version() {
         LocalDate today = LocalDate.now();
         LocalDateTime timestamp = LocalDateTime.of(2026, 1, 2, 9, 30);
@@ -215,6 +230,52 @@ class JpaBusinessPartnerPersistenceAdapterTest {
                 .isInstanceOf(IncorrectResultSizeDataAccessException.class);
         assertThatThrownBy(() -> adapter.findEffectiveByBusinessPartnerCode("BP-OVERLAP", today))
                 .isInstanceOf(IncorrectResultSizeDataAccessException.class);
+    }
+
+    @Test
+    void bulkQueryExposesBothActiveVersionsForEqualAndUnequalStartDates() {
+        LocalDate today = LocalDate.now();
+        adapter.save(reconstitute("BP-EQUAL", "동일일 첫 버전", true,
+                today.minusDays(10), BusinessPartner.OPEN_ENDED_VALID_TO, List.of()));
+        adapter.save(reconstitute("BP-EQUAL", "동일일 두 번째 버전", true,
+                today.minusDays(10), BusinessPartner.OPEN_ENDED_VALID_TO, List.of()));
+        adapter.save(reconstitute("BP-UNEQUAL", "이전 버전", true,
+                today.minusDays(20), BusinessPartner.OPEN_ENDED_VALID_TO, List.of()));
+        adapter.save(reconstitute("BP-UNEQUAL", "최근 버전", true,
+                today.minusDays(5), BusinessPartner.OPEN_ENDED_VALID_TO, List.of()));
+        entityManager.flush();
+        entityManager.clear();
+
+        // H2에는 PostgreSQL 기간 exclusion이 없으므로 손상된 이력을 쿼리 경계에서 재현합니다.
+        List<BusinessPartner> rows = adapter.findAllByBusinessPartnerCodeIn(
+                List.of("BP-EQUAL", "BP-UNEQUAL"));
+
+        assertThat(rows).extracting(BusinessPartner::getBusinessPartnerName)
+                .containsExactlyInAnyOrder("동일일 첫 버전", "동일일 두 번째 버전", "이전 버전", "최근 버전");
+        assertThat(rows).extracting(BusinessPartner::getBusinessPartnerCode)
+                .containsExactly("BP-EQUAL", "BP-EQUAL", "BP-UNEQUAL", "BP-UNEQUAL");
+    }
+
+    @Test
+    void bulkQueryReturnsOnePartnerWhenEntityGraphLoadsMultipleAccounts() {
+        LocalDateTime timestamp = LocalDateTime.of(2026, 1, 2, 9, 30);
+        BusinessPartnerAccount firstAccount = BusinessPartnerAccount.reconstitute(
+                null, "테스트은행", "100-111", "검증 거래처", null, true, timestamp, timestamp);
+        BusinessPartnerAccount secondAccount = BusinessPartnerAccount.reconstitute(
+                null, "테스트은행", "100-222", "검증 거래처", null, false, timestamp, timestamp);
+        adapter.save(reconstitute("BP-TWO-ACCOUNTS", "검증 거래처", true,
+                LocalDate.now().minusDays(1), BusinessPartner.OPEN_ENDED_VALID_TO,
+                List.of(firstAccount, secondAccount)));
+        entityManager.flush();
+        entityManager.clear();
+
+        // EntityGraph가 자식 행을 조인하더라도 한 부모 버전을 중복 버전으로 오인하지 않습니다.
+        List<BusinessPartner> rows = adapter.findAllByBusinessPartnerCodeIn(List.of("BP-TWO-ACCOUNTS"));
+
+        assertThat(rows).singleElement().satisfies(partner -> {
+            assertThat(partner.getBusinessPartnerCode()).isEqualTo("BP-TWO-ACCOUNTS");
+            assertThat(partner.getAccounts()).hasSize(2);
+        });
     }
 
     private BusinessPartner reconstitute(

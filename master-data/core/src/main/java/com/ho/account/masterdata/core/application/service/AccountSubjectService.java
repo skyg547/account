@@ -3,9 +3,15 @@ package com.ho.account.masterdata.core.application.service;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -28,9 +34,20 @@ import java.util.Optional;
 public class AccountSubjectService implements AccountSubjectUseCase {
 
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
 
-    public AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort) {
+    AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(accountSubjectPersistencePort, businessKeyLockPort, event -> { });
+    }
+
+    @Autowired
+    public AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort, MasterDataAuditPort auditPort) {
         this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort;
     }
 
     /**
@@ -40,11 +57,22 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
-        if (accountSubjectPersistencePort.findByCode(command.code()).isPresent()) {
-            throw new IllegalArgumentException("이미 해당 시점에 활성화된 계정과목 코드가 존재합니다: " + command.code());
+        AccountSubject accountSubject = command.toEntity();
+        accountSubject.validateBusinessFields();
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Account subject parentCode", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        }
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, accountSubject.getCode());
+        // A new account has no prior mapping to clear; reject the flag instead of silently ignoring it.
+        if (command.clearRegulatoryMappingCode()) {
+            throw new IllegalArgumentException("Cannot clear regulatory mapping code when creating an account subject.");
+        }
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
+        if (accountSubjectPersistencePort.existsByCode(accountSubject.getCode())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 계정과목 코드입니다: " + command.code());
         }
 
-        AccountSubject accountSubject = command.toEntity();
+        accountSubject.normalizeAndValidateClassification();
 
         if (command.hasParentCode()) {
             AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
@@ -54,7 +82,11 @@ public class AccountSubjectService implements AccountSubjectUseCase {
 
         MasterDataValidityPolicy.applyDefaultWindow(accountSubject::getValidFrom, accountSubject::setValidFrom,
                 accountSubject::getValidTo, accountSubject::setValidTo);
-        return accountSubjectPersistencePort.save(accountSubject);
+        accountSubject.setAuditUser(MasterDataActorContext.auditUser());
+        AccountSubject saved = accountSubjectPersistencePort.save(accountSubject);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_CREATE", MasterDataType.ACCOUNT_SUBJECT,
+                saved.getCode(), null, saved.getId());
+        return saved;
     }
 
     /**
@@ -87,10 +119,17 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public AccountSubject updateAccountSubject(String code, AccountSubjectCommand command) {
-        AccountSubject currentActive = accountSubjectPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
+        String canonicalCode = MasterDataFieldRules.code(code, "Account subject code", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        if (command.code() != null && !MasterDataFieldRules.code(command.code(), "Account subject code", MasterDataFieldRules.ACCOUNT_CODE_MAX).equals(canonicalCode)) {
+            throw new MasterDataFieldRules.FieldValidationException("Account subject code cannot change during update.");
+        }
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Account subject parentCode", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        }
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, canonicalCode);
+        AccountSubject currentActive = accountSubjectPersistencePort.findByCodeForUpdate(canonicalCode)
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + canonicalCode));
 
-        // SCD2: 기존 활성 버전 종료
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
         LocalDate newValidTo = command.validTo() != null
                 ? command.validTo()
@@ -98,26 +137,59 @@ public class AccountSubjectService implements AccountSubjectUseCase {
         MasterDataValidityPolicy.requireVersionSplit(
                 currentActive.getValidFrom(), currentActive.getValidTo(), newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
-        
-        // 참조 검증과 신규 버전 조립을 먼저 끝내야 잘못된 parentCode가 현재 버전을 건드리지 않습니다.
-        AccountSubject newVersion = command.toEntity();
-        newVersion.setCode(code); // 코드는 동일하게 유지
 
-        if (command.hasParentCode()) {
-            AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("상위 계정과목을 찾을 수 없습니다. 코드: " + command.parentCode()));
-            newVersion.setParent(parent);
-        } else {
-            newVersion.setParent(null);
+        // Omitted fields inherit the current business state; only supplied fields change the successor.
+        // Complete validation before the old version is closed so an invalid request cannot alter history.
+        AccountSubject newVersion = currentActive.successor();
+        if (command.name() != null) {
+            newVersion.setName(command.name());
         }
-        
+        if (command.parentCode() != null) {
+            if (command.parentCode().isBlank()) {
+                newVersion.setParent(null);
+            } else {
+                AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "상위 계정과목을 찾을 수 없습니다. 코드: " + command.parentCode()));
+                newVersion.setParent(parent);
+            }
+        }
+        if (command.category() != null) {
+            newVersion.setCategory(command.category());
+        }
+        if (command.accountType() != null) {
+            newVersion.setAccountType(command.accountType());
+        }
+        if (command.balanceType() != null) {
+            newVersion.setBalanceType(command.balanceType());
+        }
+        if (command.reportLine() != null) {
+            newVersion.setReportLine(command.reportLine().isBlank() ? null : command.reportLine());
+        }
+        if (command.unsettled() != null) {
+            newVersion.setUnsettled(command.unsettled());
+        }
+        if (command.fixedAsset() != null) {
+            newVersion.setFixedAsset(command.fixedAsset());
+        }
+        if (command.clearRegulatoryMappingCode()) {
+            newVersion.setRegulatoryMappingCode(null);
+        } else if (command.regulatoryMappingCode() != null) {
+            newVersion.setRegulatoryMappingCode(command.regulatoryMappingCode());
+        }
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
+        newVersion.setAuditUser(MasterDataActorContext.auditUser());
+        newVersion.validateBusinessFields();
+        newVersion.normalizeAndValidateClassification();
 
         currentActive.terminate(oldValidTo);
         accountSubjectPersistencePort.save(currentActive);
 
-        return accountSubjectPersistencePort.save(newVersion);
+        AccountSubject saved = accountSubjectPersistencePort.save(newVersion);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_UPDATE", MasterDataType.ACCOUNT_SUBJECT,
+                saved.getCode(), currentActive.getId(), saved.getId());
+        return saved;
     }
 
     /**
@@ -131,13 +203,17 @@ public class AccountSubjectService implements AccountSubjectUseCase {
 
     @Override
     public void deactivateAccountSubject(String code, LocalDate effectiveDate) {
-        AccountSubject account = accountSubjectPersistencePort.findByCode(code)
+        businessKeyLockPort.lock(MasterDataType.ACCOUNT_SUBJECT, code);
+        AccountSubject account = accountSubjectPersistencePort.findByCodeForUpdate(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
 
-        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+        LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, account.getValidFrom(), account.getValidTo());
         account.terminate(terminationDate);
+        account.setAuditUser(MasterDataActorContext.auditUser());
         accountSubjectPersistencePort.save(account);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_DEACTIVATE", MasterDataType.ACCOUNT_SUBJECT,
+                account.getCode(), account.getId(), account.getId());
     }
 
     @Override

@@ -12,11 +12,15 @@ import com.ho.account.auth.core.application.port.out.OtpVerificationPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.SsoAuthenticationPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -82,6 +86,11 @@ public class AuthService implements AuthUseCase {
         }
 
         String username = command.username().trim();
+        // Lowercasing can expand Unicode, so check the exact key shape stored by login-attempt tracking too.
+        if (username.length() > AuthIdentityPolicy.MAX_USERNAME_LENGTH
+                || username.toLowerCase(Locale.ROOT).length() > AuthIdentityPolicy.MAX_USERNAME_LENGTH) {
+            throw new IllegalArgumentException("username is too long");
+        }
 
         // 먼저 임시 잠금을 확인하여 반복 대입 공격이 사용자 조회/비밀번호 검증까지 도달하지 않게 합니다.
         if (loginAttemptPort.isLocked(username)) {
@@ -105,13 +114,27 @@ public class AuthService implements AuthUseCase {
         if (user.getDepartmentCode() != null && !user.getDepartmentCode().isBlank()
                 && !departmentValidationPort.existsDepartmentCode(user.getDepartmentCode())) {
             loginAttemptPort.recordFailure(username, "INVALID_DEPARTMENT");
-            throw new UserAccessDeniedException("Department code is invalid: " + user.getDepartmentCode());
+            throw new UserAccessDeniedException("Department code is invalid");
         }
 
         verifySecondFactor(command, user.getUsername(), isLdap);
 
+        // Even an expired or inactive scoped assignment can be present in an older signed JWT.
+        if (!hasOnlyGlobalAssignments(user)) {
+            loginAttemptPort.recordFailure(username, "UNSUPPORTED_DATA_SCOPE");
+            throw new UserAccessDeniedException("User has unsupported role data scope");
+        }
+
         Instant authenticatedAt = clock.instant();
-        List<RoleAssignment> effectiveAssignments = user.effectiveRoleAssignmentsAt(authenticatedAt);
+        // A grant ending before one representable JWT second remains cannot be put into a
+        // usable signed snapshot. Keep longer-lived grants (such as USER) available instead.
+        List<RoleAssignment> effectiveAssignments = user.effectiveRoleAssignmentsAt(authenticatedAt).stream()
+                .filter(assignment -> assignment.validTo() == null
+                        || Duration.between(
+                                        authenticatedAt,
+                                        assignment.validTo().truncatedTo(ChronoUnit.SECONDS))
+                                .getSeconds() >= 1)
+                .toList();
         if (effectiveAssignments.isEmpty()) {
             loginAttemptPort.recordFailure(username, "NO_EFFECTIVE_ROLE");
             throw new UserAccessDeniedException("User has no approved effective roles");
@@ -128,7 +151,8 @@ public class AuthService implements AuthUseCase {
                         effectiveAssignments,
                         user.getRoleVersion()),
                 authenticatedAt);
-        loginAttemptPort.recordSuccess(username);
+        // Use the verified account identity; the attempt adapter also normalizes it for the counter key.
+        loginAttemptPort.recordSuccess(user.getUsername());
 
         return new AuthenticationResult(
                 issuedToken.token(),
@@ -221,8 +245,14 @@ public class AuthService implements AuthUseCase {
         return authUserQueryPort.findByUsername(username.trim())
                 .filter(AuthUser::isActive)
                 .filter(user -> !user.isLocked())
+                .filter(this::hasOnlyGlobalAssignments)
                 .filter(user -> !user.effectiveRoleAssignmentsAt(validatedAt).isEmpty())
                 .map(user -> user.getRoleVersion() == roleVersion)
                 .orElse(false);
+    }
+
+    private boolean hasOnlyGlobalAssignments(AuthUser user) {
+        // Inspect the stored list, not only currently effective grants, to revoke mixed legacy tokens.
+        return user.getRoleAssignments().stream().allMatch(RoleAssignment::hasSupportedAuthorizationScope);
     }
 }

@@ -1,5 +1,6 @@
 package com.ho.account.masterdata.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 
@@ -13,8 +14,8 @@ public class AccountSubjectRequestDto {
     private AccountSubject.AccountCategory category;
     private AccountSubject.BalanceType balanceType;
     private String reportLine;
-    private boolean unsettled;
-    private boolean fixedAsset;
+    private Boolean unsettled;
+    private Boolean fixedAsset;
     private LocalDate validFrom;
     private LocalDate validTo;
 
@@ -32,7 +33,16 @@ public class AccountSubjectRequestDto {
                 unsettled,
                 fixedAsset,
                 validFrom,
-                validTo);
+                validTo,
+                null,
+                null,
+                false);
+    }
+
+    // Direct writes cannot bypass the approval audit for classification changes.
+    @JsonAnySetter
+    public void rejectUnsupportedField(String field, Object value) {
+        throw new IllegalArgumentException("Unsupported account subject field: " + field);
     }
 
     // Getter
@@ -42,8 +52,8 @@ public class AccountSubjectRequestDto {
     public AccountSubject.AccountCategory getCategory() { return category; }
     public AccountSubject.BalanceType getBalanceType() { return balanceType; }
     public String getReportLine() { return reportLine; }
-    public boolean isUnsettled() { return unsettled; }
-    public boolean isFixedAsset() { return fixedAsset; }
+    public Boolean getUnsettled() { return unsettled; }
+    public Boolean getFixedAsset() { return fixedAsset; }
     public LocalDate getValidFrom() { return validFrom; }
     public LocalDate getValidTo() { return validTo; }
 
@@ -54,8 +64,8 @@ public class AccountSubjectRequestDto {
     public void setCategory(AccountSubject.AccountCategory category) { this.category = category; }
     public void setBalanceType(AccountSubject.BalanceType balanceType) { this.balanceType = balanceType; }
     public void setReportLine(String reportLine) { this.reportLine = reportLine; }
-    public void setUnsettled(boolean unsettled) { this.unsettled = unsettled; }
-    public void setFixedAsset(boolean fixedAsset) { this.fixedAsset = fixedAsset; }
+    public void setUnsettled(Boolean unsettled) { this.unsettled = unsettled; }
+    public void setFixedAsset(Boolean fixedAsset) { this.fixedAsset = fixedAsset; }
     public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
     public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
 }

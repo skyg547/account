@@ -1,3 +1,20 @@
+# GH-765 resumed handoff — 2026-10-23
+
+The journal-ledger portion now uses an explicit operation key independent of `slipNo`, a V20 atomic creation receipt, fingerprint conflict checks, and distinct keys for legitimate multi-journal sources. Kafka processing and quarantine replay call the same identity-aware use case while preserving V18 completeness controls and V19 slip-number allocation. HTTP returns 409 for key/content conflict and 503 for typed allocation failure.
+
+Review correction: a missing event description now falls back to stable `ruleCode`, including lines without a description expression. Editing the rule's display name no longer turns a same-key redelivery into a fingerprint conflict; explicit payload descriptions remain authoritative. Focused regression and related core tests 39/39 PASS at this correction stage.
+
+Final review correction: event HTTP/Kafka creation now compares a canonical version 2 event/accounting-date digest under the V20 operation lock before rule evaluation. A committed same-key event returns the original journal even if its rule is deactivated; a changed amount conflicts before rules and is not quarantined. Manual/contract remains on version 1 journal-content digest. HTTP header precedence and Kafka key aliases are normalized to both operation-key spellings. Disposable PostgreSQL version 2 race verifies two connections converge to one receipt/journal.
+
+- Latest-main verification: final full `./gradlew :journal-ledger:test` 500/500 PASS (core373/API89/batch38), failures/errors/skips0. The requested `./gradlew :journal-ledger:test :payable:test :receivable:test :contracts:test` passed; test reports show journal-ledger500, payable70, receivable74 and contracts11 with no failures/errors/skips. Explicit payable/receivable API and batch forced rerun and six API/batch bootJARs passed. Disposable PostgreSQL16 migration/concurrency 7/7 PASS using `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:39405/postgres` with forced offline rerun; the added test covers concurrent version 2 event requests. Parent Integrator's audited `a97d10ab` RED rerun failed 1/1 as expected at assertion 62. Independent read-only review found no remaining blocking new-change defect and marked Q1–Q4 PASS in all four modules.
+- Cutover gate: V20 cannot infer old operation keys/fingerprints. Stop every old/new writer, reconcile in-flight outbox/Kafka/client retries with old journals, migrate remaining out-of-scope producers, then start only V20-aware writers. A delayed predeployment retry can otherwise duplicate an old journal.
+- Rollback retains V18 quarantine, V19 sequence, V20 registry/locks and journal evidence; fence creation traffic while restoring equivalent protection. PostgreSQL verification used only a disposable local test container; no production database/data, broker fault injection or load verification is claimed.
+- Parent Integrator owns PR and shared state; independent reviewer assesses Q1–Q4 and financial regressions; human review owns later Ready, merge, Issue close and deployment.
+
+---
+
+The following blocked handoff is retained history from the previous narrower allowlist.
+
 # GH-765 blocked handoff
 
 Issue [#765](https://github.com/skyg547/account/issues/765) is blocked after a verified module-local implementation candidate failed independent review. No commit, push, or Draft PR was created, and the remote Issue is OPEN with `status:blocked`.
@@ -17,6 +34,64 @@ Detailed commands and evidence are in [worklog.md](worklog.md). Remote blocker r
 ---
 
 The following is retained historical handoff and is not a current GH-765 report.
+
+---
+
+# GH-894 handoff
+
+Issue [#894](https://github.com/skyg547/account/issues/894) is `status:blocked` on the Loan integration regression. Its module-scoped implementation is on `agent/894-domain-persistence-boundary` in `/tmp/account-894-domain-persistence-boundary`, based on `origin/main@9348966a`. [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`. Other modules and shared harness/history were not edited.
+
+- The domain has no Spring/JPA source references. Infrastructure owns repositories, converter, named XML entity mapping and persistence lifecycle listener. Journal API/Batch opt in; Loan `dev` contexts initialize without Journal schema leakage, while Loan `local` contexts fail to start as noted below.
+- Exact `./gradlew :journal-ledger:test`: 434/434 PASS (core 323, API 74, Batch 37), no failures/errors/skips. Existing POSTED persistence 19/19 PASS. Byte-identical boundary guard `78656bbe...` fails 1/1 on audited `a97d10ab` and passes here. API/Batch bootJar and static gates PASS.
+- Independent read-only review: no remaining journal-ledger P0–P3; Q2–Q4 PASS. Q1 FAIL/P1: Loan API and Batch `local` context tests each fail to start because non-dev composition roots scan the removed Journal repository package and omit named XML mapping. Loan API/Batch dev-profile tests also retain stale `Class.forName` references. Loan is outside the allowlist; do not mark Ready or merge until authorized composition/test corrections and new review.
+- Remote Draft checks on head `2707249d`: journal-ledger, module result, harness validation and merge guard candidate PASS; implementer PR discipline FAIL due owner/verification/merge metadata, Draft state and unconfigured trust policy. This governance gate is separate from the confirmed Loan startup regression.
+- Rollback is a reviewed module-scoped revert; no migration or production data changed. H2/local tests do not establish live PostgreSQL, distributed fault or load behavior. Human reviewer is next owner for scope decision, Loan correction, CI and later PR lifecycle gates.
+
+---
+
+# GH-879 handoff
+
+Issue [#879](https://github.com/skyg547/account/issues/879) implementation, audited RED/current GREEN proof, requested module verification, and independent read-only review are complete. [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
+
+- Branch/worktrees: `agent/879-slip-number-allocation`, `/tmp/account-879-slip-number-allocation`, base `origin/main@fa12d2b5`; audited proof `/tmp/account-879-audited-proof@a97d10ab`.
+- Scope: 21 implementation/test/feature-doc files plus these three module-local records under `journal-ledger/**`; other modules and repository-wide harness/history files remain untouched.
+- Behavior: DB sequence V19 allocates a global 8-character base36 suffix within the 20-character date-bearing slip; manual reserved-format inputs and historical namespace overlap are rejected. Missing sequence, DB errors, and sequence exhaustion fail closed and map to HTTP 503 for create routes. Legacy four-character slips remain valid.
+- Evidence: same SHA-256 regression fails on audited production with 4,800/5,000 distinct slips and passes on the fix. Final executed module test passes 433/433 (API 74, Batch 37, Core 322), no failures/errors/skips; literal command passes UP-TO-DATE. H2 covers 5,000 persisted rows, 200 concurrent allocations, exhaustion, migration refusal/legacy upgrade, adapter outage, and HTTP mappings. Static gates pass.
+- Review: independent reviewer returned manual collision and HTTP error-map findings; writer corrected them. Final review has no outstanding finding and Q1–Q4 PASS, with file evidence in [worklog.md](worklog.md).
+- Rollout: stop all old Journal writers, run V19, then start only the new version. Historical 20-character JE-shaped slips block migration; immutable POSTED rows need separate approved reconciliation, not in-place edits. The one-time guard scan and runtime sequence privileges must be checked on the approved PostgreSQL target. No live PostgreSQL, production data, distributed load, or deployment test was performed.
+- Rollback: retain the sequence and issued numbers. Quiesce writes and prepare a reviewed forward migration/code rollback; reverting code alone would restore the 16-bit collision risk.
+- Authority: user authorized Draft publication. Module writer wrote code/docs, reviewer made no edits, parent Integrator owns records and Git/GitHub; human review controls Ready, merge, Issue close, deployment, and resource cleanup.
+- Publication: reviewed implementation/record commit `5e500c1b9d2c67715ed89d4939e7b165b344876a` is pushed; this final record-only update does not alter reviewed production or tests.
+- Remote CI on Draft head `ff744c22`: three reported checks passed, while `Check implementer PR discipline` failed on required owner/verification/merge authority and intentionally unconfigured trust policy plus Draft state. No remote module-test failure is claimed; this governance gate needs human policy/owner action before Ready/merge.
+- Next owner: a human reviewer handles PostgreSQL/deployment verification and the remaining Ready, merge, Issue-close, and cleanup gates.
+
+---
+
+The following is retained historical handoff and is not a current GH-879 report.
+
+# GH-769 handoff
+
+Issue #769 implementation, audited RED/current GREEN proof, required verification, corrected independent review, and module-local records are complete. [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`; reviewed implementation commit `90d4c307` is published.
+
+- Issue/branch/worktrees: [#769](https://github.com/skyg547/account/issues/769); `agent/769-unmatched-event-quarantine`; `/tmp/account-769-unmatched-event-quarantine`; base `f128a5dd`; proof `/tmp/account-769-regression-proof@a97d10ab`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Behavior: a valid no-rule Kafka event is durably retained before successful return; admin completeness APIs show aggregate/list state without payload/key; repaired-rule replay locks the record and transactionally creates one journal/link; configured retries recover to a same-partition DLT only after a successful send.
+- RED/GREEN: byte-identical fixture SHA `be9936ee…69c` fails1/1 on exact audited production because the listener silently completes and passes1/1 after remediation.
+- Verification: final forced module run passes API71/core310/batch15 =396 tests, failures/errors/skips0; API bootJar and static gates pass.
+- Independent review: `/root/review_769` remained read-only. Initial P2/P3 error-mapping and snapshot-consistency findings were returned to the writer and corrected; final review reports no P0-P3 and Q1-Q4 PASS.
+- GL10 boundary: this PR gives broker-coordinate convergence for quarantine replay. Generic HTTP/contracts/manual idempotency and matching-event commit ambiguity remain with open/blocked #765 outside the allowlist.
+- Rollback/deployment: apply and retain V18, verify DB privileges/retention/alerts and Kafka DLT ACL/retention in the target environment. Quiesce consumers before reviewed application rollback and never discard quarantine evidence.
+- Limits: no live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment testing.
+- Remote CI prerequisite: the three entry workflows on head `87729d67` ran zero steps and failed with GitHub billing/spending-limit annotations. The account owner must resolve that prerequisite and rerun checks; this is neither a remote test pass nor an executed code-test failure.
+- Authority separation: module writer implemented; reviewer was read-only; the original writer corrected findings; parent Integrator owns records and Git/GitHub. User authorized Draft publication, but Ready, merge, Issue close, deployment, and cleanup remain human gates.
+- Next owner: a human reviewer owns remote CI and later Ready/merge/Issue-close/deployment gates. Both task and proof worktrees remain retained.
+
+Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-769 report.
+
 
 # GH-763 handoff
 

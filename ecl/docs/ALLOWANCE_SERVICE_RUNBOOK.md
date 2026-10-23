@@ -209,6 +209,8 @@ curl -X POST "http://localhost:8083/api/v1/ifrs/allowance/batch/run?jobName=allo
 
 `spring.batch.job.enabled=false`는 Boot 기본 자동 실행을 막는 설정이고, `job.name`, `baseDate`, `runId`, `modelVersion`은 `JobRunner`가 읽는 일반 인자다. `--spring...` 형태의 Spring 설정 인자와 구분한다.
 
+summary 단독 재실행 전에는 해당 `baseDate`의 집계 가능한 `COMPLETED` ECL 결과와 계정 매핑을 확인한다. 집계 가능 결과는 계좌와 연결되고 `weighted_ecl` 또는 `expected_loss`가 있는 완료 결과다. 이 결과가 0건이면 `standaloneAllowanceSummaryJob`의 `allowanceSummaryStep`이 실패하며, 표준 `allowanceEclJob`의 같은 Step도 실패한다. 기존 같은 기준일 `allowance_summary`는 유지되므로 아래 검증 SQL로 기존 `run_id`, `model_version`, 금액을 확인한다.
+
 ## 검증 SQL
 
 ```sql
@@ -216,6 +218,13 @@ SELECT status, COUNT(*)
 FROM allowance_ecl_results
 WHERE base_date = DATE '2026-04-15'
 GROUP BY status;
+
+SELECT COUNT(*) AS summary_eligible_results
+FROM allowance_ecl_results r
+JOIN cr_accounts a ON a.id = r.account_id
+WHERE r.base_date = DATE '2026-04-15'
+  AND r.status = 'COMPLETED'
+  AND COALESCE(r.weighted_ecl, r.expected_loss) IS NOT NULL;
 
 SELECT
     base_date,
@@ -238,6 +247,8 @@ GROUP BY base_date, run_id, model_version;
 
 - `allowance_exposure_snapshots` 테이블이 없으면 snapshot DDL을 먼저 반영한다.
 - snapshot이 0건이면 배치는 의미 있는 산출을 만들지 않는다.
+- summary 대상 `COMPLETED` 결과가 0건이면 입력 미적재 또는 앞 단계의 미완료·무산출 여부를 확인한다. 입력과 산출을 복구하고 결과를 `COMPLETED`로 확정한 뒤, 같은 `baseDate`로 표준 Job 또는 위 summary 단독 Job을 재실행한다. 실패한 재실행은 기존 같은 기준일 summary를 삭제하지 않는다.
+- 실제 빈 포트폴리오를 성공으로 처리할 명시적 완료 marker 계약은 아직 없다. 0건을 자동으로 성공·삭제·0원 처리하지 않는다.
 - `allowance_account_mappings`가 없으면 summary 생성은 중단된다.
 - 기준월 partition이 없으면 `allowance_ecl_results` 저장에서 실패할 수 있다.
 - 로컬 인프라 없이 API만 띄울 때는 Config Server, Discovery, Kafka listener를 꺼둔다.

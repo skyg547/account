@@ -1,3 +1,18 @@
+# GH-765 reviewed status — Draft publication pending (2026-10-23)
+
+- Issue #765; branch `agent/765-journal-idempotency`; isolated worktree `/tmp/account-765-journal-idempotency`.
+- Current authorized allowlist spans `journal-ledger/**`, `payable/**`, `receivable/**`, `contracts/**`; this module record covers journal-ledger only. The earlier P1 is addressed by the separate `JournalEntryCommand.operationKey` and payable/receivable source operation keys.
+- Journal creation uses explicit business event/version identity, a versioned financial/audit fingerprint, a DB stripe lock and V20 receipt. `slipNo` remains an independent journal number. Missing keys fail before creation. Managed reversals keep their separate V17 operation.
+- Latest-main integration preserves V18 Kafka quarantine and replay, V19 DB slip sequence/namespace, typed HTTP 503, and V20 creation registry. Main's infrastructure repository/XML mapping is retained. Final module tests: journal-ledger 500/500, payable 70/70, receivable 74/74, contracts 11/11 PASS; disposable PostgreSQL16 V20 migration/concurrency 7/7 PASS, including concurrent version 2 event creation. The requested four-module Gradle command, explicit payable/receivable API and batch rerun, and six API/batch bootJARs passed.
+- V20 does not backfill historical journals. Before deployment, fence every writer and reconcile old in-flight/outbox/Kafka/client retries against existing journals; unresolved work remains fenced. Out-of-scope reconciliation, deposit, loan, closing and expenditure-resolution producers still need stable operation keys before activation.
+- Review corrections verified: the automatic journal description fallback uses stable `ruleCode`. A completed event is resolved from a version 2 payload/accounting-date fingerprint under the V20 lock before mutable rule evaluation, so rule deactivation cannot turn an equivalent retry into HTTP 204 or Kafka quarantine. Changed same-key amount conflicts. Manual/contract retains version 1 generated-journal fingerprint. HTTP header precedence and Kafka payload key aliases are normalized to both key spellings before hashing. Final full module 500/500 PASS and disposable PostgreSQL migration/concurrency 7/7 PASS.
+- Parent Integrator reran the audited RED proof at `/tmp/account-765-regression-proof@a97d10ab` on 2026-10-23: 1/1 test failed as expected at assertion 62. No production data or deployment was used.
+- Independent read-only reviewer `/root/independent_review` found no remaining blocking new-change defect and marked Q1–Q4 PASS in all four modules. Parent Integrator owns Git/GitHub and final PR state; Ready, merge, Issue close, deployment and cleanup remain human gates.
+
+---
+
+The following GH-765 BLOCKED entry is retained history from the previous, narrower allowlist.
+
 # GH-765 agent status — BLOCKED
 
 - Issue: [#765](https://github.com/skyg547/account/issues/765); owner `agent:codex`, remote status `status:blocked`.
@@ -20,6 +35,62 @@ See [worklog.md](worklog.md) for commands and evidence, and [handoff.md](handoff
 ---
 
 The following is retained historical status and is not a current GH-765 report.
+
+---
+
+# GH-894 agent status
+
+- Issue [#894](https://github.com/skyg547/account/issues/894): `status:blocked` on the Loan integration regression after module implementation and requested test; [Draft PR #909](https://github.com/skyg547/account/pull/909) open with `Refs #894`. Base `origin/main@9348966a`; branch `agent/894-domain-persistence-boundary`; worktree `/tmp/account-894-domain-persistence-boundary`; audited proof `/tmp/account-894-audited-proof@a97d10ab`.
+- Scope `journal-ledger/**` only. `gpt-6-sol` high module writer, read-only independent reviewer, parent Integrator for records/Git/GitHub. Root shared harness/history and other modules remain untouched.
+- Domain framework references removed; named infrastructure XML mapping, moved repositories/converter, lifecycle listener, explicit API/Batch registration and architecture guard are implemented. Exact module test 434/434 PASS; audited guard RED 1/1 with identical bytes; module bootJar and static gates PASS.
+- Independent review Q1 FAIL/P1: Loan API and Batch `local` profile context tests now fail at startup because their non-dev composition roots scan the old Journal repository package and do not opt into the named XML mapping. Both dev-profile tests also retain a stale `Class.forName` of the deleted repository. Q2–Q4 PASS. Keep Draft; Ready/merge requires an authorized Loan composition/test correction and renewed review. No deployed Loan run was performed.
+- Draft head `2707249d` remote checks: journal-ledger, module result, harness validation and merge guard candidate PASS; implementer PR discipline FAIL because required ownership/verification/merge metadata and trust policy are unconfigured, and the PR is Draft. Human owner resolves governance before Ready/merge.
+- No live PostgreSQL, distributed fault or load claim. Roll back by reviewed module-scoped revert; no migration/data changed. Human reviewer owns later Ready/merge/Issue close/deployment/cleanup gates.
+
+---
+
+# GH-879 agent status
+
+- Issue: [#879](https://github.com/skyg547/account/issues/879), review handoff `status:needs-review`; [Draft PR #880](https://github.com/skyg547/account/pull/880) is open with `Refs #879`.
+- Base/branch/worktrees: `origin/main@fa12d2b5ad18cead68d0d3fe2bbb8fc05770d541`; `agent/879-slip-number-allocation`; `/tmp/account-879-slip-number-allocation`; audited proof `/tmp/account-879-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope/ownership: `journal-ledger/**` only, including these module-local records. Requested `gpt-6-sol` / high writer changed production, tests, and module docs. Independent reviewer remained read-only. Parent Integrator owns records and Git/GitHub state. Repository-wide harness/history and other modules are untouched.
+- Result: V19 adds a global, non-cycling DB sequence. Automatic `JE-YYYYMMDD-XXXXXXXX` numbers retain the date and use eight base36 sequence digits. Manual use of that namespace is rejected; migration fails closed if historical 20-character JE-shaped slips might collide. DB failure or exhaustion returns 503 on the three HTTP create routes. Existing journal financial controls and source-event idempotency rules remain in force.
+- RED/GREEN: byte-identical regression SHA-256 `849cbef7ed1575db20d656ed2d850c1f575cf35f60b699974ae0112361c8b997` fails on audited production: 5,000 same-day creates yielded 4,800 distinct values; passes on this branch.
+- Verification: final executed `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=2` passes API 74, Batch 37, Core 322 = 433 tests, failures/errors/skips 0. Literal `./gradlew :journal-ledger:test` also passes with 37 tasks UP-TO-DATE. Focused core and three HTTP MVC suites passed. Diff whitespace and conflict marker gates passed.
+- Independent review: preliminary manual-namespace and HTTP 400 findings were returned to the writer and corrected; final reviewer reports no outstanding finding and Q1–Q4 PASS.
+- Deployment/rollback: stop all old Journal writers before V19, inspect any historical 20-character JE-shaped slips, and use a separately approved reconciliation plan for immutable POSTED rows. Do not drop the sequence after issuing numbers; rollback requires a reviewed forward migration and code plan.
+- Publication: implementation/record commit `5e500c1b9d2c67715ed89d4939e7b165b344876a` was pushed; Draft PR #880 contains verification and authority separation. This final record-only update changes no production or test behavior.
+- Remote checks on Draft head `ff744c22`: Harness Validation Result, Validate harness contracts, and Test merge guard candidate passed. `Check implementer PR discipline` failed with `IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, and `TRUST_POLICY_UNCONFIGURED`; the workflow explicitly leaves trust policy unconfigured. This is a PR governance gate, not an executed module-test failure. Human ownership/policy resolution is required before Ready/merge.
+- Limits/next gate: H2 PostgreSQL mode tests do not prove live PostgreSQL sequence privileges, guard-scan duration, production load, or distributed behavior. A human reviewer owns PostgreSQL/deployment verification and subsequent Ready, merge, Issue close, and cleanup gates.
+
+See [worklog.md](worklog.md) for commands and Q1–Q4 evidence.
+
+---
+
+The following is retained historical status and is not a current GH-879 report.
+
+# GH-769 agent status
+
+- Issue: [#769](https://github.com/skyg547/account/issues/769); owner `agent:codex`, review handoff target `status:needs-review`.
+- Status: implementation, byte-identical audited RED/current GREEN, required module verification, corrected independent review, and functional documentation are complete; [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`.
+- Base: `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Branch/worktrees: `agent/769-unmatched-event-quarantine`, `/tmp/account-769-unmatched-event-quarantine`; detached proof `/tmp/account-769-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model/ownership: `gpt-5.6-sol`, high. The module writer changed only `journal-ledger/**`; `/root/review_769` remained read-only; parent Integrator owns these records and Git/GitHub.
+- Result: unmatched valid Kafka events are durably quarantined and visible; repaired-rule replay is transactionally convergent by broker coordinate; explicit retry/DLT recovery is configured and tested; control responses exclude payload/key.
+- RED/GREEN: byte-identical regression SHA `be9936ee…69c` fails1/1 on exact audited `a97d10ab` production and passes1/1 after remediation.
+- Verification: pre-change376 PASS; final forced module API71/core310/batch15 =396 PASS, failures/errors/skips0; API bootJar and static gates PASS.
+- Independent review: initial P2 error-mapping/limit and P3 multi-query snapshot findings were corrected by the writer. Final re-review reports no P0-P3 and Q1-Q4 PASS.
+- GL10 boundary: quarantine replay converges on one journal, but generic cross-path idempotency in open/blocked #765 is outside this module-only allowlist and remains unresolved. No broader exact-once claim is made.
+- Rollback/limits: quiesce consumers, retain V18/data, and use a reviewed scoped revert. No live PostgreSQL/Kafka, production data, offset-commit fault injection, load, or deployment verification was performed.
+- Publication: reviewed implementation commit `90d4c307` is pushed. Draft PR #804 contains verification, rollback/limits, Q1-Q4, and explicit authority separation; this record-only update changes no production or test behavior.
+- Remote CI prerequisite: on publication head `87729d67`, Agent Merge Guard, Harness Validation, and Module Validation entry jobs did not execute any steps. Their annotations cite failed recent account payments or a spending-limit prerequisite; no remote CI PASS or executed code-test failure is claimed.
+- Authority: user authorized commit, push, and Draft PR. Human review owns Ready, merge, Issue close, deployment, and cleanup.
+
+See [worklog.md](worklog.md) for commands, evidence, corrected findings, and Q1-Q4.
+
+---
+
+The following is retained historical status and is not a current GH-769 report.
 
 # GH-763 agent status
 

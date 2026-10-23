@@ -17,6 +17,9 @@ public interface AccountSubjectPersistencePort {
 
     Optional<AccountSubject> findByCode(String code);
 
+    /** 업무 키 잠금 후, 기존 영속성 캐시 대신 최신 현재 버전을 잠가 읽습니다. */
+    Optional<AccountSubject> findByCodeForUpdate(String code);
+
     Optional<AccountSubject> findByCodeAt(String code, LocalDate asOfDate);
 
     List<AccountSubject> findAll();

@@ -22,7 +22,7 @@
 
 1. HTTP API는 거래 내용과 Gateway가 검증한 `X-Auth-User`/`X-Auth-Roles`를 받습니다. Kafka와 Spring contract 이벤트는 각각 리스너 전용 service principal을 maker로 사용합니다.
 2. 생성 요청은 원천 유형·원천 ID·생성 작업 키와 정규화한 요청 내용의 fingerprint를 함께 준비합니다. 같은 세 키를 재사용하면서 금액 같은 내용이 달라지면 재시도가 아니라 충돌입니다.
-3. 수동 전표는 API DTO에서 도메인 객체로 변환되고, 자동 전표는 `JournalRuleEngine`이 규칙을 적용합니다.
+3. 수동 전표는 API DTO에서 도메인 객체로 변환됩니다. 자동 전표는 기존 이벤트 작업 기록을 먼저 확인하고, 처음 처리하는 요청에만 `JournalRuleEngine`이 규칙을 적용합니다. 그래서 규칙이 나중에 비활성화돼도 동일 이벤트 재전송은 기존 전표를 받습니다.
 4. 검증 엔진이 차대일치, 거래통화→KRW 환산, 기간 잠금, 계정 유효성을 확인합니다.
 5. 첫 요청만 `DRAFT`와 생성 작업 기록을 같은 트랜잭션에 저장합니다. 같은 fingerprint의 재시도는 새 전표를 만들지 않고 기존 결과를 반환합니다.
 6. maker가 `DRAFT`를 `REQUESTED`로 제출하고, canonical identity가 다른 approver가 `APPROVED`로 전환합니다.
@@ -32,8 +32,9 @@
 예를 들어 한 청구서가 본 전표와 수수료 전표를 각각 만들 수 있다면 두 요청은 같은 lineage를
 공유하더라도 `MAIN:v1`, `FEE:v1`처럼 서로 다른 작업 키를 써야 합니다. 작업 키는
 lineage 전체를 전표 한 건으로 제한하는 규칙이 아닙니다.
-수동 HTTP는 필수 `Idempotency-Key`를 사용합니다. 이벤트 HTTP/Kafka는
-`journalOperationKey`(또는 호환 별칭 `operationKey`)를 필수로 사용합니다. 계약 호출은
+수동 HTTP는 필수 `Idempotency-Key`를 사용합니다. 이벤트 HTTP는 이 헤더 또는 payload의
+`journalOperationKey`(호환 별칭 `operationKey`)를 사용하며 헤더가 우선입니다. Kafka는
+payload의 두 키 중 하나를 필수로 사용합니다. 두 표기는 내부에서 같은 키로 정규화됩니다. 계약 호출은
 전표 번호 `slipNo`와 별도의 `operationKey`를 필수로 사용합니다. 키가 없으면 전표를 생성하지 않습니다.
 
 ## 외화 전표를 이해하는 방법
@@ -83,6 +84,7 @@ HTTP/Kafka Adapter
 - 자동분개 엔진도 `JournalRuleQueryPort`만 사용하고, 세부 Spring Data 저장소 조회는 `JournalRuleQueryAdapter`가 담당합니다.
 - 전기 서비스는 `LedgerEntryPersistencePort`, 잔액 서비스는 `LedgerBalancePersistencePort`를 사용하므로 애플리케이션 서비스가 JPA Repository를 직접 알지 않습니다.
 - 기본 저장은 JPA 어댑터가 맡고, 운영 대용량 경로는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch/upsert 어댑터를 사용할 수 있습니다.
+- 도메인에는 JPA/Spring import가 없습니다. 저장 테이블·컬럼과 lifecycle 연결은 `core/src/main/resources/META-INF/journal-ledger-orm.xml`, 저장소 인터페이스는 `infrastructure.persistence.repository`에 있습니다. 도메인 규칙을 고칠 때는 도메인 테스트, 매핑을 고칠 때는 JPA 영속성 테스트를 함께 실행합니다.
 - 계층별 책임과 레거시 README 아카이브는 [layer-guide.md](layer-guide.md)를 기준으로 확인합니다.
 
 ## 미결 반제를 읽는 방법
@@ -112,6 +114,11 @@ HTTP/Kafka Adapter
 운영자는 같은 JobParameters의 같은 JobInstance를 재시작해야 하며, 마지막 GL/SL 대사가
 성공한 뒤에만 조회와 전기가 다시 열립니다.
 
+Cleanup은 이 기간의 GL/SL 잔액을 **DB에서 날짜 조건으로 직접 삭제**합니다. 시작일과
+종료일을 모두 포함하며, JPA가 대상 잔액을 전부 읽어 Java 목록으로 만들지 않습니다.
+삭제가 실패하면 GL과 SL은 같은 트랜잭션에서 함께 롤백됩니다. 이미 성공한 cleanup은
+같은 JobInstance 재시작 때 건너뛰어, 커밋된 chunk를 다시 지우지 않습니다.
+
 상세 호출 흐름은 [process-flow.md](process-flow.md), 테이블 관계는 [schema.md](schema.md)를 참고합니다.
 
 ## 로컬 실행
@@ -135,3 +142,25 @@ JDBC bulk 모드 확인:
 ```
 
 IntelliJ에서는 `Journal Ledger API bootRun`, `Journal Ledger API JDBC Bulk` 공유 실행 설정을 사용합니다.
+
+## 전표번호를 읽는 방법
+
+자동 생성 번호 `JE-20261009-00000001`은 `JE`(전표), `20261009`(전표 작성일),
+`00000001`(데이터베이스가 발급한 번호)을 뜻합니다. 뒤 8자리는 0~9와 A~Z를 쓰므로
+번호가 커지면 문자가 포함됩니다. 날짜가 바뀌어도 발급 번호는 다시 1부터 시작하지
+않습니다. 동시에 여러 사용자가 전표를 만들어도 DB가 서로 다른 번호를 발급합니다.
+저장 실패 후 번호가 건너뛰는 것은 정상이며, 그 번호를 재사용하지 않습니다.
+같은 20자 자동 형식을 직접 입력하면 생성 전에 거부됩니다. 예전 4자리 전표번호나 다른
+수동 형식은 사용할 수 있지만 DB의 중복 금지 규칙을 따릅니다. 기존 DB에 새 자동 형식과
+겹칠 수 있는 20자 번호가 있으면 V19 migration이 중단됩니다. 배포를 멈추고 대사해야 하며,
+이미 전기된 전표는 직접 고치지 않고 별도 승인된 정합성 계획을 따릅니다.
+배포 담당자는 Journal 전표 생성 요청을 멈추고 예전 인스턴스를 모두 내린 뒤 V19를 적용하고
+새 인스턴스를 시작합니다. 이전 인스턴스가 동시에 계속 쓰면 검사 직후 충돌 번호를 넣을 수 있습니다.
+채번 DB가 멈추거나 번호 범위를 소진하면 생성 HTTP 요청은 `503`으로 실패합니다.
+전표 형식·업무 검증 오류는 `400`이며, `503` 뒤 재요청할 때는 기존 원천별
+멱등성 정책을 확인해야 합니다. 채번만으로 재요청 중복 생성은 막지 못합니다.
+
+로컬 검증은 저장소 루트에서 `./gradlew :journal-ledger:core:test --tests '*SlipNumber*'`
+및 `./gradlew :journal-ledger:test`로 실행합니다. 전자는 5,000건 저장, 동시 채번,
+범위 소진과 DB 오류를 확인합니다. H2 PostgreSQL mode 결과는 실제 PostgreSQL의
+운영 부하 측정이나 원천 이벤트 중복 방지 검증을 대신하지 않습니다.

@@ -1,53 +1,29 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /** Durable link from one creation request identity and fingerprint to its single journal entry. */
-@Entity
-@Table(
-        name = "journal_creation_operations",
-        uniqueConstraints = {
-            @UniqueConstraint(
-                    name = "uk_journal_creation_operation_identity",
-                    columnNames = {"source_type", "source_id", "operation_key"})
-        })
 public class JournalCreationOperation {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "source_type", nullable = false, updatable = false, length = 50)
     private String sourceType;
 
-    @Column(name = "source_id", nullable = false, updatable = false, length = 100)
     private String sourceId;
 
-    @Column(name = "operation_key", nullable = false, updatable = false, length = 100)
     private String operationKey;
 
-    @Column(name = "fingerprint_version", nullable = false, updatable = false)
     private int fingerprintVersion;
 
-    @Column(name = "request_fingerprint", nullable = false, updatable = false, length = 64)
     private String requestFingerprint;
 
-    @Column(name = "journal_entry_id", nullable = false, updatable = false, unique = true)
     private Long journalEntryId;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     protected JournalCreationOperation() {
-        // JPA only
+        // JPA construction; persistence metadata lives in infrastructure XML
     }
 
     private JournalCreationOperation(

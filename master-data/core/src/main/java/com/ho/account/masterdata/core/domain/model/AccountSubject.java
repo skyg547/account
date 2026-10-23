@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -59,6 +61,52 @@ public class AccountSubject {
         DEBIT, CREDIT
     }
 
+    /** Validate the complete row after partial UPDATE fields have been merged. */
+    public void validateBusinessFields() {
+        code = MasterDataFieldRules.code(code, "Account subject code", MasterDataFieldRules.ACCOUNT_CODE_MAX);
+        name = MasterDataFieldRules.requiredText(name, "Account subject name", MasterDataFieldRules.ACCOUNT_NAME_MAX);
+        reportLine = MasterDataFieldRules.optionalText(reportLine, "Account subject reportLine", MasterDataFieldRules.ACCOUNT_REPORT_LINE_MAX);
+        regulatoryMappingCode = MasterDataFieldRules.optionalText(regulatoryMappingCode,
+                "Regulatory mapping code", MasterDataFieldRules.ACCOUNT_REGULATORY_MAPPING_CODE_MAX);
+    }
+
+    /** Copies business values into a new SCD2 row without reusing identity or row audit metadata. */
+    public AccountSubject successor() {
+        AccountSubject next = new AccountSubject();
+        next.code = code;
+        next.name = name;
+        next.parent = parent;
+        next.category = category;
+        next.accountType = accountType;
+        next.balanceType = balanceType;
+        next.reportLine = reportLine;
+        next.regulatoryMappingCode = regulatoryMappingCode;
+        next.unsettled = unsettled;
+        next.fixedAsset = fixedAsset;
+        next.validFrom = validFrom;
+        next.validTo = validTo;
+        return next;
+    }
+
+    /** Ensures a new row's type belongs to its category, including the two non-operating types. */
+    public void normalizeAndValidateClassification() {
+        if (category == null) {
+            category = AccountCategory.ASSETS;
+        }
+        if (accountType == null) {
+            accountType = AccountType.valueOf(category.name());
+        }
+        AccountCategory requiredCategory = switch (accountType) {
+            case NON_OPERATING_INCOME -> AccountCategory.REVENUE;
+            case NON_OPERATING_EXPENSES -> AccountCategory.EXPENSES;
+            default -> AccountCategory.valueOf(accountType.name());
+        };
+        if (category != requiredCategory) {
+            throw new IllegalArgumentException(
+                    "Account type " + accountType + " is incompatible with category " + category);
+        }
+    }
+
     /**
      * 기존 코드와의 호환성을 위해 남겨둔 메서드들입니다.
      */
@@ -103,4 +151,3 @@ public class AccountSubject {
         this.updatedAt = LocalDateTime.now();
     }
 }
-

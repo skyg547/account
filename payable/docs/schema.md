@@ -71,10 +71,11 @@ erDiagram
     }
 
     PAYABLE_OFFSET_OPERATIONS {
-        String operation_id PK
-        Long payable_id FK
+        String operation_id "PK with payable_id"
+        Long payable_id "PK, FK"
         Long advance_payment_id FK
         BigDecimal amount
+        LocalDate accounting_date
         Long journal_entry_id
     }
 ```
@@ -88,7 +89,7 @@ erDiagram
 | `OPEN` | 아직 지급이 시작되지 않은 채무 | 인보이스 등록 후 채무 생성 |
 | `APPROVED` | 지급 승인된 채무 | 승인 프로세스 완료 |
 | `UNPAID` | 미지급 상태의 채무 | 미지급 상태 지정 |
-| `IN_PAYMENT` | 지급 런에 포함되어 지급 진행 중 (중복 방지 잠금) | `PaymentService.initiatePaymentRun`, `processPaymentRunChunk` |
+| `IN_PAYMENT` | 지급 런에 포함되어 지급 진행 중 | 채무 ID·허용 상태·양수 잔액을 검사하는 DB 조건부 claim이 1행 갱신된 경우 |
 | `PARTIAL_PAID` | 일부 지급 또는 일부 상계 후 잔액 존재 | `Payable.applyPayment`, `Payable.applyOffset` |
 | `PAID` | 잔액이 0인 채무 | 지급/상계 후 잔액 0 |
 | `OVERDUE` | 지급기일이 지난 미지급 채무 | `updatePayableStatus(asOfDate)` |
@@ -118,7 +119,7 @@ erDiagram
 - `payableId`: 지급이 정확히 어떤 채무를 차감하는지 가리키는 내부 ID.
 - `journalEntryId`: 원장 전표 ID. 현재 전표 초안 생성 결과와 연결할 확장 지점이다.
 - `referenceNo`: 은행 지급 또는 로컬 지급 어댑터가 반환한 외부 추적 번호.
-- `operationId`: 상계 한 건을 재시도할 때 유지하는 호출자 제공 ID. `payable_offset_operations`의 기본 키이며 채무·선급금·금액·전표 결과와 함께 저장된다. 같은 채무에 여러 정상 상계가 가능하므로 `payableId` 자체를 유니크 키로 사용하지 않는다.
+- `operationId`: 상계 한 건을 재시도할 때 유지하는 호출자 제공 ID. `payable_offset_operations`에서 `(payable_id, operation_id)`가 복합 기본 키이며 선급금·금액·고정 회계일·전표 결과와 함께 저장된다. 다른 채무는 같은 클라이언트 ID를 사용할 수 있고 같은 채무도 새 ID로 여러 정상 상계를 처리할 수 있다.
 
 ## 계정 매핑 설정
 
@@ -147,6 +148,7 @@ erDiagram
 - 지급 실패는 `Payment.failureReason`과 `executionAttempts`에 남겨 재시도 판단에 사용한다.
 - 같은 공급업체의 같은 인보이스 번호는 유니크 제약과 서비스 중복 검사로 보호한다.
 - 지급 런은 공급업체/금액 재검색이 아니라 `payableId`로 차감 대상을 고정한다.
+- 동시 지급 런은 `payables` 기본키의 조건부 UPDATE로 한 런만 채무를 claim한다. 성공한 트랜잭션에서만 최신 잔액의 지급 후보를 저장하며, 0행 갱신이면 후보를 건너뛴다. 선급금 상계도 같은 채무 행을 잠그고 `IN_PAYMENT`를 거부해 선점된 채무를 다시 지급 가능 상태로 열지 않는다. 트랜잭션이 롤백되면 상태 전이와 지급 후보가 함께 취소된다.
 
 ## PostgreSQL 기준선
 

@@ -11,6 +11,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.expenditure.application.service.PayableOperationConflictException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -106,6 +107,25 @@ class HttpPayableJournalAdapterTest {
         assertThatThrownBy(() -> adapter.createDraftEntry(command))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Journal ledger posting failed");
+        server.verify();
+    }
+
+    @Test
+    void preservesJournalOperationConflictFromRemoteHttp409() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://journal-ledger.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpPayableJournalAdapter adapter = new HttpPayableJournalAdapter(builder.build());
+        server.expect(requestTo("http://journal-ledger.test/api/v1/journals/posting"))
+                .andRespond(withStatus(HttpStatus.CONFLICT));
+        JournalEntryCommand command = new JournalEntryCommand(
+                LocalDate.of(2026, 5, 29), LocalDate.of(2026, 5, 29), "Offset", "AP_ADVANCE_OFFSET",
+                "KRW", BigDecimal.ONE, "SYSTEM", "SYSTEM", "PAYABLE_OFFSET", "100:200",
+                null, "AP_ADVANCE_OFFSET:100:offset-1",
+                List.of(new JournalLineCommand("DEBIT", "21000", BigDecimal.valueOf(100), null, null, "V001", "Offset")));
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(command))
+                .isInstanceOf(PayableOperationConflictException.class)
+                .hasMessageContaining("operationKey conflicts");
         server.verify();
     }
 }

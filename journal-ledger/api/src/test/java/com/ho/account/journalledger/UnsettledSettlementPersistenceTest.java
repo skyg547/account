@@ -1,6 +1,6 @@
 package com.ho.account.journalledger;
 
-import com.ho.account.journalledger.adapter.out.persistence.unsettled.UnsettledItemRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.UnsettledItemRepository;
 import com.ho.account.journalledger.application.service.unsettled.UnsettledService;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -218,7 +218,7 @@ class UnsettledSettlementPersistenceTest {
     @Configuration(proxyBeanMethods = false)
     @ImportAutoConfiguration({DataSourceAutoConfiguration.class, JdbcTemplateAutoConfiguration.class,
             HibernateJpaAutoConfiguration.class, FlywayAutoConfiguration.class, TransactionAutoConfiguration.class})
-    @EntityScan(basePackages = "com.ho.account.journalledger.domain")
+    @EntityScan(basePackages = "com.ho.account.journalledger.infrastructure.persistence")
     @EnableJpaRepositories(basePackageClasses = UnsettledItemRepository.class)
     @Import({UnsettledService.class, UnsettledItemPersistenceAdapter.class})
     static class SettlementPersistenceApplication {

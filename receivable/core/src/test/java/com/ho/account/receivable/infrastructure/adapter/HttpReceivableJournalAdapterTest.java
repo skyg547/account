@@ -12,6 +12,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.receivable.application.service.ReceivableOperationConflictException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -110,6 +111,25 @@ class HttpReceivableJournalAdapterTest {
         assertThatThrownBy(() -> adapter.createDraftEntry(command))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Journal ledger posting failed");
+        server.verify();
+    }
+
+    @Test
+    void mapsJournalConflictToTypedOperationConflict() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://journal-ledger.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpReceivableJournalAdapter adapter = new HttpReceivableJournalAdapter(builder.build());
+        server.expect(requestTo("http://journal-ledger.test/api/v1/journals/posting"))
+                .andRespond(withStatus(HttpStatus.CONFLICT));
+        JournalEntryCommand command = new JournalEntryCommand(
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 1), "retry", "AR_CLEARING",
+                null, null, "SYSTEM", "SYSTEM", "COLLECTION_MATCH", "20",
+                null, "MANUAL:retry-1",
+                List.of(new JournalLineCommand("DEBIT", "11200", BigDecimal.ONE, null, null, "C001", "Debit")));
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(command))
+                .isInstanceOf(ReceivableOperationConflictException.class)
+                .hasMessageContaining("different financial content");
         server.verify();
     }
 }

@@ -70,20 +70,33 @@ class BudgetServiceTest {
     }
 
     @Test
-    void useBudgetDoesNotThrowWhenBudgetNotConfigured() {
+    void useBudgetRejectsMissingBudgetWithoutSaving() {
         when(budgetPersistencePort.findByYearMonthAndDepartmentCodeAndAccountCode("202604", "D001", "EXP001"))
                 .thenReturn(Optional.empty());
 
-        assertDoesNotThrow(() -> budgetService.useBudget("202604", "D001", "EXP001", new BigDecimal("2000.00")));
+        assertThrows(IllegalStateException.class,
+                () -> budgetService.useBudget("202604", "D001", "EXP001", new BigDecimal("2000.00")));
         verify(budgetPersistencePort, never()).save(any());
     }
 
     @Test
-    void checkBudgetAvailabilitySucceedsWhenNoBudgetConfigured() {
+    void checkBudgetAvailabilityRejectsMissingBudget() {
         when(budgetPersistencePort.findByYearMonthAndDepartmentCodeAndAccountCode("202604", "D001", "EXP001"))
                 .thenReturn(Optional.empty());
 
-        assertDoesNotThrow(() -> budgetService.checkBudgetAvailability("202604", "D001", "EXP001", new BigDecimal("5000.00")));
+        assertThrows(IllegalStateException.class,
+                () -> budgetService.checkBudgetAvailability("202604", "D001", "EXP001", new BigDecimal("5000.00")));
+        verify(budgetPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void restoreBudgetRejectsMissingPreviouslyDeductedBudgetWithoutSaving() {
+        when(budgetPersistencePort.findByYearMonthAndDepartmentCodeAndAccountCode("202604", "D001", "EXP001"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(IllegalStateException.class,
+                () -> budgetService.restoreBudget("202604", "D001", "EXP001", new BigDecimal("1000.00")));
+        verify(budgetPersistencePort, never()).save(any());
     }
 
     @Test
@@ -100,6 +113,19 @@ class BudgetServiceTest {
 
         assertThrows(IllegalStateException.class,
                 () -> budgetService.checkBudgetAvailability("202604", "D001", "EXP001", new BigDecimal("5000.00")));
+    }
+
+    @Test
+    void checkBudgetAvailabilityAllowsExactRemainingAmount() {
+        Budget budget = new Budget();
+        budget.setAssignedAmount(new BigDecimal("10000.00"));
+        budget.setUsedAmount(new BigDecimal("3000.00"));
+        when(budgetPersistencePort.findByYearMonthAndDepartmentCodeAndAccountCode("202604", "D001", "EXP001"))
+                .thenReturn(Optional.of(budget));
+
+        assertDoesNotThrow(() -> budgetService.checkBudgetAvailability(
+                "202604", "D001", "EXP001", new BigDecimal("7000.00")));
+        verify(budgetPersistencePort, never()).save(any());
     }
 
     @Test

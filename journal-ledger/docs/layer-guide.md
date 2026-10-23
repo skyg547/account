@@ -10,7 +10,7 @@
 - [archive/domain-layer-readme-legacy.md](archive/domain-layer-readme-legacy.md)
 - [archive/adapter-layer-readme-legacy.md](archive/adapter-layer-readme-legacy.md)
 
-레거시 문서의 설명은 학습에는 유용하지만, 현재 코드에서는 JPA 엔티티가 `domain` 패키지에 남아 있는 등 일부 규칙이 실제와 다릅니다. 새 개발자는 이 문서를 기준으로 보고, 과거 표현이 필요한 경우 archive를 참고합니다.
+레거시 문서의 설명은 학습에는 유용하지만, 저장 기술의 위치가 지금과 다릅니다. 새 개발자는 이 문서를 기준으로 보고, 과거 표현이 필요한 경우 archive를 참고합니다.
 
 ## 전체 의존 방향
 
@@ -38,13 +38,13 @@ application 계층은 유즈케이스 흐름을 조정합니다.
 - `UnsettledService`는 미결 반제 유즈케이스를 조정하고 `UnsettledItem` 도메인 메서드가 상태 전이를 처리하게 합니다.
 - `JournalEntryService`는 수동·contract·자동 전표를 같은 검증 파이프라인으로 보내며, `PostingService`는 전기 전에 같은 환산 불변식을 가진 `GeneralLedger` 스냅샷을 만듭니다.
 - `JournalEntryService`의 생성 경계는 `(sourceType, sourceId, operationKey)`와 versioned fingerprint를 사용해 첫 생성과 동등 재시도를 구분합니다. 생성 작업 잠금·registry는 `JournalCreationOperationPersistencePort` 뒤에 두고, 전표와 registry를 한 트랜잭션으로 묶습니다.
-- identity가 없는 호환 `createJournalEntry(JournalEntry)`는 production wiring에서 거부합니다. 테스트용 embedded 호환 구성만 V18 receipt 없이 실행되므로 외부 재시도 경로가 사용하면 안 됩니다. HTTP·메시지·contract는 반드시 `JournalCreationIdentity`를 받는 overload를 사용하며, 관리형 역분개는 V17 전용 유즈케이스를 사용합니다.
+- identity가 없는 호환 `createJournalEntry(JournalEntry)`는 production wiring에서 거부합니다. 테스트용 embedded 호환 구성만 V20 receipt 없이 실행되므로 외부 재시도 경로가 사용하면 안 됩니다. HTTP·메시지·contract는 반드시 `JournalCreationIdentity`를 받는 overload를 사용하며, 관리형 역분개는 V17 전용 유즈케이스를 사용합니다.
 
 ## domain 계층
 
 domain 계층은 전표, 전표 라인, 자동분개 규칙, 원장, 미결 항목의 핵심 업무 의미를 담습니다.
 
-현재 저장소에서는 일부 JPA 엔티티가 domain 패키지에 위치합니다. 이상적인 순수 도메인과 완전히 같지는 않으므로, 새 기능을 넣을 때는 아래 기준을 따릅니다.
+도메인 Java 소스는 Spring/JPA를 가져오지 않습니다. JPA는 `core/src/main/resources/META-INF/journal-ledger-orm.xml`에서 이 도메인 객체들의 필드와 관계를 명시적으로 매핑합니다. Spring Data 저장소와 `YearMonth` 변환기는 `infrastructure.persistence`에 있습니다. 새 기능을 넣을 때는 아래 기준을 따릅니다.
 
 - 상태 전이와 금액 검증은 도메인 메서드에 둡니다.
 - 외부 저장소 조회, HTTP 호출, 캐시, JDBC SQL은 domain에 두지 않습니다.
@@ -90,17 +90,22 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 
 저장 기술은 출력 포트 뒤에 둡니다.
 
+영속성 입력은 도메인 객체입니다. JPA 어댑터는 infrastructure XML 매핑을 이용해 같은 객체를 저장하고 반환하며, `DomainPersistenceLifecycle`이 최초 저장 기본값과 수정·삭제 전 `POSTED` 이력 검사를 호출합니다. 로드 후에는 상태와 부모 참조만 캡처하므로 상세 컬렉션을 추가 조회하지 않습니다. `JournalEntry`의 상세 소유권과 cascade/orphan removal, `DECIMAL(19,2)`/환율 `DECIMAL(19,8)` 매핑은 기존과 같습니다. SQL bulk 경로와 트랜잭션 경계는 해당 출력 포트의 기존 계약을 따릅니다.
+
 | 기능 | 출력 포트 | 기본 어댑터 | 대량 어댑터 |
 | --- | --- | --- | --- |
 | 전표 저장 | `JournalPersistencePort` | JPA | 별도 필요 시 추가 |
-| 전표 생성 멱등성 | `JournalCreationOperationPersistencePort` | DB stripe lock + V18 registry | - |
+| 전표 생성 멱등성 | `JournalCreationOperationPersistencePort` | DB stripe lock + V20 registry | - |
 | 자동분개 규칙 조회 | `JournalRuleQueryPort` | JPA | - |
 | GL/SL 엔트리 저장 | `LedgerEntryPersistencePort.save(GeneralLedger)` | Aggregate → JPA entity mapping 후 `saveAll` | 같은 Aggregate를 JDBC batch insert |
 | GL/SL 잔액 저장 | `LedgerBalancePersistencePort` | JPA `saveAll` | JDBC upsert/update+insert |
 | 미결 항목 저장 | `UnsettledItemPersistencePort` | JPA | - |
 
 잔액 변경은 `lockBalanceAccounts`로 이번 호출의 모든 계정·통화 잠금을 먼저 획득한 뒤
-조회/계산/저장합니다. 기간 삭제·단일 트랜잭션 재집계는 `lockAllBalanceAccounts`를 사용합니다.
+조회/계산/저장합니다. 정상 전기의 날짜·키별 signed delta는 출력 포트의 set-based successor
+UPDATE로 기존 후속 행의 기초·기말에 반영하고, 재집계 replay에서는 이 전파를 사용하지 않습니다.
+기간 삭제·단일 트랜잭션 재집계는 `lockAllBalanceAccounts`를 사용하며 요청 종료일을 잔액과
+`POSTED` 원천의 최신일까지 확장합니다.
 `LedgerBalanceWriteLock`은 256개 DB 잠금 행의 정렬, 트랜잭션/isolation 검증과 최신 값 refresh를
 두 어댑터에 공유합니다. 금액 계산과 이월 규칙은 계속 `LedgerService`와 도메인에 남습니다.
 재집계 제어는 `BalanceReaggregationControlPort` 뒤의 JDBC adapter가 V15 singleton과 compact

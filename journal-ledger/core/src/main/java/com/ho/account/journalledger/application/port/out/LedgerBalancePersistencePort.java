@@ -5,6 +5,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -34,6 +35,25 @@ public interface LedgerBalancePersistencePort {
         }
     }
 
+    /** Signed debit-minus-credit movement for one GL balance identity. */
+    record GlBalanceDelta(String accountCode, String currencyCode, BigDecimal signedDelta) {
+        public GlBalanceDelta {
+            Objects.requireNonNull(accountCode, "accountCode");
+            Objects.requireNonNull(currencyCode, "currencyCode");
+            Objects.requireNonNull(signedDelta, "signedDelta");
+        }
+    }
+
+    /** Signed movement for one exact SL identity; nullable dimensions remain real key values. */
+    record SlBalanceDelta(String accountCode, String businessPartnerCode, String departmentCode,
+                          String currencyCode, BigDecimal signedDelta) {
+        public SlBalanceDelta {
+            Objects.requireNonNull(accountCode, "accountCode");
+            Objects.requireNonNull(currencyCode, "currencyCode");
+            Objects.requireNonNull(signedDelta, "signedDelta");
+        }
+    }
+
     Optional<GlBalance> findGlBalance(
             String accountCode, String currencyCode, LocalDate balanceDate, YearMonth period);
 
@@ -55,6 +75,16 @@ public interface LedgerBalancePersistencePort {
     SlBalance saveSlBalance(SlBalance balance);
 
     void saveSlBalances(List<SlBalance> balances);
+
+    /**
+     * Shift beginning and ending amounts of existing rows strictly after {@code postingDate}.
+     * Implementations must use set-based updates and evict stale managed balance entities.
+     */
+    void shiftSuccessorBalances(
+            LocalDate postingDate, List<GlBalanceDelta> glDeltas, List<SlBalanceDelta> slDeltas);
+
+    /** Latest date represented by a GL/SL projection or a POSTED source journal. */
+    Optional<LocalDate> findLatestBalanceOrPostedDate();
 
     void deleteBalancesBetween(LocalDate startDate, LocalDate endDate);
 

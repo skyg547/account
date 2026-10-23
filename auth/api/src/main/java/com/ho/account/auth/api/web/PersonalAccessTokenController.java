@@ -1,10 +1,22 @@
 package com.ho.account.auth.api.web;
 
 import com.ho.account.auth.core.application.model.PersonalAccessTokenCreateResponse;
+import com.ho.account.auth.core.application.model.ListPage;
 import com.ho.account.auth.core.application.model.PersonalAccessTokenDto;
-import com.ho.account.auth.core.application.service.PersonalAccessTokenService;
+import com.ho.account.auth.core.application.exception.PatAccessDeniedException;
+import com.ho.account.auth.core.application.exception.PatAuthenticationException;
+import com.ho.account.auth.core.application.port.in.PersonalAccessTokenUseCase;
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
+import com.ho.account.auth.core.domain.model.PersonalAccessToken;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,27 +26,36 @@ import org.springframework.web.bind.annotation.*;
  * - 사용자가 자신의 마이페이지에서 AI 에이전트/스크립트용 전용 키를 직접 생성하고,
  * - 관리자(System Admin)가 전사 생성된 PAT를 모니터링하고 강제 폐기(Revoke)할 수 있는 API입니다.
  */
-@CrossOrigin(origins = "*", allowedHeaders = "*")
+@CrossOrigin(origins = "*", allowedHeaders = "*",
+        exposedHeaders = {"X-Page", "X-Page-Size", "X-Has-Next"})
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+// PAT routes require the JPA-backed token store; memory mode deliberately exposes none.
+@ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class PersonalAccessTokenController {
 
-    private final PersonalAccessTokenService patService;
+    private final PersonalAccessTokenUseCase patUseCase;
 
-    public record CreatePatRequest(String username, String tokenName, Integer expireDays) {}
+    public record CreatePatRequest(
+            @Size(max = AuthIdentityPolicy.MAX_USERNAME_LENGTH, message = "username must be at most 80 characters") String username,
+            @Size(max = PersonalAccessToken.MAX_TOKEN_NAME_LENGTH, message = "tokenName must be at most 100 characters") String tokenName,
+            @Min(value = PersonalAccessToken.MIN_EXPIRE_DAYS, message = "expireDays must be positive")
+            @Max(value = PersonalAccessToken.MAX_EXPIRE_DAYS, message = "expireDays must be at most 3650") Integer expireDays) {}
 
     /**
      * 1. 개인용 액세스 토큰(PAT) 신규 생성
      *    (원문 토큰 pat_live_... 은 보안상 생성 직후 응답에서 1회만 제공)
      */
     @PostMapping("/pat")
-    public ResponseEntity<PersonalAccessTokenCreateResponse> createPat(@RequestBody CreatePatRequest request) {
-        String username = (request.username() != null && !request.username().isBlank()) ? request.username() : "admin";
+    public ResponseEntity<PersonalAccessTokenCreateResponse> createPat(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Valid @RequestBody CreatePatRequest request) {
+        // The legacy username field is accepted for compatibility, but never selects the PAT owner.
         String tokenName = (request.tokenName() != null && !request.tokenName().isBlank()) ? request.tokenName() : "My AI Agent Key";
-        int days = (request.expireDays() != null && request.expireDays() > 0) ? request.expireDays() : 90;
+        int days = request.expireDays() != null ? request.expireDays() : 90;
 
-        PersonalAccessTokenCreateResponse response = patService.createToken(username, tokenName, days);
+        PersonalAccessTokenCreateResponse response = patUseCase.createToken(authorization, tokenName, days);
         return ResponseEntity.ok(response);
     }
 
@@ -42,9 +63,11 @@ public class PersonalAccessTokenController {
      * 2. 내 PAT 토큰 목록 조회
      */
     @GetMapping("/pat")
-    public ResponseEntity<List<PersonalAccessTokenDto>> getMyPats(@RequestParam(defaultValue = "admin") String username) {
-        List<PersonalAccessTokenDto> list = patService.getUserTokens(username);
-        return ResponseEntity.ok(list);
+    public ResponseEntity<List<PersonalAccessTokenDto>> getMyPats(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return pageResponse(patUseCase.getUserTokens(authorization, page, size));
     }
 
     /**
@@ -53,8 +76,8 @@ public class PersonalAccessTokenController {
     @DeleteMapping("/pat/{id}")
     public ResponseEntity<Void> revokeMyPat(
             @PathVariable String id,
-            @RequestParam(defaultValue = "admin") String username) {
-        boolean success = patService.revokeToken(username, id, false);
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
+        boolean success = patUseCase.revokeOwnToken(authorization, id);
         return success ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
 
@@ -62,17 +85,40 @@ public class PersonalAccessTokenController {
      * 4. [관리자 전용] 전사 모든 사용자 PAT 토큰 감시 조회
      */
     @GetMapping("/admin/pat")
-    public ResponseEntity<List<PersonalAccessTokenDto>> getAllPatsForAdmin() {
-        List<PersonalAccessTokenDto> list = patService.getAllTokensForAdmin();
-        return ResponseEntity.ok(list);
+    public ResponseEntity<List<PersonalAccessTokenDto>> getAllPatsForAdmin(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return pageResponse(patUseCase.getAllTokensForAdmin(authorization, page, size));
+    }
+
+    private ResponseEntity<List<PersonalAccessTokenDto>> pageResponse(ListPage<PersonalAccessTokenDto> result) {
+        return ResponseEntity.ok()
+                .header("X-Page", String.valueOf(result.page()))
+                .header("X-Page-Size", String.valueOf(result.size()))
+                .header("X-Has-Next", String.valueOf(result.hasNext()))
+                .body(result.content());
     }
 
     /**
      * 5. [관리자 전용] 특정 사용자 PAT 토큰 강제 폐기 (Admin Force Revoke)
      */
     @DeleteMapping("/admin/pat/{id}")
-    public ResponseEntity<Void> forceRevokePatByAdmin(@PathVariable String id) {
-        boolean success = patService.revokeToken("admin", id, true);
+    public ResponseEntity<Void> forceRevokePatByAdmin(
+            @PathVariable String id,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestHeader(value = "X-Audit-Reason", required = false) String auditReason) {
+        boolean success = patUseCase.revokeTokenForAdmin(authorization, id, auditReason);
         return success ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
+    @ExceptionHandler(PatAuthenticationException.class)
+    public ResponseEntity<Void> handlePatAuthentication() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
+    @ExceptionHandler(PatAccessDeniedException.class)
+    public ResponseEntity<Void> handlePatAccessDenied() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 }

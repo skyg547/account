@@ -22,6 +22,13 @@ import java.util.Optional;
 @Component
 public class PayablePersistenceAdapter implements PayablePersistencePort {
 
+    private static final List<PayableStatus> PAYMENT_ELIGIBLE_STATUSES = List.of(
+            PayableStatus.OPEN,
+            PayableStatus.APPROVED,
+            PayableStatus.UNPAID,
+            PayableStatus.PARTIAL_PAID,
+            PayableStatus.OVERDUE);
+
     private final PayableRepository payableRepository;
     private final PayableMapper payableMapper;
 
@@ -47,7 +54,16 @@ public class PayablePersistenceAdapter implements PayablePersistencePort {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<Payable> findByIdForUpdate(Long id) {
-        return payableRepository.findByIdForUpdate(id).map(payableMapper::toDomain);
+        return payableRepository.findByIdForUpdate(id)
+                .map(payableMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public int claimForPayment(Long payableId) {
+        // The claim and Payment insert must commit or roll back together.
+        return payableRepository.claimForPayment(
+                payableId, PayableStatus.IN_PAYMENT, PAYMENT_ELIGIBLE_STATUSES, BigDecimal.ZERO);
     }
 
     @Override

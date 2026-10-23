@@ -13,13 +13,9 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 
 /**
- * [마트 태스크릿] ODS 데이터 대사 및 품질 검증 실행
- * 
- * 💡 [초보자를 위한 개념 설명]
- * 이 태스크릿은 두 가지 중요한 일을 합니다:
- * 1. 데이터 품질(DQ) 체크: "이름이 비어있는 고객이 있는가 ", "금액이 말도 안 되게 큰가 " 등을 검사합니다.
- * 2. 원천 시스템 대사: "원천 시스템 파일의 합계"와 "우리 DB에 들어온 합계"가 일치하는지 최종 확인합니다.
- * 이 과정이 통과되어야 대손충당금 핵심 산출(EAD, PD, LGD, ECL)을 시작할 수 있습니다.
+ * [마트 태스크릿] 기준일의 계정·통화별 GL/SL 잔액 대사를 실행한다.
+ * core 서비스가 대사 이력을 커밋한 뒤 불일치 건수를 돌려주면 Step을 실패시켜
+ * 뒤따르는 CDM 적재, snapshot 생성, 준비 완료 이벤트를 막는다.
  */
 @Slf4j
 @Component
@@ -35,11 +31,13 @@ public class OdsReconcileTasklet implements Tasklet {
         LocalDate baseDate = BatchStepParameterUtils.resolveBaseDate(contribution.getStepExecution());
 
         log.info("🛡️ [태스크릿 실행] 원천 GL/SL 대사를 시작합니다. (기준일: {})", baseDate);
-        reconciliationService.reconcileGlVsSl(baseDate);
+        int mismatchCount = reconciliationService.reconcileGlVsSl(baseDate);
+        if (mismatchCount > 0) {
+            // 서비스의 독립 트랜잭션이 이력을 커밋한 다음 Step을 실패시킨다.
+            throw new IllegalStateException("GL/SL 대사 불일치: 기준일=" + baseDate + ", 건수=" + mismatchCount);
+        }
 
         log.info("🛡️ [태스크릿 완료] 원천 GL/SL 대사가 성공적으로 끝났습니다.");
         return RepeatStatus.FINISHED;
     }
 }
-
-

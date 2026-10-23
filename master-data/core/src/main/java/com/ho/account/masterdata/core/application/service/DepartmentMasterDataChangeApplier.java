@@ -3,9 +3,13 @@ package com.ho.account.masterdata.core.application.service;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangePayloadDecoder;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,7 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
 
     private final DepartmentUseCase departmentUseCase;
     private final MasterDataChangePayloadDecoder payloadDecoder;
+    private final DepartmentPersistencePort departmentPersistencePort;
 
     @Override
     public MasterDataType targetType() {
@@ -30,26 +35,61 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
 
     @Override
     public void validate(MasterDataChangeRequest request) {
-        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.DEACTIVATE) {
-            return;
+        if (request.getChangeType() != MasterDataChangeRequest.ChangeType.DEACTIVATE) {
+            validatedCommand(request);
         }
+    }
+
+    private DepartmentCommand validatedCommand(MasterDataChangeRequest request) {
         DepartmentCommand command = command(request);
-        // UPDATE의 null 필드는 서비스가 기존 값으로 채웁니다. 검증을 위해 기존 부서를 조회하지 않습니다.
-        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE && command.name() == null) {
-            throw new IllegalArgumentException("Department name is required.");
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Department parentCode", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
         }
         MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
                 command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        Department candidate;
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+            candidate = command.toEntity();
+        } else {
+            Department current = departmentUseCase.findDepartmentByCode(request.getTargetKey())
+                    .orElseThrow(() -> new MasterDataVersionConflictException("Active department no longer exists."));
+            candidate = new Department();
+            candidate.setCode(current.getCode());
+            candidate.setName(command.name() != null ? command.name() : current.getName());
+        }
+        candidate.validateBusinessFields();
+        return command;
     }
 
     @Override
-    public void apply(MasterDataChangeRequest request) {
-        switch (request.getChangeType()) {
-            case CREATE -> departmentUseCase.createDepartment(command(request));
-            case UPDATE -> departmentUseCase.updateDepartment(request.getTargetKey(), command(request));
-            case DEACTIVATE -> departmentUseCase.deactivateDepartment(
-                    request.getTargetKey(), request.getEffectiveDate());
-        }
+    public AppliedVersion apply(MasterDataChangeRequest request) {
+        validate(request);
+        return switch (request.getChangeType()) {
+            case CREATE -> {
+                Department next = departmentUseCase.createDepartment(validatedCommand(request));
+                yield new AppliedVersion(null, next == null ? null : next.getId());
+            }
+            case UPDATE -> {
+                DepartmentCommand command = validatedCommand(request);
+                Department current = current(request);
+                MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
+                        current.getValidTo(), command.validFrom(), command.validTo());
+                Department next = departmentUseCase.updateDepartment(request.getTargetKey(), command);
+                yield new AppliedVersion(current.getId(), next == null ? null : next.getId());
+            }
+            case DEACTIVATE -> {
+                Long id = current(request).getId();
+                departmentUseCase.deactivateDepartment(request.getTargetKey(), request.getEffectiveDate());
+                yield new AppliedVersion(id, id);
+            }
+        };
+    }
+
+    private Department current(MasterDataChangeRequest request) {
+        // 종료만 된 이력은 개수가 그대로이므로 현재 버전 부재도 승인 상태 충돌입니다.
+        return departmentPersistencePort.findActiveByCodeForUpdate(request.getTargetKey())
+                .orElseThrow(() -> new MasterDataVersionConflictException(
+                        "Active department no longer exists. Code: " + request.getTargetKey()));
     }
 
     private DepartmentCommand command(MasterDataChangeRequest request) {

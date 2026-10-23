@@ -20,7 +20,9 @@ public record ProductCommand(
         product.setName(name);
         product.setDescription(description);
         product.setUnitOfMeasure(unitOfMeasure);
-        product.setPrice(price);
+        if (price != null) {
+            product.setPrice(price);
+        }
         product.setProductType(productType);
         product.setValidFrom(validFrom);
         product.setValidTo(validTo);

@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.command;
 
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.exception.ScreeningMutationForbiddenException;
 import java.time.LocalDate;
 
 /**
@@ -28,6 +29,7 @@ public record BusinessPartnerCommand(
      * 저장 엔티티가 아니라 순수 도메인 aggregate를 생성합니다.
      */
     public BusinessPartner toDomain() {
+        requireHarmlessScreeningDefaults();
         return BusinessPartner.create(
                 businessPartnerCode,
                 businessPartnerName,
@@ -41,6 +43,23 @@ public record BusinessPartnerCommand(
                 riskRating,
                 validFrom,
                 validTo);
+    }
+
+    /** Legacy DTO fields may carry defaults, but only the screening workflow may grant approval. */
+    public void requireHarmlessScreeningDefaults() {
+        if (kycStatus != null && kycStatus != BusinessPartner.KycStatus.PENDING) {
+            throw new ScreeningMutationForbiddenException("KYC status can only be changed through screening review.");
+        }
+        if (riskRating != null && riskRating != BusinessPartner.RiskRating.LOW) {
+            throw new ScreeningMutationForbiddenException("Risk rating can only be changed through screening review.");
+        }
+    }
+
+    public void requireUnchangedScreening(BusinessPartner current) {
+        if ((kycStatus != null && kycStatus != current.getKycStatus())
+                || (riskRating != null && riskRating != current.getRiskRating())) {
+            throw new ScreeningMutationForbiddenException("Generic partner updates cannot change KYC or risk.");
+        }
     }
 
     /**

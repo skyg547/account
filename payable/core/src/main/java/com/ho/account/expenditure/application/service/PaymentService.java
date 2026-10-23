@@ -5,7 +5,6 @@ import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
-import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.application.port.in.*;
 import com.ho.account.expenditure.application.port.out.*;
@@ -140,20 +139,34 @@ public class PaymentService implements PaymentUseCase {
             Payable payable = payablePersistencePort.findById(payableId)
                     .orElseThrow(() -> new IllegalStateException("Payable not found: " + payableId));
 
-            // 지급 적격성 검증 (이미 지급 진행중이거나 완료된 채무의 중복 지급 생성 방지)
+            // 도메인 적격성 검사 후 DB 조건부 claim으로 동시 런의 최종 선점자를 결정합니다.
             if (!payable.isEligibleForPayment()) {
                 continue;
             }
 
-            // 채무 상태를 IN_PAYMENT로 원자적 전이 및 영속화
-            payable.markAsInPayment();
-            payablePersistencePort.save(payable);
+            int claimed = payablePersistencePort.claimForPayment(payableId);
+            if (claimed == 0) {
+                continue;
+            }
+            if (claimed != 1) {
+                throw new IllegalStateException("Unexpected payable claim count for " + payableId + ": " + claimed);
+            }
+
+            // 조건부 갱신 후 새로 읽어, 사이에 잔액이 변했더라도 최신 금액으로 후보를 만듭니다.
+            // claim과 Payment 삽입은 같은 트랜잭션에서 커밋됩니다.
+            Payable claimedPayable = payablePersistencePort.findById(payableId)
+                    .orElseThrow(() -> new IllegalStateException("Claimed payable not found: " + payableId));
+            if (claimedPayable.getStatus() != PayableStatus.IN_PAYMENT
+                    || claimedPayable.getOutstandingAmount() == null
+                    || claimedPayable.getOutstandingAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Claimed payable has invalid payment state or balance: " + payableId);
+            }
 
             Payment payment = new Payment();
             payment.setPaymentDate(runDate);
-            payment.setVendorCode(payable.getVendorCode());
-            payment.setPayableId(payable.getId());
-            payment.setAmount(payable.getOutstandingAmount());
+            payment.setVendorCode(claimedPayable.getVendorCode());
+            payment.setPayableId(claimedPayable.getId());
+            payment.setAmount(claimedPayable.getOutstandingAmount());
             payment.setStatus(PaymentStatus.INITIATED);
             payment.setPaymentRun(paymentRun);
             paymentPersistencePort.save(payment);
@@ -223,11 +236,11 @@ public class PaymentService implements PaymentUseCase {
 
         AdvancePayment advancePayment = toAdvancePayment(command);
         String vendorCode = advancePayment.getVendorCode();
-        BusinessPartnerRef vendor = validateVendor(vendorCode);
+        validateVendor(vendorCode);
 
         AdvancePayment savedAdvancePayment = advancePaymentPersistencePort.save(advancePayment);
 
-        postAdvanceJournal(savedAdvancePayment, vendor.name());
+        postAdvanceJournal(savedAdvancePayment);
 
         return savedAdvancePayment;
     }
@@ -237,27 +250,30 @@ public class PaymentService implements PaymentUseCase {
         Long payableId = command.payableId();
         Long advancePaymentId = command.advancePaymentId();
         BigDecimal offsetAmount = command.offsetAmount();
-        // The payable lock serializes retries on one source; check the committed operation before balances change.
+        // 지급 claim과 상계를 같은 채무 행에서 직렬화하고 커밋된 재시도 작업을 잔액 변경 전에 찾습니다.
         Payable payable = payablePersistencePort.findByIdForUpdate(payableId)
                 .orElseThrow(() -> new IllegalArgumentException("Payable not found: " + payableId));
-        Optional<PayableOffsetOperation> existing = offsetOperationPersistencePort.findByOperationId(command.operationId());
+        Optional<PayableOffsetOperation> existing = offsetOperationPersistencePort
+                .findByPayableIdAndOperationId(payableId, command.operationId());
         if (existing.isPresent()) {
-            if (!existing.get().matches(payableId, advancePaymentId, offsetAmount)) {
-                throw new IllegalArgumentException("Offset operationId was already used with different financial content");
+            if (!existing.get().matches(payableId, advancePaymentId, offsetAmount, command.accountingDate())) {
+                throw new PayableOperationConflictException(
+                        "Offset operationId was already used with different financial content");
             }
             return payable;
         }
 
-        validateAccountingPeriodOpen(LocalDate.now());
+        validateAccountingPeriodOpen(command.accountingDate());
         if (payable.getStatus() == PayableStatus.IN_PAYMENT) {
             throw new IllegalStateException("Payable is already in payment: " + payableId);
         }
-        // A different payable can use the same advance concurrently; lock that row before checking its balance.
+        // 다른 채무도 같은 선급금을 쓸 수 있으므로 잔액 확인 전 선급금 행도 잠급니다.
         AdvancePayment advancePayment = advancePaymentPersistencePort.findByIdForUpdate(advancePaymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Advance payment not found: " + advancePaymentId));
 
-        if (payable.getVendorCode() == null || payable.getVendorCode().isBlank()
-                || !payable.getVendorCode().equals(advancePayment.getVendorCode())) {
+        // 전표는 채무의 공급업체 코드로 기록되므로 잔액 변경 전에 선급금 소유자를 확인한다.
+        String vendorCode = payable.getVendorCode();
+        if (vendorCode == null || vendorCode.isBlank() || !vendorCode.equals(advancePayment.getVendorCode())) {
             throw new IllegalArgumentException("채무와 선급금의 공급업체 코드가 일치하지 않습니다.");
         }
 
@@ -268,9 +284,11 @@ public class PaymentService implements PaymentUseCase {
         payablePersistencePort.save(payable);
         advancePaymentPersistencePort.save(advancePayment);
 
-        JournalPostingResult journal = postOffsetJournal(payable, advancePayment, offsetAmount, command.operationId());
+        JournalPostingResult journal = postOffsetJournal(payable, advancePayment, offsetAmount,
+                command.operationId(), command.accountingDate());
         offsetOperationPersistencePort.save(new PayableOffsetOperation(
-                command.operationId(), payableId, advancePaymentId, offsetAmount, journal.journalEntryId()));
+                command.operationId(), payableId, advancePaymentId, offsetAmount,
+                command.accountingDate(), journal.journalEntryId()));
 
         return payable;
     }
@@ -284,8 +302,8 @@ public class PaymentService implements PaymentUseCase {
         return advancePayment;
     }
 
-    private BusinessPartnerRef validateVendor(String vendorCode) {
-        return masterDataQueryPort.findBusinessPartner(vendorCode)
+    private void validateVendor(String vendorCode) {
+        masterDataQueryPort.findBusinessPartner(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor info missing: " + vendorCode));
     }
 
@@ -294,15 +312,13 @@ public class PaymentService implements PaymentUseCase {
                 payableAccountMappingPort.resolvePaymentExecutionAccounts(payment);
         requireAccounts(accounts.requiredAccountCodes());
 
-        String vendorName = masterDataQueryPort.findBusinessPartner(payment.getVendorCode())
-                .map(BusinessPartnerRef::name)
-                .orElse(payment.getVendorCode());
         String actor = resolveActor(payment);
 
         JournalEntryCommand command = new JournalEntryCommand(
                 payment.getPaymentDate(),
                 payment.getPaymentDate(),
-                "Payment: " + vendorName + " - " + payment.getAmount(),
+                // Use the persisted code so a vendor rename cannot alter an existing operation fingerprint.
+                "Payment: " + payment.getVendorCode() + " - " + payment.getAmount(),
                 "PAYMENT_EXECUTION",
                 null, null, actor, actor,
                 "PAYMENT", payment.getId().toString(),
@@ -317,7 +333,7 @@ public class PaymentService implements PaymentUseCase {
         journalPostingPort.createDraftEntry(command);
     }
 
-    private void postAdvanceJournal(AdvancePayment advance, String vendorName) {
+    private void postAdvanceJournal(AdvancePayment advance) {
         PayableAccountMappingPort.AdvancePaymentAccounts accounts =
                 payableAccountMappingPort.resolveAdvancePaymentAccounts(advance);
         requireAccounts(accounts.requiredAccountCodes());
@@ -325,7 +341,7 @@ public class PaymentService implements PaymentUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 advance.getPaymentDate(),
                 advance.getPaymentDate(),
-                "Advance: " + vendorName + " - " + advance.getAmount(),
+                "Advance: " + advance.getVendorCode() + " - " + advance.getAmount(),
                 "ADVANCE_PAYMENT",
                 null, null, "SYSTEM", "SYSTEM",
                 "ADVANCE_PAYMENT", advance.getId().toString(),
@@ -341,22 +357,19 @@ public class PaymentService implements PaymentUseCase {
     }
 
     private JournalPostingResult postOffsetJournal(Payable payable, AdvancePayment advance,
-                                                   BigDecimal amount, String operationId) {
+                                                   BigDecimal amount, String operationId, LocalDate accountingDate) {
         PayableAccountMappingPort.AdvanceOffsetAccounts accounts =
                 payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable);
         requireAccounts(accounts.requiredAccountCodes());
 
-        String vendorName = masterDataQueryPort.findBusinessPartner(payable.getVendorCode())
-                .map(BusinessPartnerRef::name)
-                .orElse(payable.getVendorCode());
-
         JournalEntryCommand command = new JournalEntryCommand(
-                LocalDate.now(), LocalDate.now(),
-                "Offset: " + vendorName + " - " + amount,
+                accountingDate, accountingDate,
+                // Display names can change after a remote success; the source vendor code keeps retry fingerprints stable.
+                "Offset: " + payable.getVendorCode() + " - " + amount,
                 "AP_ADVANCE_OFFSET",
                 null, null, "SYSTEM", "SYSTEM",
                 "PAYABLE_OFFSET", payable.getId() + ":" + advance.getId(),
-                null, "AP_ADVANCE_OFFSET:" + operationId,
+                null, "AP_ADVANCE_OFFSET:" + payable.getId() + ":" + operationId,
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), amount, null, null,
                                 payable.getVendorCode(), "AP Offset"),

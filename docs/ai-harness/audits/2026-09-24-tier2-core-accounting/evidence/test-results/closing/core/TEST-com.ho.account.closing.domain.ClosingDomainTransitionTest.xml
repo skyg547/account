@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.domain.ClosingDomainTransitionTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:13" hostname="ho-To-Be-Filled-By-O-E-M" time="0.005">
+  <properties/>
+  <testcase name="taskCannotSkipMandatoryWorkOrCompleteBeforeStart()" classname="com.ho.account.closing.domain.ClosingDomainTransitionTest" time="0.001"/>
+  <testcase name="reopenApprovalEnforcesMakerCheckerAndOneWayDecision()" classname="com.ho.account.closing.domain.ClosingDomainTransitionTest" time="0.001"/>
+  <testcase name="calendarRequiresInProgressAndDefinedControlsBeforeClose()" classname="com.ho.account.closing.domain.ClosingDomainTransitionTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

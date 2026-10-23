@@ -12,6 +12,16 @@ spring:
     clean-disabled: true
     baseline-on-migrate: false
 
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:}
+    issuer: ${AUTH_JWT_ISSUER:auth-service}
+    audience: ${AUTH_JWT_AUDIENCE:account-api}
+
+master-data:
+  internal-auth:
+    secret: ${MASTER_DATA_CLOSING_ASSERTION_SECRET:}
+
 management:
   endpoint:
     health:

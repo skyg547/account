@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.199">
+  <properties/>
+  <testcase name="[1] baseCurrency=false" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.1"/>
+  <testcase name="[2] baseCurrency=true" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.004"/>
+  <testcase name="[1] closingStatus=OPEN" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.007"/>
+  <testcase name="[2] closingStatus=CLOSED" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.005"/>
+  <testcase name="[3] closingStatus=PERMANENTLY_CLOSED" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.004"/>
+  <testcase name="실제 Fiscal adapter에서 회계기간이 없으면 승인 전표와 원장을 변경하지 않는다." classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.005"/>
+  <testcase name="저장된 상세 ID가 없는 전표는 기간 조회 전에 거부하여 lineage 검증을 유지한다." classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.005"/>
+  <testcase name="[1] status=DRAFT" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.004"/>
+  <testcase name="[2] status=POSTED" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.003"/>
+  <testcase name="승인된 전표를 POSTED로 전환하고 GL/SL 엔트리와 잔액을 생성한다." classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.009"/>
+  <testcase name="[1] systemPoster=false" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.006"/>
+  <testcase name="[2] systemPoster=true" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.004"/>
+  <testcase name="[1] systemPoster=false" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.004"/>
+  <testcase name="[2] systemPoster=true" classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.008"/>
+  <testcase name="기본 overload도 회계일자의 OPEN 확인 후 SYSTEM으로 한 번 전기한다." classname="com.ho.account.journalledger.application.service.ledger.PostingServiceTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

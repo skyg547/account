@@ -75,7 +75,7 @@ class EvaluationControllerTest {
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_USER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"evaluationId\":\"eval-1\",\"controlId\":\"ctrl-1\",\"result\":\"EFFECTIVE\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(useCase);
     }
@@ -86,7 +86,7 @@ class EvaluationControllerTest {
                         .header(EvaluationController.AUTH_USER_HEADER, "auditor1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"evaluationId\":\"eval-1\",\"controlId\":\"ctrl-1\",\"result\":\"EFFECTIVE\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(useCase);
     }
@@ -98,6 +98,7 @@ class EvaluationControllerTest {
         when(useCase.submitDesignEvaluation(any())).thenReturn(saved);
 
         mockMvc.perform(post("/api/v1/internalaudit/evaluations/design")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, "trusted_auditor")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -118,6 +119,7 @@ class EvaluationControllerTest {
         when(useCase.submitOperatingEvaluation(any())).thenReturn(saved);
 
         mockMvc.perform(post("/api/v1/internalaudit/evaluations/operating")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_admin", List.of("ROLE_ADMIN"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, " trusted_admin ")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_ADMIN,ROLE_USER")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -134,6 +136,7 @@ class EvaluationControllerTest {
     @Test
     void invalidEvaluationResultReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/v1/internalaudit/evaluations/design")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, "trusted_auditor")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -149,6 +152,7 @@ class EvaluationControllerTest {
         when(useCase.registerDeficiency(any())).thenReturn(saved);
 
         mockMvc.perform(post("/api/v1/internalaudit/evaluations/deficiencies")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, "trusted_auditor")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -174,6 +178,7 @@ class EvaluationControllerTest {
         when(useCase.getDesignEvaluationsByControl("ctrl-1")).thenReturn(List.of(eval));
 
         mockMvc.perform(get("/api/v1/internalaudit/evaluations/controls/ctrl-1/design")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, "auditor")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR"))
                 .andExpect(status().isOk())
@@ -189,6 +194,7 @@ class EvaluationControllerTest {
         when(useCase.getOperatingEvaluationsByControl("ctrl-1")).thenReturn(List.of(eval));
 
         mockMvc.perform(get("/api/v1/internalaudit/evaluations/controls/ctrl-1/operating")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, "auditor")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR"))
                 .andExpect(status().isOk())
@@ -209,6 +215,7 @@ class EvaluationControllerTest {
         MockMvc realServiceMvc = operatingMvc(evaluations, audits);
 
         realServiceMvc.perform(post("/api/v1/internalaudit/evaluations/operating")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, "trusted_auditor")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -232,6 +239,7 @@ class EvaluationControllerTest {
         MockMvc realServiceMvc = operatingMvc(evaluations, audits);
 
         String response = realServiceMvc.perform(post("/api/v1/internalaudit/evaluations/operating")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, " trusted_auditor ")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -263,6 +271,7 @@ class EvaluationControllerTest {
 
         String response = operatingMvc(evaluations, audits)
                 .perform(post("/api/v1/internalaudit/evaluations/operating")
+                        .requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE, new InternalAuditPrincipal("trusted_auditor", List.of("ROLE_AUDITOR"), 1))
                         .header(EvaluationController.AUTH_USER_HEADER, "trusted_auditor")
                         .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
                         .contentType(MediaType.APPLICATION_JSON)

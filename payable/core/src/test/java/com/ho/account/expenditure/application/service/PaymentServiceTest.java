@@ -19,6 +19,7 @@ import com.ho.account.expenditure.application.port.out.PaymentPersistencePort;
 import com.ho.account.expenditure.application.port.out.PaymentExecutionPort;
 import com.ho.account.expenditure.application.port.out.PaymentRunPersistencePort;
 import com.ho.account.expenditure.domain.AdvancePayment;
+import com.ho.account.expenditure.domain.AdvancePaymentStatus;
 import com.ho.account.expenditure.domain.Payable;
 import com.ho.account.expenditure.domain.PayableStatus;
 import com.ho.account.expenditure.domain.PayableOffsetOperation;
@@ -37,18 +38,21 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -109,8 +113,6 @@ class PaymentServiceTest {
                 .thenReturn(new PayableAccountMappingPort.PaymentExecutionAccounts("AP-002", "CASH-002"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
                 .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
-        when(masterDataQueryPort.findBusinessPartner("V001"))
-                .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(20L, "SLIP-2", "DRAFT"));
 
@@ -125,6 +127,7 @@ class PaymentServiceTest {
         assertThat(command.lines()).extracting("accountCode")
                 .containsExactly("AP-002", "CASH-002");
         assertThat(command.operationKey()).isEqualTo("PAYMENT_EXECUTION:10");
+        assertThat(command.description()).isEqualTo("Payment: V001 - 100.00");
         assertThat(payment.getReferenceNo()).isEqualTo("BANK-REF-10");
         assertThat(payment.getExecutionAttempts()).isEqualTo(1);
         assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("400.00");
@@ -176,10 +179,11 @@ class PaymentServiceTest {
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("ADV-003", "CASH-003");
         assertThat(commandCaptor.getValue().operationKey()).isEqualTo("ADVANCE_PAYMENT:200");
+        assertThat(commandCaptor.getValue().description()).isEqualTo("Advance: V001 - 200.00");
     }
 
     @Test
-    @DisplayName("채무와 선급금 상계 전표 생성 시 상계 계정 매핑을 반영한다")
+    @DisplayName("동일 공급업체의 부분 상계는 잔액과 상태를 갱신하고 동일 금액의 상계 전표를 생성한다")
     void offsetPayableWithAdvancePaymentUsesMappedAccounts() {
         Payable payable = payable();
         AdvancePayment advance = advancePayment();
@@ -197,23 +201,116 @@ class PaymentServiceTest {
                 .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
                 .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
-        when(masterDataQueryPort.findBusinessPartner("V001"))
-                .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(40L, "SLIP-4", "DRAFT"));
 
-        service.offsetPayableWithAdvancePayment(new OffsetPayableCommand(100L, 200L,
-                new BigDecimal("100.00"), "offset-1"));
+        Payable result = service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"), "offset-1", LocalDate.of(2026, 5, 29)));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
 
+        assertThat(result).isSameAs(payable);
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("400.00");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.PARTIAL_PAID);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("100.00");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.ACTIVE);
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("AP-004", "ADV-004");
+        assertThat(commandCaptor.getValue().lines()).extracting("amount")
+                .containsExactly(new BigDecimal("100.00"), new BigDecimal("100.00"));
+        assertThat(commandCaptor.getValue().lines()).extracting("businessPartnerCode")
+                .containsExactly("V001", "V001");
         assertThat(commandCaptor.getValue().lineageSourceId()).isEqualTo("100:200");
-        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("AP_ADVANCE_OFFSET:offset-1");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("AP_ADVANCE_OFFSET:100:offset-1");
+        assertThat(commandCaptor.getValue().description()).isEqualTo("Offset: V001 - 100.00");
         verify(offsetOperationPersistencePort).save(new PayableOffsetOperation(
-                "offset-1", 100L, 200L, new BigDecimal("100.00"), 40L));
+                "offset-1", 100L, 200L, new BigDecimal("100.00"), LocalDate.of(2026, 5, 29), 40L));
+        verify(payablePersistencePort).findByIdForUpdate(100L);
+    }
+
+    @Test
+    @DisplayName("다른 공급업체의 선급금은 채무 상계 전에 거부하고 잔액, 상태, 전표를 그대로 둔다")
+    void offsetPayableWithAdvancePaymentRejectsDifferentVendorBeforeMutation() {
+        Payable payable = payable();
+        AdvancePayment advance = advancePayment();
+        advance.setVendorCode("V002");
+
+        when(payablePersistencePort.findByIdForUpdate(100L)).thenReturn(Optional.of(payable));
+        when(advancePaymentPersistencePort.findByIdForUpdate(200L)).thenReturn(Optional.of(advance));
+
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"), "offset-1", LocalDate.of(2026, 5, 29))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("공급업체 코드가 일치하지 않습니다");
+
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.OPEN);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("200.00");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.ACTIVE);
+        verify(payablePersistencePort, org.mockito.Mockito.never()).save(any(Payable.class));
+        verify(advancePaymentPersistencePort, org.mockito.Mockito.never()).save(any(AdvancePayment.class));
+        verifyNoInteractions(payableAccountMappingPort, journalPostingPort);
+    }
+
+    @Test
+    @DisplayName("공급업체 코드가 양쪽 모두 공백이면 상계 없이 거부한다")
+    void offsetPayableWithAdvancePaymentRejectsBlankVendorCodes() {
+        Payable payable = payable();
+        AdvancePayment advance = advancePayment();
+        payable.setVendorCode("  ");
+        advance.setVendorCode("  ");
+
+        when(payablePersistencePort.findByIdForUpdate(100L)).thenReturn(Optional.of(payable));
+        when(advancePaymentPersistencePort.findByIdForUpdate(200L)).thenReturn(Optional.of(advance));
+
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"), "offset-1", LocalDate.of(2026, 5, 29))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("공급업체 코드가 일치하지 않습니다");
+
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.OPEN);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("200.00");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.ACTIVE);
+        verify(payablePersistencePort, org.mockito.Mockito.never()).save(any(Payable.class));
+        verify(advancePaymentPersistencePort, org.mockito.Mockito.never()).save(any(AdvancePayment.class));
+        verifyNoInteractions(payableAccountMappingPort, journalPostingPort);
+    }
+
+    @Test
+    @DisplayName("동일 공급업체의 전액 상계는 양쪽 잔액을 0으로 만들고 전액의 상계 전표를 생성한다")
+    void offsetPayableWithAdvancePaymentFullySettlesSameVendor() {
+        Payable payable = payable();
+        AdvancePayment advance = advancePayment();
+        advance.setAmount(new BigDecimal("500.00"));
+        advance.setOutstandingAmount(new BigDecimal("500.00"));
+
+        when(payablePersistencePort.findByIdForUpdate(100L)).thenReturn(Optional.of(payable));
+        when(advancePaymentPersistencePort.findByIdForUpdate(200L)).thenReturn(Optional.of(advance));
+        when(payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable))
+                .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+        when(journalPostingPort.createDraftEntry(any()))
+                .thenReturn(new JournalPostingResult(50L, "SLIP-5", "DRAFT"));
+
+        service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("500.00"), "offset-full", LocalDate.of(2026, 5, 29)));
+
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("0");
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.PAID);
+        assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("0");
+        assertThat(advance.getStatus()).isEqualTo(AdvancePaymentStatus.OFFSET);
+        verify(payablePersistencePort).save(payable);
+        verify(advancePaymentPersistencePort).save(advance);
+        ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().lines()).extracting("amount")
+                .containsExactly(new BigDecimal("500.00"), new BigDecimal("500.00"));
+        assertThat(commandCaptor.getValue().lines()).extracting("businessPartnerCode")
+                .containsExactly("V001", "V001");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("AP_ADVANCE_OFFSET:100:offset-full");
     }
 
     @Test
@@ -226,25 +323,23 @@ class PaymentServiceTest {
         when(advancePaymentPersistencePort.findByIdForUpdate(200L)).thenReturn(Optional.of(advance));
         when(payablePersistencePort.save(payable)).thenReturn(payable);
         when(advancePaymentPersistencePort.save(advance)).thenReturn(advance);
-        when(offsetOperationPersistencePort.findByOperationId(anyString()))
-                .thenAnswer(invocation -> Optional.ofNullable(committed.get(invocation.getArgument(0))));
+        when(offsetOperationPersistencePort.findByPayableIdAndOperationId(org.mockito.ArgumentMatchers.anyLong(), anyString()))
+                .thenAnswer(invocation -> Optional.ofNullable(committed.get(invocation.getArgument(0) + ":" + invocation.getArgument(1))));
         doAnswer(invocation -> {
             PayableOffsetOperation operation = invocation.getArgument(0);
-            committed.put(operation.operationId(), operation);
+            committed.put(operation.payableId() + ":" + operation.operationId(), operation);
             return null;
         }).when(offsetOperationPersistencePort).save(any());
         when(payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable))
                 .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
                 .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
-        when(masterDataQueryPort.findBusinessPartner("V001"))
-                .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(40L, "SLIP-4", "DRAFT"),
                         new JournalPostingResult(41L, "SLIP-5", "DRAFT"));
 
-        OffsetPayableCommand first = new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"), "offset-1");
-        OffsetPayableCommand second = new OffsetPayableCommand(100L, 200L, new BigDecimal("50.00"), "offset-2");
+        OffsetPayableCommand first = new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"), "offset-1", LocalDate.of(2026, 5, 29));
+        OffsetPayableCommand second = new OffsetPayableCommand(100L, 200L, new BigDecimal("50.00"), "offset-2", LocalDate.of(2026, 5, 29));
         service.offsetPayableWithAdvancePayment(first);
         service.offsetPayableWithAdvancePayment(second);
         service.offsetPayableWithAdvancePayment(first);
@@ -252,20 +347,119 @@ class PaymentServiceTest {
         ArgumentCaptor<JournalEntryCommand> journalCommands = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort, times(2)).createDraftEntry(journalCommands.capture());
         assertThat(journalCommands.getAllValues()).extracting(JournalEntryCommand::operationKey)
-                .containsExactly("AP_ADVANCE_OFFSET:offset-1", "AP_ADVANCE_OFFSET:offset-2");
+                .containsExactly("AP_ADVANCE_OFFSET:100:offset-1", "AP_ADVANCE_OFFSET:100:offset-2");
         assertThat(journalCommands.getAllValues()).extracting(JournalEntryCommand::lineageSourceId)
                 .containsExactly("100:200", "100:200");
         assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("350.00");
         assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("50.00");
         assertThat(committed).hasSize(2);
-        assertThat(committed.get("offset-2").journalEntryId()).isEqualTo(41L);
+        assertThat(committed.get("100:offset-2").journalEntryId()).isEqualTo(41L);
 
         assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(
-                new OffsetPayableCommand(100L, 200L, new BigDecimal("70.00"), "offset-1")))
-                .isInstanceOf(IllegalArgumentException.class)
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("70.00"), "offset-1", LocalDate.of(2026, 5, 29))))
+                .isInstanceOf(PayableOperationConflictException.class)
                 .hasMessageContaining("different financial content");
         assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("350.00");
         verify(journalPostingPort, times(2)).createDraftEntry(any());
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"), "offset-1",
+                        LocalDate.of(2026, 5, 30))))
+                .isInstanceOf(PayableOperationConflictException.class)
+                .hasMessageContaining("different financial content");
+    }
+
+    @Test
+    void sameClientOperationIdOnDifferentPayablesProducesDistinctJournalKeys() {
+        Payable firstPayable = payable();
+        Payable secondPayable = payable();
+        secondPayable.setId(101L);
+        AdvancePayment advance = advancePayment();
+        when(payablePersistencePort.findByIdForUpdate(100L)).thenReturn(Optional.of(firstPayable));
+        when(payablePersistencePort.findByIdForUpdate(101L)).thenReturn(Optional.of(secondPayable));
+        when(advancePaymentPersistencePort.findByIdForUpdate(200L)).thenReturn(Optional.of(advance));
+        when(payableAccountMappingPort.resolveAdvanceOffsetAccounts(any(Payable.class)))
+                .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+        when(journalPostingPort.createDraftEntry(any()))
+                .thenReturn(new JournalPostingResult(40L, "SLIP-4", "DRAFT"),
+                        new JournalPostingResult(41L, "SLIP-5", "DRAFT"));
+
+        service.offsetPayableWithAdvancePayment(new OffsetPayableCommand(
+                100L, 200L, new BigDecimal("100.00"), "same-client-id", LocalDate.of(2026, 5, 29)));
+        service.offsetPayableWithAdvancePayment(new OffsetPayableCommand(
+                101L, 200L, new BigDecimal("100.00"), "same-client-id", LocalDate.of(2026, 5, 29)));
+
+        ArgumentCaptor<JournalEntryCommand> commands = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort, times(2)).createDraftEntry(commands.capture());
+        assertThat(commands.getAllValues()).extracting(JournalEntryCommand::operationKey)
+                .containsExactly("AP_ADVANCE_OFFSET:100:same-client-id", "AP_ADVANCE_OFFSET:101:same-client-id");
+        verify(offsetOperationPersistencePort).findByPayableIdAndOperationId(100L, "same-client-id");
+        verify(offsetOperationPersistencePort).findByPayableIdAndOperationId(101L, "same-client-id");
+    }
+
+    @Test
+    void remoteJournalSuccessThenLocalRollbackRetriesWithOriginalAccountingDate() {
+        Payable firstAttemptPayable = payable();
+        Payable renamedVendorRetryPayable = payable();
+        Payable unavailableVendorRetryPayable = payable();
+        AdvancePayment firstAttemptAdvance = advancePayment();
+        AdvancePayment renamedVendorRetryAdvance = advancePayment();
+        AdvancePayment unavailableVendorRetryAdvance = advancePayment();
+        when(payablePersistencePort.findByIdForUpdate(100L))
+                .thenReturn(Optional.of(firstAttemptPayable), Optional.of(renamedVendorRetryPayable),
+                        Optional.of(unavailableVendorRetryPayable));
+        when(advancePaymentPersistencePort.findByIdForUpdate(200L))
+                .thenReturn(Optional.of(firstAttemptAdvance), Optional.of(renamedVendorRetryAdvance),
+                        Optional.of(unavailableVendorRetryAdvance));
+        when(payableAccountMappingPort.resolveAdvanceOffsetAccounts(any(Payable.class)))
+                .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+        when(journalPostingPort.createDraftEntry(any()))
+                .thenReturn(new JournalPostingResult(40L, "SLIP-4", "DRAFT"));
+        AtomicReference<Optional<BusinessPartnerRef>> mutableVendorLookup = new AtomicReference<>(
+                Optional.of(new BusinessPartnerRef("V001", "Old Vendor Name", "VENDOR", true)));
+        org.mockito.Mockito.lenient().when(masterDataQueryPort.findBusinessPartner("V001"))
+                .thenAnswer(invocation -> mutableVendorLookup.get());
+        org.mockito.Mockito.doThrow(new IllegalStateException("local offset record failed"))
+                .doThrow(new IllegalStateException("local offset record failed"))
+                .doNothing().when(offsetOperationPersistencePort).save(any());
+        LocalDate priorAccountingDate = LocalDate.now().minusDays(1);
+        OffsetPayableCommand command = new OffsetPayableCommand(
+                100L, 200L, new BigDecimal("100.00"), "offset-after-rollback", priorAccountingDate);
+
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("local offset record failed");
+        mutableVendorLookup.set(Optional.of(new BusinessPartnerRef("V001", "Renamed Vendor", "VENDOR", true)));
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("local offset record failed");
+        mutableVendorLookup.set(Optional.empty());
+        service.offsetPayableWithAdvancePayment(command);
+
+        ArgumentCaptor<JournalEntryCommand> commands = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort, times(3)).createDraftEntry(commands.capture());
+        assertThat(commands.getAllValues()).extracting(JournalEntryCommand::accountingDate)
+                .containsExactly(priorAccountingDate, priorAccountingDate, priorAccountingDate);
+        assertThat(commands.getAllValues()).extracting(JournalEntryCommand::operationKey)
+                .containsExactly("AP_ADVANCE_OFFSET:100:offset-after-rollback",
+                        "AP_ADVANCE_OFFSET:100:offset-after-rollback",
+                        "AP_ADVANCE_OFFSET:100:offset-after-rollback");
+        assertThat(commands.getAllValues()).allSatisfy(journal ->
+                assertThat(journal).isEqualTo(commands.getAllValues().get(0)));
+        assertThat(commands.getAllValues().get(0).description()).isEqualTo("Offset: V001 - 100.00");
+        verify(masterDataQueryPort, never()).findBusinessPartner("V001");
+    }
+
+    @Test
+    void offsetAmountThatWouldRoundInDatabaseIsRejectedBeforePosting() {
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(new OffsetPayableCommand(
+                100L, 200L, new BigDecimal("100.001"), "offset-precision", LocalDate.of(2026, 5, 29))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("two decimal places");
+        verifyNoInteractions(payablePersistencePort, advancePaymentPersistencePort, journalPostingPort);
     }
 
     @Test
@@ -313,8 +507,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("initiatePaymentRun 호출 시 적격 채무를 IN_PAYMENT로 잠금 처리하고 Payment를 생성한다")
-    void initiatePaymentRunLocksPayablesInPaymentAndCreatesPayments() {
+    @DisplayName("initiatePaymentRun 호출 시 적격 채무 claim 성공 후 Payment를 생성한다")
+    void initiatePaymentRunClaimsPayablesAndCreatesPayments() {
         LocalDate runDate = LocalDate.of(2026, 6, 30);
         PaymentRunCommand command = new PaymentRunCommand(runDate, "Batch Payment Run", "admin-user");
 
@@ -334,17 +528,22 @@ class PaymentServiceTest {
         Payable payable = payable();
         payable.setId(101L);
         payable.setStatus(PayableStatus.OPEN);
+        Payable claimedPayable = payable();
+        claimedPayable.setId(101L);
+        claimedPayable.setStatus(PayableStatus.IN_PAYMENT);
 
         when(payablePersistencePort.findByDueDateBeforeAndStatusNot(runDate.plusDays(1), PayableStatus.PAID))
                 .thenReturn(List.of(payable));
-        when(payablePersistencePort.findById(101L)).thenReturn(Optional.of(payable));
-        when(payablePersistencePort.save(payable)).thenReturn(payable);
+        when(payablePersistencePort.findById(101L))
+                .thenReturn(Optional.of(payable), Optional.of(claimedPayable));
+        when(payablePersistencePort.claimForPayment(101L)).thenReturn(1);
         when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaymentRun result = service.initiatePaymentRun(command);
 
         assertThat(result).isNotNull();
-        assertThat(payable.getStatus()).isEqualTo(PayableStatus.IN_PAYMENT);
+        verify(payablePersistencePort).claimForPayment(101L);
+        verify(payablePersistencePort, never()).save(payable);
 
         ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentPersistencePort).save(paymentCaptor.capture());
@@ -353,6 +552,84 @@ class PaymentServiceTest {
         assertThat(savedPayment.getAmount()).isEqualByComparingTo("500.00");
         assertThat(savedPayment.getStatus()).isEqualTo(PaymentStatus.INITIATED);
         assertThat(savedPayment.getPaymentRun().getId()).isEqualTo(50L);
+    }
+
+    @Test
+    @DisplayName("서로 다른 지급 런이 같은 OPEN 채무를 읽어도 claim 실패한 런은 Payment를 만들지 않는다")
+    void processPaymentRunChunkSkipsDuplicateWhenSecondClaimFails() {
+        LocalDate runDate = LocalDate.of(2026, 6, 30);
+        PaymentRun firstRun = new PaymentRun();
+        firstRun.setId(50L);
+        PaymentRun secondRun = new PaymentRun();
+        secondRun.setId(51L);
+
+        // 각 런이 DB 갱신 전 읽은 별도의 OPEN 스냅샷을 가진 상황을 재현한다.
+        Payable firstSnapshot = payable();
+        Payable claimedSnapshot = payable();
+        claimedSnapshot.setStatus(PayableStatus.IN_PAYMENT);
+        claimedSnapshot.setOutstandingAmount(new BigDecimal("450.00"));
+        Payable secondSnapshot = payable();
+        when(paymentRunPersistencePort.findById(50L)).thenReturn(Optional.of(firstRun));
+        when(paymentRunPersistencePort.findById(51L)).thenReturn(Optional.of(secondRun));
+        when(payablePersistencePort.findById(100L))
+                .thenReturn(Optional.of(firstSnapshot), Optional.of(claimedSnapshot), Optional.of(secondSnapshot));
+        when(payablePersistencePort.claimForPayment(100L)).thenReturn(1, 0);
+        when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.processPaymentRunChunk(50L, runDate, List.of(100L));
+        service.processPaymentRunChunk(51L, runDate, List.of(100L));
+
+        verify(payablePersistencePort, times(2)).claimForPayment(100L);
+        ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentPersistencePort).save(paymentCaptor.capture());
+        assertThat(paymentCaptor.getValue().getPayableId()).isEqualTo(100L);
+        assertThat(paymentCaptor.getValue().getPaymentRun()).isSameAs(firstRun);
+        assertThat(paymentCaptor.getValue().getAmount()).isEqualByComparingTo("450.00");
+        assertThat(secondSnapshot.getOutstandingAmount()).isEqualByComparingTo("500.00");
+        verify(payablePersistencePort, never()).save(any(Payable.class));
+        verify(paymentExecutionPort, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("지급 claim 후 상계는 잔액과 전표를 변경하지 않고 두 번째 지급 claim도 중복 결제를 만들지 않는다")
+    void offsetCannotChangeClaimedPayableBeforeSecondPaymentRun() {
+        LocalDate runDate = LocalDate.of(2026, 6, 30);
+        PaymentRun firstRun = new PaymentRun();
+        firstRun.setId(50L);
+        PaymentRun secondRun = new PaymentRun();
+        secondRun.setId(51L);
+        Payable firstSnapshot = payable();
+        Payable claimedPayable = payable();
+        claimedPayable.setStatus(PayableStatus.IN_PAYMENT);
+        Payable staleSecondSnapshot = payable();
+
+        when(paymentRunPersistencePort.findById(50L)).thenReturn(Optional.of(firstRun));
+        when(paymentRunPersistencePort.findById(51L)).thenReturn(Optional.of(secondRun));
+        when(payablePersistencePort.findById(100L)).thenReturn(
+                Optional.of(firstSnapshot), Optional.of(claimedPayable), Optional.of(staleSecondSnapshot));
+        when(payablePersistencePort.findByIdForUpdate(100L)).thenReturn(Optional.of(claimedPayable));
+        when(payablePersistencePort.claimForPayment(100L)).thenReturn(1, 0);
+        when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(accountingPeriodStatusPort.isClosed(any(LocalDate.class))).thenReturn(false);
+        service.processPaymentRunChunk(50L, runDate, List.of(100L));
+        assertThatThrownBy(() -> service.offsetPayableWithAdvancePayment(
+                new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00"), "offset-1", LocalDate.of(2026, 5, 29))))
+                .isInstanceOf(IllegalStateException.class);
+        service.processPaymentRunChunk(51L, runDate, List.of(100L));
+
+        verify(payablePersistencePort).findByIdForUpdate(100L);
+        verify(payablePersistencePort, times(2)).claimForPayment(100L);
+        verify(payablePersistencePort, never()).save(any(Payable.class));
+        verify(advancePaymentPersistencePort, never()).findByIdForUpdate(200L);
+        verify(advancePaymentPersistencePort, never()).save(any(AdvancePayment.class));
+        verify(journalPostingPort, never()).createDraftEntry(any());
+        verify(paymentExecutionPort, never()).execute(any());
+        ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentPersistencePort).save(paymentCaptor.capture());
+        assertThat(paymentCaptor.getValue().getAmount()).isEqualByComparingTo("500.00");
+        assertThat(paymentCaptor.getValue().getPaymentRun()).isSameAs(firstRun);
+        assertThat(claimedPayable.getStatus()).isEqualTo(PayableStatus.IN_PAYMENT);
+        assertThat(claimedPayable.getOutstandingAmount()).isEqualByComparingTo("500.00");
     }
 
     @Test
@@ -408,17 +685,23 @@ class PaymentServiceTest {
         Payable eligiblePayable = payable();
         eligiblePayable.setId(104L);
         eligiblePayable.setStatus(PayableStatus.APPROVED);
+        Payable claimedPayable = payable();
+        claimedPayable.setId(104L);
+        claimedPayable.setStatus(PayableStatus.IN_PAYMENT);
 
         when(payablePersistencePort.findByDueDateBeforeAndStatusNot(runDate.plusDays(1), PayableStatus.PAID))
                 .thenReturn(List.of(inPaymentPayable, paidPayable, eligiblePayable));
-        when(payablePersistencePort.findById(104L)).thenReturn(Optional.of(eligiblePayable));
-        when(payablePersistencePort.save(eligiblePayable)).thenReturn(eligiblePayable);
+        when(payablePersistencePort.findById(104L))
+                .thenReturn(Optional.of(eligiblePayable), Optional.of(claimedPayable));
+        when(payablePersistencePort.claimForPayment(104L)).thenReturn(1);
         when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaymentRun result = service.initiatePaymentRun(command);
 
         assertThat(result).isNotNull();
-        assertThat(eligiblePayable.getStatus()).isEqualTo(PayableStatus.IN_PAYMENT);
+        verify(payablePersistencePort).claimForPayment(104L);
+        verify(payablePersistencePort, never()).claimForPayment(102L);
+        verify(payablePersistencePort, never()).claimForPayment(103L);
 
         // 104L만 처리되고 102L, 103L은 제외됨
         ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);

@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface LeasePersistencePort {
     LeaseContract saveContract(LeaseContract contract);
     Optional<LeaseContract> findContractById(Long id);
+    Optional<LeaseContract> findContractByIdForUpdate(Long id);
     List<LeaseContract> findActiveContracts(String status);
     List<LeaseContract> findIfrs16ApplicableActiveContracts();
 

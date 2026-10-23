@@ -20,7 +20,8 @@
 ```mermaid
 flowchart TD
     A[POST /api/ap/invoices] --> B[APInvoiceController]
-    B --> B1[TaxInvoiceRequestDto.toCommand]
+    B --> B0[DTO 금액 무손실 검증]
+    B0 --> B1[TaxInvoiceRequestDto.toCommand]
     B1 --> C[TaxInvoiceUseCase.createAPInvoice]
     C --> D{type == PURCHASE}
     D -->|아니오| E[예외]
@@ -35,13 +36,16 @@ flowchart TD
 - `type`은 `PURCHASE`만 허용한다.
 - 거래처 코드는 master-data의 `MasterDataQueryPort`로 확인한다.
 - 공급가액 + 세액 = 합계금액이어야 한다.
+- 세 금액은 각각 `NUMERIC(19,2)`에 반올림 없이 표현되어야 한다. 최대 정수 17자리와 소수 2자리까지 저장 가능하며, `1.005`와 정수 18자리는 생성·수정 요청에서 HTTP 400으로 거부된다. `1.000`은 `1.00`과 값이 같아 허용된다. 소수 자릿수를 잘라 저장하지 않는다.
+- HTTP DTO의 Bean Validation이 요청을 먼저 검사하고, core의 `TaxInvoice`가 직접 호출에도 같은 저장 정밀도와 합계 규칙을 적용한다. 세율 10%를 강제하지 않는다.
 - `issueId`는 DB에서 unique 값이다.
 
 ## 수정 흐름
 
 ```mermaid
 flowchart TD
-    A[PUT /api/ap/invoices/{id}] --> B[기존 세금계산서 조회]
+    A[PUT /api/ap/invoices/{id}] --> A1[DTO 금액 무손실 검증]
+    A1 --> B[기존 세금계산서 조회]
     B --> C{기존 타입과 요청 타입이 PURCHASE인가}
     C -->|아니오| D[예외]
     C -->|예| E[거래처 검증]
@@ -51,6 +55,8 @@ flowchart TD
 ```
 
 수정도 생성과 같은 금액 검증을 통과해야 한다. 세금계산서는 증빙이므로 승인번호, 작성일, 거래처, 금액 변경이 모두 감사 대상이다. 현재 별도 이력 테이블은 없고 최신 상태만 엔티티에 저장된다.
+
+예를 들어 `supplyAmount: 1.005`, `taxAmount: 0`, `totalAmount: 1.005`는 합계가 맞아도 값이 바뀌므로 거부된다. `1.005 + 0.005 = 1.010`처럼 각 값을 독립 반올림하면 합계가 달라질 수 있는 입력도 저장 전에 거부된다. 허용 여부는 반올림 방식이나 DB의 암묵 변환에 의존하지 않는다.
 
 ## 취소 흐름
 

@@ -15,11 +15,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter that provides ledger balances and historical reporting snapshots.
+ * Adapter that loads KRW ledger balances for reporting.
  */
 @Component
 @ConditionalOnProperty(prefix = "account.reporting.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class LedgerClientAdapter implements LoadLedgerPort {
+
+    private static final String REPORTING_CURRENCY = "KRW";
 
     private final LedgerQueryPort ledgerQueryPort;
 
@@ -36,6 +38,17 @@ public class LedgerClientAdapter implements LoadLedgerPort {
                 balanceDate,
                 null,
                 null);
+
+        // Validate the full unfiltered result before collapsing currency into the account-only port result.
+        for (LedgerBalanceSummary summary : summaries) {
+            if (summary == null) {
+                continue;
+            }
+            if (!REPORTING_CURRENCY.equals(summary.getCurrencyCode())) {
+                throw new IllegalStateException("Reporting requires KRW ledger balances; account "
+                        + summary.getAccountCode() + " has currency " + summary.getCurrencyCode());
+            }
+        }
 
         return summaries.stream()
                 .filter(Objects::nonNull)

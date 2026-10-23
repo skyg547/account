@@ -1,7 +1,7 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
-import com.ho.account.journalledger.domain.journal.repository.JournalCreationOperationRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalCreationOperationRepository;
 import jakarta.persistence.EntityManager;
 import java.sql.Connection;
 import java.util.Objects;
@@ -29,7 +29,7 @@ final class JournalCreationOperationWriteLock {
         int lockId = stableStripe(requiredIdentity);
         Integer acquiredLockId = repository.lockOperationStripe(lockId)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Journal creation lock stripe is missing; apply migration V18"));
+                        "Journal creation lock stripe is missing; apply migration V20"));
         if (acquiredLockId != lockId) {
             throw new IllegalStateException("Unexpected journal creation lock stripe: " + acquiredLockId);
         }

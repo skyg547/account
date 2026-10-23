@@ -13,6 +13,9 @@ spring:
     driver-class-name: org.h2.Driver
   flyway:
     enabled: true
+    # V9 and later migrations use PostgreSQL-only SQL; the local screening schema is initialized below.
+    target: "8.1"
+    locations: classpath:db/migration,classpath:db/local-migration,classpath:db/migration-h2
   jpa:
     hibernate:
       ddl-auto: validate
@@ -22,6 +25,7 @@ spring:
   sql:
     init:
       mode: always
+      schema-locations: classpath:db/local/schema-business-partner-screening.sql
       data-locations: classpath:data-local.sql
 
 eureka:

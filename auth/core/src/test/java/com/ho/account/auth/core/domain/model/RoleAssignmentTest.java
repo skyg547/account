@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class RoleAssignmentTest {
@@ -15,7 +16,7 @@ class RoleAssignmentTest {
     void effectivePeriodIncludesStartAndExcludesEnd() {
         RoleAssignment assignment = new RoleAssignment(
                 "ROLE_ADMIN",
-                "FIN",
+                "GLOBAL",
                 START,
                 END,
                 true);
@@ -26,13 +27,30 @@ class RoleAssignmentTest {
     }
 
     @Test
+    void userSnapshotExcludesExpiredAdminAndIncludesNewGrantAtSharedBoundary() {
+        RoleAssignment user = RoleAssignment.approved("ROLE_USER");
+        RoleAssignment admin = new RoleAssignment("ROLE_ADMIN", "FIN", START, END, true);
+        RoleAssignment auditor = new RoleAssignment("ROLE_AUDITOR", "FIN", END, null, true);
+        AuthUser authUser = new AuthUser(
+                "admin", "stored", "FIN", true, false, List.of(user, admin, auditor), 7L);
+
+        assertThat(authUser.effectiveRolesAt(END.minusNanos(1)))
+                .containsExactly("ROLE_USER", "ROLE_ADMIN");
+        assertThat(authUser.effectiveRolesAt(END))
+                .containsExactly("ROLE_USER", "ROLE_AUDITOR");
+        assertThat(authUser.effectiveRolesAt(END.plusSeconds(1)))
+                .containsExactly("ROLE_USER", "ROLE_AUDITOR");
+        assertThat(authUser.getRoleVersion()).isEqualTo(7L);
+    }
+
+    @Test
     void rejectsEmptyOrReversedEffectivePeriod() {
         assertThatThrownBy(() -> new RoleAssignment(
-                "ROLE_ADMIN", "FIN", START, START, true))
+                "ROLE_ADMIN", "GLOBAL", START, START, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("validFrom");
         assertThatThrownBy(() -> new RoleAssignment(
-                "ROLE_ADMIN", "FIN", END, START, true))
+                "ROLE_ADMIN", "GLOBAL", END, START, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("validFrom");
     }
@@ -46,5 +64,16 @@ class RoleAssignmentTest {
                 "ROLE_ADMIN", "S".repeat(81), null, null, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("80");
+    }
+
+    @Test
+    void retainsLegacyScopeTextForExplicitAuthorizationCheck() {
+        // Malformed stored rows must hydrate without silently gaining GLOBAL authorization.
+        for (String dataScope : new String[] {null, "", " ", "FIN", " GLOBAL "}) {
+            RoleAssignment assignment = new RoleAssignment("ROLE_ADMIN", dataScope, null, null, true);
+            assertThat(assignment.dataScope()).isEqualTo(dataScope);
+            assertThat(assignment.hasSupportedAuthorizationScope()).isFalse();
+        }
+        assertThat(RoleAssignment.approved("ROLE_ADMIN").hasSupportedAuthorizationScope()).isTrue();
     }
 }

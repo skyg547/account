@@ -51,7 +51,8 @@ Spring Data 타입이 domain package로 역류하지 않습니다.
 2. [process-flow.md](process-flow.md)
 3. [schema.md](schema.md)
 4. [local-run.md](local-run.md)
-5. [archive/legacy-kafka-config.md](archive/legacy-kafka-config.md): 실제 adapter 없이 잘못된 prefix에 있던 과거 Kafka 설정 기록
+5. [audit-evidence.md](audit-evidence.md): actor propagation, durable event lineage, retention and export procedure
+6. [archive/legacy-kafka-config.md](archive/legacy-kafka-config.md): 실제 adapter 없이 잘못된 prefix에 있던 과거 Kafka 설정 기록
 
 ## Local Verification
 
@@ -59,12 +60,13 @@ Spring Data 타입이 domain package로 역류하지 않습니다.
 - 로컬 실행 설정은 `.run/Master Data bootRun.run.xml`을 사용합니다.
 - 단위 검증은 `.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon`로 수행합니다.
 - 변경 요청은 지원 전략과 SCD2 목표 버전을 요청·승인·반영 단계마다 확인하고, typed applier 성공 후에만 `APPLIED`가 됩니다.
-- 승인/반려/반영은 요청 행을 비관적 잠금으로 직렬화하고 JPA `lockVersion`으로 충돌을 한 번 더 감지합니다.
+- 요청/승인/반영과 직접 쓰기는 정확한 업무 키 잠금을 공유하며, 승인/반영은 그 뒤 요청 행 잠금과 최신 버전 검사를 수행합니다. JPA `lockVersion`도 유지합니다.
 - Governance `sourceReference`는 승인 재시도 멱등 키이고 `appliedAt`은 실제 typed applier 완료 시각입니다.
-- 예약 반영은 `status/effectiveDate` 조건으로 최대 500건을 조회합니다. 요청별 독립 트랜잭션과 `SKIP LOCKED` 파티셔닝은 코드 TODO로 남아 있습니다.
+- 예약 반영은 `status/effectiveDate` 조건으로 최대 500건을 안정된 순서로 조회하고 요청별 독립 트랜잭션으로 반영합니다. `FAILED_*` 상태와 안전한 실패 분류는 영속 저장되며 다음 실행에서 제외됩니다. `SKIP LOCKED` 파티셔닝은 아직 적용되지 않았습니다.
 - `Master Data bootRun` IntelliJ 설정은 Config/Discovery/Vault 없이 `local` H2 API를 단독 기동하도록 표준화되어 있습니다.
 - `Master Data Batch Validity` 설정은 필수 `asOfDate`를 받는 `masterDataValidityJob`을 실행하고, Job/Step은 집계 규칙을 재구현하지 않고 core pipeline에 위임합니다.
 - 활성 계정과목/상품 목록과 거래처 이름 검색도 DB 기준일 query를 사용하며, 환율은 요청일 이하 최신 한 건을 선택합니다.
+- 거래처 이력/활성/검색과 pending 변경 요청 목록은 `page=0&size=20`을 기본으로 하며 최대 `size=100`입니다. 본문은 기존 JSON 배열, 연속 여부는 `X-Has-Next` 헤더입니다. 모든 결과가 필요하면 다음 페이지를 반복 요청합니다. 자세한 호출 예와 소비자 전환 절차는 [beginner-guide.md](beginner-guide.md)를 참조합니다.
 - 회계기간 변경은 비관적 행 잠금과 `FiscalPeriod.changeClosingStatus` 불변식을 거칩니다.
 - 거래처 JPA 왕복, 자식 계좌 FK/역참조, 현재·과거 SCD2 조회는 Core의 H2 영속성 테스트로 검증하고, API 사업자등록번호 마스킹은 API의 ObjectMapper 직렬화 테스트로 검증합니다.
-- 전체 PostgreSQL Flyway baseline, API pagination, TaxProfile 소유권, Loan/Closing의 Master Data 직접 의존은 완료 조건이 명시된 TODO입니다.
+- PostgreSQL V8/V9 잠금·기간 제약과 합성 DB 회귀 절차는 schema/local-run을 참조합니다. 거래처의 현재 활성 조회는 기간과 `useYn`을 확인하며 KYC·위험 등급 심사를 대신하지 않습니다. TaxProfile 소유권은 후속 과제입니다. Loan dev 원격 어댑터는 숫자 거래처 ID·기준일 통화 조회 API가 없어 해당 검증에 실패합니다.

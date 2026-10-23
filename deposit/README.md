@@ -1,6 +1,6 @@
 # Deposit Service (수신/예금)
 
-`deposit` 모듈은 예금 계좌 개설, 초기 입금 인식, 예금 부채 계정 매핑 흐름을 담당합니다. 현재 코드는 `deposit:core`, `deposit:api`, `deposit:batch` 하위 프로젝트로 나뉘며, API와 Batch는 Spring Boot 실행 앱으로 기동할 수 있습니다.
+`deposit` 모듈은 예금 계좌 개설, 입출금, 예금 부채 계정 매핑 흐름을 담당합니다. 현재 코드는 `deposit:core`, `deposit:api`, `deposit:batch` 하위 프로젝트로 나뉘며, API와 Batch는 Spring Boot 실행 앱으로 기동할 수 있습니다.
 
 ## 모듈 구조
 
@@ -46,10 +46,24 @@ IntelliJ에서는 `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Contex
 7. `MasterDataQueryPort`로 계정과목 존재를 검증합니다.
 8. `JournalPostingPort`로 초기입금 전표 초안을 생성합니다.
 
+### 입출금과 전표 outbox
+
+`POST /api/deposits/accounts/{accountNumber}/deposit` 또는 `/withdraw`에 양수 `amount`를 보내면, core가 매 시도마다 계좌를 다시 읽고 잔액 규칙을 검사합니다. 입금은 **현금 차변 / 예금부채 대변**, 출금은 **예금부채 차변 / 현금 대변**으로 같은 금액의 두 줄을 기록합니다. 거래마다 새 계보 ID와 outbox 멱등 키를 만들므로 한 계좌의 여러 입출금을 구별할 수 있습니다. 계좌 잔액과 `deposit_outbox`의 `PENDING` 이벤트는 같은 로컬 DB 트랜잭션으로 저장됩니다. 저장 실패 시 둘 다 롤백하며, 낙관 잠금 충돌 시 실패한 트랜잭션이 끝난 뒤 최신 잔액으로 다시 검증합니다. 잔액 부족 출금은 재시도 중에도 실패할 수 있습니다. Journal의 금액 계약에 맞춰 **정확히 소수 둘째 자리까지 표현되는 금액**만 허용합니다(`1.0000`은 `1.00`으로 처리, `0.0001`은 거부). 현재 입출금은 환율·기준통화 금액 공급 경로가 없으므로 **KRW 계좌만 처리**하며, 외화 계좌는 잔액 변경 전에 거부합니다.
+
+HTTP 성공은 **잔액과 전표 요청의 로컬 커밋**을 뜻합니다. 외부 Journal 초안 생성은 커밋 후 기존 outbox 릴레이가 수행하므로, 릴레이가 완료되기 전에는 원장 대사가 일시적으로 차이 날 수 있습니다. 예를 들어 로컬 H2 프로필에서 계좌를 개설한 뒤 `{"amount": "100.00"}`으로 입금하면 잔액이 100.00 증가하고 해당 거래의 outbox 이벤트가 생성됩니다. 릴레이가 활성화되어 있으면 이후 이벤트 상태가 `PUBLISHED`로 바뀝니다.
+
+회계일자가 마감되어 Journal이 전표를 거부하면 **이미 커밋된 잔액은 자동으로 되돌리지 않습니다.** 릴레이는 오류와 재시도 횟수를 outbox에 남기며, 반복 실패로 `FAILED`가 된 이벤트는 원인을 확인하고 마감 정책에 맞게 기간을 재개방하거나 승인된 조정 전표 절차를 결정한 뒤 재전송해야 합니다. 임의로 원본 outbox를 지우거나 회계일자를 바꾸면 계보가 끊깁니다. 현재 입출금 HTTP 요청에는 멱등 키가 없으므로 동일 요청을 다시 보내면 새 거래로 처리됩니다. `deposit_transactions` 영속 이력, 운영 PostgreSQL 트랜잭션, 실제 Journal 마감·대사는 이 변경에서 검증하지 않았습니다.
+
 운영에서는 로컬 어댑터 대신 master-data와 journal-ledger의 실제 어댑터를 연결해야 합니다.
 
 ## 검증 명령
 
 ```powershell
 .\gradlew :deposit:core:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1 --no-daemon
+```
+
+입출금 회귀 검증은 저장소 루트에서 다음 명령을 사용합니다.
+
+```powershell
+.\gradlew :deposit:core:test :deposit:api:test --offline --no-daemon --console=plain
 ```

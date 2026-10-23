@@ -44,13 +44,13 @@ class ClosingBatchPostgresqlSchemaContextTest {
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM flyway_schema_history_closing
-                WHERE version IN ('49', '50', '51', '52') AND success = TRUE
-                """, Integer.class)).isEqualTo(4);
+                WHERE version IN ('49', '50', '51', '52', '53') AND success = TRUE
+                """, Integer.class)).isEqualTo(5);
     }
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @EntityScan(basePackages = "com.ho.account.closing.domain")
+    @EntityScan(basePackages = {"com.ho.account.closing.domain", "com.ho.account.closing.infrastructure.persistence"})
     @EnableJpaRepositories(basePackages = "com.ho.account.closing.infrastructure.persistence")
     static class SchemaValidationApplication {
     }

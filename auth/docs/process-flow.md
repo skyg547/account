@@ -4,14 +4,35 @@
 
 | 메서드 | 경로 | 역할 |
 | --- | --- | --- |
-| `POST` | `/api/auth/login` | 명시적 `NORMAL` 비밀번호 로그인의 자격 증명을 검증하고 JWT를 발급합니다. SSO/LDAP는 신뢰 공급자가 없어 fail-closed입니다. |
+| `POST` | `/api/auth/login` | `NORMAL`·`LDAP` 비밀번호 또는 `SSO` 공급자 자격을 검증하고 필요한 OTP·계정·역할 확인 뒤 JWT를 발급합니다. 기본 SSO/OTP는 비활성화되어 있습니다. |
 | `POST` | `/api/auth/validate-token-version` | 버전과 현재 계정/유효 역할 상태를 확인합니다. |
 | `POST` | `/api/auth/internal/users/{username}/role-assignments` | Governance 승인 결과로 사용자 역할 목록을 멱등 교체합니다. |
 | `GET` | `/api/admin/users` | 프런트엔드 관리 화면용 사용자 목록을 username 순서로 조회합니다. |
+| `POST/GET` | `/api/auth/pat` | 인증된 사용자의 PAT 생성·목록 조회. |
+| `DELETE` | `/api/auth/pat/{id}` | 인증된 소유자의 PAT 폐기. |
+| `GET/DELETE` | `/api/auth/admin/pat[/{id}]` | 현재 시스템 관리자만 전체 목록 조회·강제 폐기. |
+
+## 요청 형식과 오류 경계
+
+로그인 요청의 `username`은 `auth_users`와 `auth_login_attempts`의 80자 한도에 맞춰 검증합니다. 길이 81자 이상은 core의 잠금 조회·실패 기록 전에 HTTP 400 `VALIDATION_ERROR`로 중단됩니다. 소문자 정규화 후 실패 기록 키가 80자를 넘는 Unicode 입력도 core가 조회 전에 400 `INVALID_REQUEST`로 중단합니다. 길이 이내에서 비밀번호 등이 틀린 요청은 기존 401 `INVALID_CREDENTIALS` 동작을 유지합니다.
+
+PAT 생성 요청에서는 선택적 레거시 `username`을 80자, `tokenName`을 `auth_personal_access_tokens.token_name`의 100자까지 받습니다. 본문의 `username`은 검증되더라도 소유자 선택에는 사용되지 않습니다. 확인된 소유자 username은 50·51·80자까지 PAT에 저장할 수 있습니다. 레거시 본문 username 81자는 HTTP 400으로, 확인된 소유자 username 81자는 core에서 저장 전에 거부합니다. `expireDays`를 생략하면 90일이고, 명시하면 1~3650일이어야 합니다. 따라서 이름 100자는 허용하고 101자는 거부하며, 기간 0·음수·3651일은 거부하고 3650일은 허용합니다. 요청 길이와 기간 위반은 PAT 생성 전에 HTTP 400 `VALIDATION_ERROR`로 거부합니다. core도 확인된 소유자와 PAT 이름·기간의 상한을 저장 전에 다시 확인합니다.
+
+로그인·PAT 본문에서 JSON 구문이 깨지거나 자료형이 맞지 않으면 HTTP 400 `INVALID_REQUEST`와 고정된 `Malformed request body`를 반환합니다. 파서 메시지와 제출 내용은 응답에 넣지 않습니다. 예상 밖의 서버 오류는 HTTP 500 `INTERNAL_SERVER_ERROR`와 참조 ID를 담은 일반 메시지로 응답합니다. 서버 로그에는 참조 ID와 예외 종류만 남겨 오류와 요청을 연결하며 예외 메시지나 요청 본문을 기록하지 않습니다.
+
+## PAT 관리 권한 흐름
+
+모든 PAT 경로는 로그인에서 발급한 `Authorization: Bearer <JWT>`를 요구합니다. Auth는 JWT의 서명·issuer·만료와 역할 버전을 확인한 다음, JWT subject와 정확히 같은 키의 현재 `AuthUser`를 조회합니다. 활성·잠금·유효 역할 상태도 현재 계정에서 검사합니다. 일반 경로는 이 정식 username의 PAT만 처리하고, 관리자 경로는 현재 유효 역할에 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN`이 있는 경우만 허용합니다. JWT의 역할 문자열과 `X-Auth-*` 헤더, 요청 본문·쿼리의 `username`은 권한 근거가 아닙니다. 대소문자가 다른 username은 다른 사용자로 취급합니다.
+
+인증 정보가 없거나 유효하지 않으면 401, 검증된 일반 사용자가 관리자 경로를 호출하면 403입니다. 관리자 폐기는 `X-Audit-Reason`에 `ADMIN_SECURITY`, `ADMIN_OFFBOARDING`, `ADMIN_ROTATION` 중 하나가 필수이며 누락·빈값·미지원 값은 변경 전에 400으로 거부합니다. 소유하지 않은 PAT의 일반 폐기는 내용을 드러내지 않는 404입니다. 생성된 원문 PAT는 생성 응답에서 한 번만 반환하고 저장소에는 해시만 남습니다. 성공한 생성·실제 상태 변경이 일어난 폐기는 동일 트랜잭션에서 행위자·소유자·토큰 ID·사유 코드·전후 상태·시각을 감사 이력으로 남깁니다. 반복 폐기는 새 감사 이벤트를 만들지 않습니다.
+
+현재 Gateway에는 PAT 라우트가 없습니다. 이 설명은 Auth 서비스에 직접 도달하는 요청의 보호 경계이며, Gateway 공개나 PAT를 다른 API 인증 수단으로 사용하는 기능을 뜻하지 않습니다.
 
 ## 관리자 사용자 목록 투영
 
-`GET /api/admin/users`는 Gateway가 JWT에서 다시 만든 신뢰 헤더 `X-Auth-Roles`에 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN`이 있을 때만 허용합니다. 헤더가 없거나 다른 역할뿐이면 저장소를 조회하지 않고 403으로 fail-closed합니다. 서비스는 역할 할당을 함께 읽고 하나의 요청 시각에서 유효 역할을 계산한 뒤 username 오름차순으로 반환합니다. 현재 Auth 스키마의 자연키는 username이며 숫자 ID, 별도 이름·이메일, 마지막 로그인 시각을 저장하지 않으므로 응답은 다음과 같은 제한된 표시용 투영입니다.
+`/api/admin/**` 수신 필터는 `Authorization: Bearer <JWT>` 하나를 요구하고 HS256 서명, issuer, 설정된 audience(`AUTH_JWT_AUDIENCE`, 기본값 `account-api`), 발급·만료 시각, 역할 형식, 현재 `roleVersion`을 확인합니다. Gateway가 전달한 `X-Auth-*`/`X-User-ID`가 있으면 JWT 신원과 정확히 일치해야 합니다. 없는 헤더는 JWT claim으로 대신하며, Controller는 검증된 claim 역할만 사용합니다. 원시 헤더만 있거나 위조·만료·불일치 토큰이면 use case 전에 401, 유효 토큰에 관리자 역할이 없으면 403입니다. 이후 core가 해당 사용자를 현재 저장소에서 다시 읽어 활성·잠금 상태, **모든 저장 역할의 `GLOBAL` 범위**, 요청 시점에 유효한 시스템 관리자 역할을 확인합니다. 어느 하나라도 실패하면 전체 목록 조회 전에 403으로 중단합니다. 역할 이름이 같아도 `GLOBAL` 관리자는 조회할 수 있고 `FIN` 같은 scoped 관리자는 조회할 수 없습니다. `OPTIONS` preflight와 공개 `POST /api/auth/login`에는 이 관리자 필터가 적용되지 않습니다. 현재 Auth 스키마의 자연키는 username이며 숫자 ID, 별도 이름·이메일, 마지막 로그인 시각을 저장하지 않으므로 응답은 다음과 같은 제한된 표시용 투영입니다.
+
+관리자 경로 판별은 MVC가 라우팅 전에 제거하는 matrix parameter와 퍼센트 인코딩을 고려합니다. 예를 들어 `/api/admin;v=1/users`와 `/api/admin%3Bv=1/users`도 Bearer 검증을 거치며, 역할 헤더만 보낸 요청은 401이고 목록 조회에 도달하지 않습니다.
 
 - `id`: username의 SHA-256 앞 48비트에 1을 더한 표시용 값입니다. 목록 순서와 무관하게 안정적이고 JavaScript 안전 정수 범위 안이지만, 축약 해시라 충돌할 수 있으며 영속 식별자가 아닙니다.
 - `name`, `email`: 모두 username을 사용합니다.
@@ -34,9 +55,17 @@ sequenceDiagram
     participant Token as TokenIssuerPort
 
     API->>Service: LoginCommand
+    Service->>Service: loginType·username 길이 검증
     Service->>Attempt: isLocked(username)
-    Service->>UserPort: findByUsername(username)
-    Service->>Service: password/active/admin-lock/department 검사
+    alt SSO
+        Service->>Service: 공급자 인증·subject와 요청 username 대조
+        Service->>UserPort: findByUsername(subject)
+    else NORMAL 또는 LDAP
+        Service->>Service: 비밀번호 입력 확인
+        Service->>UserPort: findByUsername(username)
+        Service->>Service: 저장 비밀번호 대조
+    end
+    Service->>Service: active/admin-lock/department/필요한 OTP 검사
     Service->>Domain: effectiveRoleAssignmentsAt(authenticatedAt)
     Domain-->>Service: 한 시점의 역할 스냅샷
     Service->>Token: TokenSubject + authenticatedAt
@@ -48,11 +77,73 @@ sequenceDiagram
 
 core는 `api.dto`를 참조하지 않습니다. 역할 유효성 계산 시각을 서비스가 한 번 만들고 JWT 어댑터에 전달하므로 응답과 claim이 같은 스냅샷을 사용합니다.
 
-현재 성공 경로는 대소문자를 구분하지 않는 명시적 `NORMAL`뿐입니다. 신뢰할 SSO 공급자가 없으므로 `SSO` 요청은 일반적인 자격 증명 오류로 끝나며 사용자 조회나 JWT 발급으로 진행하지 않습니다. null, 공백, 알 수 없는 로그인 유형도 같은 공개 오류를 반환합니다. 이들은 자격 증명 검증이 시작되지 않은 요청이므로 로그인 실패 저장소를 조회하거나 실패 횟수와 임시 잠금 카운터를 변경하지 않습니다.
+현재 인가 가능한 `dataScope`는 정확한 문자열 `GLOBAL` 한 가지이며 별도 scope subject는 없습니다. 새 역할 교체 요청에 `dataScope`가 없거나 비어 있으면 API가 400을 반환합니다. `FIN`, `DEPARTMENT:FIN`, 소문자나 앞뒤 공백 등 그 밖의 값도 core가 저장·멱등 fingerprint 계산 전에 400으로 거부합니다. 기존 저장 행의 비전역 범위 문자열은 `GLOBAL`로 바꾸지 않고 보존합니다. 그런 행이 하나라도 있는 사용자는 로그인에서 403을 받고 JWT를 발급받지 못합니다. 직접 JWT 발급 어댑터를 호출해도 같은 범위가 거부됩니다. 이는 부서별 권한 정책과 대상 데이터 필터가 정해지기 전의 차단 규칙입니다.
 
-LDAP 요청은 사용자와 비밀번호 및 임시 잠금 정책을 확인한 뒤에도 OTP 검증 공급자가 없으면 항상 일반적인 자격 증명 오류로 끝납니다. 고정값 또는 기본값 OTP를 성공 조건으로 사용하지 않으며 JWT를 발급하지 않습니다.
+발급기는 설정된 JWT TTL과 포함된 역할 할당의 `validTo` 중 가장 이른 시각을 `exp`로 서명합니다. `validTo`는 제외 경계이며 JWT는 초 단위이므로 초 미만의 종료 시각은 직전 정수 초에 만료되도록 내립니다. 이 경계에서 완전한 1초를 표현할 수 없는 역할은 발급 전 스냅샷에서 제외합니다. 영구 USER가 남으면 USER만 발급하고, 남은 역할이 없으면 `NO_EFFECTIVE_ROLE`로 로그인을 거부하므로 0초 토큰이나 발급 예외가 공개되지 않습니다. 응답의 `expiresInSeconds`는 서명된 만료 시각 기준의 완전한 초 수입니다. 영구 USER와 임시 ADMIN을 함께 담은 토큰은 ADMIN의 종료 시각을 만료 상한으로 갖고, 재로그인한 새 토큰에는 그 시점의 USER만 담깁니다. 미래에 시작할 역할은 기존 토큰에 추가되지 않으며 시작 이후 재로그인해야 포함됩니다. 별도 refresh API는 없습니다. Gateway가 허용 시계 오차를 적용하면 `exp` 정각 이후에도 토큰을 받아들일 수 있으므로 별도의 엄격한 만료 검사가 필요합니다.
+
+`NORMAL`, `LDAP`, `SSO`는 대소문자 구분 없이 선택됩니다. `NORMAL`·`LDAP`는 등록 사용자의 비밀번호를 검사하고, `SSO`는 공급자가 확인한 subject를 요청 username과 대조한 뒤 같은 이름의 등록 사용자를 조회합니다. 공급자가 보낸 역할은 발급 권한에 사용하지 않고 Auth에 저장된 유효 역할만 사용합니다. null, 공백, 알 수 없는 유형은 잠금 조회나 실패 기록 전에 일반 자격 증명 오류로 거부합니다.
+
+`LDAP`는 항상 OTP를 요구합니다. `NORMAL`·`SSO`는 사용자별 OTP 설정이 있거나 요청에 OTP가 있으면 검증하고, 필요 없는 경우에만 생략합니다. 누락·오류·재사용 OTP와 SSO 인증/subject 오류는 실패로 기록합니다. 기본 설정에서 SSO와 OTP는 비활성화되어 해당 경로가 fail-closed됩니다. `local` 프로파일의 설정 기반 SSO 및 사용자별 TOTP 어댑터는 명시적 활성화와 런타임 자격 입력 시 성공할 수 있습니다. 이 어댑터들은 운영 신뢰 공급자나 다중 인스턴스 OTP 재사용 방지 기능이 아닙니다(`ConfiguredSsoAuthenticationAdapter`, `TotpVerificationAdapter`).
 
 `AuthService`는 사용자 조회, master-data 원격 확인, 로그인 실패 저장 전체를 하나의 DB 트랜잭션으로 묶지 않습니다. JPA 조회/실패 기록 어댑터가 각각 짧은 read/write 트랜잭션을 소유해 외부 호출 중 DB 연결을 오래 잡거나 실패 기록이 readOnly 경계에 묻히는 일을 막습니다.
+
+### 공유 로그인 실패 상태의 동시성 정책
+
+`auth.login-security.store=jpa`에서는 `username`의 앞뒤 일반 공백을 `trim()`으로 제거하고 `Locale.ROOT` 소문자로 바꾼 값을 잠금 키로 사용합니다. `ADMIN`과 ` admin `은 같은 실패 횟수를 공유합니다. null은 `<blank>` 키로 바뀌지만 API는 빈 username을 그 전에 거부합니다. 키는 `auth_login_attempts.username`의 80자 제한을 따릅니다.
+
+실패 기록은 기존 행을 DB 쓰기 잠금으로 읽습니다. 첫 실패처럼 행이 없으면 같은 트랜잭션에서 0회 행을 `ON CONFLICT DO NOTHING`으로 만든 뒤 잠금 상태에서 1회 증가시킵니다. 삽입과 잠금 조회 사이에 성공 처리가 행을 삭제한 경우에는 최대 3회 다시 찾고, 계속 사라지면 예외로 기록 트랜잭션을 되돌립니다. 임베디드 PostgreSQL의 `JpaLoginAttemptPostgresConcurrencyTest`는 동시 최초 삽입 8건이 8회로 남는 경우와 기존 1회 행에 동시 3건을 더해 4회가 되고 다음 5회째 잠기는 경우를 별도로 검증합니다. 이는 기존 행의 lost update도 막는다는 근거입니다. 잠금 만료 시 `isLocked`는 행을 지우지 않고 잠금 해제만 보고합니다. 다음 실패가 잠긴 행을 잡고 새로운 1회부터 시작하므로 만료 정리와 새 실패가 서로의 상태를 덮지 않습니다. 잠금 중 추가로 완료된 실패는 잠금 시간을 갱신할 수 있습니다.
+
+성공 기록도 같은 행을 잠급니다. 현재 잠금이 없으면 이전 실패 행을 지우고, 다른 요청이 방금 활성 잠금을 만든 경우에는 그 잠금을 유지합니다. 성공과 잠금 전 실패가 겹치면 DB 행 잠금을 획득한 순서로 처리되며, 성공 뒤에 처리된 실패는 새 횟수로 남습니다. 로그인 전체는 장기 DB 트랜잭션이 아니므로 이미 `isLocked`를 통과한 요청은 그 뒤 잠금이 생겨도 비밀번호 검증이나 JWT 발급을 마칠 수 있습니다. 잠금은 다음에 들어오는 요청을 막는 기준이며, 동시에 진행 중인 요청 수의 상한을 보장하지 않습니다.
+
+JPA 모드의 각 실패·성공 전이는 같은 짧은 트랜잭션에서 `auth_login_security_events` 행을 추가합니다. 따라서 성공으로 임시 카운터가 지워져도 당시의 실패·성공 이력은 남습니다. 실패의 username은 확인된 사용자가 아닌 요청자가 주장한 식별자이며, 성공 행에만 인증된 식별자를 기록합니다. 로그 출력의 외부 보존 여부는 이 DB 이벤트와 별도로 운영에서 확인해야 합니다. 보존·내보내기 책임과 운영 확인 항목은 [schema.md](schema.md)를 따릅니다.
+
+### 원격 부서 검증과 로그인 차단
+
+`auth.master-data.enabled=true`이면 `AuthService`가 사용자에게 저장된 부서 코드를
+`DepartmentValidationPort`로 전달하고, 원격 어댑터가 `GET /api/basic/departments/{departmentCode}`를 호출합니다.
+정확히 HTTP 200이고 JSON 객체의 `code`가 문자열이며 요청 코드와 대소문자·공백까지 일치해야 검증에 성공합니다.
+본문 전체가 하나의 JSON 객체여야 하므로 객체 뒤의 공백만 허용하고, 추가 JSON 객체나 잘못된 문자열이 붙으면 거부합니다.
+중복 필드도 거부합니다. 특히 `code`가 두 번 나오면 값이 서로 같아도 부서 확인의 증거로 사용하지 않습니다.
+`name` 같은 추가 필드는 허용하지만 숫자를 문자열로 바꾸거나 다른 부서의 응답을 허용하지 않습니다.
+부서가 없는 사용자에 대한 기존 검사 생략과 명시적 로컬 어댑터의 동작은 그대로입니다.
+
+| 원격 결과 | 로그인 결과 |
+| --- | --- |
+| 200 + 요청 코드와 같은 문자열 `code`를 가진 객체 | OTP·유효 역할 검사로 진행하고 모든 검사가 성공해야 JWT 발급 |
+| 404 | `INVALID_DEPARTMENT` 실패 기록 후 403, `Department code is invalid` |
+| 401/403/5xx, 그 밖의 200·404 외 상태, 연결 실패 또는 timeout | 전용 검증 불가 예외로 중단, 503 `DEPARTMENT_VALIDATION_UNAVAILABLE` |
+| 빈 본문, 읽을 수 없는 JSON, 뒤따르는 추가 데이터, 중복 필드, 객체가 아닌 값, 누락/잘못된 자료형/불일치 `code` | 같은 전용 예외로 중단, 503 `DEPARTMENT_VALIDATION_UNAVAILABLE` |
+
+404는 부서 명부에서 **그 코드가 없다고 확인한 결과**이므로 기존 403 `USER_ACCESS_DENIED`와
+`Department code is invalid`를 반환하고 `INVALID_DEPARTMENT` 실패를 기록합니다.
+그 밖의 원격 실패나 확인할 수 없는 성공 본문은 **부서가 존재하지 않는다는 증거가 아니므로**
+`DepartmentValidationUnavailableException`으로 중단합니다. API는 이 예외만 503으로 매핑하며,
+공개 메시지는 항상 `Department validation is unavailable`입니다. 503은 의존 서비스가 복구된 뒤
+로그인을 다시 시도할 수 있다는 신호이며, 다른 로그인 예외는 기존 일반 오류 매핑을 따릅니다.
+
+전용 예외에는 원격 예외를 cause나 suppressed로 연결하지 않습니다. 503 응답은 정해진 코드와 메시지만 사용하므로
+요청 부서 코드, 원격 주소·본문, 자격 증명, 예외 원인이 공개 응답이나 새 로그에 실리지 않습니다.
+검증 장애는 사용자 비밀번호 실패로 집계하지 않으며 JWT 발급과 로그인 성공 기록에 도달하지 않습니다.
+원격 장애를 정상 부서로 간주하는 fallback은 없습니다.
+
+초보자 관점에서는 부서 명부 담당자가 정확한 소속을 확인해 줘야 출입증을 발급하는 절차입니다.
+명부를 읽지 못했거나 다른 부서의 답을 받았다면 확인될 때까지 발급을 멈춥니다.
+404라면 잘못된 소속을 바로잡아야 하고, 503이라면 명부 조회가 가능해진 뒤 재시도해야 합니다.
+연결·응답 대기 설정과 실제 요청 시간의 한계는 [local-run.md](./local-run.md#원격-부서-조회-대기-시간)에 설명합니다.
+현재 timeout 테스트는 예외를 모의한 것이며 실제 대기시간 상한을 검증하지 않습니다.
+
+JDK 17과 캐시된 Gradle 의존성이 있는 저장소 루트에서 다음 회귀 검증을 실행합니다.
+`MockRestServiceServer`와 실제 `AuthService`를 연결한 `MockMvc`를 사용하므로 외부 서비스, DB, 실제 credential이 필요 없습니다.
+
+```powershell
+./gradlew.bat :auth:core:test :auth:api:test :gateway:test --offline --no-daemon --console=plain --max-workers=2
+```
+
+기대 결과는 실패·오류·skip 0입니다. `MasterDataDepartmentValidationAdapterTest`는 상태와 본문 증명을,
+`DepartmentValidationLoginIntegrationTest`는 503의 정확한 상태·코드·메시지, 로그인 거부·발급 호출 없음,
+공개 응답과 애플리케이션 로그의 입력 비노출을 확인합니다. 정상 200은 같은 역할 스냅샷으로 JWT 발급 포트가
+호출되고 404와 무관한 일반 오류는 기존 상태·코드를 유지하는지도 확인합니다. 실제 네트워크나 배포 환경의
+검증은 포함하지 않습니다.
 
 ## 역할 변경 멱등 반영 흐름
 
@@ -91,10 +182,23 @@ username 존재
 AND roleVersion 일치
 AND account_active = true
 AND account_locked = false
+AND 모든 저장 역할의 dataScope = GLOBAL
 AND 검증 시점의 유효 역할이 1개 이상
 => valid = true
 ```
 
+만료되었거나 비승인인 비전역 역할도 차단합니다. 과거 JWT에 서명된 역할 내용은 현재 이 API의 username/roleVersion 입력만으로 복원할 수 없기 때문입니다. Gateway가 token-version 검증을 끄거나 이전 성공을 캐시한 동안에는 이 Auth 응답이 즉시 모든 서비스에 적용되지 않습니다. Gateway의 `roleAssignments` 해석·전달과 master-data 쓰기 정책은 별도 모듈 변경이 필요합니다.
+
+시간 경과만으로 `roleVersion`은 바뀌지 않습니다. 영구 USER가 남아 있으면 임시 ADMIN의 `validTo` 이후에도 위 검증은 `true`일 수 있으므로 JWT의 엄격한 만료 확인이 역할 버전 확인보다 먼저 적용되어야 합니다. 버전 검증의 positive cache에는 개별 할당 종료 시각이 없으므로 캐시 자체는 이 경계를 막지 못합니다.
+
+배포 전에 이미 발급된 JWT는 역할 유효기간을 담지 않고 기존 설정 TTL을 사용했으므로 새 발급 정책이 소급 적용되지 않습니다. 즉시 폐기가 필요한 기존 고권한 토큰은 승인된 역할 재적용을 통한 `roleVersion` 증가나 서명키 교체 같은 별도 전환 절차가 필요합니다. 이 절차는 이 코드 변경의 실행 범위가 아닙니다.
+
 ## Gateway와의 관계
 
-Gateway는 JWT 서명과 issuer를 검증하고 인증 헤더를 뒤쪽 서비스로 전달합니다. 역할 변경 직후 기존 JWT를 강하게 차단해야 하는 경로는 Auth token-version API를 호출하거나 동일 의미의 캐시 정책을 사용해야 합니다.
+Gateway는 JWT 서명·issuer·시간과 역할 버전을 검증하고 원시 신원 헤더를 제거한 뒤 검증된 헤더와 `Authorization`을 뒤쪽 서비스로 전달합니다. 현재 Gateway 검증기는 audience를 검사하지 않습니다. Auth 관리자 수신 필터는 JWT의 audience까지 독립 검증하고 `AuthUseCase.validateTokenVersion`으로 현재 역할 버전과 계정 상태를 확인합니다. 직접 호출도 동일하게 처리됩니다. 이 검사는 로컬 auth 사용자 저장소를 사용하며 Gateway의 별도 버전 검증 호출에 의존하지 않습니다.
+
+Auth 발급기의 `AUTH_JWT_AUDIENCE`와 Master Data 수신 검증기의 `AUTH_JWT_AUDIENCE`는 같은 값으로 설정합니다(기본값 `account-api`). 값이 다르면 Master Data의 보호된 요청은 401로 거부됩니다. Gateway에도 audience 검증을 추가할 경우 같은 값을 사용해야 합니다.
+
+## 목록 조회의 페이지 흐름 (Issue #920)
+
+관리자 사용자와 PAT 목록은 `page=0`, `size=20`에서 시작하고 `size`는 100까지 허용합니다. Controller는 제한된 페이지 요청을 core use case로 전달합니다. 사용자 영속성 어댑터는 먼저 `username ASC`로 사용자 키만 SQL 페이지 조회하고 그 페이지의 역할 할당을 다시 읽어 유효 시각에 따른 표시 역할을 계산합니다. PAT 영속성 어댑터는 소유자 필터를 유지하며 `created_at DESC, id DESC` 순서로 SQL 페이지 조회합니다. 응답은 JSON 배열과 `X-Page`, `X-Page-Size`, `X-Has-Next` 헤더로 구성됩니다. 전체 결과가 필요한 클라이언트는 `X-Has-Next`가 `false`가 될 때까지 다음 페이지를 읽어야 합니다.

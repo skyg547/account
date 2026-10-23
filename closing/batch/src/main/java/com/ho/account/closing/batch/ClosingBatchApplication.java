@@ -1,10 +1,13 @@
 package com.ho.account.closing.batch;
 
 import com.ho.account.closing.application.pipeline.FxValuationPipeline;
+import com.ho.account.closing.application.port.out.ClosingFinancialRunManifestPort;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
+import com.ho.account.closing.application.service.FinancialClosingCalculationService;
 import com.ho.account.closing.application.service.FxValuationService;
 import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
+import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
 import com.ho.account.closing.infrastructure.local.ClosingLocalExternalPortConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -15,27 +18,45 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
-import com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapter;
-import com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapter;
-import com.ho.account.closing.batch.adapter.out.MasterDataFxExchangeRateLookupAdapter;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "com.ho.account.closing.batch", excludeFilters = {
         @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
         @ComponentScan.Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {
-                JournalFxValuationBalanceSource.class, GlAllowanceBalanceLookupAdapter.class,
-                JdbcEclAllowanceResultAdapter.class, MasterDataFxExchangeRateLookupAdapter.class
+                JournalFxValuationBalanceSource.class
         })
 })
-@EntityScan(basePackages = "com.ho.account.closing.domain")
+@EntityScan(basePackages = {
+        "com.ho.account.closing.domain",
+        "com.ho.account.closing.infrastructure.persistence"
+})
 @EnableConfigurationProperties(ClosingAccountingProperties.class)
-@Import({FxValuationEligibilityResolver.class, FxValuationService.class, FxValuationPipeline.class, EclProvisionService.class,
+@Import({FxValuationEligibilityResolver.class, FxValuationService.class, FxValuationPipeline.class,
+        EclProvisionService.class, FinancialClosingCalculationService.class,
         ClosingLocalExternalPortConfiguration.class})
 public class ClosingBatchApplication {
+    /** Batch validates sources but never invokes the synchronous API manifest/posting path. */
+    @Bean
+    ClosingFinancialRunManifestPort apiRunManifestUnavailableInBatch() {
+        return new ClosingFinancialRunManifestPort() {
+            @Override
+            public boolean exists(String scope, Long batchId) {
+                throw new IllegalStateException("Synchronous API run manifest is unavailable in Batch context");
+            }
+
+            @Override
+            public java.util.List<com.ho.account.closing.application.port.out.ClosingJournalEntryCommand> loadOrCreate(
+                    String scope, Long batchId,
+                    java.util.function.Supplier<java.util.List<com.ho.account.closing.application.port.out.ClosingJournalEntryCommand>> prepare) {
+                throw new IllegalStateException("Synchronous API run manifest is unavailable in Batch context");
+            }
+        };
+    }
+
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(ClosingBatchApplication.class);
         application.setWebApplicationType(WebApplicationType.NONE);

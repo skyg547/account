@@ -1,7 +1,5 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
-import jakarta.persistence.*;
-
 /**
  * 자동 분개 규칙 조건 (Journal Rule Condition).
  *
@@ -31,21 +29,15 @@ import jakarta.persistence.*;
  *   필수 이벤트 값이 없으면 규칙이 일치하지 않은 것으로 안전하게 처리합니다.
  * ─────────────────────────────────────────────────
  */
-@Entity
-@Table(name = "journal_rule_conditions")
 public class JournalRuleCondition {
 
     /** 시스템 내부 PK (자동 증가) */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**
      * 소속 분개 규칙.
      * 이 조건이 어느 JournalRule에 속하는지를 나타냅니다.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rule_id", nullable = false)
     private JournalRule journalRule;
 
     /**
@@ -53,7 +45,6 @@ public class JournalRuleCondition {
      * JournalRuleEngine이 받는 eventData Map의 key와 일치해야 합니다.
      * 예: "transactionType", "productCode", "departmentCode", "amount"
      */
-    @Column(nullable = false, length = 50)
     private String field;
 
     /**
@@ -61,8 +52,6 @@ public class JournalRuleCondition {
      * ConditionOperator 열거형을 참고하세요.
      * 예: EQUALS, STARTS_WITH, GREATER_THAN 등
      */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private ConditionOperator operator;
 
     /**
@@ -71,7 +60,6 @@ public class JournalRuleCondition {
      * 숫자 비교(GREATER_THAN 등): JournalRuleEngine에서 BigDecimal로 파싱하여 비교합니다.
      * 예: "PURCHASE", "D0", "1000000"
      */
-    @Column(name = "condition_value", nullable = false, length = 255)
     private String value;
 
     // ─── Getter / Setter ──────────────────────────────────

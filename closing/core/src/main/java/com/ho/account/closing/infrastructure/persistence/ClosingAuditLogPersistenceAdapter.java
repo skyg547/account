@@ -9,9 +9,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ClosingAuditLogPersistenceAdapter implements ClosingAuditLogPersistencePort {
     private final ClosingAuditLogRepository closingAuditLogRepository;
+    private final ClosingCalendarRepository calendarRepository;
 
     @Override
     public void save(ClosingAuditLog auditLog) {
-        closingAuditLogRepository.save(auditLog);
+        ClosingAuditLogEntity entity = ClosingEntityMapper.toEntity(auditLog);
+        entity.setClosingCalendar(calendarRepository.getReferenceById(auditLog.getClosingCalendar().getId()));
+        closingAuditLogRepository.save(entity);
     }
 }

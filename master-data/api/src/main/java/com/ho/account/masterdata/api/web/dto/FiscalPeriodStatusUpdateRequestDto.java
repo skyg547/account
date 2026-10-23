@@ -7,7 +7,6 @@ public class FiscalPeriodStatusUpdateRequestDto {
     @NotBlank(message = "closingStatus must not be blank")
     private String closingStatus;
 
-    @NotBlank(message = "auditUser must not be blank")
     private String auditUser;
 
     public FiscalPeriodStatusUpdateRequestDto() {

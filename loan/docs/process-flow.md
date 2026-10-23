@@ -35,6 +35,10 @@ sequenceDiagram
 
 현재 모델은 원금과 같은 금액의 1회 실행만 허용합니다. 분할 실행이 필요하면 tranche aggregate, 미실행 잔액, 취소·역분개, 동시성 테스트를 먼저 설계해야 합니다.
 
+현재 계약 생성은 `paymentFrequency=MONTHLY`만 허용합니다. 예를 들어 `POST /api/loan/loans`에 `QUARTERLY`를 보내면 `paymentFrequency QUARTERLY is not supported; only MONTHLY is supported.` 오류와 HTTP 400을 반환합니다. 대출 저장과 원금 실행·전표 생성은 시작하지 않습니다. `DAILY`, `WEEKLY`, `BI_WEEKLY`, `SEMI_ANNUALLY`, `ANNUALLY`도 같은 방식으로 거부합니다. API 요청의 enum 값은 유지하지만 이 값들을 실제 상환 주기로 사용할 수는 없습니다.
+
+이미 저장된 `PENDING_DISBURSEMENT` 비월별 계약도 실행 시 같은 오류로 거부하며 원금 실행 전표를 보내거나 ACTIVE로 전환하지 않습니다.
+
 ## 이연 항목과 EIR
 
 1. 이연 유형 생성 시 유형의 계정 코드 또는 기본 계정 설정을 Master Data에서 검증합니다.
@@ -42,6 +46,10 @@ sequenceDiagram
 3. `EIRCalculator`가 현재 잔액과 포함 대상 현금흐름으로 소수 단위 연 EIR을 구합니다.
 4. 새 스케줄 전체를 먼저 계산합니다.
 5. 계산 성공 후에만 대상 기존 스케줄을 삭제하고 새 행을 저장합니다.
+
+월별 스케줄은 실행일 다음 달부터 만기일까지 생성하고 연 EIR을 12로 나눈 기간 이율을 적용합니다. 기존 DB에서 읽은 비월별 계약도 생성 경계에서 오류가 발생하므로 새 월별 현금흐름을 반환하거나 기존 스케줄을 교체하지 않습니다. 예를 들어 2026-01-01 실행·2026-04-01 만기인 `QUARTERLY` 계약에는 2월·3월 월별 상환을 만들지 않습니다. 기존에 이미 저장된 잘못된 스케줄을 자동 삭제하거나 과거 분개를 정정하지는 않으므로 해당 계약은 별도 대사가 필요합니다. 비월별 주기를 지원하려면 기간 이율, 마지막 단기 회차, 휴일과 day-count 정책을 먼저 확정해야 합니다.
+
+개발 검증: 저장소 루트에서 `./gradlew :loan:core:test :loan:api:test :loan:batch:test --offline --no-daemon --console=plain`을 실행합니다. 상위 `:loan:test`는 `NO-SOURCE`이므로 이 명령으로 실제 하위 프로젝트 테스트를 확인합니다. 월별 날짜·원금·이자와 비월별 거부는 `EIRAmortizationScheduleTest`, 교체/전표 차단은 `LoanServiceTest`, HTTP 400은 `LoanControllerTest`에서 확인합니다. 실제 고객 계약·외부 Journal·PostgreSQL의 스케줄/분개 대사는 별도 운영 검증 대상입니다.
 
 ## 이벤트 처리
 
@@ -56,6 +64,16 @@ sequenceDiagram
 | `SCHEDULED_REPAYMENT_PENDING` / `SCHEDULED_REPAYMENT` | 약정 상환 배치가 만드는 예약/완료 이벤트. 일반 이벤트 API로 직접 생성할 수 없음 |
 
 API 응답은 저장된 이벤트와 선택적 재계산 결과를 함께 반환합니다.
+
+## 로컬 전표 승인과 재시도
+
+로컬 모드(`account.loan.remote.enabled=false`, 기본값)에서 Loan은 `account.loan.accounting.journal-approver-actor`를 서버 설정으로 받아야 전표를 전기할 수 있습니다. 예: `service:loan-checker`. 값은 `service:` 뒤에 영문 소문자·숫자로 시작하고 이후 영문 소문자·숫자·점·밑줄·하이픈만 허용하며 전체 50자 이하입니다. 대소문자와 양끝 공백은 Journal 신원 규칙에 따라 정규화합니다. 실행 actor와 정규화된 신원이 같으면 실패합니다. 설정이 없거나 잘못되면 전표나 outbox를 쓰기 전에 실패하므로 운영자는 별도 기계 승인 주체를 설정해야 합니다. 이 설정값은 승인 주체의 식별자이며 인증 자격 증명이 아닙니다.
+
+로컬 어댑터는 Loan 명령의 actor를 작성자와 승인 요청자로 기록하고, 별도 설정된 기계 주체로 `DRAFT → REQUESTED → APPROVED`를 거친 뒤 기존 Journal `PostingService`로 `POSTED` 전기합니다. 전기 직전에 회계기간을 다시 검사하며, 성공한 전표의 ID·번호만 Loan 계보에 연결합니다. 대출 실행 중 승인·마감·전기 오류가 나면 호출이 실패하고 Loan 실행 완료 및 전표 계보는 저장하지 않습니다. 로컬 DB 트랜잭션 롤백이 전제입니다.
+
+OutboxPort 주입이 없으면 어댑터는 비영속 `InMemoryOutboxAdapter`를 사용합니다. 승인·마감·전기 실패 시 이미 기록한 `PENDING` 이벤트는 메모리에 남을 수 있고, 프로세스가 종료되면 사라집니다. `PUBLISHED` 표시는 로컬 전기 호출 후의 메모리 상태 갱신일 뿐 외부 전달·중복 방지·복구를 보장하지 않습니다. 현재 Loan에는 동일 DB 트랜잭션에 참여하는 영속 OutboxPort가 없으므로 Loan 상태·Journal 전기·outbox의 원자성을 주장할 수 없습니다. 영속 어댑터를 추가하더라도 같은 DB 트랜잭션 참여와 실패 롤백을 검증해야 그 범위의 원자적 저장을 말할 수 있습니다. 실패나 결과 불명 시 메모리 이벤트만 보고 재전기하지 말고 Journal 계보와 Loan 상태를 대사해야 합니다.
+
+약정 상환은 위 전표 호출 전에 `SCHEDULED_REPAYMENT_PENDING` 예약을 별도 트랜잭션으로 커밋합니다. 전표 실패 또는 결과 불명 시 예약을 유지하고 자동 재전기하지 않습니다. 담당자가 `LOAN_SCHEDULED_REPAYMENT` 계보와 `<loanId>:<repaymentDate>`로 Journal의 실제 상태, Loan 잔액, 이벤트를 대사해 복구 여부를 결정합니다. 이자를 포함한 다른 Loan 전표도 성공 여부가 불명확하면 계보를 먼저 확인한 뒤 재시도를 결정해야 합니다. 원격 HTTP 어댑터의 인증된 작성자·승인자 분리와 결과 유실 복구는 별도 후속 작업입니다.
 
 ## 이자 발생 Batch
 

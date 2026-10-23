@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.infrastructure.persistence.LedgerEntryPersistenceAdapterTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:24" hostname="ho-To-Be-Filled-By-O-E-M" time="0.126">
+  <properties/>
+  <testcase name="JPA adapter는 한 Aggregate의 같은 posting 값으로 GL과 SL 엔티티를 만든다." classname="com.ho.account.journalledger.infrastructure.persistence.LedgerEntryPersistenceAdapterTest" time="0.126"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

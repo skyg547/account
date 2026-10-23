@@ -74,6 +74,7 @@ public class TaxInvoice {
      */
     public static TaxInvoice create(String issueId, String type, LocalDate issueDate, String bpCode,
                                    BigDecimal supply, BigDecimal tax, BigDecimal total) {
+        validateAmounts(supply, tax, total);
         TaxInvoice invoice = new TaxInvoice();
         invoice.issueId = issueId;
         invoice.type = type;
@@ -82,17 +83,32 @@ public class TaxInvoice {
         invoice.supplyAmount = supply;
         invoice.taxAmount = tax;
         invoice.totalAmount = total;
-        invoice.validateAmounts();
         return invoice;
     }
 
     public void validateAmounts() {
-        if (supplyAmount == null || taxAmount == null || totalAmount == null) {
+        validateAmounts(supplyAmount, taxAmount, totalAmount);
+    }
+
+    private static void validateAmounts(BigDecimal supply, BigDecimal tax, BigDecimal total) {
+        if (supply == null || tax == null || total == null) {
             throw new IllegalArgumentException("공급가액, 세액, 합계금액은 필수입니다.");
         }
-        if (supplyAmount.add(taxAmount).compareTo(totalAmount) != 0) {
-            throw new IllegalStateException("공급가액(" + supplyAmount + ")과 세액(" + taxAmount + ")의 합이 합계금액(" + totalAmount + ")과 일치하지 않습니다.");
+        if (!isStorableAmount(supply) || !isStorableAmount(tax) || !isStorableAmount(total)) {
+            throw new IllegalArgumentException("금액은 NUMERIC(19,2)에 반올림 없이 저장할 수 있어야 합니다.");
         }
+        if (supply.add(tax).compareTo(total) != 0) {
+            throw new IllegalStateException("공급가액(" + supply + ")과 세액(" + tax + ")의 합이 합계금액(" + total + ")과 일치하지 않습니다.");
+        }
+    }
+
+    /** API와 core가 동일한 저장 정밀도 경계를 사용한다. 끝자리 0은 버려도 값이 바뀌지 않는다. */
+    public static boolean isStorableAmount(BigDecimal amount) {
+        if (amount == null) {
+            return false;
+        }
+        BigDecimal value = amount.stripTrailingZeros();
+        return value.scale() <= 2 && (long) value.precision() - value.scale() <= 17;
     }
 
     public boolean isPurchaseType() {
@@ -104,13 +120,14 @@ public class TaxInvoice {
      */
     public void updateInfo(String issueId, LocalDate issueDate, String bpCode, 
                           BigDecimal supplyAmount, BigDecimal taxAmount, BigDecimal totalAmount) {
+        // 유효하지 않은 수정은 영속화뿐 아니라 현재 aggregate의 값도 바꾸지 않는다.
+        validateAmounts(supplyAmount, taxAmount, totalAmount);
         this.issueId = issueId;
         this.issueDate = issueDate;
         this.businessPartnerCode = bpCode;
         this.supplyAmount = supplyAmount;
         this.taxAmount = taxAmount;
         this.totalAmount = totalAmount;
-        validateAmounts();
     }
 
     /**

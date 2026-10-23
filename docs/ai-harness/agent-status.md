@@ -1,3 +1,65 @@
+## 2026-10-20 — GH-924 actor/audit evidence, Draft PR #937
+
+- [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b2912554`; [Draft PR #937](https://github.com/skyg547/account/pull/937), `Refs #924`. Only `master-data/**`, `auth/**` and the four user-named harness/history records changed.
+- Authenticated direct actors, separate Closing service/business actors, immutable request/decision reasons and request-to-SCD2 IDs, durable login/PAT events, and safe bounded export evidence are implemented. PostgreSQL V12/V76 and isolated local H2 migration are covered by synthetic tests.
+- Requested five-project offline suite PASS: 623 master core, 128 master API (27 skipped), 200 auth core, 85 auth API, 74 gateway; zero failures/errors. Master Batch 5 PASS; both API bootJars and local unauthenticated HTTP 401 smoke PASS. Diff/marker/scope gates and independent Q1–Q4 review PASS. An earlier Gradle XML output collision was resolved by serialized rerun.
+- Residual owner: operations must validate deployed PostgreSQL grants, immutable seven-year export/restore evidence. Human reviewer owns current-head CI and Draft review; Ready, merge, Issue close and cleanup remain separate gates. Preserve worktree and branch.
+
+## 2026-10-20 — GH-918 master-data due-change isolation / Draft PR #932
+
+- State: [Issue #918](https://github.com/skyg547/account/issues/918) `status:needs-review`; `agent/918-isolate-due-changes` in `/tmp/account-918-isolate-due-changes`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`, implementation `c7fc82d5`; [Draft PR #932](https://github.com/skyg547/account/pull/932), `Refs #918`.
+- Scope: 26 `master-data/**` code, test, migration, configuration, and module documentation files, plus only the four requested shared harness/history records. Due requests now use separate transactions; deterministic failures have durable safe status/reason/time; transient failures remain retryable.
+- Verification: requested offline core/API/Batch suite PASS (619/130/5 total; 29 API PostgreSQL-conditioned skips; 0 failures/errors), focused H2 6/6 and synthetic PostgreSQL two-worker 2/2 PASS. API/Batch bootJars and local JAR startup PASS; unauthenticated HTTP apply-due returned expected 401. Diff/marker checks PASS. Independent read-only reviewer found no remaining P0–P3 and Q1–Q4 PASS.
+- Residual/next owner: OS process crash, authenticated deployed HTTP, and operating-scale contention remain untested. A pre-existing H2 migration-runner V5→full-history path fails at PostgreSQL-only V9 SQL; scoped H2 V5→V8 and PostgreSQL V10→V11 passed. Human reviewer owns current-head CI, Draft review, and separately authorized Ready/merge/Issue close/cleanup. Preserve branch/worktree and business/audit history; schema rollback requires reviewed forward correction.
+
+## 2026-10-20 — GH-922 foundation runtime documentation / Draft PR #936
+
+- State: [Issue #922](https://github.com/skyg547/account/issues/922) `status:needs-review`; branch `agent/922-foundation-doc-runtime`, worktree `/tmp/account-922-foundation-doc-runtime`, base `origin/main@b2912554`; [Draft PR #936](https://github.com/skyg547/account/pull/936) uses `Refs #922`.
+- Scope: 12 approved auth/master-data README and module guide files plus only these three user-requested shared status records. No source, test, migration, other module, shared contract/policy, or history worklog edit.
+- Verification: requested offline Gradle suite PASS (1,062 passed, 27 master-data API PostgreSQL-conditioned skips, 0 failures/errors; auth embedded PostgreSQL concurrency 7/7 executed); module relative links, diff/marker gates and harness quality 32/32 PASS. Independent read-only reviewer found no remaining P0–P3; Q1/Q4 N/A for documentation-only diff, Q2/Q3 PASS.
+- Residual/next owner: legacy V2 `CLOB` checksum/V4 upgrade requires a dedicated synthetic PostgreSQL fixture; local SSO/TOTP is not a production provider and live deployment/operational PostgreSQL were not tested. Current-head harness and merge-guard candidate checks passed; implementer PR discipline failed at the Draft/unconfigured-trust-policy review gate (`IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, `TRUST_POLICY_UNCONFIGURED`). Human reviewer owns that gate and separate Ready/merge/Issue close/cleanup decisions. Preserve Draft branch/worktree.
+
+## 2026-10-20 — GH-913 master-data payload limits / Draft PR #930
+
+- State: [Issue #913](https://github.com/skyg547/account/issues/913) `status:needs-review`; `agent/913-master-payload-limits` in `/tmp/account-913-master-payload-limits`, base `origin/main@a543f412`, implementation `273af9f8`; [Draft PR #930](https://github.com/skyg547/account/pull/930), `Refs #913`.
+- Scope: 29 `master-data/core`, `master-data/api`, module beginner-guide files plus only the three user-requested shared status records. Core enforces storage limits and blank names across governed/direct paths, validates merged UPDATE before approval and SCD2 closure, and locks before current-row lookup. No other module/shared contract/schema or history worklog edit.
+- Verification: requested offline core/API/batch suite PASS (582/112/5 tests; API 24 skipped; failures/errors 0), API/batch bootJars PASS; local H2 API startup PASS, health DOWN/503, synthetic POST 401 at ingress authentication. Diff and scoped marker gates PASS. Independent read-only Reviewer found no unresolved issue and Q1–Q4 PASS.
+- Residual/next owner: PostgreSQL-conditioned tests and live authenticated validation flow remain unverified; H2/MockMvc cannot substitute for PostgreSQL. Human reviewer owns current-head CI and separate Ready/merge/Issue close/cleanup gates. Implementation, review, and merge authority remain separate; preserve branch/worktree.
+## 2026-10-20 — GH-917 Auth memory-mode PAT startup / Draft PR #926
+
+- State: Issue #917; `agent/917-auth-memory-pat` in `/tmp/account-917-auth-memory-pat`, base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`. [Draft PR #926](https://github.com/skyg547/account/pull/926) uses `Refs #917`.
+- Scope: `auth/**` PAT service/controller conditional wiring, safe absent-route 404, full-context startup tests, module docs, plus the three explicitly requested AI harness status records. No other module or shared contract changed; `docs/history/CODEX_WORKLOG.md` is excluded by the user's restriction on other shared documentation.
+- Verification: requested offline core/API/gateway command PASS, 195/67/74 = 336 tests with zero failures/errors/skips; focused startup tests 2/2 PASS after initial memory missing-port RED; actual local JPA and memory `bootRun` startup PASS with generated unprinted credentials and ephemeral ports. Diff/marker and harness quality 32/32 checks PASS. Independent read-only reviewer found no defects and Q1–Q4 PASS.
+- Residual/next owner: H2/MockMvc and local bootRun are not PostgreSQL evidence; no production data or deployment touched. Remote harness validation and merge-guard candidate passed. Implementer PR discipline fails only for Draft status and repository trust policy not configured; it is a merge gate, not a test failure. Human reviewer owns Draft review and current-head CI. Ready, merge, Issue close, and branch/worktree cleanup remain separate gates.
+
+## 2026-10-20 — GH-916 auth error/input safety / Draft PR #925
+
+- State: Issue #916 `status:needs-review`; branch `agent/916-auth-error-input-safety`, worktree `/tmp/account-916-auth-error-input-safety`, base `origin/main@a24ceb02`, implementation `32387e3a`; [Draft PR #925](https://github.com/skyg547/account/pull/925), `Refs #916`.
+- Scope: 15 `auth/**` source/test/module-doc files plus four Issue-requested harness/history records. Malformed/scalar-mismatched requests use safe 400; unexpected 500 uses opaque reference ID and safe diagnostics; login/PAT schema bounds and Unicode normalization are enforced before persistence. No cross-module change.
+- Verification: core 197/API 76/Gateway 74 = 347 tests PASS, failures/errors/skips 0; auth API bootJar PASS; H2 HTTP/JPA, diff, and scoped marker checks PASS. Separate read-only reviewer found no acceptance blocker and Q1–Q4 PASS. Earlier focused stale-build failure was superseded by the current-source full run.
+- Residual/next owner: H2 is not PostgreSQL evidence; broad existing IAE→400 mapping can still classify an internal IAE as client error, with fixed safe public text. Human reviewer/authorized Integrator owns current-head CI, PostgreSQL gate, Ready, merge, Issue close, and cleanup. Preserve branch/worktree; Draft is not merge approval.
+
+## 2026-10-09 — GH-892 ECL lineage / Draft PR #907
+
+- State: Issue `status:needs-review`; branch `agent/892-ecl-snapshot-lineage` in `/tmp/account-892-ecl-snapshot-lineage`; base `origin/main@9348966a`; [Draft PR #907](https://github.com/skyg547/account/pull/907), `Refs #892`.
+- Scope: 23 Closing implementation/test/module-doc files plus the three Issue-requested AI harness records. V54 persists original ECL source and reconciliation, Journal carries resolvable `ECLSNAP` lineage, and full-run operation bindings reject changed snapshots before posting. No cross-module change.
+- Verification: final `./gradlew :closing:test` PASS 645/645 (core 374/API 159/Batch 112; 0 fail/error/skip); both Closing `bootJar` tasks PASS; H2 context/migration, diff, conflict marker, and harness quality 32/32 checks PASS. Independent read-only reviewer found no P0–P1 blocker and Q1–Q4 PASS.
+- Residual/next owner: no live PostgreSQL, remote Journal, distributed fault, or production-load evidence; POSTED detail reread and per-group remote lookup cost remain follow-up risks. Human reviewer and authorized Integrator own current-head CI, V54 deployment gate, Ready, merge, Issue close, and cleanup. Preserve branch/worktree until then.
+
+## 2026-10-09 — GH-854 cashflow images / Draft PR #878
+
+- State: `status:needs-review`; branch `agent/854-cashflow-images`; worktree `/tmp/account-854-cashflow-images`; base `origin/main@6b4998ed`; [Draft PR #878](https://github.com/skyg547/account/pull/878), `Refs #854`.
+- Scope: cashflow API/Batch Dockerfiles and README, plus the Issue-named `deploy/image-targets.json`. Both image targets are registered as disabled because Compose changes are outside scope. The independent read-only Reviewer found no in-scope blocker and marked Q1–Q4 PASS.
+- Verification: config-server 119 tests PASS with 11 existing skips; cashflow core/API/Batch 23 tests PASS; both bootJars PASS; manifest/Dockerfile/JAR static assertions, whitespace, and marker checks PASS. Requested `:infra:test` cannot run because `:infra` is absent; `:cashflow:test` is `NO-SOURCE`.
+- Residual: the Issue-named `ContainerImagePolicyTest` remains class-level disabled with stale fixed counts; actual container builds remain pending. Current-head cashflow CI passed; implementer PR discipline check fails while Draft and the repository trust policy is unconfigured. Next owner is the human PR reviewer. Ready, merge, Issue close, and resource deletion are not part of this Draft publication.
+
+## 2026-10-06 — GH-858 account-mart FX rate requirement / Draft PR #875
+
+- State: `status:needs-review`; branch `agent/858-require-fx-rate`; worktree `/tmp/account-858-require-fx-rate`; base `origin/main@973d76dd`; [Draft PR #875](https://github.com/skyg547/account/pull/875), `Refs #858`.
+- Scope: four Issue-listed `account-mart/**` files. Missing/invalid base-date foreign/KRW rate now fails CDM conversion, Step, and Job; valid rate uses `BigDecimal` scale 4 `HALF_UP`.
+- Verification: targeted 8 core/3 batch PASS; full child suites 22 core/10 batch/3 API PASS; final batch cause-assertion targeted 3 PASS. Requested aggregate `:account-mart:test` was `NO-SOURCE`. Diff/markers PASS. Independent reviewer: no remaining P0–P3; Q1–Q4 PASS (PR evidence table).
+- Next owner: human PR reviewer for current-head checks and merge decision. Ready, merge, Issue close, and resource cleanup are pending. Rollback of the four files restores the unsafe fallback and needs FX completeness protection.
+
 ## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
 
 - Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
@@ -886,3 +948,41 @@
 - Verification: exact seven-project Gradle command PASS; Receivable API14/Core43, Auth API21/Core94, Journal Ledger API34, Reconciliation API6, Gateway74 = 286 tests, failures/errors/skips 0. Positive matrix verifier and six negative mutations PASS. Harness/static gates are recorded in the worklog.
 - Ownership/review: five disjoint module writers plus parent Integrator; `/root/review_179` was read-only. Initial authorization, false-success, boundary, aggregate, exception, and stale-verifier findings were corrected; final review has no remaining P0–P3 and Q1–Q4 PASS.
 - Limits/next owner: no live BFF→Gateway→service, PostgreSQL query/load, market feed, or real matcher execution. Receivable FE field/enum drift and deterministic snapshot limitations remain documented. Rollback is a reviewed Issue-scoped revert with no migration/data recovery. Push, PR, Ready, merge, Issue close, and cleanup remain separate gates.
+
+## 2026-09-28 GH-799 (#751 child) remote department validation fail-closed
+- Workflow account-issue-2 owns OPEN #799; parent #751 OPEN/Draft; #800/#801 OPEN/Draft and depend on #799 merged. Implementation claim: https://github.com/skyg547/account/issues/799#issuecomment-5867969315. Sole writer /root/issue799_implementation (GPT-6 Astra high) finished two allowed reworks; separate read-only /root/issue799_code_review (GPT-6 Astra high) APPROVE/no P0-P3 final frozen code.
+- Branch agent/799-department-fail-closed, external C:/tmp/account-799-department-fail-closed, base f128a5dd; five substantive allowlist files plus parent-owned records. No active writer. Auth182/182 PASS, independent targeted67/67 PASS; mandatory Gateway remains UNEXECUTED/offline dependency cache block, automation Q4 FAIL. Await Draft PR/CI and Gateway verification before Ready. Account reservation owns eventual final review/merge/Issue close.
+
+## 2026-10-01 GH-747 PAT authenticated authority
+
+- Status: implementation and independent read-only review complete; [Draft PR #814](https://github.com/skyg547/account/pull/814) is open with `Refs #747`. Issue #747 remains OPEN; branch `agent/747-pat-authority`, worktree `/tmp/account-747-pat-authority`, base `origin/main@b06e7de3`. Auth-only production/test/docs changes plus parent-owned three requested records; no Gateway route or other module edit.
+- Controller, service, SQL, and test agents used disjoint auth file ownership. Parent handled feature docs, shared records, Git/GitHub. `/root/pat_review` found no remaining P0–P3; Q1–Q4 PASS. PAT uses verified Bearer JWT/current exact AuthUser and current administrator role; audit rows include actor/owner and conditional revoke prevents duplicate transition events.
+- Verification: `:auth:test` core143/API52, issue core+API+Gateway command adds Gateway74, bootJar, H2 V74/PAT HTTP9/conditional JPA1, quality32, whitespace/marker gates PASS. No failures/errors/skips. PostgreSQL migration/concurrency, remote CI, and human review remain before Ready/merge; no Issue close or resource cleanup.
+- Remote CI: Draft PR #814 initial `d225857b` jobs failed with no runner, steps, or logs, so CI execution remains unverified and Ready is blocked pending a runnable check set. Local verification remains PASS.
+
+## 2026-10-05 — GH-829 Draft PR #844
+
+- Issue [#829](https://github.com/skyg547/account/issues/829): 교차 고객 수납·채권 수동/자동 반제 차단. Branch `agent/829-receivable-customer-match`, worktree `/tmp/account-829-receivable-customer-match`, base `origin/main@973d76dd`, Draft PR [#844](https://github.com/skyg547/account/pull/844) (`Refs #829`).
+- 결과: 서비스 공통 진입점에서 고객 코드를 변경 전에 검증하고, 3개 업무 파일만 변경. 교차 고객 거부 시 상태·잔액·배분·전표 포트 보존, 같은 고객 부분 매칭·GL 고객 코드 유지. 독립 읽기 전용 리뷰 지적 사항 없음; Q1–Q4 PASS.
+- 검증: 집중 10/10, core 47/47, API 14/14, Batch 1/1 PASS; 공백·충돌 마커 검사 PASS. PostgreSQL/원격 GL/HTTP 종단 검증과 기존 데이터 정정은 후속 범위.
+- 다음 소유자: 사람 리뷰어. Draft 유지; 최신 CI와 head/base 검토 및 별도 승인 전 Ready·merge·Issue close·자원 삭제 없음.
+## 2026-10-09 — GH-887 closing period uniqueness / Draft PR #902
+
+- State: `status:needs-review`; branch `agent/887-closing-lock-reopen`; worktree `/tmp/account-887-closing-lock-reopen`; base `origin/main@9348966a`; [Draft PR #902](https://github.com/skyg547/account/pull/902), `Refs #887`.
+- Scope: 18 `closing/**` files plus the three requested status records. V54 limits active locks and pending reopen approvals; unlock/decision retain rows. Existing duplicates stop migration pending audited repair. Service/SQL/test ownership was disjoint; independent Reviewer was read-only; parent Integrator controls records and Git/GitHub.
+- Verification: `:closing:test` 644/644 PASS (core 377, API 165, batch 102; 0 failures/errors/skips), both bootJars PASS and package V54, diff/marker PASS. Independent Q1–Q4 PASS, no unresolved P0–P3. H2/Flyway V54 race evidence exists; actual PostgreSQL/production data/load remain unverified.
+- Next owner: human PR reviewer for latest-head checks and approved deployment/merge decision. Draft remains Draft; Ready, merge, Issue close, and resource deletion were not performed.
+## 2026-10-20 — GH-912 product price precision / Draft PR #928
+
+- State: Issue #912, `agent/912-product-value-rules` in `/tmp/account-912-product-value-rules`, base `origin/main@a24ceb024602eb2c1915bf90ae8acb8ce242a4a0`; [Draft PR #928](https://github.com/skyg547/account/pull/928), `Refs #912`.
+- Scope: 17 `master-data/**` implementation, migration, test and module documentation files, plus these three explicitly requested AI harness status records. Direct/approved/core price rules now reject negative, lossy scale and `NUMERIC(19,4)` overflow before SCD2 closure. PostgreSQL V10 adds a nonnegative CHECK after a locked legacy preflight.
+- Verification: core 540, API 177, batch 5 = 722 tests PASS with zero failures/errors/skips, including six real synthetic PostgreSQL 16 tests; API and batch bootJars PASS. Diff and marker checks PASS. Independent read-only review found no P0–P3 findings; Q1–Q4 PASS.
+- Residual/next owner: migration uses `ACCESS EXCLUSIVE` on `products`; data owner must review any legacy negative values and deployment lock window. Human reviewer and authorized Integrator own current-head CI, Ready, merge, Issue close and resource cleanup. Preserve branch/worktree until then.
+
+## 2026-10-20 — GH-921 PAT identity and input limits / Draft PR #935
+
+- State: Issue #921 `status:needs-review`; branch `agent/921-pat-input-limits` in `/tmp/account-921-pat-input-limits`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; [Draft PR #935](https://github.com/skyg547/account/pull/935) uses `Refs #921`.
+- Scope: 20 `auth/**` implementation, test, build and module-documentation files plus the three expressly requested harness status records. Auth username limits now use one domain constant across login, role replacement, PAT API/service and relevant JPA mappings. PAT name and TTL limits remain 100 characters and 1–3650 days. Existing V74 is the forward 50→80 migration; applied migration files were not edited.
+- Verification: current-head core 200, API 80, Gateway 74 = 354 tests passed with failures/errors/skips 0; `:auth:api:bootJar`, H2 and embedded PostgreSQL V73→V74 preservation, PostgreSQL SQLSTATE 22001 for 81 characters, HTTP boundaries, whitespace and marker gates passed. Separate read-only reviewer resolved one P3 through original writers, then reported no remaining P0–P3 and Q1–Q4 PASS.
+- Limits/next owner: synthetic local data only; complete HTTP/JPA flow on PostgreSQL and production data/deployment remain unverified. Human reviewer owns final-head CI and the separate Ready/merge decision. Parent Integrator alone owns Git/GitHub and these records. No Issue close or resource deletion. `docs/history/CODEX_WORKLOG.md` was left untouched under the user's common-document restriction.
+- Remote checkpoint at PR head `470edb7f`: auth, module validation and harness checks PASS. After adding the `agent:codex` PR label, fenced verification and `Merge authority:` line, the discipline guard fails only `DRAFT_NOT_MERGE_READY` and `TRUST_POLICY_UNCONFIGURED`; this is a later merge gate, not a failed auth test. Recheck CI on any newer head before Ready.

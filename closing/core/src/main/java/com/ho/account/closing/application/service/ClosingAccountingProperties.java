@@ -3,8 +3,6 @@ package com.ho.account.closing.application.service;
 import com.ho.account.closing.domain.ProvisionBatch;
 import com.ho.account.closing.domain.fx.FxValuationPolicy;
 import java.util.List;
-import com.ho.account.closing.domain.ValuationBatch;
-import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -15,13 +13,14 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "account.closing.accounting")
 public class ClosingAccountingProperties {
 
-    private Map<ValuationBatch.ValuationType, AutomatedJournalRule> valuationRules = new LinkedHashMap<>();
-    private Map<ProvisionBatch.ProvisionType, AutomatedJournalRule> provisionRules = new LinkedHashMap<>();
+    private Map<ProvisionBatch.ProvisionType, EclAccountMapping> provisionRules = new LinkedHashMap<>();
 
     private String fxTranslationGainAccountCode = "72000"; // Default: 외화환산이익
     private String fxTranslationLossAccountCode = "92000"; // Default: 외화환산손실
     private String fxValuationReportingCurrencyCode = "KRW";
     private boolean autoPostAdjustments;
+    private int apiFinancialRunMaxEvidenceRows = 10_000;
+    private int apiFinancialRunMaxJournalCommands = 1_000;
     private List<FxValuationPolicy.Rule> fxValuationPolicies = List.of();
     private FxValuationPolicy fxValuationPolicy = new FxValuationPolicy(List.of());
 
@@ -84,46 +83,67 @@ public class ClosingAccountingProperties {
         this.autoPostAdjustments = autoPostAdjustments;
     }
 
-    public AutomatedJournalRule requireValuationRule(ValuationBatch.ValuationType valuationType) {
-        return requireRule("valuation-rules." + valuationType.name(), valuationRules.get(valuationType));
+    public EclAccountMapping requireEclAccountMapping() {
+        return requireAccountMapping(
+                "provision-rules." + ProvisionBatch.ProvisionType.ECL.name(),
+                provisionRules.get(ProvisionBatch.ProvisionType.ECL));
     }
 
-    public AutomatedJournalRule requireProvisionRule(ProvisionBatch.ProvisionType provisionType) {
-        return requireRule("provision-rules." + provisionType.name(), provisionRules.get(provisionType));
-    }
-
-    public Map<ValuationBatch.ValuationType, AutomatedJournalRule> getValuationRules() {
-        return valuationRules;
-    }
-
-    public void setValuationRules(Map<ValuationBatch.ValuationType, AutomatedJournalRule> valuationRules) {
-        this.valuationRules = valuationRules != null ? valuationRules : new LinkedHashMap<>();
-    }
-
-    public Map<ProvisionBatch.ProvisionType, AutomatedJournalRule> getProvisionRules() {
+    public Map<ProvisionBatch.ProvisionType, EclAccountMapping> getProvisionRules() {
         return provisionRules;
     }
 
-    public void setProvisionRules(Map<ProvisionBatch.ProvisionType, AutomatedJournalRule> provisionRules) {
-        this.provisionRules = provisionRules != null ? provisionRules : new LinkedHashMap<>();
+    public void setProvisionRules(
+            Map<ProvisionBatch.ProvisionType, EclAccountMapping> provisionRules) {
+        this.provisionRules = provisionRules != null
+                ? new LinkedHashMap<>(provisionRules)
+                : new LinkedHashMap<>();
     }
 
-    private AutomatedJournalRule requireRule(String rulePath, AutomatedJournalRule rule) {
-        if (rule == null) {
-            throw new IllegalStateException("Closing accounting rule is not configured: account.closing.accounting." + rulePath);
+    public int getApiFinancialRunMaxEvidenceRows() {
+        return requirePositive(apiFinancialRunMaxEvidenceRows, "api-financial-run-max-evidence-rows");
+    }
+
+    public void setApiFinancialRunMaxEvidenceRows(int apiFinancialRunMaxEvidenceRows) {
+        this.apiFinancialRunMaxEvidenceRows = requirePositive(
+                apiFinancialRunMaxEvidenceRows, "api-financial-run-max-evidence-rows");
+    }
+
+    /** Also bounds ECL summary groups conservatively before per-group source lookups. */
+    public int getApiFinancialRunMaxJournalCommands() {
+        return requirePositive(apiFinancialRunMaxJournalCommands, "api-financial-run-max-journal-commands");
+    }
+
+    public void setApiFinancialRunMaxJournalCommands(int apiFinancialRunMaxJournalCommands) {
+        this.apiFinancialRunMaxJournalCommands = requirePositive(
+                apiFinancialRunMaxJournalCommands, "api-financial-run-max-journal-commands");
+    }
+
+    private EclAccountMapping requireAccountMapping(String mappingPath, EclAccountMapping mapping) {
+        if (mapping == null) {
+            throw new IllegalStateException(
+                    "Closing account mapping is not configured: account.closing.accounting." + mappingPath);
         }
-        rule.validate(rulePath);
-        return rule;
+        mapping.validate(mappingPath);
+        return mapping;
+    }
+
+    private int requirePositive(int value, String propertyName) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(
+                    "account.closing.accounting." + propertyName + " must be positive");
+        }
+        return value;
     }
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
 
-    public static class AutomatedJournalRule {
+    /** Fallback ECL account mapping when an allowance summary omits an account code. */
+    public static class EclAccountMapping {
         private String debitAccountCode;
         private String creditAccountCode;
-        private BigDecimal amount;
 
         public String getDebitAccountCode() {
             return debitAccountCode;
@@ -141,23 +161,12 @@ public class ClosingAccountingProperties {
             this.creditAccountCode = creditAccountCode;
         }
 
-        public BigDecimal getAmount() {
-            return amount;
-        }
-
-        public void setAmount(BigDecimal amount) {
-            this.amount = amount;
-        }
-
         private void validate(String rulePath) {
             if (!hasText(debitAccountCode)) {
                 throw new IllegalStateException("Closing debit account is not configured: account.closing.accounting." + rulePath);
             }
             if (!hasText(creditAccountCode)) {
                 throw new IllegalStateException("Closing credit account is not configured: account.closing.accounting." + rulePath);
-            }
-            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalStateException("Closing amount must be positive: account.closing.accounting." + rulePath);
             }
         }
 

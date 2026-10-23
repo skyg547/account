@@ -24,8 +24,8 @@ public record RoleAssignment(
         if (roleCode.length() > 80) {
             throw new IllegalArgumentException("roleCode must be at most 80 characters.");
         }
-        dataScope = dataScope == null || dataScope.isBlank() ? "GLOBAL" : dataScope.trim();
-        if (dataScope.length() > 80) {
+        // Keep even missing legacy scope text intact so authorization can deny it without a mapping error.
+        if (dataScope != null && dataScope.length() > 80) {
             throw new IllegalArgumentException("dataScope must be at most 80 characters.");
         }
         if (validFrom != null && validTo != null && !validFrom.isBefore(validTo)) {
@@ -35,6 +35,10 @@ public record RoleAssignment(
 
     public static RoleAssignment approved(String roleCode) {
         return new RoleAssignment(roleCode, "GLOBAL", null, null, true);
+    }
+
+    public boolean hasSupportedAuthorizationScope() {
+        return "GLOBAL".equals(dataScope);
     }
 
     public boolean isEffectiveAt(Instant evaluatedAt) {

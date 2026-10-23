@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,6 +56,17 @@ import java.util.Map;
  *   <li>Chunk: 안정된 POSTED 상세를 100건씩 처리하고 checkpoint와 함께 commit합니다.</li>
  *   <li>Finalize: GL/SL을 원천과 대사한 뒤 일치할 때만 공개합니다.</li>
  * </ol>
+ *
+ * <h3>3. 날짜 파라미터와 재실행 계약</h3>
+ * <p>{@code startDate/endDate} 범위(호환 별칭 {@code fromDate/toDate}) 또는
+ * {@code baseDate} 단일일(호환 별칭 {@code targetDate})을 사용합니다. 같은 값의 중복 별칭은
+ * 허용하지만 충돌과 단일일/범위 혼용은 barrier 획득 전에 실패합니다. 호환성을 위해 시작일만
+ * 주면 같은 날을 종료일로 사용하고, 종료일만 주면 JVM 기본 시간대의 전일부터 계산하되 역전된
+ * 기간은 거부합니다. 날짜가 없으면 그 전일을 Start Step에서 한 번 결정합니다. Spring Batch
+ * launcher가 전달한 파라미터는 별도 non-identifying 지정이 없으면 JobInstance 식별에 참여합니다.</p>
+ * <p>Start Step 트랜잭션은 유효 기간과 owner barrier를 함께 확정하고 JobExecutionContext에
+ * 고정합니다. 같은 JobInstance restart는 완료된 Start/Cleanup을 건너뛰고 고정 기간과 chunk
+ * checkpoint를 재사용합니다. 새 식별 파라미터로 만든 JobInstance는 처음부터 재실행합니다.</p>
  */
 @Slf4j
 @Configuration
@@ -68,6 +80,12 @@ public class BalanceReaggregationBatchConfig {
     private final BalanceReaggregationFinalizeTasklet balanceReaggregationFinalizeTasklet;
     private final LedgerService ledgerService;
     private final EntityManagerFactory entityManagerFactory;
+
+    /** Production defaults retain the JVM's configured local-zone calendar semantics. */
+    @Bean
+    public static Clock balanceReaggregationClock() {
+        return Clock.systemDefaultZone();
+    }
 
     /**
      * 일별 또는 기간별 GL/SL 잔액을 재집계하는 배치 Job.

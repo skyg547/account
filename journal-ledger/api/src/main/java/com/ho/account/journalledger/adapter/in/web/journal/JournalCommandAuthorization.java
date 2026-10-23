@@ -19,6 +19,8 @@ final class JournalCommandAuthorization {
             "ROLE_JOURNAL_APPROVER", "ROLE_ACCOUNTING_ADMIN", "ROLE_ADMIN");
     private static final Set<String> POSTER_ROLES = Set.of(
             "ROLE_JOURNAL_POSTER", "ROLE_ACCOUNTING_ADMIN", "ROLE_ADMIN");
+    private static final Set<String> COMPLETENESS_ROLES = Set.of(
+            "ROLE_ACCOUNTING_ADMIN", "ROLE_ADMIN");
 
     private JournalCommandAuthorization() {
     }
@@ -33,6 +35,11 @@ final class JournalCommandAuthorization {
 
     static String requirePoster(String actor, String roles) {
         return require(actor, roles, POSTER_ROLES, "A journal posting role is required.");
+    }
+
+    static String requireCompletenessOperator(String actor, String roles) {
+        return require(actor, roles, COMPLETENESS_ROLES,
+                "An accounting administrator role is required for event completeness controls.");
     }
 
     private static String require(String actor, String roles, Set<String> allowed, String message) {

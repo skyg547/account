@@ -3,6 +3,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -20,7 +21,7 @@ import org.springframework.test.context.ContextConfiguration;
 /**
  * Issue #261: BusinessPartner SCD2 유효기간과 업무 활성(useYn) 상태의 과거 조회 정합성 검증 테스트입니다.
  */
-@DataJpaTest
+@DataJpaTest(properties = "spring.flyway.target=8")
 @ContextConfiguration(classes = BusinessPartnerHistoricalActiveIntegrationTest.TestApplication.class)
 @Import(JpaBusinessPartnerPersistenceAdapter.class)
 class BusinessPartnerHistoricalActiveIntegrationTest {
@@ -70,16 +71,16 @@ class BusinessPartnerHistoricalActiveIntegrationTest {
         // 1. 종료일 이전 (2025-06-01): 활성 상태 재현
         LocalDate beforeTermination = LocalDate.of(2025, 6, 1);
         assertThat(repository.findActiveByBusinessPartnerCode("BP-HIST-01", beforeTermination)).isPresent();
-        assertThat(adapter.searchActiveByName("역사적", beforeTermination)).hasSize(1);
+        assertThat(adapter.searchActiveByName("역사적", beforeTermination, new PageWindow(0, 20)).content()).hasSize(1);
 
         // 2. 종료일 당일 (2026-06-30): 활성 상태 재현
         assertThat(repository.findActiveByBusinessPartnerCode("BP-HIST-01", terminationDate)).isPresent();
-        assertThat(adapter.searchActiveByName("역사적", terminationDate)).hasSize(1);
+        assertThat(adapter.searchActiveByName("역사적", terminationDate, new PageWindow(0, 20)).content()).hasSize(1);
 
         // 3. 종료일 이후 (2026-07-01): 비활성 (유효기간 초과로 조회 불가능)
         LocalDate afterTermination = terminationDate.plusDays(1);
         assertThat(repository.findActiveByBusinessPartnerCode("BP-HIST-01", afterTermination)).isEmpty();
-        assertThat(adapter.searchActiveByName("역사적", afterTermination)).isEmpty();
+        assertThat(adapter.searchActiveByName("역사적", afterTermination, new PageWindow(0, 20)).content()).isEmpty();
     }
 
     @Test

@@ -4,10 +4,12 @@ import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.journalledger.application.service.journal.JournalCreationConflictException;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -62,6 +64,9 @@ public class JournalPostingRestController {
         } catch (JournalCreationConflictException e) {
             log.warn("Journal creation conflict for the supplied operation identity");
             return ResponseEntity.status(409).build();
+        } catch (SlipNumberAllocationException e) {
+            log.warn("Journal slip-number allocation unavailable");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         } catch (IllegalArgumentException e) {
             log.warn("Invalid journal entry command");
             return ResponseEntity.badRequest().build();

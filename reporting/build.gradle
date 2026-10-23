@@ -5,3 +5,7 @@ description = 'account-reporting'
 // - :reporting:core
 // - :reporting:api
 // - :reporting:batch
+// The parent has no test sources; make the module-level verification command run all three suites.
+tasks.named('test') {
+    dependsOn ':reporting:core:test', ':reporting:api:test', ':reporting:batch:test'
+}

@@ -6,15 +6,16 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryPort;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
+import com.ho.account.closing.application.port.out.ClosingJournalLineage;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
+import com.ho.account.closing.application.port.out.EclProvisionSnapshotPort;
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.closing.domain.ClosingMonetaryPrecision;
 import com.ho.account.closing.domain.EclAllowanceSummary;
-import com.ho.account.closing.domain.ProvisionBatch;
+import com.ho.account.closing.domain.EclProvisionSnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -47,15 +48,27 @@ public class EclProvisionService {
 
     private static final String SYSTEM_ACTOR = "SYSTEM";
     private static final String BATCH_ACTOR = "BATCH";
+    private static final int JOURNAL_DESCRIPTION_MAX_LENGTH = 200;
+    private static final int REVERSIBLE_HEADER_MAX_LENGTH = 120;
+    private static final int REVERSIBLE_LINE_MAX_LENGTH = JOURNAL_DESCRIPTION_MAX_LENGTH - "[역분개] ".length();
 
     private final AllowanceBalanceLookupPort allowanceBalanceLookupPort;
     private final ClosingJournalEntryPort closingJournalEntryPort;
     private final ClosingAccountingProperties accountingProperties;
     private final EclAllowanceResultPort eclAllowanceResultPort;
     private final FxExchangeRateLookupPort fxExchangeRateLookupPort;
+    private final EclProvisionSnapshotPort eclProvisionSnapshotPort;
 
-    @Transactional
-    public void processEclProvision(LocalDate closingDate, Long provisionBatchId) {
+    public List<ClosingJournalEntryResult> processEclProvision(LocalDate closingDate, Long provisionBatchId) {
+        return postPreparedEclProvision(prepareEclProvisionSnapshot(closingDate, provisionBatchId));
+    }
+
+    /**
+     * Loads and validates the complete finalized ECL snapshot before returning immutable commands.
+     * No Journal write or snapshot reservation occurs here, so a later group failure or API cap
+     * cannot leave earlier draft effects or operation bindings.
+     */
+    public PreparedEclProvision prepareEclProvisionSnapshot(LocalDate closingDate, Long provisionBatchId) {
         Objects.requireNonNull(closingDate, "closingDate must not be null");
         if (provisionBatchId == null || provisionBatchId <= 0) {
             throw new IllegalArgumentException("provisionBatchId must be positive");
@@ -69,8 +82,8 @@ public class EclProvisionService {
                             + "; a zero-portfolio completion marker is required before treating this as no-op");
         }
 
-        ClosingAccountingProperties.AutomatedJournalRule eclRule =
-                accountingProperties.requireProvisionRule(ProvisionBatch.ProvisionType.ECL);
+        ClosingAccountingProperties.EclAccountMapping eclRule =
+                accountingProperties.requireEclAccountMapping();
 
         requireSingleSnapshotIdentity(summaries);
         String legalEntityCode = requireSingleLegalEntity(summaries);
@@ -82,15 +95,66 @@ public class EclProvisionService {
         }
         // Remote Journal writes do not roll back with Closing. Validate every group's units,
         // rates, revaluation and representable command before creating even the first draft.
-        List<ClosingJournalEntryCommand> commands = groups.values().stream()
+        List<PreparedGroup> prepared = groups.values().stream()
                 .sorted(Comparator.comparing(group -> group.key().stableValue()))
                 .map(group -> prepareGroup(group, closingDate, provisionBatchId, functionalCurrency))
-                .flatMap(Optional::stream)
                 .toList();
-        commands.forEach(this::postProvisionJournalEntry);
+        // Carry every group's evidence, including zero-delta groups, to the posting gate.
+        // The gate reserves the full set only after API command limits have passed.
+        return new PreparedEclProvision(
+                prepared.stream().map(PreparedGroup::snapshot).toList(),
+                prepared.stream().map(PreparedGroup::command).flatMap(Optional::stream).toList());
     }
 
-    private Optional<ClosingJournalEntryCommand> prepareGroup(
+    public List<ClosingJournalEntryResult> postPreparedEclProvision(PreparedEclProvision prepared) {
+        return postPreparedEclProvision(prepared, prepared.commands());
+    }
+
+    public List<ClosingJournalEntryResult> postPreparedEclProvision(
+            PreparedEclProvision prepared,
+            List<ClosingJournalEntryCommand> commands) {
+        Objects.requireNonNull(prepared, "prepared must not be null");
+        Objects.requireNonNull(commands, "commands must not be null");
+        List<ClosingJournalLineage> expected = prepared.snapshots().stream()
+                .map(snapshot -> new ClosingJournalLineage(
+                        ClosingSlipNoFactory.eclProvision(snapshot.baseDate(),
+                                snapshot.legalEntityCode() + "|" + snapshot.currencyCode()
+                                        + "|" + snapshot.allowanceAccountCode(),
+                                snapshot.provisionBatchId()),
+                        snapshot.baseDate(), snapshot.currencyCode(),
+                        snapshot.reference(), snapshot.operationKey(),
+                        snapshot.adjustmentTransactionAmount().signum() == 0
+                                && snapshot.adjustmentBaseAmount().signum() == 0))
+                .toList();
+        Map<String, String> postedNoopReferences = closingJournalEntryPort.preflightEclLineage(expected);
+        eclProvisionSnapshotPort.recordAll(prepared.snapshots(),
+                Objects.requireNonNull(postedNoopReferences, "ECL lineage preflight result must not be null"));
+        return postCommands(commands);
+    }
+
+    public List<ClosingJournalEntryResult> postPreparedEclProvision(List<ClosingJournalEntryCommand> commands) {
+        return postCommands(commands);
+    }
+
+    public record PreparedEclProvision(List<EclProvisionSnapshot> snapshots,
+                                       List<ClosingJournalEntryCommand> commands) {
+        public PreparedEclProvision {
+            snapshots = List.copyOf(snapshots);
+            commands = List.copyOf(commands);
+        }
+    }
+
+    /** Posts exactly the already-prepared command list, preserving its deterministic order. */
+    private List<ClosingJournalEntryResult> postCommands(
+            List<ClosingJournalEntryCommand> preparedCommands) {
+        Objects.requireNonNull(preparedCommands, "preparedCommands must not be null");
+        List<ClosingJournalEntryCommand> immutableCommands = List.copyOf(preparedCommands);
+        return immutableCommands.stream()
+                .map(this::postProvisionJournalEntry)
+                .toList();
+    }
+
+    private PreparedGroup prepareGroup(
             ProvisionGroup group,
             LocalDate closingDate,
             Long provisionBatchId,
@@ -127,11 +191,13 @@ public class EclProvisionService {
                 postingTarget.subtract(existing.creditTransactionAmount()));
         BigDecimal baseDifference = ClosingMonetaryPrecision.amount(
                 targetBase.subtract(existing.creditBaseAmount()));
+        EclProvisionSnapshot snapshot = group.snapshot(closingDate, provisionBatchId,
+                existing, rate, transactionDifference, baseDifference);
 
         if (transactionDifference.signum() == 0 && baseDifference.signum() == 0) {
             log.info("ECL provision target equals existing allowance. No journal required. group={}",
                     group.key().stableValue());
-            return Optional.empty();
+            return new PreparedGroup(snapshot, Optional.empty());
         }
         if (transactionDifference.signum() == 0
                 || transactionDifference.signum() != baseDifference.signum()) {
@@ -139,9 +205,9 @@ public class EclProvisionService {
                     + group.key().stableValue());
         }
 
-        return Optional.of(createProvisionJournalEntry(
+        return new PreparedGroup(snapshot, Optional.of(createProvisionJournalEntry(
                 transactionDifference, baseDifference, rate, functionalCurrency,
-                closingDate, provisionBatchId, group));
+                closingDate, provisionBatchId, group, snapshot.reference())));
     }
 
     private BigDecimal closingRate(String transactionCurrency, String functionalCurrency, LocalDate closingDate) {
@@ -163,35 +229,53 @@ public class EclProvisionService {
                                              String functionalCurrency,
                                              LocalDate closingDate,
                                              Long batchId,
-                                             ProvisionGroup group) {
+                                             ProvisionGroup group,
+                                             String snapshotReference) {
         boolean isAdditionalProvision = amount.signum() > 0;
         BigDecimal absAmount = amount.abs();
         BigDecimal absBaseAmount = baseAmount.abs();
+        // Keep exact evidence in the two compared detail descriptions. Journal's reversal
+        // prepends a reason to the header, so source totals must not consume its headroom.
+        String firstEvidence = requireJournalDescriptionLength(
+                "ECL run=" + group.runId()
+                        + ";t=" + exactDecimal(group.targetAllowanceAmount())
+                        + ";e=" + exactDecimal(group.sourceExposureAmount())
+                        + ";s1=" + exactDecimal(group.stage1AllowanceAmount()),
+                "line");
+        String secondEvidence = requireJournalDescriptionLength(
+                "ECL model=" + group.modelVersion()
+                        + ";s2=" + exactDecimal(group.stage2AllowanceAmount())
+                        + ";s3=" + exactDecimal(group.stage3AllowanceAmount()),
+                "line");
 
         List<ClosingJournalLineCommand> lines = isAdditionalProvision
                 ? additionalProvisionLines(
                         absAmount,
                         absBaseAmount,
                         group.badDebtExpenseAccountCode(),
-                        group.key().allowanceAccountCode())
+                        group.key().allowanceAccountCode(),
+                        firstEvidence, secondEvidence)
                 : reversalLines(
                         absAmount,
                         absBaseAmount,
                         group.key().allowanceAccountCode(),
-                        requireText(group.reversalIncomeAccountCode(), "reversalIncomeAccountCode"));
+                        requireText(group.reversalIncomeAccountCode(), "reversalIncomeAccountCode"),
+                        firstEvidence, secondEvidence);
 
-        // JournalSummary omits exchangeRate. Persist its normalized value and both units in the
-        // compared description so a rate-only restart change cannot silently reuse an old draft.
+        // JournalSummary omits exchangeRate; retain its normalized value in the header.
+        // Leave room for JournalEntry.createReversal's prefix, reason and suffix.
+        String description = requireReversibleHeaderLength(
+                "Month-end ECL Provision (Impairment) [" + group.key().currencyCode() + "/"
+                        + functionalCurrency + " @ " + exactDecimal(rate) + "]");
         return new ClosingJournalEntryCommand(
                 closingDate,
                 closingDate,
-                "Month-end ECL Provision (Impairment) [" + group.key().currencyCode() + "/"
-                        + functionalCurrency + " @ " + rate.stripTrailingZeros().toPlainString() + "]",
+                description,
                 "CLOSING_ADJUSTMENT",
                 BATCH_ACTOR,
                 SYSTEM_ACTOR,
                 "ECL_PROVISION",
-                group.lineageSourceId(batchId),
+                snapshotReference,
                 group.key().currencyCode(),
                 rate,
                 ClosingSlipNoFactory.eclProvision(
@@ -201,51 +285,76 @@ public class EclProvisionService {
                 lines);
     }
 
-    private void postProvisionJournalEntry(ClosingJournalEntryCommand command) {
+    private ClosingJournalEntryResult postProvisionJournalEntry(ClosingJournalEntryCommand command) {
         ClosingJournalEntryResult result = closingJournalEntryPort.createDraftAdjustment(command);
-        if (accountingProperties.isAutoPostAdjustments()) {
+        if (accountingProperties.isAutoPostAdjustments() && !"POSTED".equals(result.status())) {
             closingJournalEntryPort.approveAndPost(result.journalEntryId(), SYSTEM_ACTOR);
         }
 
         log.info("Successfully created ECL provision journal entry. SlipNo: {}", result.slipNo());
+        return result;
     }
 
     private List<ClosingJournalLineCommand> additionalProvisionLines(BigDecimal amount,
                                                                      BigDecimal baseAmount,
                                                                      String expenseAccount,
-                                                                     String allowanceAccount) {
+                                                                     String allowanceAccount,
+                                                                     String firstEvidence,
+                                                                     String secondEvidence) {
         return List.of(
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.DEBIT,
                         expenseAccount,
                         amount,
                         baseAmount,
-                        "Bad Debt Expense (ECL Addition)"),
+                        firstEvidence),
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.CREDIT,
                         allowanceAccount,
                         amount,
                         baseAmount,
-                        "Allowance for Doubtful Accounts (ECL Addition)"));
+                        secondEvidence));
     }
 
     private List<ClosingJournalLineCommand> reversalLines(BigDecimal amount,
                                                           BigDecimal baseAmount,
                                                           String allowanceAccount,
-                                                          String reversalIncomeAccount) {
+                                                          String reversalIncomeAccount,
+                                                          String firstEvidence,
+                                                          String secondEvidence) {
         return List.of(
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.DEBIT,
                         allowanceAccount,
                         amount,
                         baseAmount,
-                        "Allowance for Doubtful Accounts (ECL Reversal)"),
+                        firstEvidence),
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.CREDIT,
                         reversalIncomeAccount,
                         amount,
                         baseAmount,
-                        "Allowance Reversal Income (ECL Reversal)"));
+                        secondEvidence));
+    }
+
+    private String requireReversibleHeaderLength(String description) {
+        if (description.length() > REVERSIBLE_HEADER_MAX_LENGTH) {
+            throw new IllegalStateException("ECL Journal header description exceeds reversible limit "
+                    + REVERSIBLE_HEADER_MAX_LENGTH + " characters");
+        }
+        return description;
+    }
+
+    private String requireJournalDescriptionLength(String description, String field) {
+        if (description.length() > REVERSIBLE_LINE_MAX_LENGTH) {
+            throw new IllegalStateException("ECL Journal " + field + " description exceeds reversible limit "
+                    + REVERSIBLE_LINE_MAX_LENGTH + " characters");
+        }
+        return description;
+    }
+
+    private String exactDecimal(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private String resolveRequiredAccount(String primary, String fallback, String fieldName) {
@@ -297,7 +406,7 @@ public class EclProvisionService {
             List<EclAllowanceSummary> summaries,
             LocalDate closingDate,
             String legalEntityCode,
-            ClosingAccountingProperties.AutomatedJournalRule eclRule) {
+            ClosingAccountingProperties.EclAccountMapping eclRule) {
         Map<ProvisionKey, ProvisionGroup> groups = new LinkedHashMap<>();
         for (EclAllowanceSummary summary : summaries) {
             if (!closingDate.equals(summary.baseDate())) {
@@ -337,9 +446,24 @@ public class EclProvisionService {
 
     private record ProvisionGroup(
             ProvisionKey key,
+            String runId,
+            String modelVersion,
             BigDecimal targetAllowanceAmount,
+            BigDecimal sourceExposureAmount,
+            BigDecimal stage1AllowanceAmount,
+            BigDecimal stage2AllowanceAmount,
+            BigDecimal stage3AllowanceAmount,
             String badDebtExpenseAccountCode,
             String reversalIncomeAccountCode) {
+
+        private ProvisionGroup {
+            // Carry the reconciled source totals through command preparation at full precision.
+            // For posted groups, Journal descriptions retain them across source-row rebuilds.
+            if (stage1AllowanceAmount.add(stage2AllowanceAmount).add(stage3AllowanceAmount)
+                    .compareTo(targetAllowanceAmount) != 0) {
+                throw new IllegalStateException("ECL grouped stage allowance total does not match target");
+            }
+        }
 
         private static ProvisionGroup first(
                 ProvisionKey key,
@@ -348,7 +472,13 @@ public class EclProvisionService {
                 String reversalAccount) {
             return new ProvisionGroup(
                     key,
+                    summary.runId(),
+                    summary.modelVersion(),
                     summary.targetAllowanceAmount(),
+                    summary.sourceExposureAmount(),
+                    summary.stage1AllowanceAmount(),
+                    summary.stage2AllowanceAmount(),
+                    summary.stage3AllowanceAmount(),
                     expenseAccount,
                     reversalAccount);
         }
@@ -369,14 +499,25 @@ public class EclProvisionService {
                     key);
             return new ProvisionGroup(
                     key,
+                    runId,
+                    modelVersion,
                     targetAllowanceAmount.add(summary.targetAllowanceAmount()),
+                    sourceExposureAmount.add(summary.sourceExposureAmount()),
+                    stage1AllowanceAmount.add(summary.stage1AllowanceAmount()),
+                    stage2AllowanceAmount.add(summary.stage2AllowanceAmount()),
+                    stage3AllowanceAmount.add(summary.stage3AllowanceAmount()),
                     badDebtExpenseAccountCode,
                     resolvedReversal);
         }
 
-        private String lineageSourceId(Long batchId) {
-            Objects.requireNonNull(batchId, "batchId must not be null");
-            return batchId + "|" + key.allowanceAccountCode() + "|" + key.currencyCode();
+        private EclProvisionSnapshot snapshot(LocalDate date, long batchId, AllowanceBalance existing,
+                                              BigDecimal rate, BigDecimal transactionDelta, BigDecimal baseDelta) {
+            return new EclProvisionSnapshot(date, batchId, runId, modelVersion,
+                    key.legalEntityCode(), key.currencyCode(), key.allowanceAccountCode(),
+                    targetAllowanceAmount, sourceExposureAmount, stage1AllowanceAmount,
+                    stage2AllowanceAmount, stage3AllowanceAmount,
+                    existing.creditTransactionAmount(), existing.creditBaseAmount(), rate,
+                    transactionDelta, baseDelta);
         }
 
         private static void requireSameMapping(
@@ -405,4 +546,7 @@ public class EclProvisionService {
             return current;
         }
     }
+
+    private record PreparedGroup(EclProvisionSnapshot snapshot,
+                                 Optional<ClosingJournalEntryCommand> command) { }
 }

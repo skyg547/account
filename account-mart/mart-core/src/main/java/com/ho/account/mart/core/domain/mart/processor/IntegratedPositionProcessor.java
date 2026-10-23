@@ -107,17 +107,23 @@ public class IntegratedPositionProcessor {
     }
 
     private BigDecimal convertToKrw(String currency, BigDecimal amount, LocalDate baseDate) {
-        if (currency == null || CurrencyCode.KRW.name().equals(currency) || baseDate == null) {
+        if (CurrencyCode.KRW.name().equals(currency)) {
             return amount.setScale(4, RoundingMode.HALF_UP);
         }
 
         CurrencyCode baseCurrency = CurrencyCode.valueOf(currency);
-        return exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
-                        baseDate,
-                        baseCurrency,
-                        CurrencyCode.KRW)
+        if (baseDate == null) {
+            throw new IllegalStateException("외화 원화 환산에 기준일이 필요합니다: " + baseCurrency);
+        }
+
+        BigDecimal rate = exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
+                        baseDate, baseCurrency, CurrencyCode.KRW)
                 .map(ExchangeRate::getBaseRate)
-                .map(rate -> amount.multiply(rate).setScale(4, RoundingMode.HALF_UP))
-                .orElseGet(() -> amount.setScale(4, RoundingMode.HALF_UP));
+                .orElse(null);
+        // 누락·무효 환율을 원금이나 1:1 환산액으로 대체하면 정상 CDM 평가금액처럼 적재된다.
+        if (rate == null || rate.signum() <= 0) {
+            throw new IllegalStateException("기준일의 유효한 원화 환율이 없습니다: " + baseDate + " " + baseCurrency + "/KRW");
+        }
+        return amount.multiply(rate).setScale(4, RoundingMode.HALF_UP);
     }
 }

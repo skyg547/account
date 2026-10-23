@@ -15,7 +15,7 @@
 | `CollectionController` | `GET` | `/api/collections/unmatched` | 자동 매칭되지 않은 수납 목록을 조회한다. |
 | `CollectionController` | `POST` | `/api/collections/manual-match` | 사용자가 지정한 채권에 수동으로 수납액을 배분한다. |
 
-`manual-match` 본문에는 `collectionId`, `receivableId`, `matchingAmount`와 함께 클라이언트가 정한 `operationId`(1~90자)를 넣는다. 응답을 받지 못했을 때는 **같은** ID와 내용으로 재시도한다. 같은 수납에서 ID를 재사용하면서 채권 또는 금액을 바꾸면 요청이 거부된다.
+`manual-match` 본문에는 `collectionId`, `receivableId`, `matchingAmount`와 함께 클라이언트가 정한 `operationId`(1~90자)를 넣는다. 금액은 `NUMERIC(19,2)`에 반올림 없이 저장 가능한 값이어야 한다. 응답을 받지 못했을 때는 **같은** ID와 내용으로 재시도한다. 같은 수납에서 ID를 재사용하면서 채권 또는 금액을 바꾸면 HTTP 409로 거부된다. 원장의 같은 작업 키 충돌도 HTTP 409로 전달된다.
 
 ```json
 {"collectionId": 20, "receivableId": 30, "matchingAmount": 100.00, "operationId": "bank-match-2026-001"}
@@ -90,7 +90,19 @@ flowchart TD
 
 자동 매칭은 안전을 우선한다. 후보가 여러 개면 임의로 하나를 고르지 않고 미매칭 상태로 남긴다. 잘못된 채권을 닫는 것보다 사람이 확인하도록 남기는 편이 고객 잔액과 감사 추적에 안전하다.
 
-매칭은 수납 행을 잠근 상태에서 해당 작업 ID의 기존 배분을 확인하고, 새 배분에는 `(collection_id, operation_id)` 유일 제약을 적용한다. 수동 작업 ID는 `MANUAL:<operationId>`, 자동 작업 ID는 `AUTO:<receivableId>`이다. 자동 매칭은 해당 수납의 남은 금액 전체를 한 채권에 배분하므로 같은 수납/채권 자동 작업은 한 건이다. 같은 수납/채권에 별도 부분 배분을 하려면 수동 요청마다 새로운 ID를 사용한다. 두 ID는 원장 전표에도 그대로 전달하여 원장 측의 원자적 중복 판단에 사용한다.
+매칭은 수납 행과 대상 채권 행을 잠근 상태에서 해당 작업 ID의 기존 배분을 확인하고, 새 배분에는 `(collection_id, operation_id)` 유일 제약을 적용한다. 자동 후보 조회 뒤에는 잠근 채권의 최신 잔액을 다시 읽어 다른 수납의 동시 배분이 먼저 반영되었는지 확인한다. 수동 작업 ID는 `MANUAL:<operationId>`, 자동 작업 ID는 `AUTO:<receivableId>`이다. 자동 매칭은 해당 수납의 남은 금액 전체를 한 채권에 배분하므로 같은 수납/채권 자동 작업은 한 건이다. 같은 수납/채권에 별도 부분 배분을 하려면 수동 요청마다 새로운 ID를 사용한다. 두 ID는 원장 전표에도 그대로 전달하여 원장 측의 원자적 중복 판단에 사용한다.
+
+## 수납·채권 고객 일치 검증
+
+수동 매칭은 `POST /api/collections/manual-match`에 `collectionId`, `receivableId`, `matchingAmount`, `operationId`를 전달한다. 예를 들어 같은 고객의 미배분 수납 100과 미수채권 500에 `{"collectionId":20,"receivableId":30,"matchingAmount":100.00,"operationId":"bank-match-2026-001"}`을 보내면 수납은 `MATCHED`(잔액 0), 채권은 `PARTIAL_PAID`(잔액 400)가 된다. 자동 매칭도 고객별 열린 채권을 조회한 뒤 같은 `processMatch`를 사용하며, 배분 금액이 일부이면 각 객체의 남은 잔액에 맞춰 상태가 바뀐다.
+
+`processMatch`는 두 고객 코드가 같은지 먼저 확인한다. 다른 고객의 수납과 채권이 들어오면 `IllegalArgumentException`으로 거부하고 양쪽 잔액·상태, 배분 이력, 인보이스 상태, 반제 전표를 변경하지 않는다. 이 확인을 공통 진입점에서 수행하므로 자동 매칭 후보 포트가 다른 고객의 채권을 반환해도 같은 규칙이 적용된다. 정상 매칭의 `AR_CLEARING` 전표 두 라인에는 수납 고객 코드가 유지된다. 이미 기록된 잘못된 배분을 복구하거나 DB에서 고객 일치를 강제하는 변경은 이 흐름에 포함되지 않는다.
+
+수동 매칭에서 이미 사용된 `operationId`는 먼저 원래 채권과 금액을 대조한다. 다른 채권이 다른 고객 소속이더라도 ID 재사용은 HTTP 409 충돌로 응답한다. 새 작업 ID는 잠근 채권의 고객 코드를 검사한 뒤에만 잔액과 배분 이력을 변경한다.
+
+전표 설명에는 조회 시 바뀔 수 있는 고객 이름 대신 수납에 저장된 고객 코드를 사용한다. 새 배분은 기존처럼 master-data에서 고객 존재 여부를 확인한다. 이미 저장된 같은 작업의 재시도는 이 조회 없이 기존 배분을 반환한다. 원장만 성공하고 receivable 트랜잭션이 롤백된 뒤 master-data가 일시적으로 응답하지 않으면, 그 재시도는 고객 검증 단계에서 실패할 수 있으며 나중에 같은 작업 ID로 다시 시도해야 한다.
+
+전제: JDK 17과 저장소 루트의 Gradle wrapper. 회귀 검증은 `./gradlew :receivable:core:test --tests com.ho.account.receivable.application.service.CollectionServiceTest --offline --no-daemon --console=plain --max-workers=2`로 실행한다. 기대 결과는 교차 고객 거부와 저장·전표 포트 미호출, 같은 고객의 수동·자동 부분 매칭 성공이다. 실제 PostgreSQL 및 원격 GL 연동은 별도 검증이 필요하다.
 
 ## 자동 매칭 정책
 

@@ -13,8 +13,9 @@ import java.util.Objects;
  *
  * <p>{@code targetAllowanceAmount}, {@code sourceExposureAmount} and all three stage allowance
  * amounts are denominated in {@code currencyCode}, the transaction currency. They are not
- * functional-currency GL amounts. Closing aggregates the target in these units before rounding
- * for posting, then separately converts the cumulative target at the closing-date rate.</p>
+ * functional-currency GL amounts. Exact stage totals are verified and retained with the source
+ * summary. Closing aggregates the target in these units before rounding for posting, then
+ * separately converts the cumulative target at the closing-date rate.</p>
  */
 public record EclAllowanceSummary(
         LocalDate baseDate,
@@ -46,6 +47,15 @@ public record EclAllowanceSummary(
         stage1AllowanceAmount = requireNonNegative(stage1AllowanceAmount, "stage1AllowanceAmount");
         stage2AllowanceAmount = requireNonNegative(stage2AllowanceAmount, "stage2AllowanceAmount");
         stage3AllowanceAmount = requireNonNegative(stage3AllowanceAmount, "stage3AllowanceAmount");
+        // Compare exact source precision before any posting-scale rounding; a cent-level
+        // tolerance could conceal a corrupt ECL snapshot or change a later group sum.
+        if (stage1AllowanceAmount.add(stage2AllowanceAmount).add(stage3AllowanceAmount)
+                .compareTo(targetAllowanceAmount) != 0) {
+            throw new IllegalArgumentException("ECL stage allowance total must equal targetAllowanceAmount");
+        }
+        if (sourceExposureAmount.signum() == 0 && targetAllowanceAmount.signum() != 0) {
+            throw new IllegalArgumentException("ECL zero source exposure requires zero target allowance");
+        }
     }
 
     private static BigDecimal requireNonNegative(BigDecimal value, String fieldName) {

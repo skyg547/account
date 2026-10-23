@@ -4,10 +4,13 @@
 두 요청이 겹쳐도 경제적 효과는 한 번이어야 합니다. 처리자를 생략한 canonical `system` 요청과
 명시 처리자 요청, JPA와 `jdbc-bulk` 모드 모두 같은 `PostingService`를 통과합니다.
 
-전표 생성도 응답 유실과 at-least-once 전달을 견뎌야 합니다. V18은
+전표 생성도 응답 유실과 at-least-once 전달을 견뎌야 합니다. V20은
 `(sourceType, sourceId, operationKey)`를 256개 고정 stripe 중 하나에 매핑해 첫 요청부터
-직렬화합니다. 같은 identity·같은 version 1 fingerprint는 기존 전표를 반환하고, 같은 identity에
-다른 재무·감사 내용을 보내면 충돌로 거부합니다. 서로 다른 operation key는 같은 lineage에서
+직렬화합니다. 수동·contract 명령은 생성 전표의 version 1 fingerprint, 이벤트 HTTP·Kafka는
+회계일과 trusted maker를 포함한 원 이벤트의 version 2 fingerprint로 비교합니다. 같은 identity와
+fingerprint는 기존 전표를 반환하고, 같은 identity에 다른 요청 내용을 보내면 충돌로 거부합니다.
+이벤트 재시도는 규칙 조회 전에 receipt를 비교하므로 규칙이 비활성화돼도 기존 결과로 수렴합니다.
+서로 다른 operation key는 같은 lineage에서
 합법적인 여러 전표를 만들 수 있습니다.
 
 생성 잠금은 활성 `READ_COMMITTED` 쓰기 트랜잭션에서만 동작합니다. stripe 대기 전에 같은
@@ -65,6 +68,10 @@ NULL이어도 같은 순서가 필요합니다.
    문자열 `"NULL"`, 구분 문자가 포함된 코드를 서로 다른 차원으로 보존합니다.
 6. 계산된 절대 금액을 기존 JPA `saveAll` 또는 JDBC GL upsert/SL null-safe update+insert로
    저장합니다. 잠금은 전표 상태·엔트리·잔액을 포함한 전체 트랜잭션 커밋/롤백까지 유지됩니다.
+7. 정상 전기는 날짜·GL 키와 정확한 nullable SL 키마다 `차변-대변` delta를 계산하고,
+   `balance_date`가 전기일보다 큰 기존 행의 기초·기말을 set-based UPDATE로 함께 이동합니다.
+   JPA/JDBC-bulk 어댑터 모두 UPDATE 전에 flush하고 뒤에 1차 캐시를 비우므로 bulk SQL 이전
+   객체가 후속 계산이나 flush에서 결과를 덮지 않습니다. 재집계 replay는 이 전파를 끕니다.
 
 단일 호출은 모든 잠금을 먼저 같은 순서로 확보하므로 전표 상세의 계정 순서가 달라도
 잠금 순서가 뒤집히지 않습니다. 다만 한 외부 트랜잭션에서 여러 전표를 순차 전기하거나
@@ -89,25 +96,115 @@ NULL이어도 같은 순서가 필요합니다.
 
 `dailyBalanceReaggregationJob`은 다음 fail-closed 프로토콜을 사용합니다.
 
-1. start Step이 JobParameter의 `startDate/endDate`, 별칭, `baseDate/targetDate`를 한 번
-   정규화하여 JobExecutionContext에 문자열로 고정합니다. 256개 stripe를 먼저 획득하고
-   V15 singleton을 `REBUILDING(owner JobInstance ID, frozen range)`으로 바꾸며 epoch를 증가시킵니다.
-2. owner cleanup과 100-detail chunk만 닫힌 상태에서 쓸 수 있습니다. 성공한 cleanup은 같은
+1. start Step은 완전한 `startDate/endDate` 또는 `fromDate/toDate` 범위와 `baseDate/targetDate`
+   단일일을 받습니다. trim 후 ISO `yyyy-MM-dd` 날짜로 정규화했을 때 같은 중복 별칭은 허용합니다.
+   `startDate` 또는 `fromDate`만 있으면 그 날짜를 시작과 종료로 쓰는 하루 범위입니다.
+   `endDate` 또는 `toDate`만 있으면 start Step에 주입된 clock(JVM 기본 시간대)의 전일을 시작으로
+   쓰고 지정일을 종료로 사용한 뒤, 종료일이 시작일보다 이르면 거부합니다. 서로 다른 중복 별칭,
+   형식 오류, 단일일과 범위 별칭의 혼용도 모두 256개 stripe와 owner barrier를 얻거나 cleanup으로
+   잔액을 삭제하기 전에 실패합니다.
+2. 날짜 별칭이 하나도 없으면 같은 clock의 전일을 단일일로 한 번 결정합니다. 이어서 256개
+   stripe를 획득하고 요청 종료일, GL/SL 최종 잔액일, 최신 `POSTED` 회계일의 최댓값으로 유효
+   종료일을 확장합니다. V15 singleton을
+   `REBUILDING(owner JobInstance ID, effective range)`으로 바꾸고 같은 유효 범위를 owner 행과
+   JobExecutionContext에 고정하며 epoch를 증가시킵니다.
+3. owner cleanup과 100-detail chunk만 닫힌 상태에서 쓸 수 있습니다. 성공한 cleanup은 같은
    JobInstance 재시작에서 다시 실행되지 않고, chunk의 저장과 reader checkpoint는 같은
    트랜잭션으로 커밋됩니다. 실패 listener/`afterJob`은 제어를 열지 않습니다.
-3. 일반 전기는 영향 계정 stripe를 잡은 뒤 `OPEN`을 확인하므로 start보다 먼저 온 전기는
+4. 일반 전기는 영향 계정 stripe를 잡은 뒤 `OPEN`을 확인하므로 start보다 먼저 온 전기는
    POSTED 입력에 한 번 포함되고, 나중 전기는 상태/엔트리/잔액 전체가 롤백됩니다.
-4. 마지막 Step은 모든 stripe를 다시 잡고 owner를 확인한 뒤 안정된 POSTED source와 GL/SL을
+5. 마지막 Step은 모든 stripe를 다시 잡고 owner를 확인한 뒤 안정된 POSTED source와 GL/SL을
    날짜, 전체 key, nullable BP/부서, 일별 차변/대변, 기초/기말까지 대사합니다. 누락·추가·금액
    불일치는 트랜잭션을 롤백해 계속 `REBUILDING`으로 남깁니다. 일치할 때만 `OPEN`으로 바꾸고
    epoch를 다시 증가시킵니다.
+
+Spring Batch에서 JobInstance는 Job 이름과 식별 JobParameters의 조합입니다. 일반 launcher가
+전달한 날짜 값은 별도 non-identifying 지정이 없으면 식별값이므로, 장애 복구에는 최초 실행과
+파라미터 이름·값이 모두 같은 요청을 사용합니다. 정규화 결과가 같은 날짜라도 별칭을 바꾸거나
+중복 별칭, `run.id`, timestamp 등 식별 파라미터를 추가하면 Spring Batch 관점에서는 새
+JobInstance입니다. 새 인스턴스는 start와 cleanup부터 실행하므로 장애 복구 수단으로 사용하지
+않습니다. 반대로 완료된 인스턴스를 의도적으로 전 범위 재실행하려면 새 식별값으로 새 인스턴스를
+만들어야 합니다.
+
+같은 JobInstance restart에서는 start와 cleanup의 완료 상태, JobExecutionContext의 유효 범위,
+reader checkpoint를 이어받습니다. 따라서 종료 별칭만 있거나 날짜 입력이 없던 실행도 재시작
+시점이 다음 날이거나 자정을 지났다는 이유로 전일을 다시 계산하지 않으며, owner 행에 저장된
+기간과 동일한 범위에서 이미 커밋된 chunk 다음부터 계속합니다. 새 JobInstance만 그 시작 시점의
+전일을 새로 결정합니다.
+
+### JPA cleanup 규모와 PostgreSQL 검증
+
+기본 JPA 어댑터의 `deleteBalancesBetween`은 `LedgerBalancePersistencePort` 뒤에서
+GL과 SL에 각각 `balance_date BETWEEN :startDate AND :endDate` bulk DELETE를 실행합니다.
+`BETWEEN`은 양끝을 포함합니다. 먼저 flush하고 두 DELETE 뒤 영속성 컨텍스트를 clear하여
+bulk 삭제 전후의 관리 엔티티가 남지 않게 합니다. 조회 목록 크기는 삭제 대상 행 수와
+무관합니다. cleanup은 owner를 검사하는 `BalanceReaggregationService.clean` 트랜잭션 안에서
+실행되므로 한쪽 DELETE가 실패하면 양쪽 삭제가 함께 롤백됩니다.
+
+Issue #883의 합성 PostgreSQL 16 검증은 GL/SL에 각각 200,000행과 기존 계정 선행
+`idx_gl_balance_lookup`/`idx_sl_balance_lookup` 형태의 인덱스를 넣고
+`EXPLAIN (ANALYZE, BUFFERS) DELETE ... WHERE balance_date BETWEEN ...`을 실행했습니다.
+하루 범위(각 500행)는 둘 다 Bitmap Index Scan → Bitmap Heap Scan으로 약 1.7 ms,
+전체 400일 범위(각 200,000행)는 Seq Scan으로 GL 116.7 ms, SL 1,151.6 ms였습니다.
+하루 계획의 Index Cond가 날짜만 포함해도 기존 인덱스의 선행 열은 계정·차원입니다.
+각 Bitmap Index Scan이 238개의 index buffer를 읽었으므로, 이를 날짜 선행 인덱스와 같은
+선택도로 해석하면 안 됩니다. 재현용 합성 분포와 계획 명령은 다음과 같습니다.
+
+```sql
+CREATE SCHEMA cleanup_plan_883;
+SET search_path TO cleanup_plan_883;
+CREATE TABLE gl_balances (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_code text NOT NULL, currency_code text NOT NULL, balance_date date NOT NULL);
+CREATE TABLE sl_balances (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_code text NOT NULL, bp_code text, dept_code text,
+    currency_code text NOT NULL, balance_date date NOT NULL);
+CREATE INDEX idx_gl_balance_lookup ON gl_balances(account_code, currency_code, balance_date);
+CREATE INDEX idx_sl_balance_lookup ON sl_balances(account_code, bp_code, dept_code, balance_date);
+INSERT INTO gl_balances(account_code, currency_code, balance_date)
+SELECT 'A'||(g%1000), 'KRW', DATE '2025-01-01'+(g%400) FROM generate_series(1,200000) g;
+INSERT INTO sl_balances(account_code, bp_code, dept_code, currency_code, balance_date)
+SELECT 'A'||(g%1000), 'BP'||(g%10), 'D'||(g%5), 'KRW', DATE '2025-01-01'+(g%400)
+FROM generate_series(1,200000) g;
+ANALYZE gl_balances; ANALYZE sl_balances;
+BEGIN;
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM gl_balances
+WHERE balance_date BETWEEN DATE '2025-06-01' AND DATE '2025-06-01';
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM sl_balances
+WHERE balance_date BETWEEN DATE '2025-06-01' AND DATE '2025-06-01';
+ROLLBACK;
+BEGIN;
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM gl_balances
+WHERE balance_date BETWEEN DATE '2025-01-01' AND DATE '2026-02-04';
+EXPLAIN (ANALYZE, BUFFERS) DELETE FROM sl_balances
+WHERE balance_date BETWEEN DATE '2025-01-01' AND DATE '2026-02-04';
+ROLLBACK;
+```
+
+이 명령은 빈 합성 데이터베이스에서 실행했습니다. 실제
+Flyway 테이블 전체 열·제약과 운영 행 분포는 아래의 별도 통합 테스트·배포 검증 대상입니다.
+두 범위 모두 트랜잭션 안에서 0 또는 199,500행을 확인한 뒤 `ROLLBACK`하여 각 테이블의
+200,000행 복원을 확인했습니다. 전 기간 GL/SL DELETE를 한 트랜잭션에서 다시 측정한 시간은
+두 DELETE 완료까지 1,267.9 ms, `ROLLBACK` 완료까지 1,276.3 ms였습니다. 별도 실제
+JPA/Flyway PostgreSQL 통합 테스트는 시작일과
+종료일을 지우고 바깥 날짜를 보존하며 GL/SL 롤백을 확인했습니다. 측정치는 일회용 컨테이너의
+합성 분포에서 얻은 값이며 운영 잠금 대기·WAL·디스크·부하 시간을 대표하지 않습니다.
+대량 삭제는 단일 cleanup 트랜잭션을 오래 점유할 수 있으므로 배포 전 승인된 데이터 분포에서
+실행 계획, 락 대기, 트랜잭션 시간과 WAL 용량을 다시 측정해야 합니다.
 
 잔액 조회는 긴 shared lock 대신 조회 전 `OPEN+epoch`, materialize/집계 후 같은
 `OPEN+epoch`를 확인합니다. 중간에 재집계가 시작되거나 끝났으면 결과를 반환하지 않습니다.
 직접 DB SQL과 barrier를 모르는 구버전 writer는 이 통제를 우회하므로 혼용할 수 없습니다.
 
-잠금은 기존 다음 날 잔액을 자동 재작성하지 않습니다. 과거 날짜를 뒤늦게 전기했다면 여전히
-그 이후 날짜를 포함한 승인된 재집계가 필요합니다. [이월 규칙](ledger-carry-forward.md)을 따릅니다.
+정상 과거일 전기는 기존 후속일 행을 같은 트랜잭션에서 이동하므로 커밋 뒤 stale projection을
+공개하지 않습니다. delta가 0인 키는 UPDATE하지 않고, 거래가 없던 날짜의 행은 만들지 않습니다.
+배포 전에 이미 stale한 데이터, 직접 SQL/구버전 writer의 결과와 기존 중복·손상 데이터는 자동
+탐지하거나 보정하지 않으므로 가장 이른 영향일부터 승인된 재집계를 실행해야 합니다.
+[이월 규칙](ledger-carry-forward.md)을 따릅니다.
+
+후속일 UPDATE는 Java에 여러 해의 잔액을 적재하지 않지만, 오래된 전기 한 건이 해당 키의 많은
+행을 갱신하여 row lock, WAL/undo, 복제 지연과 트랜잭션 시간을 늘릴 수 있습니다. 계정·통화
+stripe도 커밋까지 유지되므로 운영 분포의 실행 계획과 lock wait를 배포 전에 측정해야 합니다.
+직접 SQL writer와 포트를 우회한 저장은 이 전파·OPEN·cache 보호를 모두 우회합니다.
 
 ## V14 업그레이드와 롤백
 
@@ -137,9 +234,19 @@ SELECT COUNT(*), MIN(lock_id), MAX(lock_id) FROM ledger_balance_locks;
 
 장애 후 `REBUILDING`이면 행을 수동 OPEN으로 바꾸거나 새 JobInstance를 만들지 않습니다.
 동일한 식별 JobParameters로 같은 JobInstance를 재시작하여 저장된 기간/checkpoint와 출력이
-계속 맞도록 합니다. 최종 대사 실패는 원천·잔액을 조사한 뒤 같은 인스턴스를 재개합니다.
+계속 맞도록 합니다. 날짜 별칭을 같은 의미의 다른 이름으로 바꾸는 것도 새 JobInstance가 되므로
+복구 요청에서는 최초 파라미터 이름까지 유지합니다. 최종 대사 실패는 원천·잔액을 조사한 뒤
+같은 인스턴스를 재개합니다.
 코드 롤백도 모든 writer를 중지한 상태에서 수행하며 V15 migration과 제어 행은 보존합니다.
 구버전은 barrier를 사용하지 않으므로 복구 전까지 전기/재집계/잔액 조회 트래픽을 열지 않습니다.
+
+후속일 전파 코드는 새 migration을 추가하지 않지만 모든 posting writer가 같은 버전이어야 합니다.
+구버전과 혼용하면 구버전에서 수행한 과거일 전기가 다시 stale 잔액을 만들 수 있습니다. 배포 전
+writer를 멈추고 기존 부정합을 대사한 뒤, 필요하면 가장 이른 영향일부터 확장 재집계를 완료하고
+전 인스턴스를 함께 기동합니다. 코드 롤백도 writer를 먼저 중지하며 이미 전파된 올바른 delta를
+역으로 빼지 않습니다. 롤백 버전으로 트래픽을 재개해야 한다면 후속 과거일 전기를 금지하고,
+수정 버전 복구 후 같은 범위의 재집계·대사가 끝날 때까지 잔액을 권위 값으로 공개하지 않습니다.
+로컬 H2 회귀는 실제 PostgreSQL의 대량 UPDATE 비용, WAL/복제 지연, 분산 lock timeout을 대신하지 않습니다.
 
 ## V17 역분개 작업 업그레이드와 롤백
 
@@ -185,12 +292,16 @@ V17은 인식 가능한 기존 역분개를 backfill하며 부정합을 임의�
 참고합니다. 직접 SQL writer, 운영 PostgreSQL lock wait/부하, 분산 장애, 기존 부정합의
 자동 복구는 이 변경의 검증 범위 밖입니다.
 
-## V18 전표 생성 멱등성 업그레이드와 롤백
+## V20 전표 생성 멱등성 업그레이드와 롤백
 
-V18은 기존 전표를 변경하지 않고 256개 `journal_creation_operation_locks` 행과 빈
+V20은 기존 전표를 변경하지 않고 256개 `journal_creation_operation_locks` 행과 빈
 `journal_creation_operations` registry를 만듭니다. 기존 lineage는 operation key나 canonical
 fingerprint가 없으므로 backfill하지 않습니다. 따라서 배포 경계를 기준으로 새 코드가 처리한
 생성부터 보호되며, 과거 전표를 임의의 `PRIMARY`에 연결하거나 자동 승자를 고르지 않습니다.
+배포 이전에 발행됐지만 응답·ack가 유실되어 뒤늦게 재전송되는 요청은 새 key를 달고 들어와도
+과거 전표와 자동 연결되지 않습니다. 따라서 cutover 전에 모든 writer와 입력을 fence하고 미완료
+outbox/Kafka 기록·클라이언트 재시도 대기열을 기존 전표와 대사해야 합니다. 이미 처리된 경제 사건은
+재발행하지 않거나 승인된 별도 보정 절차로 처리해야 하며, 불명확한 항목은 fence를 유지합니다.
 
 배포 절차는 다음 순서를 지킵니다.
 
@@ -200,7 +311,7 @@ fingerprint가 없으므로 backfill하지 않습니다. 따라서 배포 경계
    예전 `JournalEntryCommand` 생성자를 사용하여 `operationKey`가 비어 있습니다. 이 생산자들을
    별도 승인 변경으로 안정적인 업무 사건/버전 키에 이주시켜야 합니다. 단순히 `slipNo`를
    복사하거나 전 writer에 `PRIMARY`를 일괄 지정하면 한 원천의 합법적 여러 전표가 충돌합니다.
-2. 별도 release role로 V18을 migrate/validate합니다. transactional migration이 실패하면 원인을
+2. 별도 release role로 V20을 migrate/validate합니다. transactional migration이 실패하면 원인을
    고친 뒤 처음부터 재시도하고, 적용 파일을 수정하거나 Flyway `repair`로 덮지 않습니다.
 3. 아래 쿼리 결과가 `256, 0, 255`인지 확인하고, operation identity/journal FK/UNIQUE와 fingerprint
    CHECK를 migration metadata 및 Hibernate validate로 확인합니다.
@@ -213,15 +324,16 @@ FROM journal_creation_operation_locks;
 4. runtime role에는 lock 테이블 `SELECT/UPDATE`, operation registry `SELECT/INSERT`, PostgreSQL
    identity sequence 사용에 필요한 최소 권한만 부여합니다. runtime DDL 및 registry
    `UPDATE/DELETE`는 허용하지 않습니다.
-5. API·consumer·내장 contract writer를 모두 같은 V18 인식 코드로 교체하고 위 생산자들의
-   operation key 공급을 확인한 뒤 Hibernate schema validate와 권한 점검을 통과해야 fence를 엽니다.
+5. API·consumer·내장 contract writer를 모두 같은 V20 인식 코드로 교체하고 위 생산자들의
+   operation key 공급과 cutover 이전 in-flight 이벤트 대사를 확인한 뒤 Hibernate schema
+   validate와 권한 점검을 통과해야 fence를 엽니다.
    같은 키의 동등 재시도, 다른 fingerprint의
    HTTP `409`/contract·Kafka 실패, 같은 lineage의 서로 다른 operation key를 폐기 가능한 데이터로
    확인합니다.
 
-코드 롤백도 먼저 모든 생성 writer를 fence한 상태에서 수행합니다. 성공한 V18 migration,
+코드 롤백도 먼저 모든 생성 writer를 fence한 상태에서 수행합니다. 성공한 V20 migration,
 256개 lock 행, operation registry와 FK/UNIQUE receipt는 삭제·수정·`repair`하지 않고 보존합니다.
-V18 이전 코드는 registry를 읽거나 쓰지 않으므로 애플리케이션을 되돌렸다는 이유만으로 생성
+V20 이전 코드는 registry를 읽거나 쓰지 않으므로 애플리케이션을 되돌렸다는 이유만으로 생성
 트래픽을 재개하면 안 됩니다. 수정 버전 또는 승인된 forward migration으로 보호를 회복하고,
 롤백 창에 생성이 있었다면 전표·lineage·registry를 대사해 누락을 승인된 절차로 해결할 때까지
 writer fence를 유지합니다. 자동 backfill은 롤백 복구 수단이 아닙니다.
@@ -229,7 +341,7 @@ writer fence를 유지합니다. 자동 backfill은 롤백 복구 수단이 아�
 이 제어는 같은 DB를 사용하는 writer를 보호합니다. DB를 공유하지 않는 분산 중복, 직접 SQL,
 운영 lock timeout/부하, 프로세스 강제 종료, DLQ 설정 자체와 과거 중복 lineage 복구는 별도
 운영 검증 대상입니다. V17 관리형 역분개는 계속 원본 전표 잠금과
-`journal_reversal_operations`를 사용하며 V18의 `PRIMARY` receipt로 대체하지 않습니다.
+`journal_reversal_operations`를 사용하며 V20의 `PRIMARY` receipt로 대체하지 않습니다.
 
 ## V13 업그레이드
 
@@ -266,7 +378,7 @@ H2는 일부 DDL이 남을 수 있으므로 테스트용 DB를 새로 만들어 
 ```
 
 Issue #765 검증에는 최소한 versioned fingerprint 정규화, 같은 identity의 순차·동시 동등 재시도,
-다른 fingerprint 충돌, 서로 다른 operation key, 생성/registry rollback, V18 clean migration과
+다른 fingerprint 충돌, 서로 다른 operation key, 생성/registry rollback, V20 clean migration과
 HTTP·contract·Kafka 매핑을 포함해야 합니다. 다음은 집중 실행 형태이며 실제 클래스명과 결과는
 Issue/PR 검증 기록을 기준으로 확인합니다.
 

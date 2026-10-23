@@ -197,15 +197,20 @@ public class BatchInfrastructureConfig {
     @StepScope
     public QuerydslPagingItemReader<CrAccount> pagingAccountReader(
             @Value("#{stepExecutionContext['minValue']}") Long minValue,
-            @Value("#{stepExecutionContext['maxValue']}") Long maxValue) {
+            @Value("#{stepExecutionContext['maxValue']}") Long maxValue,
+            @Value("#{jobParameters['baseDate']}") String baseDateStr) {
 
         long resolvedMin = minValue == null ? 0L : minValue;
         long resolvedMax = maxValue == null ? -1L : maxValue;
+        if (baseDateStr == null || baseDateStr.isBlank()) {
+            throw new IllegalArgumentException("baseDate job parameter is required for Stage account selection");
+        }
+        java.time.LocalDate baseDate = java.time.LocalDate.parse(baseDateStr);
 
         return new QuerydslPagingItemReader<>(
                 entityManagerFactory,
                 200, // Page Size: 메모리 효율을 위해 200건씩 끊어서 읽기
-                queryFactory -> CrBatchQueryProvider.accountPagingQuery().apply(
+                queryFactory -> CrBatchQueryProvider.accountPagingQuery(baseDate).apply(
                         queryFactory, new LongRange(resolvedMin, resolvedMax))
         );
     }

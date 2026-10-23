@@ -4,6 +4,6 @@ import com.ho.account.expenditure.domain.PayableOffsetOperation;
 import java.util.Optional;
 
 public interface PayableOffsetOperationPersistencePort {
-    Optional<PayableOffsetOperation> findByOperationId(String operationId);
+    Optional<PayableOffsetOperation> findByPayableIdAndOperationId(Long payableId, String operationId);
     void save(PayableOffsetOperation operation);
 }

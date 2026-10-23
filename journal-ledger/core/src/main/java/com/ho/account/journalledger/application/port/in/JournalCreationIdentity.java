@@ -1,5 +1,7 @@
 package com.ho.account.journalledger.application.port.in;
 
+import java.util.Map;
+
 /**
  * Durable identity of one journal-creation operation.
  *
@@ -23,6 +25,29 @@ public record JournalCreationIdentity(String sourceType, String sourceId, String
 
     public static JournalCreationIdentity primary(String sourceType, String sourceId) {
         return new JournalCreationIdentity(sourceType, sourceId, PRIMARY_OPERATION_KEY);
+    }
+
+    /** Resolve the source's stable business event/version identity before rule evaluation or quarantine. */
+    public static JournalCreationIdentity fromEvent(Map<String, Object> event) {
+        if (event == null) {
+            throw new IllegalArgumentException("event must not be null");
+        }
+        return new JournalCreationIdentity(
+                firstStableScalar(event, "lineageSourceType", "eventType", "ruleCode"),
+                firstStableScalar(event, "lineageSourceId", "eventId", "sourceId", "documentId", "assetCode", "contractNo"),
+                firstStableScalar(event, "journalOperationKey", "operationKey"));
+    }
+
+    private static String firstStableScalar(Map<String, Object> event, String... keys) {
+        for (String key : keys) {
+            Object value = event.get(key);
+            if (value == null) continue;
+            if (!(value instanceof String) && !(value instanceof Number)) {
+                throw new IllegalArgumentException(key + " must be a string or number");
+            }
+            if (!value.toString().isBlank()) return value.toString();
+        }
+        return null;
     }
 
     private static String requireText(String value, String fieldName, int maximumLength) {

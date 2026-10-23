@@ -54,12 +54,25 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
         return transactions.reconcile(calendarId, operationId, remoteRequestTerminated, recoveredBy.trim());
     }
 
+    @Override
+    public ClosingCalendar cancelPreparedClose(Long calendarId, String operationId, String reason, String actor) {
+        return transactions.cancelPreparedClose(calendarId, operationId, reason, actor);
+    }
+
     private ClosingCalendar dispatch(ClosingCalendar calendar, String recoveryActor) {
         String operationId = calendar.getTransitionId();
         try {
             transactions.markDispatched(calendar.getId(), operationId);
+        } catch (FinalCloseEvidenceValidationException rejection) {
+            // PREPARED remains durable and no Master write occurred; expose the actual evidence failure.
+            throw rejection;
+        } catch (RuntimeException failure) {
+            throw new ClosingTransitionPendingException(operationId, failure);
+        }
+        try {
             return transactions.dispatchAndFinish(calendar.getId(), operationId, recoveryActor);
         } catch (RuntimeException failure) {
+            // DISPATCHED is committed; the original remote outcome may be uncertain.
             throw new ClosingTransitionPendingException(operationId, failure);
         }
     }

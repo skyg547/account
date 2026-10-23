@@ -11,8 +11,11 @@ import static org.mockito.Mockito.when;
 
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.BusinessPartnerAccount;
+import com.ho.account.masterdata.core.domain.exception.ScreeningMutationForbiddenException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,11 +43,15 @@ class BusinessPartnerServiceTest {
     @Mock
     private BusinessPartnerPersistencePort persistencePort;
 
+    @Mock
+    private MasterDataBusinessKeyLockPort businessKeyLockPort;
+
     private BusinessPartnerService service;
 
     @BeforeEach
     void setUp() {
-        service = new BusinessPartnerService(persistencePort);
+        service = new BusinessPartnerService(persistencePort, businessKeyLockPort);
+        when(persistencePort.findBusinessKeyById(10L)).thenReturn(Optional.of("BP-SERVICE"));
     }
 
     @Test
@@ -56,14 +63,16 @@ class BusinessPartnerServiceTest {
                 "새봄상사 신사명",
                 today.plusDays(1),
                 BusinessPartner.OPEN_ENDED_VALID_TO);
-        when(persistencePort.findById(10L)).thenReturn(Optional.of(current));
+        when(persistencePort.findByIdForUpdate(10L)).thenReturn(Optional.of(current));
         when(persistencePort.save(any(BusinessPartner.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         BusinessPartner next = service.updateBusinessPartner(10L, command);
 
-        InOrder order = inOrder(persistencePort);
-        order.verify(persistencePort).findById(10L);
+        InOrder order = inOrder(persistencePort, businessKeyLockPort);
+        order.verify(persistencePort).findBusinessKeyById(10L);
+        order.verify(businessKeyLockPort).lock(MasterDataType.BUSINESS_PARTNER, "BP-SERVICE");
+        order.verify(persistencePort).findByIdForUpdate(10L);
         order.verify(persistencePort).save(current);
         order.verify(persistencePort).save(next);
         assertThat(current.getValidTo()).isEqualTo(today);
@@ -89,13 +98,29 @@ class BusinessPartnerServiceTest {
                 "잘못된 변경",
                 today.plusDays(1),
                 BusinessPartner.OPEN_ENDED_VALID_TO);
-        when(persistencePort.findById(10L)).thenReturn(Optional.of(current));
+        when(persistencePort.findByIdForUpdate(10L)).thenReturn(Optional.of(current));
 
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> service.updateBusinessPartner(10L, command))
                 .withMessage("거래처 코드는 SCD2 버전 수정 시 변경할 수 없습니다.");
 
         // 새 버전 검증이 끝나기 전에는 과거 행을 닫거나 포트에 저장하지 않습니다.
+        assertThat(current.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
+        verify(persistencePort, never()).save(any(BusinessPartner.class));
+    }
+
+    @Test
+    void genericUpdateCannotElevateScreeningMetadataOrCloseTheCurrentVersion() {
+        LocalDate today = LocalDate.now();
+        BusinessPartner current = currentPartner(today);
+        when(persistencePort.findByIdForUpdate(10L)).thenReturn(Optional.of(current));
+        BusinessPartnerCommand command = new BusinessPartnerCommand(
+                "BP-SERVICE", "Synthetic changed name", null, null, null, null,
+                null, null, BusinessPartner.KycStatus.REJECTED, BusinessPartner.RiskRating.CRITICAL,
+                today.plusDays(1), BusinessPartner.OPEN_ENDED_VALID_TO);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.updateBusinessPartner(10L, command))
+                .isInstanceOf(ScreeningMutationForbiddenException.class);
         assertThat(current.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
         verify(persistencePort, never()).save(any(BusinessPartner.class));
     }
@@ -169,7 +194,7 @@ class BusinessPartnerServiceTest {
         LocalDate today = LocalDate.now();
         BusinessPartner current = currentPartner(today);
         List<VersionState> before = states(List.of(current));
-        when(persistencePort.findById(10L)).thenReturn(Optional.of(current));
+        when(persistencePort.findByIdForUpdate(10L)).thenReturn(Optional.of(current));
 
         assertThatIllegalArgumentException().isThrownBy(() -> service.updateBusinessPartner(10L,
                 command("BP-SERVICE", "Rejected", current.getValidFrom(), BusinessPartner.OPEN_ENDED_VALID_TO)));
@@ -183,7 +208,7 @@ class BusinessPartnerServiceTest {
     private List<BusinessPartner> stubHistory(LocalDate today) {
         BusinessPartner original = currentPartner(today);
         List<BusinessPartner> rows = new ArrayList<>(List.of(original));
-        when(persistencePort.findById(10L)).thenAnswer(invocation -> {
+        when(persistencePort.findByIdForUpdate(10L)).thenAnswer(invocation -> {
             // The ID still refers to today's original after scheduling a future version.
             List<BusinessPartner> current = rows.stream().filter(row -> row.isActiveAt(LocalDate.now())).toList();
             assertThat(current).containsExactly(original);

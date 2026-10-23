@@ -89,6 +89,9 @@ public class ForwardLookingEclService {
                     .weightedEcl(ecl).eclBase(ecl).eclBoom(ecl).eclRecession(ecl).build();
         }
 
+        // 모델 입력 오류가 계좌 ECL이나 충당금 집계로 전파되기 전에 가중치를 검증한다.
+        validateScenarioWeights(scenarios, applyYear);
+
         BigDecimal totalWeightedEcl = BigDecimal.ZERO;
         BigDecimal eclBoom = BigDecimal.ZERO;
         BigDecimal eclBase = BigDecimal.ZERO;
@@ -119,5 +122,23 @@ public class ForwardLookingEclService {
                 .eclBase(eclBase)
                 .eclRecession(eclRecession)
                 .build();
+    }
+
+    private void validateScenarioWeights(List<CrMacroScenario> scenarios, Integer applyYear) {
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        for (CrMacroScenario scenario : scenarios) {
+            BigDecimal weight = scenario.getProbabilityWeight();
+            if (weight == null || weight.compareTo(BigDecimal.ZERO) < 0
+                    || weight.compareTo(BigDecimal.ONE) > 0) {
+                throw new IllegalArgumentException("거시경제 시나리오 모델 입력 오류: " + applyYear
+                        + "년 " + scenario.getScenarioType() + " probabilityWeight=" + weight
+                        + " (허용 범위: 0~1)");
+            }
+            totalWeight = totalWeight.add(weight);
+        }
+        if (totalWeight.compareTo(BigDecimal.ONE) != 0) {
+            throw new IllegalArgumentException("거시경제 시나리오 모델 입력 오류: " + applyYear
+                    + "년 probabilityWeight 합계=" + totalWeight + " (필수 합계: 1)");
+        }
     }
 }

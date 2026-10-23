@@ -1,7 +1,6 @@
 package com.ho.account.closing.dto;
 
 import com.ho.account.closing.domain.PeriodLock;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -16,10 +15,6 @@ public class PeriodLockRequestDto {
 
     @NotNull
     private PeriodLock.PeriodLockType lockType;
-
-    @NotBlank
-    @Size(max = 50)
-    private String user;
 
     @Size(max = 1000)
     private String reason;

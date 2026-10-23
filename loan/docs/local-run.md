@@ -5,6 +5,7 @@
 - JDK/Gradle JVM 17
 - 저장소 루트를 Gradle 프로젝트로 import
 - 전표 흐름에는 Master Data의 유효 거래처·통화·계정과 Journal Ledger 구성이 필요
+- 로컬 전표 모드(기본값)는 작성자와 다른 `account.loan.accounting.journal-approver-actor`가 필요합니다. 아래 예시의 `service:loan-checker`는 기계 승인자 식별자이며 자격 증명이 아닙니다. [신원 형식과 실패·재시도 흐름](process-flow.md#로컬-전표-승인과-재시도)을 확인하세요.
 
 ## 테스트와 패키징
 
@@ -35,7 +36,7 @@ bash gradlew :loan:core:test --tests '*HttpLoanJournalAdapterTest' --console=pla
 ## API 컨텍스트
 
 ```powershell
-.\gradlew :loan:api:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-api --spring.data.redis.repositories.enabled=false --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1 --no-daemon
+.\gradlew :loan:api:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-api --spring.data.redis.repositories.enabled=false --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100 --account.loan.accounting.journal-approver-actor=service:loan-checker" --console=plain --max-workers=1 --no-daemon
 ```
 
 권장 확인 순서:
@@ -49,7 +50,7 @@ bash gradlew :loan:core:test --tests '*HttpLoanJournalAdapterTest' --console=pla
 ## Batch 컨텍스트만 확인
 
 ```powershell
-.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1 --no-daemon
+.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100 --account.loan.accounting.journal-approver-actor=service:loan-checker" --console=plain --max-workers=1 --no-daemon
 ```
 
 ## 이자 발생 Job
@@ -62,7 +63,7 @@ bash gradlew :loan:core:test --tests '*HttpLoanJournalAdapterTest' --console=pla
 - `accrualDate` 필수 Job parameter
 
 ```powershell
-.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=loanInterestAccrualJob accrualDate=2026-04-30 --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1 --no-daemon
+.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=loanInterestAccrualJob accrualDate=2026-04-30 --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100 --account.loan.accounting.journal-approver-actor=service:loan-checker" --console=plain --max-workers=1 --no-daemon
 ```
 
 성공 로그는 건너뛰고 실패 로그는 재시도합니다. 한 건이라도 다시 실패하면 Job Step이 실패합니다. 현재 생성 스케줄은 월별이므로 다른 날짜는 `NOT_DUE`가 정상입니다.
@@ -80,6 +81,6 @@ Dockerfile은 Java 17 builder/runtime과 `:loan:api:bootJar`의 `api-0.0.1-SNAPS
 ## 주의
 
 - `create-drop`과 Flyway 비활성화는 로컬 smoke 전용입니다.
-- 별도 `application.yml`이 없으므로 실행 명령에 application name, DB, discovery, 계정 설정을 명시합니다.
+- 별도 `application.yml`이 없으므로 실행 명령에 application name, DB, discovery, 계정 및 로컬 전표 승인자 설정을 명시합니다. 승인자를 설정하지 않으면 API·Batch가 기동하더라도 첫 로컬 전표 호출은 실패합니다.
 - 로컬 API 8087은 단독 실행 예시입니다. 전체 Compose에서는 Governance가 8087을 사용하므로 Loan은 8088입니다.
 - HTTP actor 필드는 신뢰 경계가 아닙니다. 운영에서는 인증 principal에서 서버가 주입해야 합니다.

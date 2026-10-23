@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:54" hostname="ho-To-Be-Filled-By-O-E-M" time="0.27">
+  <properties/>
+  <testcase name="registersJournalPortsForLocalProfile()" classname="com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest" time="0.01"/>
+  <testcase name="backsOffWhenJournalPortsAreAlreadyProvided()" classname="com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest" time="0.248"/>
+  <testcase name="doesNotRegisterJournalPortsOutsideLocalProfile()" classname="com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest" time="0.008"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

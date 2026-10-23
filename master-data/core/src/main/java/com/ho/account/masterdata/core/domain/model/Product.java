@@ -1,9 +1,12 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -23,6 +26,9 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 public class Product {
+
+    private static final BigDecimal MAX_PRICE = new BigDecimal("999999999999999.9999");
+    private static final int PRICE_SCALE = 4;
 
     private Long id;
 
@@ -52,6 +58,32 @@ public class Product {
     private BigDecimal price;
 
     /**
+     * NUMERIC(19,4)에 손실 없이 저장할 수 있는 단가만 허용합니다.
+     * 의미 없는 후행 0은 허용하고 저장 스케일은 4로 맞춥니다.
+     */
+    public static BigDecimal requireValidPrice(BigDecimal value) {
+        if (value == null) {
+            throw new MasterDataFieldRules.FieldValidationException("Product price is required.");
+        }
+        if (value.signum() < 0) {
+            throw new MasterDataFieldRules.FieldValidationException("Product price must be nonnegative.");
+        }
+        if (value.compareTo(MAX_PRICE) > 0) {
+            throw new MasterDataFieldRules.FieldValidationException("Product price exceeds NUMERIC(19,4).");
+        }
+        try {
+            return value.setScale(PRICE_SCALE, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException ex) {
+            throw new MasterDataFieldRules.FieldValidationException(
+                    "Product price has more than four meaningful fractional digits.", ex);
+        }
+    }
+
+    public void setPrice(BigDecimal price) {
+        this.price = requireValidPrice(price);
+    }
+
+    /**
      * 상품 유형 (예: PHYSICAL, SERVICE, DIGITAL, LOAN, DEPOSIT)
      */
     private ProductType productType;
@@ -76,6 +108,18 @@ public class Product {
         PHYSICAL, SERVICE, DIGITAL, LOAN, DEPOSIT
     }
 
+    /** Validate the effective row before SCD2 history is changed. */
+    public void validateBusinessFields() {
+        productCode = MasterDataFieldRules.code(productCode, "Product code", MasterDataFieldRules.PRODUCT_CODE_MAX);
+        name = MasterDataFieldRules.requiredText(name, "Product name", MasterDataFieldRules.PRODUCT_NAME_MAX);
+        description = MasterDataFieldRules.optionalText(description, "Product description", MasterDataFieldRules.PRODUCT_DESCRIPTION_MAX);
+        unitOfMeasure = MasterDataFieldRules.optionalText(unitOfMeasure, "Product unitOfMeasure", MasterDataFieldRules.PRODUCT_UNIT_MAX);
+        price = MasterDataFieldRules.productPrice(price);
+        if (productType == null) {
+            throw new MasterDataFieldRules.FieldValidationException("Product productType is required.");
+        }
+    }
+
     /**
      * 특정 시점에 유효한지 확인
      */
@@ -91,4 +135,3 @@ public class Product {
         this.updatedAt = LocalDateTime.now();
     }
 }
-

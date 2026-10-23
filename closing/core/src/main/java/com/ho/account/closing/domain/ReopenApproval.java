@@ -1,75 +1,48 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
  * Approval request for reopening a fiscal period.
  * Stores only the fiscal period ID to avoid cross-module entity coupling.
  */
-@Entity
-@Table(name = "reopen_approvals")
+
 public class ReopenApproval {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fiscal_period_id", nullable = false)
     private Long fiscalPeriodId;
 
-    @Transient
+    // A nullable unique slot lets decided requests remain as immutable history.
+    private Long pendingFiscalPeriodId;
     private String fiscalYear;
 
-    @Transient
     private String fiscalPeriod;
 
-    @Column(length = 50)
     private String requestedBy;
 
     private LocalDateTime requestedAt;
 
-    @Column(length = 1000)
     private String reason;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ReopenApprovalStatus status; // PENDING, APPROVED, REJECTED
 
-    @Column(length = 50)
     private String approvedBy;
 
     private LocalDateTime approvedAt;
 
-    @Column(columnDefinition = "TEXT")
     private String impactAnalysisReport;
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
     public enum ReopenApprovalStatus {
         PENDING, APPROVED, REJECTED
     }
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
-            this.status = ReopenApprovalStatus.PENDING;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 
     public Long getId() {
         return id;
@@ -85,6 +58,7 @@ public class ReopenApproval {
 
     public void setFiscalPeriodId(Long fiscalPeriodId) {
         this.fiscalPeriodId = fiscalPeriodId;
+        syncPendingFiscalPeriodId();
     }
 
     public String getFiscalYear() {
@@ -104,7 +78,7 @@ public class ReopenApproval {
     }
 
     public void assignFiscalPeriod(Long fiscalPeriodId, String fiscalYear, String fiscalPeriod) {
-        this.fiscalPeriodId = fiscalPeriodId;
+        setFiscalPeriodId(fiscalPeriodId);
         this.fiscalYear = fiscalYear;
         this.fiscalPeriod = fiscalPeriod;
     }
@@ -139,6 +113,7 @@ public class ReopenApproval {
 
     public void setStatus(ReopenApprovalStatus status) {
         this.status = status;
+        syncPendingFiscalPeriodId();
     }
 
     public String getApprovedBy() {
@@ -197,7 +172,7 @@ public class ReopenApproval {
         this.requestedBy = actor;
         this.requestedAt = LocalDateTime.now();
         this.reason = reason.trim();
-        this.status = ReopenApprovalStatus.PENDING;
+        setStatus(ReopenApprovalStatus.PENDING);
         this.auditUser = actor;
     }
 
@@ -217,7 +192,7 @@ public class ReopenApproval {
         if (actor.equals(this.requestedBy)) {
             throw new IllegalStateException("Reopen requester cannot approve or reject their own request.");
         }
-        this.status = decision;
+        setStatus(decision);
         this.approvedBy = actor;
         this.approvedAt = LocalDateTime.now();
         this.auditUser = actor;
@@ -228,5 +203,10 @@ public class ReopenApproval {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         return value.trim();
+    }
+
+    private void syncPendingFiscalPeriodId() {
+        this.pendingFiscalPeriodId = this.status == ReopenApprovalStatus.PENDING
+                ? this.fiscalPeriodId : null;
     }
 }

@@ -3,9 +3,12 @@ package com.ho.account.masterdata.core.application.service;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangePayloadDecoder;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +21,7 @@ public class BusinessPartnerMasterDataChangeApplier implements MasterDataChangeA
 
     private final BusinessPartnerUseCase businessPartnerUseCase;
     private final MasterDataChangePayloadDecoder payloadDecoder;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
 
     @Override
     public MasterDataType targetType() {
@@ -27,23 +31,68 @@ public class BusinessPartnerMasterDataChangeApplier implements MasterDataChangeA
     @Override
     public void validate(MasterDataChangeRequest request) {
         if (request.getChangeType() != MasterDataChangeRequest.ChangeType.DEACTIVATE) {
-            command(request).toDomain();
+            validatedCommand(request);
         }
     }
 
-    @Override
-    public void apply(MasterDataChangeRequest request) {
-        switch (request.getChangeType()) {
-            case CREATE -> businessPartnerUseCase.createBusinessPartner(command(request));
-            case UPDATE -> businessPartnerUseCase.updateBusinessPartner(currentId(request), command(request));
-            case DEACTIVATE -> businessPartnerUseCase.deleteBusinessPartner(
-                    currentId(request), request.getEffectiveDate());
+    private BusinessPartnerCommand validatedCommand(MasterDataChangeRequest request) {
+        BusinessPartnerCommand command = command(request);
+        // Reject malformed dates before an UPDATE lookup can mask the payload error as missing state.
+        MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
+                command.validTo() != null ? command.validTo() : BusinessPartner.OPEN_ENDED_VALID_TO);
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+            command.toDomain();
+        } else {
+            BusinessPartner current = businessPartnerUseCase.getBusinessPartnerByCode(request.getTargetKey())
+                    .orElseThrow(() -> new MasterDataVersionConflictException("Active business partner no longer exists."));
+            command.requireUnchangedScreening(current);
+            // Merge omitted UPDATE fields before approval; explicit blanks still reach the domain factory.
+            BusinessPartner.create(current.getBusinessPartnerCode(),
+                    command.businessPartnerName() != null ? command.businessPartnerName() : current.getBusinessPartnerName(),
+                    command.registrationNumber() != null ? command.registrationNumber() : current.getRegistrationNumber(),
+                    command.ceoName() != null ? command.ceoName() : current.getCeoName(),
+                    command.businessType() != null ? command.businessType() : current.getBusinessType(),
+                    command.businessItem() != null ? command.businessItem() : current.getBusinessItem(),
+                    command.partnerType() != null ? command.partnerType() : current.getPartnerType(),
+                    command.useYn() != null ? command.useYn() : current.getUseYn(),
+                    command.kycStatus() != null ? command.kycStatus() : current.getKycStatus(),
+                    command.riskRating() != null ? command.riskRating() : current.getRiskRating(),
+                    command.validFrom(), command.validTo());
         }
+        return command;
+    }
+
+    @Override
+    public AppliedVersion apply(MasterDataChangeRequest request) {
+        validate(request);
+        return switch (request.getChangeType()) {
+            case CREATE -> {
+                BusinessPartner next = businessPartnerUseCase.createBusinessPartner(validatedCommand(request));
+                yield new AppliedVersion(null, next == null ? null : next.getId());
+            }
+            case UPDATE -> {
+                BusinessPartnerCommand command = validatedCommand(request);
+                BusinessPartner current = current(request);
+                MasterDataChangeApplierSupport.requireCurrentUpdateWindow(
+                        current.getValidTo(), command.validFrom(), command.validTo());
+                BusinessPartner next = businessPartnerUseCase.updateBusinessPartner(
+                        MasterDataChangeApplierSupport.requirePersistentId(current.getId(), request), command);
+                yield new AppliedVersion(current.getId(), next == null ? null : next.getId());
+            }
+            case DEACTIVATE -> {
+                Long id = MasterDataChangeApplierSupport.requirePersistentId(current(request).getId(), request);
+                businessPartnerUseCase.deleteBusinessPartner(id, request.getEffectiveDate());
+                yield new AppliedVersion(id, id);
+            }
+        };
     }
 
     private BusinessPartnerCommand command(MasterDataChangeRequest request) {
         BusinessPartnerCommand payload = MasterDataChangeApplierSupport.decode(
                 request, payloadDecoder, BusinessPartnerCommand.class);
+        if (payload == null) {
+            throw new IllegalArgumentException("Business partner change payload must not be null.");
+        }
         String code = MasterDataChangeApplierSupport.targetKey(request, payload.businessPartnerCode());
         return new BusinessPartnerCommand(
                 code,
@@ -60,10 +109,9 @@ public class BusinessPartnerMasterDataChangeApplier implements MasterDataChangeA
                 payload.validTo());
     }
 
-    private Long currentId(MasterDataChangeRequest request) {
-        BusinessPartner current = businessPartnerUseCase.getBusinessPartnerByCode(request.getTargetKey())
-                .orElseThrow(() -> new IllegalArgumentException(
+    private BusinessPartner current(MasterDataChangeRequest request) {
+        return businessPartnerPersistencePort.findByBusinessPartnerCodeForUpdate(request.getTargetKey())
+                .orElseThrow(() -> new MasterDataVersionConflictException(
                         "Active business partner not found. Code: " + request.getTargetKey()));
-        return MasterDataChangeApplierSupport.requirePersistentId(current.getId(), request);
     }
 }

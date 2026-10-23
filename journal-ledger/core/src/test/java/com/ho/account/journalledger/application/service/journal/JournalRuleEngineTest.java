@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.application.service.journal;
 
 import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.domain.journal.domain.ConditionOperator;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
@@ -92,6 +93,42 @@ class JournalRuleEngineTest {
         assertThat(entry.getDetails().get(1).getAmount()).isEqualByComparingTo("120000");
         assertThat(entry.getDetails()).allSatisfy(detail ->
                 assertThat(detail.getBaseAmount()).isEqualByComparingTo("120000"));
+    }
+
+    @Test
+    void replayAfterRuleDisplayNameEditKeepsEntryAndFallbackLineFingerprintStable() {
+        JournalRule rule = createRule(765L, "PAYABLE_MAIN");
+        JournalRuleDetail debit = ruleDetail(7651L, "DEBIT", "10100", "${amount}");
+        JournalRuleDetail credit = ruleDetail(7652L, "CREDIT", "20100", "${amount}");
+        when(journalRuleQueryPort.findActiveRules()).thenReturn(List.of(rule));
+        when(journalRuleQueryPort.findConditions(765L)).thenReturn(List.of());
+        when(journalRuleQueryPort.findDetails(765L)).thenReturn(List.of(debit, credit));
+        Map<String, Object> event = Map.of(
+                "ruleCode", "PAYABLE_MAIN", "eventId", "INVOICE-765",
+                "journalOperationKey", "INVOICE-765:MAIN:v1",
+                "lineageSourceType", "PAYABLE", "lineageSourceId", "INVOICE-765",
+                "createdBy", "service:journal-kafka-maker", "amount", new BigDecimal("100.00"));
+        LocalDate date = LocalDate.of(2026, 9, 25);
+        JournalCreationIdentity identity = JournalCreationIdentity.fromEvent(event);
+
+        JournalEntry first = engine.generateJournalEntry(event, date).orElseThrow();
+        rule.setRuleName("Renamed display label after the first delivery");
+        JournalEntry retry = engine.generateJournalEntry(event, date).orElseThrow();
+
+        assertThat(JournalCreationIdentity.fromEvent(event)).isEqualTo(identity);
+        assertThat(first.getDescription()).isEqualTo("PAYABLE_MAIN");
+        assertThat(retry.getDescription()).isEqualTo(first.getDescription());
+        assertThat(retry.getDetails()).allSatisfy(line ->
+                assertThat(line.getDetailDescription()).isEqualTo("PAYABLE_MAIN"));
+        assertThat(JournalCreationFingerprint.calculate(retry))
+                .isEqualTo(JournalCreationFingerprint.calculate(first));
+
+        Map<String, Object> describedEvent = new java.util.HashMap<>(event);
+        describedEvent.put("description", "Caller supplied memo");
+        JournalEntry described = engine.generateJournalEntry(describedEvent, date).orElseThrow();
+        assertThat(described.getDescription()).isEqualTo("Caller supplied memo");
+        assertThat(described.getDetails()).allSatisfy(line ->
+                assertThat(line.getDetailDescription()).isEqualTo("Caller supplied memo"));
     }
 
     @Test

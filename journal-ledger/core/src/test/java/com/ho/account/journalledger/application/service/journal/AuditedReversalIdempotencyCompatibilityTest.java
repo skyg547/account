@@ -34,6 +34,7 @@ class AuditedReversalIdempotencyCompatibilityTest {
         Map<Long, JournalEntry> savedJournals = new HashMap<>();
         JournalPersistencePort journals = Mockito.mock(JournalPersistencePort.class, invocation -> {
             return switch (invocation.getMethod().getName()) {
+                case "nextSlipNumber" -> 1L;
                 case "findByIdWithDetails" -> Optional.of(original);
                 case "findByIdWithDetailsWithoutLock" ->
                         Optional.ofNullable(savedJournals.get((Long) invocation.getArgument(0)));

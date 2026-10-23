@@ -1,6 +1,9 @@
 package com.ho.account.masterdata.core.application.port.out;
 
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -19,6 +22,9 @@ public interface BusinessPartnerPersistencePort {
 
     Optional<BusinessPartner> findByBusinessPartnerCode(String businessPartnerCode);
 
+    /** 업무 키 잠금 후, 기존 영속성 캐시 대신 최신 현재 버전을 잠가 읽습니다. */
+    Optional<BusinessPartner> findByBusinessPartnerCodeForUpdate(String businessPartnerCode);
+
     List<BusinessPartner> findAllByBusinessPartnerCodeIn(Collection<String> businessPartnerCodes);
 
     /**
@@ -34,11 +40,17 @@ public interface BusinessPartnerPersistencePort {
 
     Optional<BusinessPartner> findById(Long id);
 
-    List<BusinessPartner> findAll();
+    /** 업무 키 잠금 후 ID가 지정한 행의 최신 유효기간을 잠가 읽습니다. */
+    Optional<BusinessPartner> findByIdForUpdate(Long id);
 
-    List<BusinessPartner> findByUseYnTrue();
+    /** 변경 가능한 aggregate를 미리 읽지 않고 잠글 업무 키만 조회합니다. */
+    Optional<String> findBusinessKeyById(Long id);
 
-    List<BusinessPartner> searchActiveByName(String name, LocalDate asOfDate);
+    PageSlice<BusinessPartnerSummary> findAllSummaries(PageWindow page);
+
+    PageSlice<BusinessPartnerSummary> findActiveSummaries(LocalDate asOfDate, PageWindow page);
+
+    PageSlice<BusinessPartnerSummary> searchActiveByName(String name, LocalDate asOfDate, PageWindow page);
 
     BusinessPartner save(BusinessPartner businessPartner);
 }

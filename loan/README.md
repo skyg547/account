@@ -46,9 +46,11 @@ account.loan.accounting:
   recognized-income-account-code: "410000"
   accrued-interest-receivable-account-code: "115010"
   interest-income-account-code: "410100"
+  journal-approver-actor: "service:loan-checker"
 ```
 
 계정은 사용 업무일 기준 Master Data에서 유효해야 합니다. 이연 항목 유형에 별도 계정 코드가 있으면 기본 설정 대신 그 코드를 사용합니다.
+로컬 전표 모드에서는 작성자와 다른 기계 승인자 `journal-approver-actor`도 필수입니다. 누락·잘못된 형식·작성자와 같은 신원이면 전표를 쓰기 전에 실패합니다. 식별자 형식과 재시도 절차는 [로컬 전표 승인과 재시도](docs/process-flow.md#로컬-전표-승인과-재시도)를 참고합니다.
 
 ## 검증과 실행
 

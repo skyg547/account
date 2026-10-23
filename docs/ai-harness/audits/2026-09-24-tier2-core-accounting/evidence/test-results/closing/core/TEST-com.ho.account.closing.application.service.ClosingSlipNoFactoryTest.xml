@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.application.service.ClosingSlipNoFactoryTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:13" hostname="ho-To-Be-Filled-By-O-E-M" time="0.01">
+  <properties/>
+  <testcase name="slipNumberRejectsMissingIdentity()" classname="com.ho.account.closing.application.service.ClosingSlipNoFactoryTest" time="0.001"/>
+  <testcase name="fxValuationSlipNoUsesSourceCurrencyDiscriminator()" classname="com.ho.account.closing.application.service.ClosingSlipNoFactoryTest" time="0.001"/>
+  <testcase name="eclProvisionSlipNoIsDeterministicAndFitsJournalColumn()" classname="com.ho.account.closing.application.service.ClosingSlipNoFactoryTest" time="0.001"/>
+  <testcase name="fxValuationSlipNoUsesAccountDiscriminator()" classname="com.ho.account.closing.application.service.ClosingSlipNoFactoryTest" time="0.002"/>
+  <testcase name="fxValuationSlipNoIsDeterministicAndFitsJournalColumn()" classname="com.ho.account.closing.application.service.ClosingSlipNoFactoryTest" time="0.001"/>
+  <testcase name="annualClosingSlipUsesRetainedEarningsAccount()" classname="com.ho.account.closing.application.service.ClosingSlipNoFactoryTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

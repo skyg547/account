@@ -7,6 +7,7 @@ import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.out.JournalCreationOperationPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.service.journal.JournalCreationFingerprint;
+import com.ho.account.journalledger.application.service.journal.JournalEventRequestFingerprint;
 import com.ho.account.journalledger.application.service.journal.JournalEntryService;
 import com.ho.account.journalledger.application.service.journal.JournalRuleEngine;
 import com.ho.account.journalledger.application.service.journal.validator.BalanceValidationFilter;
@@ -21,6 +22,8 @@ import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -80,6 +83,7 @@ class JournalCreationConcurrencyIntegrationTest {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private OperationWriteGate gate;
+    @Autowired private JournalRuleEngine eventRules;
     @Autowired private JournalCreationOperationPersistenceAdapter durableOperations;
     private TransactionTemplate transactions;
 
@@ -87,6 +91,7 @@ class JournalCreationConcurrencyIntegrationTest {
     void clearCreationState() {
         transactions = new TransactionTemplate(transactionManager);
         gate.reset();
+        org.mockito.Mockito.reset(eventRules);
         jdbc.update("DELETE FROM journal_creation_operations");
         jdbc.update("DELETE FROM journal_details");
         jdbc.update("DELETE FROM journal_entries");
@@ -106,7 +111,7 @@ class JournalCreationConcurrencyIntegrationTest {
             Future<Attempt> second = executor.submit(() -> createInNewTransaction(identity, equivalentRetry));
 
             assertThatThrownBy(() -> second.get(300, TimeUnit.MILLISECONDS))
-                    .as("the loser must wait on the V18 stripe until the winner transaction commits")
+                    .as("the loser must wait on the V20 stripe until the winner transaction commits")
                     .isInstanceOf(TimeoutException.class);
             gate.release.countDown();
 
@@ -126,6 +131,58 @@ class JournalCreationConcurrencyIntegrationTest {
                     String.class)).isEqualTo(expectedFingerprint);
             assertThat(jdbc.queryForObject("SELECT journal_entry_id FROM journal_creation_operations",
                     Long.class)).isEqualTo(winner.journalId());
+        } finally {
+            gate.release.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(20, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void equivalentConcurrentEventRetriesUseOneVersionTwoReceiptBeforeRuleReevaluation() throws Exception {
+        Map<String, Object> firstEvent = Map.of(
+                "lineageSourceType", "ISSUE_765_EVENT", "lineageSourceId", "CONCURRENT-2",
+                "journalOperationKey", "MAIN:v1", "createdBy", "service:test-maker",
+                "amount", new BigDecimal("100.00"));
+        Map<String, Object> retryEvent = new HashMap<>(firstEvent);
+        retryEvent.put("amount", new BigDecimal("100.0"));
+        JournalCreationIdentity identity = JournalCreationIdentity.fromEvent(firstEvent);
+        String expectedFingerprint = JournalEventRequestFingerprint.calculate(firstEvent, JOURNAL_DATE);
+        org.mockito.Mockito.when(eventRules.generateJournalEntry(
+                org.mockito.ArgumentMatchers.anyMap(), org.mockito.ArgumentMatchers.eq(JOURNAL_DATE)))
+                .thenAnswer(ignored -> Optional.of(journal(identity, false, "100.00")));
+        gate.holdFirstOperationSave.set(true);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Attempt> first = executor.submit(() -> createEventInNewTransaction(identity, firstEvent));
+            await(gate.beforeOperationSave);
+            Future<Attempt> second = executor.submit(() -> createEventInNewTransaction(identity, retryEvent));
+
+            assertThatThrownBy(() -> second.get(300, TimeUnit.MILLISECONDS))
+                    .as("the event retry must wait for the first receipt commit")
+                    .isInstanceOf(TimeoutException.class);
+            gate.release.countDown();
+
+            Attempt winner = first.get(15, TimeUnit.SECONDS);
+            Attempt retry = second.get(15, TimeUnit.SECONDS);
+            assertThat(retry.connectionId()).isNotEqualTo(winner.connectionId());
+            assertThat(retry.journalId()).isEqualTo(winner.journalId());
+            assertThat(retry.entry().getDetails()).hasSize(2);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM journal_entries", Integer.class)).isOne();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM journal_creation_operations", Integer.class)).isOne();
+            assertThat(jdbc.queryForObject("SELECT fingerprint_version FROM journal_creation_operations",
+                    Integer.class)).isEqualTo(JournalEventRequestFingerprint.VERSION);
+            assertThat(jdbc.queryForObject("SELECT request_fingerprint FROM journal_creation_operations",
+                    String.class)).isEqualTo(expectedFingerprint);
+            org.mockito.Mockito.verify(eventRules, org.mockito.Mockito.times(1))
+                    .generateJournalEntry(org.mockito.ArgumentMatchers.anyMap(),
+                            org.mockito.ArgumentMatchers.eq(JOURNAL_DATE));
+
+            Map<String, Object> changed = new HashMap<>(firstEvent);
+            changed.put("amount", new BigDecimal("101.00"));
+            assertThatThrownBy(() -> service.createJournalEntryFromEvent(identity, changed, JOURNAL_DATE))
+                    .isInstanceOf(com.ho.account.journalledger.application.service.journal.JournalCreationConflictException.class);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM journal_entries", Integer.class)).isOne();
         } finally {
             gate.release.countDown();
             executor.shutdownNow();
@@ -201,6 +258,15 @@ class JournalCreationConcurrencyIntegrationTest {
             long connectionId = jdbc.queryForObject(DATABASE.driver().equals("org.postgresql.Driver")
                     ? "SELECT pg_backend_pid()" : "SELECT session_id()", Long.class);
             JournalEntry entry = service.createJournalEntry(identity, request);
+            return new Attempt(connectionId, entry);
+        });
+    }
+
+    private Attempt createEventInNewTransaction(JournalCreationIdentity identity, Map<String, Object> event) {
+        return transactions.execute(status -> {
+            long connectionId = jdbc.queryForObject(DATABASE.driver().equals("org.postgresql.Driver")
+                    ? "SELECT pg_backend_pid()" : "SELECT session_id()", Long.class);
+            JournalEntry entry = service.createJournalEntryFromEvent(identity, event, JOURNAL_DATE).orElseThrow();
             return new Attempt(connectionId, entry);
         });
     }
@@ -311,9 +377,14 @@ class JournalCreationConcurrencyIntegrationTest {
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
     @EntityScan("com.ho.account.journalledger.domain")
-    @EnableJpaRepositories("com.ho.account.journalledger.domain")
+    @EnableJpaRepositories("com.ho.account.journalledger.infrastructure.persistence.repository")
     @Import({JournalPersistenceAdapter.class, JournalCreationOperationPersistenceAdapter.class})
     static class TestApplication {
+        @Bean
+        JournalRuleEngine eventRules() {
+            return org.mockito.Mockito.mock(JournalRuleEngine.class);
+        }
+
         @Bean
         OperationWriteGate operationWriteGate(
                 JournalCreationOperationPersistenceAdapter delegate,
@@ -330,11 +401,12 @@ class JournalCreationConcurrencyIntegrationTest {
         @Bean
         JournalEntryService journalEntryService(
                 JournalPersistencePort journals,
-                @Qualifier("gatedCreationOperationPort") JournalCreationOperationPersistencePort operations) {
+                @Qualifier("gatedCreationOperationPort") JournalCreationOperationPersistencePort operations,
+                JournalRuleEngine eventRules) {
             JournalValidationEngine validation = new JournalValidationEngine(List.of(
                     new BalanceValidationFilter(), new ClosingLockValidationFilter(date -> false)));
             return new JournalEntryService(journals, operations,
-                    org.mockito.Mockito.mock(JournalRuleEngine.class),
+                    eventRules,
                     org.mockito.Mockito.mock(PostingService.class), validation);
         }
     }

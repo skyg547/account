@@ -2,6 +2,7 @@ package com.ho.account.closing.application.pipeline;
 
 import com.ho.account.closing.application.service.FxValuationBalance;
 import com.ho.account.closing.application.service.FxValuationService;
+import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,8 +14,9 @@ import java.util.Objects;
 /**
  * Chunk-level FX valuation pipeline.
  *
- * <p>The whole chunk is atomic. Every failed account is reported, then the exception rolls the
- * chunk back so Spring Batch does not checkpoint an incomplete financial valuation.</p>
+ * <p>Every balance in a chunk is prepared before the first journal effect. Preparation failures
+ * are aggregated so Spring Batch cannot checkpoint an invalid financial valuation. Journal
+ * adapters may be remote, so their idempotent lineage remains the recovery boundary.</p>
  */
 @RequiredArgsConstructor
 public class FxValuationPipeline {
@@ -32,13 +34,37 @@ public class FxValuationPipeline {
             throw new IllegalArgumentException("valuationBatchId must be positive");
         }
 
+        List<ClosingJournalEntryCommand> commands = prepareChunk(
+                balances, valuationDate, valuationBatchId);
+        commands.forEach(fxValuationService::postPreparedFxValuation);
+    }
+
+    /** Runs the same chunk preflight without any Journal write. */
+    public void validateChunk(
+            List<? extends FxValuationBalance> balances,
+            LocalDate valuationDate,
+            Long valuationBatchId) {
+        Objects.requireNonNull(balances, "balances must not be null");
+        Objects.requireNonNull(valuationDate, "valuationDate must not be null");
+        if (valuationBatchId == null || valuationBatchId <= 0) {
+            throw new IllegalArgumentException("valuationBatchId must be positive");
+        }
+        prepareChunk(balances, valuationDate, valuationBatchId);
+    }
+
+    private List<ClosingJournalEntryCommand> prepareChunk(
+            List<? extends FxValuationBalance> balances,
+            LocalDate valuationDate,
+            Long valuationBatchId) {
         List<RuntimeException> failures = new ArrayList<>();
+        List<ClosingJournalEntryCommand> commands = new ArrayList<>();
         for (FxValuationBalance balance : balances) {
             try {
-                fxValuationService.processFxValuationForAccount(balance, valuationDate, valuationBatchId);
+                fxValuationService.prepareFxValuationForAccount(balance, valuationDate, valuationBatchId)
+                        .ifPresent(commands::add);
             } catch (RuntimeException exception) {
                 failures.add(new IllegalStateException(
-                        "FX valuation failed for " + balance.accountCode() + "|" + balance.currencyCode(),
+                        "FX valuation failed for " + balanceIdentity(balance),
                         exception));
             }
         }
@@ -49,5 +75,10 @@ public class FxValuationPipeline {
             failures.forEach(aggregate::addSuppressed);
             throw aggregate;
         }
+        return List.copyOf(commands);
+    }
+
+    private String balanceIdentity(FxValuationBalance balance) {
+        return balance == null ? "<null>" : balance.accountCode() + "|" + balance.currencyCode();
     }
 }

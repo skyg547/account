@@ -3,7 +3,7 @@ package com.ho.account.journalledger.infrastructure.persistence;
 import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.out.JournalCreationOperationPersistencePort;
 import com.ho.account.journalledger.domain.journal.domain.JournalCreationOperation;
-import com.ho.account.journalledger.domain.journal.repository.JournalCreationOperationRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalCreationOperationRepository;
 import jakarta.persistence.EntityManager;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

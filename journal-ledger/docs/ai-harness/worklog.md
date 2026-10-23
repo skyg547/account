@@ -1,3 +1,30 @@
+# GH-765 resumed worklog — 2026-10-23
+
+- User expanded scope to `journal-ledger/**`, `payable/**`, `receivable/**`, `contracts/**`; parent owns multi-module integration. Journal writer changed only `journal-ledger/**`.
+- Replaced contract `slipNo`/`PRIMARY` inference with explicit `operationKey`; manual HTTP uses required `Idempotency-Key`, event HTTP/Kafka require stable event operation key. Same key and changed financial or trusted audit content conflicts; missing key fails before persistence.
+- Integrated latest `main`: retained V18 broker-coordinate quarantine and replay, strict ISO accounting date, V19 sequence/namespace and HTTP 503; both Kafka process and replay use the business operation identity. Moved creation migration to V20, moved repository into infrastructure and mapped the domain operation in infrastructure XML.
+- Latest-main focused command `./gradlew :journal-ledger:core:test --tests '*JournalCreation*' --tests '*KafkaJournalEventServiceTest' --tests '*JournalEntryServiceTest' --console=plain --max-workers=1`: 52/52 PASS. `./gradlew :journal-ledger:api:test --console=plain --max-workers=1`: 88/88 PASS. Requested module command `./gradlew :journal-ledger:test --console=plain --max-workers=1`: core366/API88/batch38 = 492/492 PASS, failures/errors/skips0.
+- Disposable PostgreSQL16, independent DB connections: `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:39405/postgres ./gradlew :journal-ledger:core:test --tests '*JournalCreationOperationMigrationTest' --tests '*JournalCreationConcurrencyIntegrationTest' --rerun-tasks --offline --console=plain --max-workers=1`: migration2 + concurrency4 = 6/6 PASS. This was a task test container, not live/production PostgreSQL.
+- Static gates: conflict-marker scan and `git diff --check -- journal-ledger` PASS. Module files remain unstaged in the parent-controlled merge; no commit/push is claimed here.
+- Prior September audited-version RED proof at exact `a97d10ab` failed 1/1; that was previously executed, not rerun on 2026-10-23. The existing test fixture gained only a sequence mock to keep the current sequence allocator independent of the idempotency assertion.
+- V20 intentionally has no historical backfill. Cutover requires all writers/input fenced, old in-flight events reconciled with existing journals, and unapproved producers migrated before traffic resumes. Reversion must keep V18/V19/V20 data and receipt evidence.
+- Independent review follow-up: `JournalRuleEngine.resolveEntryDescription` used editable `ruleName` as the no-payload fallback, which changed the fingerprint of the same Kafka event after a display-name edit. It now uses stable `ruleCode`; caller `description`/`memo`/`title` still win and line fallback inherits the stable entry description. New `JournalRuleEngineTest.replayAfterRuleDisplayNameEditKeepsEntryAndFallbackLineFingerprintStable` checks the same event/key before and after a rule-name edit, both line descriptions, fingerprint equality and payload-description precedence. Targeted rule/fingerprint/Kafka-service tests 39/39 PASS. After this correction, `./gradlew :journal-ledger:test --console=plain --max-workers=1` passed core367/API88/batch38 = 493/493, failures/errors/skips0. The forced disposable PostgreSQL16 migration/concurrency command above passed 6/6 again (migration2/concurrency4). Parent Integrator separately reran the audited `a97d10ab` RED proof: 1/1 failed as expected at assertion 62.
+- Final review follow-up: `JournalEntryService.createJournalEntryFromEvent` now locks and compares a version 2 canonical raw event/accounting-date digest before rule evaluation; manual/contract keeps version 1 generated-journal digest. Thus the same committed event returns its original journal after rule deactivation, while a changed same-key amount conflicts before rule evaluation and Kafka cannot quarantine either completed retry. Canonicalization sorts nested map keys, normalizes numeric scale, preserves list order, includes trusted maker from HTTP/Kafka, and excludes broker coordinates. HTTP header/payload key precedence and Kafka alias/canonical key inputs populate both operation-key spellings to preserve rule expressions and converge on one digest. Regression coverage: `JournalEntryServiceTest`, `KafkaJournalEventServiceTest`, `JournalEventRequestFingerprintTest`, `JournalCreationIdempotencyMvcTest`, `KafkaTransactionListenerPrecisionTest`, and PostgreSQL `JournalCreationConcurrencyIntegrationTest` version 2 race. Fixed stale V18 lock message and GL10 scope paragraph; README/beginner/process-flow/schema/concurrency docs reflect the new contract.
+- Final verification after all review corrections: `./gradlew :journal-ledger:test --console=plain --max-workers=1` core373/API89/batch38 = 500/500 PASS, failures/errors/skips0. Parent then ran the exact requested `./gradlew :journal-ledger:test :payable:test :receivable:test :contracts:test` successfully; those tasks were up-to-date from prior passing module runs. XML reports showed journal-ledger500, payable70, receivable74 and contracts11, all with zero failures/errors/skips. Parent forced `:payable:api:test :payable:batch:test :receivable:api:test :receivable:batch:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1` and built six API/batch bootJARs; both commands passed. Parent reran `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:39405/postgres ./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.infrastructure.persistence.JournalCreationOperationMigrationTest' --tests 'com.ho.account.journalledger.infrastructure.persistence.JournalCreationConcurrencyIntegrationTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`: migration2/concurrency5 = 7/7 PASS on disposable PostgreSQL16. HTTP/Kafka alias-focused API tests also PASS.
+
+## GH-765 Q1–Q4 completion evidence
+
+| Item | Judgment | File/test evidence | N/A reason | Risk / next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 readable responsibility | PASS | `JournalEntryService` application lock→v2 event compare→rule→save, `JournalPostingAdapter` key mapping, infrastructure repository/XML mapping; module500 and PostgreSQL7 | None: production code changed | Out-of-scope producers need operation keys before rollout | `/root/independent_review`: PASS, no remaining blocking new-change finding |
+| Q2 flow and rationale | PASS | `docs/process-flow.md` V18/V20 scope, event v2 vs manual v1, `docs/posting-concurrency.md` V20 cutover/fence; PostgreSQL7 incl v2 race | None: behavior changed | Approved cutover and reconciliation plan | `/root/independent_review`: PASS |
+| Q3 feature and beginner docs | PASS | `README.md`, `docs/beginner-guide.md`, `docs/layer-guide.md`, `docs/schema.md` describe HTTP header precedence, key aliases, version families and migration V20 | None: API/schema changed | Human review of deploy prerequisites | `/root/independent_review`: PASS |
+| Q4 nearby intent comments | PASS | `JournalEntryService` pre-rule receipt rationale, `JournalEventRequestFingerprint` canonical form, `JournalCreationOperationWriteLock` V20 error, `KafkaTransactionListener` alias normalization | None: nontrivial logic changed | Keep canonicalization aligned across adapters | `/root/independent_review`: PASS |
+
+---
+
+The following blocked review record is retained history from the prior narrower allowlist.
+
 # GH-765 worklog — blocked at independent review
 
 ## Scope and execution
@@ -51,6 +78,122 @@
 ---
 
 The following is retained historical worklog and is not a current GH-765 report.
+
+---
+
+# 2026-10-09 — GH-894 domain persistence boundary
+
+- Issue [#894](https://github.com/skyg547/account/issues/894), base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`, branch `agent/894-domain-persistence-boundary`, worktree `/tmp/account-894-domain-persistence-boundary`. Detached RED proof: `/tmp/account-894-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Allowlist `journal-ledger/**`; user explicitly excluded other modules and shared harness/history. `gpt-6-sol` high writer owned module code/tests/docs; independent reviewer was read-only; parent Integrator owns module-local records and Git/GitHub. No shared contract change.
+- Removed Spring/JPA imports and annotations from journal-ledger domain source; moved Spring Data repositories and the YearMonth converter to infrastructure. The named `META-INF/journal-ledger-orm.xml` explicitly maps 12 domain types, and API/Batch runtime plus module test JVMs opt in. An infrastructure listener invokes domain lifecycle guards, including `POSTED` history protection. Naming the XML prevents auto-loading of journal mappings in Loan and other services that depend on core.
+- Audited RED/current GREEN: byte-identical `DomainFrameworkBoundaryTest` SHA-256 `78656bbe617c175965e0dcc8398b52feafd6062afcb5ea18ff69fd3e45b27f60`; `./gradlew :journal-ledger:core:test --tests '*DomainFrameworkBoundaryTest' --offline --console=plain --max-workers=1 --no-daemon` failed 1/1 at audited `a97d10ab` and passes here. The guard checks ordinary/static imports and fully qualified framework references.
+- Final exact `./gradlew :journal-ledger:test` passed core 323, API 74, Batch 37 = 434 tests, failures/errors/skips 0. Focused `POSTED` persistence 19 tests, API local context, Batch PostgreSQL schema context, API/Batch `bootJar`, JAR resource inspection, `git diff --check`, conflict-marker and domain-dependency scans passed. H2/local contexts do not prove live PostgreSQL, load, or distributed failures.
+- Independent review found no remaining journal-ledger mapping or financial invariant defect. Q1 is **FAIL/P1**: Loan API and Batch `local` contexts each fail to start because their `!dev` composition roots still scan the old Journal repository package and omit the named XML mapping. Loan API/Batch dev-profile tests separately use `Class.forName` on the removed repository and fail 1/1 after successful JPA startup. These are out-of-allowlist integration regressions; no Loan file was changed. Q2–Q4 PASS; keep Draft and gate Ready/merge on authorized Loan composition/test corrections and renewed review.
+- Follow-up verification on published head `2707249d`: literal `./gradlew :journal-ledger:test --no-daemon --console=plain --max-workers=2` PASS with 37 tasks UP-TO-DATE (the prior 434/434 executed evidence remains distinct). `./gradlew :loan:api:test :loan:batch:test --tests '*LoanApplicationDevProfileTest' --tests '*LoanBatchDevProfileTest' --offline --no-daemon --console=plain --max-workers=1` exits 1 at Loan API test, 7 executed/3 failed: the dev test has `ClassNotFoundException`; two local tests fail context initialization from missing new Journal repository bean. Batch did not execute in that command after API failed. Separate `./gradlew :loan:batch:test --tests '*LoanBatchLocalProfileTest' --offline --no-daemon --console=plain --max-workers=1` exits 1, 1/1 failed on the same missing bean. No production deployment was run.
+- Rollback: revert the module-scoped code and documentation commit through a reviewed PR. No database migration or production data changed. Restoring auto-discovered XML would reintroduce cross-service mapping leakage; preserve explicit opt-in on any follow-up.
+- Publication: implementation and record commit `db9ad613` was pushed to `origin/agent/894-domain-persistence-boundary`; [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`, verification, the Loan gate and authority separation. The follow-up evidence raises that gate to Q1 FAIL/P1. No Ready, merge, Issue close, deployment, or resource cleanup was performed.
+- Parent Integrator updated the Draft body with the P1 finding and changed Issue #894 from stale `status:ready` through `status:in-progress` to `status:blocked`. The Issue comment records the allowlist, verification, failed Loan startup, preserved worktree and exact unblock action. No Loan source/test file was edited.
+- Remote checks on prior Draft head `a6fc3a12`: Harness Validation Result, Validate harness contracts and Test merge guard candidate PASS. Check implementer PR discipline FAIL reports `IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, and `TRUST_POLICY_UNCONFIGURED`; the workflow explicitly passes `policy: undefined` pending owner approval. This is a governance gate, not an executed journal-ledger test failure; human owner must resolve it before Ready/merge.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | FAIL | `DomainFrameworkBoundaryTest`, `journal-ledger-orm.xml`, module 434/434; Loan API local context 2/2 and Batch local context 1/1 fail on missing repository bean; Loan dev-profile stale FQN | 해당 없음: 코드 변경 | Loan API/Batch composition roots와 테스트의 허가된 정정 후 재검증 | 독립 리뷰: P1 cross-module startup regression |
+| Q2 | PASS | `DomainPersistenceLifecycle`, `docs/layer-guide.md`, `docs/process-flow.md`; POSTED persistence 19/19 | 해당 없음: 적용 | Live PostgreSQL remains a later gate | Independent reviewer verified flow and callback intent |
+| Q3 | PASS | `README.md`, `docs/beginner-guide.md`, `docs/schema.md`; exact module command PASS | 해당 없음: 적용 | Verify docs after Loan follow-up | Independent reviewer checked functional guidance |
+| Q4 | PASS | Explicit mapping comment in API/Batch config; listener state-capture comment | 해당 없음: 적용 | No further code-comment gate identified | Independent reviewer checked intent comments |
+
+---
+
+# 2026-10-09 — GH-879 durable slip number allocation
+
+## Intake and scope
+
+- Live [Issue #879](https://github.com/skyg547/account/issues/879) was claimed as `status:in-progress`. Base `origin/main@fa12d2b5ad18cead68d0d3fe2bbb8fc05770d541`; branch `agent/879-slip-number-allocation`; isolated worktree `/tmp/account-879-slip-number-allocation`. Audited proof worktree `/tmp/account-879-audited-proof` is detached at `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Used `account-issue-loop`, `account-hexagonal-change`, single-module `account-module-parallel`, and `account-review-handoff`. Requested `gpt-6-sol` / high module writer owned only `journal-ledger/**`; independent reviewer was read-only; parent Integrator owns these module-local records and Git/GitHub. No shared harness/history or other module edits.
+- Goal: remove the 65,536-value same-day random space while keeping the 20-character contract and readable date. No generic source-event idempotency change, financial rule change, or cross-module contract change.
+
+## Implementation and regression evidence
+
+- `JournalEntryService` reserves a number via `JournalPersistencePort`; `JournalPersistenceAdapter` calls the DB `journal_slip_no_seq`. V19 adds the global `NO CYCLE` sequence capped at `36^8-1`; `JE-YYYYMMDD-XXXXXXXX` uses eight uppercase base36 digits, so the date is readable and the number is unique across dates and backdated requests. A year outside 0001–9999 is rejected before reservation. Rollback gaps are intentional.
+- The service rejects caller-supplied numbers in the new automatic namespace. V19 conservatively refuses existing 20-character JE-shaped rows before starting the sequence; existing four-character slips survive upgrade. DB failure/exhaustion is a typed allocation failure, mapped to HTTP 503 on all three creation routes. Validation errors remain 400. Existing UNIQUE storage remains the last line of defense.
+- Byte-identical `SlipNumberPeakDayRegressionTest.java` SHA-256 `849cbef7ed1575db20d656ed2d850c1f575cf35f60b699974ae0112361c8b997` was copied to the audited worktree without changing audited production. `./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.application.service.journal.SlipNumberPeakDayRegressionTest' --offline --no-daemon --console=plain --max-workers=1` failed 1/1 at assertion line 45: 5,000 same-day creates yielded 4,800 distinct slips (200 duplicate values). The same regression passes on the fixed branch.
+- H2 PostgreSQL-mode migration test persists 5,000 same-day slips with distinct DB rows, allocates/persists 200 concurrently, checks the final number and non-cycling exhaustion, and proves V18→V19 refusal for old reserved-shape rows while preserving legacy four-character slips. Adapter Spring context test verifies actual nextval and missing-sequence failure. Service tests cover manual/auto coexistence, DB error, exhaustion, and year 10000; MVC tests cover 503.
+
+## Commands, review, and limits
+
+- Final executed `./gradlew :journal-ledger:test --offline --no-daemon --console=plain --max-workers=2`: PASS in 1m46s; Core 322 tests/39 suites, API 74/22, Batch 37/5; total 433, failures/errors/skips 0. Literal `./gradlew :journal-ledger:test`: PASS in 16s, 37 tasks UP-TO-DATE. Focused core slip/service and three HTTP MVC class selections: PASS.
+- `git diff --check`: PASS. `rg -n '^(<<<<<<< |=======|>>>>>>> )' journal-ledger --glob '*.java' --glob '*.sql' --glob '*.md'`: no matches. Changed-file scope: journal-ledger only. Reviewer found manual-namespace collision and HTTP 400 mapping, plus date-length/fixture/doc issues; writer corrected them. Final independent read-only review: no outstanding finding.
+- Rollout requires old Journal writers stopped across migration and code replacement. V19's one-time `EXISTS` guard may scan historical `journal_entries`; target PostgreSQL duration/privileges need deployment validation. Any conflicting historical POSTED slip requires a separately approved reconciliation/migration plan. No live PostgreSQL, production load, distributed fault injection, or production data test was run. Do not drop the sequence after issuing numbers; rollback needs a reviewed forward plan. Generic event retry idempotency is unchanged.
+- Publication: commit `5e500c1b9d2c67715ed89d4939e7b165b344876a` was pushed to `agent/879-slip-number-allocation`; [Draft PR #880](https://github.com/skyg547/account/pull/880) contains `Refs #879`, verification, Q1–Q4, rollback/limits, and role/authority separation. The final record-only update adds the PR link and changes no production/test behavior.
+- Remote CI on Draft head `ff744c22`: `Test merge guard candidate` PASS, `Validate harness contracts` PASS, `Harness Validation Result` PASS. `Check implementer PR discipline` FAIL (`IMPLEMENTATION_OWNER_REQUIRED`, `VERIFICATION_REQUIRED`, `MERGE_AUTHORITY_REQUIRED`, `DRAFT_NOT_MERGE_READY`, `TRUST_POLICY_UNCONFIGURED`). Its workflow leaves the trust policy deliberately unconfigured. This is an unresolved governance/Ready gate, not a failed execution of the 433 module tests; public/shared harness changes remain outside this Issue's allowlist.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 코드·책임 | PASS | `core/.../JournalEntryService.java:169`, `JournalPersistenceAdapter.java:59`, V19; module 433/433 | 해당 없음: 코드 변경 | 운영 PostgreSQL sequence privilege 확인 | read-only reviewer: no outstanding finding |
+| Q2 흐름·이유 | PASS | `docs/process-flow.md:539`, `docs/schema.md:32`, V19; migration 5/5 | 해당 없음: 핵심 흐름 변경 | 배포 중 old writer 정지 확인 | read-only reviewer: flow and failure paths checked |
+| Q3 기능·초보자 문서 | PASS | `docs/beginner-guide.md:127`, `docs/README.md:85`, `README.md:159`; literal module test PASS | 해당 없음: 동작/마이그레이션 변경 | live PG and load remain unverified | read-only reviewer: docs match code/test |
+| Q4 의도 주석 | PASS | `JournalEntryService.java:188`, `JournalPersistenceAdapter.java:63`, V19:4 | 해당 없음: 비자명 로직 변경 | 해당 없음: 주석은 검증된 로직 인접 | read-only reviewer: comments state rationale |
+
+---
+
+The following is retained historical worklog and is not a current GH-879 report.
+
+# 2026-09-28 — GH-769 unmatched Kafka event quarantine and replay
+
+## Intake, isolation, and ownership
+
+- Confirmed live [Issue #769](https://github.com/skyg547/account/issues/769), moved it from `status:ready` to `status:in-progress`, and claimed it for `agent:codex` execution.
+- Preserved the dirty primary checkout. Created `agent/769-unmatched-event-quarantine` and isolated `/tmp/account-769-unmatched-event-quarantine` from `origin/main@f128a5dd3cf628f1d5226ae3c5db0ad264021e65`.
+- Used `account-issue-loop`, `account-hexagonal-change`, the single-module form of `account-module-parallel`, and `account-review-handoff` with the requested `gpt-5.6-sol` / high reasoning.
+- Scope is `journal-ledger/**`, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged under the user's explicit narrower rule.
+- The module writer owned production, tests, and functional documentation. `/root/review_769` was an independent read-only reviewer. The parent Integrator alone owns these records and Git/GitHub mutations.
+
+## Implementation and completeness control
+
+- `KafkaTransactionListener` supplies topic/partition/offset and delegates to a Kafka-specific application use case. A valid unmatched event now returns successfully only after the raw payload and accounting metadata are transactionally retained in `journal_event_quarantine`.
+- V18 adds durable `UNMATCHED`/`REPLAYED` state, a unique broker-coordinate key, journal linkage, timestamps, actor, attempts, reason, and optimistic version. The retained payload and Kafka key are never exposed by the control API.
+- Admin completeness endpoints list quarantines, return a one-statement aggregate snapshot, and replay by ID. Replay takes a pessimistic row lock, re-evaluates the repaired rule, creates the journal, and records `REPLAYED` plus the journal ID in one transaction. Concurrent and repeated replay of the same quarantined coordinate converges on one journal.
+- The Kafka container uses an explicit `DefaultErrorHandler`: initial delivery plus two retries, then same-partition `<topic>.DLT`. Recovery is complete only after the DLT send succeeds; send failure is propagated. Configuration tests prove retry and DLT behavior instead of treating a thrown listener exception as DLQ evidence.
+- Control endpoints require the existing trusted Gateway headers and `ROLE_ACCOUNTING_ADMIN` or `ROLE_ADMIN`. Invalid list limits return400 before persistence, typed missing quarantine returns404, and unrelated runtime/persistence failures remain500.
+- Generic GL10 identity across HTTP/contracts/manual creation is not claimed. Issue #765 is still OPEN/blocked outside this module-only allowlist. This change supplies exact-one convergence for quarantine replay by broker coordinate; a matching event's commit ambiguity remains documented until GL10 is delivered.
+
+## Audited RED and fixed GREEN
+
+- Added only `AuditedUnmatchedKafkaEventCompletenessRegressionTest` to detached `/tmp/account-769-regression-proof` at exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Proof and fixed fixtures are byte-identical, SHA-256 `be9936eebab8b2d42aab978d171f1b3fd46957124968e67bf39d6a1bf8ca769c`; audited production is unchanged.
+- Command: `./gradlew :journal-ledger:api:test --tests 'com.ho.account.journalledger.adapter.in.kafka.AuditedUnmatchedKafkaEventCompletenessRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`.
+- Audited RED is the expected 1/1 failure because the old listener returns normally without durable disposition. The identical regression passes1/1 after remediation.
+
+## Verification and corrected review trail
+
+- Pre-change module baseline passed376 tests, failures/errors/skips0.
+- Parent final forced command: `./gradlew :journal-ledger:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`; BUILD SUCCESSFUL in2m58s with37/37 tasks executed.
+- The reviewer's focused run overwrote two API XML files after the module run, so the parent reran `./gradlew :journal-ledger:api:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1` to produce an unambiguous final aggregate: API71/core310/batch15 =396 tests across62 suites, failures/errors/skips0.
+- `./gradlew :journal-ledger:api:bootJar --offline --no-daemon --console=plain --max-workers=1` is BUILD SUCCESSFUL.
+- Initial independent review found P2 controller error masking/late limit validation and P3 a three-query inconsistent completeness snapshot. The original writer added early400 validation, typed404 mapping, and one native conditional aggregate with `OffsetDateTime -> Instant` conversion plus query-count coverage.
+- Final read-only re-review ran14 focused tests, marked both findings RESOLVED, found no new P0-P3, and confirmed the scoped acceptance criteria plus Q1-Q4 PASS.
+- `git diff --check`, untracked whitespace, anchored conflict-marker, unmerged-index, and `journal-ledger/**` allowlist gates pass.
+
+## Q1-Q4 evidence
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Kafka use case, application service, quarantine aggregate/repository, persistence and inbound adapters; forced396/396 | 해당 없음: 코드 변경 적용 | 실 PostgreSQL/Kafka 환경 검증 | `/root/review_769`: no P0-P3, PASS |
+| Q2 | PASS | `docs/process-flow.md`의 수신→보관/재시도→DLT 또는 보관→잠금 재처리→journal/link 흐름 | 해당 없음: 흐름 변경 적용 | commit ambiguity는 GL10 후속 | 독립 코드·문서 대조 PASS |
+| Q3 | PASS | `README.md`, `docs/README.md`, process/schema 문서의 API, 보안, 배포, rollback, 제한 | 해당 없음: 운영 제어 변경 적용 | DLT ACL/retention과 quarantine 보존 정책 승인 | 독립 문서 대조 PASS |
+| Q4 | PASS | 단일 snapshot SQL과 좁은 HTTP 예외 매핑의 근접 의도 주석 | 해당 없음: 비자명 로직 변경 적용 | DB/provider 변경 시 projection 재검증 | 독립 source review PASS |
+
+## Rollback, limits, and handoff
+
+- Deployment must apply V18 before the new binary and verify database privileges, payload retention/access/encryption, completeness alerts, and DLT topic/ACL/retention/partitioning. No live PostgreSQL, real Kafka broker, production data, offset-commit fault injection, distributed load, or deployment test was used.
+- Rollback requires quiescing consumers and a reviewed application revert while preserving applied V18 and every quarantine record. Dropping the table or retained evidence is not an approved rollback; reverting without equivalent protection restores silent ledger omission.
+- Reviewed implementation commit `90d4c307` is pushed and [Draft PR #804](https://github.com/skyg547/account/pull/804) is open with `Refs #769`. Its body records acceptance evidence, verification, Q1-Q4, limitations, rollback, and authority separation.
+- On publication head `87729d67`, Agent Merge Guard run `36413587998`, Harness Validation run `36413587500`, and Module Validation run `36413587552` failed before any job steps ran. Each entry-job annotation reports failed recent account payments or a spending-limit prerequisite. This external GitHub account condition is not an executed test failure, and no remote CI PASS is claimed.
+- Implementation was performed by the assigned module writer; independent review was read-only; the original writer corrected findings; the parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
+
+---
+
+The following entries are retained history and are not current GH-769 evidence.
 
 # 2026-09-25 — GH-763 foreign journal transaction-to-base conversion
 

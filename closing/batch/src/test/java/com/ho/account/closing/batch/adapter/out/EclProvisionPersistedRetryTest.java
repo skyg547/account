@@ -8,6 +8,7 @@ import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
 import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -42,12 +43,13 @@ class EclProvisionPersistedRetryTest {
         var source = mock(EclAllowanceResultPort.class);
         var adapter = new JournalLedgerClosingJournalEntryAdapter(posting, query);
         var properties = new ClosingAccountingProperties();
-        var rule = new ClosingAccountingProperties.AutomatedJournalRule();
+        var rule = new ClosingAccountingProperties.EclAccountMapping();
         rule.setDebitAccountCode("510100");
         rule.setCreditAccountCode("131900");
-        rule.setAmount(BigDecimal.ONE);
         properties.getProvisionRules().put(ProvisionBatch.ProvisionType.ECL, rule);
-        var service = new EclProvisionService(balances, adapter, properties, source, mock(FxExchangeRateLookupPort.class));
+        var service = new EclProvisionService(balances, adapter, properties, source,
+                mock(FxExchangeRateLookupPort.class),
+                mock(com.ho.account.closing.application.port.out.EclProvisionSnapshotPort.class));
         when(balances.findCreditBalance("131900", "KRW", "KRW", date))
                 .thenReturn(new AllowanceBalance("KRW", "KRW", BigDecimal.ZERO, BigDecimal.ZERO));
         BigDecimal target = new BigDecimal("4808.5714");
@@ -79,7 +81,7 @@ class EclProvisionPersistedRetryTest {
         assertThatCode(() -> service.processEclProvision(date, 690L)).doesNotThrowAnyException();
 
         verify(posting, times(1)).createDraftEntry(any());
-        verify(query, times(2)).findBySlipNo(requested.get().slipNo());
+        verify(query, times(4)).findBySlipNo(requested.get().slipNo());
         verify(query).getJournalDetails(77L);
         assertThat(persisted.get().lines()).hasSize(2).allSatisfy(line ->
                 assertThat(line.getAmount()).isEqualTo(new BigDecimal("4808.57")));

@@ -12,6 +12,7 @@ erDiagram
     JOURNAL_REVERSAL_OPERATIONS ||--|| JOURNAL_ENTRIES : current_reversal
     JOURNAL_RULES ||--o{ JOURNAL_RULE_CONDITIONS : matches
     JOURNAL_RULES ||--o{ JOURNAL_RULE_DETAILS : creates
+    JOURNAL_EVENT_QUARANTINE }o--o| JOURNAL_ENTRIES : replay_creates
     JOURNAL_DETAILS ||--o{ UNSETTLED_ITEMS : opens
     JOURNAL_ENTRIES ||--o{ GL_ENTRIES : posts
     JOURNAL_ENTRIES ||--o{ SL_ENTRIES : posts
@@ -29,12 +30,34 @@ erDiagram
 | `journal_rules` | 적용 가능한 자동분개 규칙 | 규칙 코드, 우선순위, 유효기간 |
 | `journal_rule_conditions` | 규칙 적용 조건 | 필드, 연산자, 비교값 |
 | `journal_rule_details` | 규칙이 생성할 라인 명세 | `drcr_type`, 계정·금액·적요 표현식 |
+| `journal_event_quarantine` | 규칙 미매칭 Kafka 이벤트 completeness 예외와 replay 결과 | topic/partition/offset UK, payload, `QUARANTINED/REPLAYED`, 연결 전표 FK |
+
+### 전표번호 채번 (V19)
+
+자동 전표번호는 `JE-YYYYMMDD-XXXXXXXX` 형식의 20자입니다. 날짜는 `slipDate`이고,
+뒤의 8자는 전역 `journal_slip_no_seq`의 양수 값을 대문자 base36으로 변환해 0으로 채웁니다.
+날짜의 연도는 `0001~9999`만 허용하며 그 밖의 값은 번호 예약 전에 거부합니다.
+8자리 범위는 `1`부터 `36^8 - 1 = 2,821,109,907,455`까지입니다. 날짜가 같은 날에도
+전역 번호가 중복되지 않으며, 과거 4자리 16진수 자동 번호와 길이가 달라 겹치지 않습니다.
+V19는 기존 `journal_entries` 행이나 금액을 바꾸지 않고 `NO CYCLE` 시퀀스만 추가합니다.
+기존 20자 `JE-________-________` 모양의 번호가 있으면 새 자동 번호와 겹칠 수 있어
+V19가 보수적으로 배포를 거부합니다. 배포를 멈추고 해당 번호를 대사해야 합니다.
+`POSTED` 전표는 불변 이력이므로 일반 수정으로 번호를 고치지 않습니다. 충돌 가능 행의
+처리는 별도 승인된 정합성·migration 계획을 수립한 뒤 진행합니다.
+배포 시에는 Journal 전표 생성 writer를 중지하고 기존 인스턴스가 모두 종료된 것을 확인한 뒤
+V19를 적용하고 새 버전만 시작해야 합니다. 이전 버전이 계속 쓰면 검사 후 새 형식의 수동
+번호를 끼워 넣을 수 있습니다. H2 테스트는 이 배포 순서나 운영 PostgreSQL 권한을 검증하지 않습니다.
+트랜잭션 롤백 후 번호에 공백이 생길 수 있지만 이미 할당된 번호를 재사용하지 않습니다.
+범위 소진이나 DB 채번 오류는 생성 실패로 전파되고 전표 저장을 진행하지 않습니다.
+호출자가 직접 제공한 번호 중 새 자동 형식과 정확히 일치하는 값은 생성 전에 거부합니다.
+기타 수동 번호는 기존과 같이 `journal_entries.slip_no`의 UNIQUE 제약을 따릅니다.
+이 채번은 원천 이벤트 재시도의 멱등성을 새로 보장하지 않습니다.
 
 `journal_rule_details.drcr_type`은 DB에는 문자열로 저장하지만 도메인에서는 `JournalSide` 열거형으로 제한합니다.
 
 ### 전표 생성 operation identity
 
-V18의 `journal_creation_operations`는 lineage 전체를 유일하게 만들지 않습니다. 대신
+V20의 `journal_creation_operations`는 lineage 전체를 유일하게 만들지 않습니다. 대신
 `(source_type, source_id, operation_key)`에 UNIQUE를 적용하여 한 원천 안에서 각 생성 작업을
 따로 식별합니다. `journal_entry_id`도 UNIQUE/FK이므로 하나의 완료 operation은 정확히 하나의
 전표를 가리키며, 같은 전표를 서로 다른 생성 identity의 결과로 등록할 수 없습니다.
@@ -42,6 +65,9 @@ V18의 `journal_creation_operations`는 lineage 전체를 유일하게 만들지
 `fingerprint_version`과 64자리 lowercase SHA-256 `request_fingerprint`는 함께 비교합니다.
 버전이 다르거나 digest가 다르면 같은 요청이라고 추측하지 않고 충돌로 거부합니다. digest는
 민감한 생성 payload 대신 비교할 수 있는 값일 뿐이므로 오류 응답과 일반 로그에 출력하지 않습니다.
+version 1은 수동·contract 생성 전표의 정규화한 재무·감사 내용, version 2는 이벤트 HTTP·Kafka의
+회계일과 trusted maker가 반영된 원 요청 payload를 뜻합니다. 이벤트 receipt는 규칙 평가 전에
+조회·비교해 규칙 비활성화 뒤에도 같은 요청을 원 전표로 되돌립니다.
 registry 행과 대상 전표는 같은 생성 트랜잭션에서 commit 또는 rollback됩니다. 따라서
 `journal_entry_id`가 없는 예약 행이나 실패 결과를 저장하는 별도 상태는 없습니다.
 
@@ -54,7 +80,7 @@ stripe는 성능을 위한 identity 해시 분할이고 업무 소유권 데이�
 
 V17의 `journal_reversal_operations`는 이 registry와 목적과 수명주기가 다릅니다. 관리형 역분개는
 원본 전표 ID와 `PENDING/POSTED/CANCELLED` 상태로 재생성 권리를 관리하고, 일반 생성의
-`PRIMARY` operation이나 V18 registry를 역분개 소유권으로 사용하지 않습니다.
+`PRIMARY` operation이나 V20 registry를 역분개 소유권으로 사용하지 않습니다.
 
 V16은 `journal_entries.approved_by`를 추가합니다. 새 전표는 `created_by`(maker),
 `approved_by`(checker), `audit_user`(마지막 상태 처리자)를 분리하므로 전기 후 `audit_user`가 poster로
@@ -70,7 +96,7 @@ V16은 `journal_entries.approved_by`를 추가합니다. 새 전표는 `created_
 `journal_entries`가 commit된 `POSTED` 이력이면 헤더와 감사 컬럼뿐 아니라 소유한
 `journal_details`의 금액, 차대 구분, 계정, 부서·거래처 차원, 적요, 감사 정보와 멤버십도 함께
 동결됩니다. 공개 도메인 setter와 연관관계 메서드는 변경 전에 `IllegalStateException`을 내고,
-JPA `@PreUpdate`/`@PrePersist`/`@PreRemove` 콜백은 managed dirty update, detached merge,
+infrastructure의 `META-INF/journal-ledger-orm.xml`이 연결한 JPA lifecycle listener는 managed dirty update, detached merge,
 상세 삽입과 orphan removal을 영속성 경계에서 거부합니다. 일반 repository의
 `delete`/`deleteById`/`deleteAll`도 엔티티 콜백을 거칩니다. 콜백 없는 batch 삭제를 막기 위해
 `JournalEntryRepository`와 `JournalDetailRepository`는 `deleteAllInBatch`,
@@ -144,7 +170,7 @@ JDBC/DB 쓰기는 보호를 우회할 수 있습니다. 현재 production 코드
 제거해 서로 다른 잔액 정의가 병렬로 남지 않도록 했습니다.
 
 `gl_balances.period`, `sl_balances.period`는 코드에서는 `YearMonth` 타입이지만 DB에는 `yyyy-MM` 문자열로 저장합니다.
-JPA와 JDBC bulk upsert가 같은 잔액 키를 사용하도록 `YearMonthAttributeConverter`에서 표현을 고정했습니다.
+JPA와 JDBC bulk upsert가 같은 잔액 키를 사용하도록 infrastructure의 `YearMonthAttributeConverter`에서 표현을 고정했습니다.
 
 대용량 운영 저장 모드(`journal-ledger.ledger.persistence-mode=jdbc-bulk`)에서는 다음 어댑터가 사용됩니다.
 
@@ -356,16 +382,16 @@ operation을 무시하므로 역분개 생성·승인·전기 writer를 복구 �
 잔여 위험은 JPA 콜백과 포트를 우회하는 직접 SQL writer, 운영 PostgreSQL에서 미검증한
 lock wait/분산 장애/부하, backfill 전에 조정해야 하는 기존 중복·손상 lineage입니다.
 
-## 전표 생성 operation registry (V18)
+## 전표 생성 operation registry (V20)
 
-`V18__journal_creation_operations.sql`은 `journal_creation_operation_locks` 256행과
+`V20__journal_creation_operations.sql`은 `journal_creation_operation_locks` 256행과
 `journal_creation_operations`를 새로 만듭니다. identity 컬럼 길이는 source type 50,
 source ID와 operation key 각각 100입니다. 애플리케이션 identity는 값을 trim한 뒤 blank를 거부합니다. fingerprint version은
 양수, digest는 64자리 lowercase hexadecimal이라는 CHECK를 적용합니다.
 
 이 migration은 기존 `journal_entries`를 읽어 registry를 backfill하지 않습니다. 과거 lineage에는
 신뢰할 operation key와 canonical fingerprint가 없으므로 임의의 `PRIMARY`를 만들면 서로 다른
-합법적 전표를 한 작업으로 잘못 합칠 수 있기 때문입니다. V18 배포 뒤 새 코드가 처리한 생성만
+합법적 전표를 한 작업으로 잘못 합칠 수 있기 때문입니다. V20 배포 뒤 새 코드가 처리한 생성만
 registry 보호를 받습니다. 이 배포 절차는 기존 전표를 operation에 연결하거나 lineage 중 하나를
 승자로 고르지 않으며, 필요하면 별도 승인된 대사와 forward remediation으로 다룹니다.
 
@@ -373,4 +399,23 @@ runtime role은 lock 테이블의 `SELECT/UPDATE`, registry의 `SELECT/INSERT`, 
 사용하는 데 필요한 최소 권한이 있어야 합니다. registry는 완료 receipt이므로 runtime의
 `UPDATE/DELETE` 대상이 아닙니다. migration/DDL 권한은 계속 별도 release role만 가집니다.
 적용 뒤에는 lock ID가 정확히 0~255인지, UNIQUE/FK/CHECK와 Hibernate validate가 모두 맞는지
-확인합니다. 배포·롤백과 writer fencing은 [동시성 문서](posting-concurrency.md#v18-전표-생성-멱등성-업그레이드와-롤백)를 따릅니다.
+확인합니다. 배포·롤백과 writer fencing은 [동시성 문서](posting-concurrency.md#v20-전표-생성-멱등성-업그레이드와-롤백)를 따릅니다.
+
+## Kafka 이벤트 격리 (V18)
+
+`V18__journal_event_quarantine.sql`은 규칙이 없는 유효 Kafka 경제 이벤트를 삭제 대신 보존합니다.
+`(source_topic, source_partition, source_offset)` UNIQUE는 동일 broker record의 중복 exception을
+막고, `(status, first_seen_at)` index는 미해결 completeness 조회를 지원합니다. payload는 replay
+입력이라 `TEXT NOT NULL`로 보존하지만 control API에는 노출하지 않습니다.
+
+CHECK 제약은 `QUARANTINED`일 때 journal ID가 없고 `REPLAYED`일 때 반드시 존재하도록 강제하며,
+연결 ID는 `journal_entries` FK입니다. 서비스는 replay 전에 quarantine 행을 배타 잠그고 전표 insert와
+상태/FK 갱신을 같은 트랜잭션에 둡니다. V18은 기존 전표·규칙·원장 금액을 backfill하거나 변경하지
+않습니다. 테이블 cardinality는 미매칭률과 보존기간에 비례하므로 운영에서는 pending age/count,
+DLT와 replay 처리량을 함께 감시하고 승인된 보존 정책을 별도로 정해야 합니다.
+
+배포는 writer/listener 중지 → V18 migrate/validate → runtime role의 quarantine
+SELECT/INSERT/UPDATE 권한과 DLT topic/ACL 확인 → 새 listener 기동 순서입니다. application rollback이
+필요해도 적용된 V18을 삭제하거나 Flyway `repair`하지 않습니다. 이전 listener는 미매칭을 정상
+acknowledge하므로 rollback 상태에서는 Kafka listener를 재개하지 말고, 후속 forward fix와 기존
+quarantine/전표 대사를 마친 뒤 재개합니다.

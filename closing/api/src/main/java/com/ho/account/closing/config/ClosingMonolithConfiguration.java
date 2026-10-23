@@ -1,6 +1,7 @@
 package com.ho.account.closing.config;
 
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithExchangeRateQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubjectPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPersistenceAdapter;
@@ -26,6 +27,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 })
 @EntityScan(basePackages = {
         "com.ho.account.closing.domain",
+        "com.ho.account.closing.infrastructure.persistence",
         "com.ho.account.journalledger.domain",
         "com.ho.account.masterdata.core.domain",
         "com.ho.account.masterdata.core.infrastructure.persistence"
@@ -37,6 +39,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 })
 @Import({
         MonolithFiscalPeriodControlAdapter.class,
+        MonolithExchangeRateQueryAdapter.class,
         MonolithMasterDataQueryAdapter.class,
         JpaFiscalPeriodPersistenceAdapter.class,
         FiscalPeriodMapper.class,

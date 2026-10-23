@@ -6,8 +6,10 @@ import com.ho.account.mart.core.application.port.out.OdsAccountRateRepository;
 import com.ho.account.mart.core.application.port.out.OdsCustomerMstRepository;
 import com.ho.account.mart.core.application.port.out.OdsEarlyWarningRepository;
 import com.ho.account.mart.core.application.port.out.ExchangeRateRepository;
+import com.ho.account.mart.core.domain.marketdata.ExchangeRate;
 import com.ho.account.mart.core.domain.ods.common.OdsCustomerMst;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
+import com.ho.account.shared.finance.enums.CurrencyCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +34,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class IntegratedPositionProcessorTest {
 
+    private static final LocalDate BASE_DATE = LocalDate.of(2026, 4, 30);
+
     @Mock
     private OdsEarlyWarningRepository earlyWarningRepository;
     @Mock
@@ -47,7 +51,7 @@ class IntegratedPositionProcessorTest {
     @BeforeEach
     void setUp() {
         when(earlyWarningRepository.findTopByCustomerCodeAndBaseDateOrderByBaseDateDesc(
-                anyString(), eq(LocalDate.of(2026, 4, 30)))).thenReturn(Optional.empty());
+                anyString(), nullable(LocalDate.class))).thenReturn(Optional.empty());
         when(accountRateRepository.findById(anyString())).thenReturn(Optional.empty());
         when(customerMstRepository.findByCustomerCode(anyString())).thenReturn(Optional.empty());
     }
@@ -117,6 +121,65 @@ class IntegratedPositionProcessorTest {
         assertEquals("US", result.getCountryCode());
     }
 
+    @Test
+    @DisplayName("기준일 USD 환율로 원금을 KRW 환산하고 소수 4자리에서 HALF_UP 반올림한다")
+    void shouldConvertForeignOutstandingAmountWithBaseDateRate() {
+        OdsAccountLedger ledger = createForeignLedger();
+        when(exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
+                BASE_DATE, CurrencyCode.USD, CurrencyCode.KRW))
+                .thenReturn(Optional.of(ExchangeRate.builder().baseRate(new BigDecimal("1350.00005")).build()));
+
+        AllowanceInputPosition result = processor.process(ledger, BASE_DATE);
+
+        assertEquals(new BigDecimal("1350.0136"), result.getMarketValue());
+        assertEquals(new BigDecimal("1.00001"), result.getOutstandingAmount());
+    }
+
+    @Test
+    @DisplayName("기준일 USD 환율이 없으면 원금을 KRW 평가금액으로 사용하지 않는다")
+    void shouldFailWhenForeignRateIsMissing() {
+        when(exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
+                BASE_DATE, CurrencyCode.USD, CurrencyCode.KRW)).thenReturn(Optional.empty());
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> processor.process(createForeignLedger(), BASE_DATE));
+
+        assertTrue(failure.getMessage().contains("2026-04-30 USD/KRW"));
+    }
+
+    @Test
+    @DisplayName("USD 환율이 null, 0, 음수이면 변환에 실패한다")
+    void shouldFailWhenForeignRateIsInvalid() {
+        for (BigDecimal rate : new BigDecimal[]{null, BigDecimal.ZERO, new BigDecimal("-0.01")}) {
+            when(exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
+                    BASE_DATE, CurrencyCode.USD, CurrencyCode.KRW))
+                    .thenReturn(Optional.of(ExchangeRate.builder().baseRate(rate).build()));
+
+            assertThrows(IllegalStateException.class,
+                    () -> processor.process(createForeignLedger(), BASE_DATE),
+                    "무효 환율: " + rate);
+        }
+    }
+
+    @Test
+    @DisplayName("외화 기준일이 없으면 환율 조회 전에 실패한다")
+    void shouldFailWhenForeignBaseDateIsMissing() {
+        assertThrows(IllegalStateException.class, () -> processor.process(createForeignLedger(), null));
+    }
+
+    private OdsAccountLedger createForeignLedger() {
+        return OdsAccountLedger.builder()
+                .accountNo("USD-ACC001")
+                .customerCode("CUST001")
+                .productCode("PROD001")
+                .currency("USD")
+                .outstandingAmount(new BigDecimal("1.00001"))
+                .limitAmount(new BigDecimal("2.00000"))
+                .delinquentDays(0)
+                .isActive(true)
+                .build();
+    }
+
     private OdsAccountLedger createBaseLedger(String accNo, Integer dpd) {
         return OdsAccountLedger.builder()
                 .accountNo(accNo)
@@ -130,4 +193,3 @@ class IntegratedPositionProcessorTest {
                 .build();
     }
 }
-

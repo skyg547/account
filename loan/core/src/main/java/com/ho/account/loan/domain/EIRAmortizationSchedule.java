@@ -221,6 +221,11 @@ public class EIRAmortizationSchedule {
         if (loan == null) {
             throw new IllegalArgumentException("loan is required.");
         }
+        // Existing contracts may predate the creation guard; reject them before calculating replacement rows.
+        if (loan.getPaymentFrequency() != Loan.PaymentFrequency.MONTHLY) {
+            throw new IllegalArgumentException("paymentFrequency " + loan.getPaymentFrequency()
+                    + " is not supported; only MONTHLY is supported.");
+        }
         if (scheduleStartDate == null || loan.getMaturityDate() == null
                 || !scheduleStartDate.isBefore(loan.getMaturityDate())) {
             throw new IllegalArgumentException("scheduleStartDate must be before maturityDate.");

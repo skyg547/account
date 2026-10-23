@@ -1,6 +1,8 @@
 package com.ho.account.masterdata.core.domain.model;
 
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+import com.ho.account.masterdata.core.domain.exception.ScreeningMutationForbiddenException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -67,12 +69,12 @@ public class BusinessPartner {
             String auditUser,
             List<BusinessPartnerAccount> accounts) {
         this.id = id;
-        this.businessPartnerCode = requireText(businessPartnerCode, "거래처 코드는 필수입니다.");
-        this.businessPartnerName = requireText(businessPartnerName, "거래처명은 필수입니다.");
-        this.registrationNumber = trimToNull(registrationNumber);
-        this.ceoName = trimToNull(ceoName);
-        this.businessType = trimToNull(businessType);
-        this.businessItem = trimToNull(businessItem);
+        this.businessPartnerCode = MasterDataFieldRules.code(requireText(businessPartnerCode, "거래처 코드는 필수입니다."), "Business partner code", MasterDataFieldRules.BUSINESS_PARTNER_CODE_MAX);
+        this.businessPartnerName = MasterDataFieldRules.requiredText(requireText(businessPartnerName, "거래처명은 필수입니다."), "Business partner name", MasterDataFieldRules.BUSINESS_PARTNER_NAME_MAX);
+        this.registrationNumber = MasterDataFieldRules.optionalText(registrationNumber, "Business partner registrationNumber", MasterDataFieldRules.PARTNER_REGISTRATION_MAX);
+        this.ceoName = MasterDataFieldRules.optionalText(ceoName, "Business partner ceoName", MasterDataFieldRules.PARTNER_CEO_MAX);
+        this.businessType = MasterDataFieldRules.optionalText(businessType, "Business partner businessType", MasterDataFieldRules.PARTNER_BUSINESS_TYPE_MAX);
+        this.businessItem = MasterDataFieldRules.optionalText(businessItem, "Business partner businessItem", MasterDataFieldRules.PARTNER_BUSINESS_ITEM_MAX);
         this.partnerType = Objects.requireNonNull(partnerType, "거래처 유형은 필수입니다.");
         this.useYn = Objects.requireNonNull(useYn, "사용 여부는 필수입니다.");
         this.kycStatus = Objects.requireNonNull(kycStatus, "KYC 상태는 필수입니다.");
@@ -195,6 +197,11 @@ public class BusinessPartner {
                 && !businessPartnerCode.equals(requestedBusinessPartnerCode.trim())) {
             throw new IllegalArgumentException("거래처 코드는 SCD2 버전 수정 시 변경할 수 없습니다.");
         }
+        // The generic SCD2 path carries legacy labels forward; only the screening review can decide them.
+        if ((kycStatus != null && kycStatus != this.kycStatus)
+                || (riskRating != null && riskRating != this.riskRating)) {
+            throw new ScreeningMutationForbiddenException("Generic partner updates cannot change KYC or risk.");
+        }
         MasterDataValidityPolicy.requireVersionSplit(validFrom, validTo, newValidFrom, newValidTo);
         if (!isActiveAt(LocalDate.now())) {
             throw new IllegalStateException("활성 거래처 버전만 수정할 수 있습니다.");
@@ -305,7 +312,7 @@ public class BusinessPartner {
 
     @Deprecated
     public void setBusinessPartnerCode(String businessPartnerCode) {
-        this.businessPartnerCode = requireText(businessPartnerCode, "거래처 코드는 필수입니다.");
+        this.businessPartnerCode = MasterDataFieldRules.code(requireText(businessPartnerCode, "거래처 코드는 필수입니다."), "Business partner code", MasterDataFieldRules.BUSINESS_PARTNER_CODE_MAX);
     }
 
     public String getBusinessPartnerName() {
@@ -314,7 +321,7 @@ public class BusinessPartner {
 
     @Deprecated
     public void setBusinessPartnerName(String businessPartnerName) {
-        this.businessPartnerName = requireText(businessPartnerName, "거래처명은 필수입니다.");
+        this.businessPartnerName = MasterDataFieldRules.requiredText(requireText(businessPartnerName, "거래처명은 필수입니다."), "Business partner name", MasterDataFieldRules.BUSINESS_PARTNER_NAME_MAX);
     }
 
     public String getRegistrationNumber() {
@@ -323,7 +330,7 @@ public class BusinessPartner {
 
     @Deprecated
     public void setRegistrationNumber(String registrationNumber) {
-        this.registrationNumber = trimToNull(registrationNumber);
+        this.registrationNumber = MasterDataFieldRules.optionalText(registrationNumber, "Business partner registrationNumber", MasterDataFieldRules.PARTNER_REGISTRATION_MAX);
     }
 
     public String getCeoName() {
@@ -332,7 +339,7 @@ public class BusinessPartner {
 
     @Deprecated
     public void setCeoName(String ceoName) {
-        this.ceoName = trimToNull(ceoName);
+        this.ceoName = MasterDataFieldRules.optionalText(ceoName, "Business partner ceoName", MasterDataFieldRules.PARTNER_CEO_MAX);
     }
 
     public String getBusinessType() {
@@ -341,7 +348,7 @@ public class BusinessPartner {
 
     @Deprecated
     public void setBusinessType(String businessType) {
-        this.businessType = trimToNull(businessType);
+        this.businessType = MasterDataFieldRules.optionalText(businessType, "Business partner businessType", MasterDataFieldRules.PARTNER_BUSINESS_TYPE_MAX);
     }
 
     public String getBusinessItem() {
@@ -350,7 +357,7 @@ public class BusinessPartner {
 
     @Deprecated
     public void setBusinessItem(String businessItem) {
-        this.businessItem = trimToNull(businessItem);
+        this.businessItem = MasterDataFieldRules.optionalText(businessItem, "Business partner businessItem", MasterDataFieldRules.PARTNER_BUSINESS_ITEM_MAX);
     }
 
     public PartnerType getPartnerType() {
@@ -490,7 +497,7 @@ public class BusinessPartner {
 
     private static String requireText(String value, String message) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(message);
+            throw new MasterDataFieldRules.FieldValidationException(message);
         }
         return value.trim();
     }

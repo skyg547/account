@@ -15,6 +15,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ho.account.internalaudit.api.adapter.in.web.InternalAuditIdentityFilter;
+import com.ho.account.internalaudit.api.adapter.in.web.InternalAuditPrincipal;
 import com.ho.account.internalaudit.core.application.AuditActorContext;
 import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
 import com.ho.account.internalaudit.core.application.port.out.CommandReceiptPort;
@@ -73,7 +75,7 @@ import org.springframework.transaction.support.TransactionTemplate;
         "spring.cloud.config.enabled=false",
         "eureka.client.enabled=false"
 })
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("local")
 class CommandIdempotencyIntegrationTest {
     protected static final String ACTOR = "test-auditor";
@@ -361,7 +363,7 @@ class CommandIdempotencyIntegrationTest {
         assertThat(mvc.perform(post(Command.RISK.path).header("X-Auth-User", ACTOR)
                 .header("X-Auth-Roles", "ROLE_USER").header("X-Idempotency-Key", KEY)
                 .contentType(MediaType.APPLICATION_JSON).content(Command.RISK.body().toString()))
-                .andReturn().getResponse().getStatus()).isEqualTo(403);
+                .andReturn().getResponse().getStatus()).isEqualTo(401);
         assertThat(postCommand(Command.RISK.path, Command.RISK.body().put("processId", "different-parent"),
                 KEY, ACTOR, "retry").getResponse().getStatus()).isEqualTo(400);
 
@@ -449,6 +451,10 @@ class CommandIdempotencyIntegrationTest {
         MockHttpServletRequestBuilder request = post(path).header("X-Auth-User", actor)
                 .header("X-Auth-Roles", "ROLE_AUDITOR").header("X-Correlation-Id", trace)
                 .contentType(MediaType.APPLICATION_JSON).content(body.toString());
+        if (actor != null && !actor.isBlank()) {
+            request.requestAttr(InternalAuditIdentityFilter.PRINCIPAL_ATTRIBUTE,
+                    new InternalAuditPrincipal(actor, List.of("ROLE_AUDITOR"), 1));
+        }
         if (key != null) {
             request.header("X-Idempotency-Key", key);
         }

@@ -10,14 +10,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ho.account.auth.core.application.model.AuthenticationResult;
+import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.in.AuthUserRoleAssignmentUseCase;
+import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersistencePort;
+import com.ho.account.auth.core.application.service.AuthUserRoleAssignmentService;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,17 +42,18 @@ class AuthControllerTest {
     @Mock
     private AuthUserRoleAssignmentUseCase authUserRoleAssignmentUseCase;
 
+    @Mock
+    private AuthUserRoleAssignmentPersistencePort persistencePort;
+
+    private AuthModuleProperties properties;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        AuthModuleProperties properties = new AuthModuleProperties();
+        properties = new AuthModuleProperties();
         properties.getInternalApi().setToken("secret-token");
-        AuthController controller = new AuthController(authUseCase, authUserRoleAssignmentUseCase, properties);
-
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new AuthExceptionHandler())
-                .build();
+        mockMvc = mockMvcFor(authUserRoleAssignmentUseCase);
     }
 
     @Test
@@ -89,6 +96,58 @@ class AuthControllerTest {
     }
 
     @Test
+    void malformedLoginJsonAndTypeMismatchAreSafeClientErrors() throws Exception {
+        String secret = "synthetic-password-sentinel";
+        for (String body : List.of(
+                "{\"username\":\"admin\",\"password\":\"" + secret + "\",",
+                "{\"username\":[\"admin\"],\"password\":\"" + secret + "\"}")) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                    .andExpect(jsonPath("$.message").value("Malformed request body"))
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain(secret));
+        }
+        verifyNoInteractions(authUseCase);
+    }
+
+    @Test
+    void invalidRequestExceptionDoesNotReflectItsInternalMessage() throws Exception {
+        String sentinel = "synthetic-internal-request-sentinel";
+        when(authUseCase.login(any())).thenThrow(new IllegalArgumentException(sentinel));
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"admin\",\"password\":\"wrong\",\"loginType\":\"NORMAL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Invalid request"))
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain(sentinel));
+    }
+
+    @Test
+    void loginUsernameMatchesEightyCharacterPersistenceLimit() throws Exception {
+        String maximum = "u".repeat(80);
+        String tooLong = maximum + "u";
+        when(authUseCase.login(any())).thenThrow(new InvalidCredentialsException());
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + maximum + "\",\"password\":\"wrong\",\"loginType\":\"NORMAL\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+        ArgumentCaptor<AuthUseCase.LoginCommand> command = ArgumentCaptor.forClass(AuthUseCase.LoginCommand.class);
+        verify(authUseCase).login(command.capture());
+        assertThat(command.getValue().username()).isEqualTo(maximum);
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + tooLong + "\",\"password\":\"wrong\",\"loginType\":\"NORMAL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        verify(authUseCase).login(any());
+    }
+
+    @Test
     void replaceRoleAssignmentsRequiresInternalToken() throws Exception {
         mockMvc.perform(post("/api/auth/internal/users/admin/role-assignments")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -116,6 +175,65 @@ class AuthControllerTest {
     }
 
     @Test
+    void replaceRoleAssignmentsRejectsMissingDataScope() throws Exception {
+        mockMvc.perform(post("/api/auth/internal/users/admin/role-assignments")
+                        .header(INTERNAL_AUTH_TOKEN_HEADER, "secret-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "roleCodes": ["ROLE_ACCOUNTING_ADMIN"],
+                                  "approvedBy": "approver01",
+                                  "approvalTraceId": "governance-approval-id=42"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(authUserRoleAssignmentUseCase);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " "})
+    void replaceRoleAssignmentsRejectsBlankDataScope(String dataScope) throws Exception {
+        mockMvc.perform(post("/api/auth/internal/users/admin/role-assignments")
+                        .header(INTERNAL_AUTH_TOKEN_HEADER, "secret-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "roleCodes": ["ROLE_ACCOUNTING_ADMIN"],
+                                  "dataScope": "%s",
+                                  "approvedBy": "approver01",
+                                  "approvalTraceId": "governance-approval-id=42"
+                                }
+                                """.formatted(dataScope)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(authUserRoleAssignmentUseCase);
+    }
+
+    @Test
+    void replaceRoleAssignmentsRejectsUnsupportedDataScopeBeforePersistence() throws Exception {
+        MockMvc serviceMvc = mockMvcFor(new AuthUserRoleAssignmentService(persistencePort, Clock.systemUTC()));
+
+        serviceMvc.perform(post("/api/auth/internal/users/admin/role-assignments")
+                        .header(INTERNAL_AUTH_TOKEN_HEADER, "secret-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "roleCodes": ["ROLE_ACCOUNTING_ADMIN"],
+                                  "dataScope": "FIN",
+                                  "approvedBy": "approver01",
+                                  "approvalTraceId": "governance-approval-id=42"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        verifyNoInteractions(persistencePort);
+    }
+
+    @Test
     void replaceRoleAssignmentsAppliesWhenInternalTokenMatches() throws Exception {
         when(authUserRoleAssignmentUseCase.replaceRoleAssignments(any()))
                 .thenReturn(new AuthUserRoleAssignmentUseCase.RoleAssignmentResult(
@@ -139,7 +257,7 @@ class AuthControllerTest {
         AuthUserRoleAssignmentUseCase.ReplaceRoleAssignmentsCommand command = commandCaptor.getValue();
         assertThat(command.username()).isEqualTo("admin");
         assertThat(command.roleCodes()).containsExactly("ROLE_ACCOUNTING_ADMIN");
-        assertThat(command.dataScope()).isEqualTo("FIN");
+        assertThat(command.dataScope()).isEqualTo("GLOBAL");
         assertThat(command.approvedBy()).isEqualTo("approver01");
         assertThat(command.approvalTraceId()).isEqualTo("governance-approval-id=42");
     }
@@ -148,10 +266,17 @@ class AuthControllerTest {
         return """
                 {
                   "roleCodes": ["ROLE_ACCOUNTING_ADMIN"],
-                  "dataScope": "FIN",
+                  "dataScope": "GLOBAL",
                   "approvedBy": "approver01",
                   "approvalTraceId": "governance-approval-id=42"
                 }
                 """;
+    }
+
+    private MockMvc mockMvcFor(AuthUserRoleAssignmentUseCase roleAssignmentUseCase) {
+        AuthController controller = new AuthController(authUseCase, roleAssignmentUseCase, properties);
+        return MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new AuthExceptionHandler())
+                .build();
     }
 }

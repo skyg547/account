@@ -2,7 +2,7 @@ package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
-import com.ho.account.journalledger.domain.journal.repository.JournalReversalOperationRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalReversalOperationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

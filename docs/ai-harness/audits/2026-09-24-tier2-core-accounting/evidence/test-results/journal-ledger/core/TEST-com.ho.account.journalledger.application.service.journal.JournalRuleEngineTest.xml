@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.044">
+  <properties/>
+  <testcase name="조건이 맞지 않으면 빈 Optional을 반환한다." classname="com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest" time="0.03"/>
+  <testcase name="금액 수식 표현식(사칙연산)을 평가한다." classname="com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest" time="0.004"/>
+  <testcase name="필수 DSL 값이 누락되면 명확한 예외를 반환한다." classname="com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest" time="0.003"/>
+  <testcase name="규칙과 조건이 일치하면 JournalEntry를 생성한다." classname="com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

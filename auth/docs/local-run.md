@@ -58,10 +58,22 @@ local profile은 다음을 적용합니다.
 - H2 PostgreSQL 호환 모드
 - `auth.persistence.mode=jpa`
 - `auth.login-security.store=jpa`
-- Flyway V70~V73 활성화
+- Flyway V70~V76 활성화
 - Hibernate `ddl-auto=validate`
 - `spring.sql.init.mode=never`
 - 보안 입력과 데모 사용자 기본값 없음
+
+SSO/OTP도 기본 비활성화입니다. `local`에서만 `auth.sso.enabled=true`와 공급자별 identity를 런타임에 주입하면 설정 기반 SSO를, `auth.otp.enabled=true`와 사용자별 Base32 secret을 주입하면 TOTP를 시험할 수 있습니다. `NORMAL`은 해당 사용자 OTP 설정이나 제출이 없으면 OTP 없이 진행하고, `LDAP`는 항상 OTP가 필요합니다. `SSO`는 공급자 subject가 요청 username 및 등록 사용자와 일치해야 합니다. 테스트용 자격·secret 값은 저장소와 명령줄에 남기지 않습니다. 이 local 어댑터는 운영 OAuth2/OIDC 연동과 인스턴스 간 OTP 재사용 방지 기능을 제공하지 않습니다.
+
+### memory 사용자 저장소로 실행
+
+같은 `local` 프로파일에서 사용자·역할 저장소만 메모리 어댑터로 바꾸려면, 위에서 생성한 임시 보안 입력을 유지한 채 실행 인자로 모드를 지정합니다. `local`의 기본값은 JPA이므로 명시적 실행 인자가 필요합니다.
+
+```powershell
+.\gradlew :auth:api:bootRun --args='--spring.profiles.active=local --auth.persistence.mode=memory --auth.login-security.store=memory --server.port=8081' --console=plain --max-workers=1
+```
+
+두 모드 모두 전체 Auth 애플리케이션이 기동됩니다. PAT 관리 경로(`POST/GET/DELETE /api/auth/pat` 및 `/api/auth/admin/pat`)는 **JPA 모드에서만** 등록되며, memory 모드에서는 경로가 없어 HTTP 404를 반환합니다. memory 모드에는 PAT 발급·조회·폐기 또는 PAT 감사 저장 기능이 없습니다. PAT를 시험하려면 기본 JPA 모드를 사용합니다. 이 memory 모드는 로컬 데모용이며 재시작 시 사용자·역할 상태가 사라집니다.
 
 ## PowerShell H2 API 실행
 
@@ -74,6 +86,19 @@ local profile은 다음을 적용합니다.
 - API: `http://localhost:8081`
 - JDBC: H2 memory database, PostgreSQL compatibility mode
 - Config Server/Eureka/Master Data 원격 호출: 비활성화
+
+## 원격 부서 조회 대기 시간
+
+`auth.master-data.enabled=true`로 원격 부서 검증을 사용하는 환경에서 `masterDataRestClient`는 연결 대기와 응답 읽기 대기를 제한합니다. 값을 생략하면 다음 기본값을 사용합니다. 환경변수는 실행 환경의 승인된 설정 주입 경로에서 지정합니다.
+
+| 설정 키 | 환경변수 | 기본값 | 허용 범위 |
+| --- | --- | ---: | ---: |
+| `auth.master-data.connect-timeout-millis` | `AUTH_MASTER_DATA_CONNECT_TIMEOUT_MILLIS` | 1000 ms | 1~10000 ms |
+| `auth.master-data.read-timeout-millis` | `AUTH_MASTER_DATA_READ_TIMEOUT_MILLIS` | 3000 ms | 1~10000 ms |
+
+두 설정 중 하나라도 0, 음수, 10000 ms 초과 또는 숫자가 아닌 값이면 기동 시 설정 필드 경로만 포함한 오류로 실패합니다. 원격 연결 실패나 읽기 시간 초과는 부서 검증 불가로 처리되며 JWT를 발급하지 않습니다. 읽기 제한은 **응답 바이트가 오지 않는 동안의 대기 시간**입니다. 상대 서비스가 바이트를 천천히 계속 보내면 전체 요청 시간은 이 값보다 길어질 수 있습니다.
+
+기본 `local` 프로파일은 `auth.master-data.enabled=false`로 로컬 부서 검증 어댑터를 선택하므로 원격 조회를 호출하지 않습니다. 이 대기 시간 설정은 로컬 어댑터의 승인 동작을 바꾸지 않습니다.
 
 ## H2 컨텍스트/Flyway smoke
 
@@ -95,7 +120,9 @@ $jar = Get-ChildItem auth/api/build/libs -Filter '*.jar' |
 java -jar $jar.FullName --spring.profiles.active=local --server.port=8081
 ```
 
-테스트 범위에는 local resource 정책, H2/Flyway 컨텍스트, 로그인 실패 JPA commit, API/core 경계와 Boot JAR 패키징이 포함됩니다.
+테스트 범위에는 local resource 정책, H2/Flyway 컨텍스트, 로그인 실패 JPA commit, API/core 경계와 Boot JAR 패키징이 포함됩니다. `:auth:api:test`의 `EnterpriseSsoOtpHttpIntegrationTest`는 local 설정 기반 SSO/TOTP의 JWT 발급과 실패·잠금을 H2에서 확인합니다. `:auth:core:test`의 `JpaLoginAttemptPostgresConcurrencyTest`는 테스트 프로세스의 임시 PostgreSQL에서 별도 트랜잭션의 동시 최초 삽입, 기존 행 증가, 만료 및 성공 경합을 확인합니다. 이 테스트는 PostgreSQL 실행 파일을 시작할 수 있는 로컬 환경이 필요하며 운영 DB 계정은 사용하지 않습니다.
+
+`AuthJpaModeStartupTest`와 `AuthMemoryModeStartupTest`는 임시 자격증명을 테스트 실행 중 생성해 전체 `AuthApplication` 빈 그래프를 각각 시작하고 PAT HTTP 경로의 존재 여부를 확인합니다. JPA PAT의 실제 생성·조회·폐기 및 감사 동작은 `PersonalAccessTokenHttpIntegrationTest`가 H2에서 검사합니다. H2 검증은 PostgreSQL 검증을 대신하지 않습니다.
 
 ## fail-closed 확인
 

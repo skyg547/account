@@ -2,13 +2,17 @@ package com.ho.account.ecl.core.infrastructure.adapter.persistence;
 
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.jpa.JPAExpressions;
 import com.ho.account.ecl.core.domain.exposure.QCrAccount;
 import com.ho.account.ecl.core.domain.result.QAllowanceEclResult;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import com.ho.account.ecl.core.domain.exposure.CrCustomer;
 import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import com.ho.account.ecl.core.domain.exposure.QCrCustomer;
+import com.ho.account.ecl.core.infrastructure.adapter.persistence.jpa.QAllowanceExposureSnapshotReadEntity;
 
+import java.time.LocalDate;
+import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -17,17 +21,27 @@ import java.util.function.BiFunction;
 public class CrBatchQueryProvider {
 
     /**
-     * [Phase 1] 스테이징 및 초기 PD 산출용 계좌 조회 쿼리 생성 함수
-     * 파티셔닝을위한 ID 범위를 파라미터로 받습니다.
+     * [Phase 1] 필수 baseDate와 파티션 ID 범위에서 Stage/PD 산출 대상 계좌를 조회한다.
+     * DQ에서 비활성화한 계좌는 제외하고, 같은 기준일 snapshot의 source_account_no와
+     * 일치하는 계좌만 EXISTS 조건으로 반환한다. snapshot에 없는 계좌는 산출하지 않으며, 같은
+     * baseDate로 재실행해도 해당 날짜 snapshot을 기준으로 대상 계좌를 다시 선택한다.
      */
-    public static BiFunction<JPAQueryFactory, LongRange, JPAQuery<CrAccount>> accountPagingQuery() {
+    public static BiFunction<JPAQueryFactory, LongRange, JPAQuery<CrAccount>> accountPagingQuery(LocalDate baseDate) {
+        Objects.requireNonNull(baseDate, "baseDate is required for Stage account selection");
+        QCrAccount account = QCrAccount.crAccount;
+        QAllowanceExposureSnapshotReadEntity snapshot = QAllowanceExposureSnapshotReadEntity.allowanceExposureSnapshotReadEntity;
         return (queryFactory, range) -> queryFactory
-                .selectFrom(QCrAccount.crAccount)
-                .join(QCrAccount.crAccount.customer).fetchJoin()
-                .where(QCrAccount.crAccount.isActive.isTrue(),
-                       QCrAccount.crAccount.id.goe(range.min()),
-                       QCrAccount.crAccount.id.loe(range.max()))
-                .orderBy(QCrAccount.crAccount.id.asc());
+                .selectFrom(account)
+                .join(account.customer).fetchJoin()
+                .where(account.isActive.isTrue(),
+                       account.id.goe(range.min()),
+                       account.id.loe(range.max()),
+                       // EXISTS keeps one account per page even if the snapshot has several exposures for it.
+                       JPAExpressions.selectOne().from(snapshot)
+                               .where(snapshot.baseDate.eq(baseDate),
+                                      snapshot.sourceAccountNo.eq(account.accountNo))
+                               .exists())
+                .orderBy(account.id.asc());
     }
 
     /**
@@ -176,4 +190,3 @@ public class CrBatchQueryProvider {
     private CrBatchQueryProvider() {
     }
 }
-

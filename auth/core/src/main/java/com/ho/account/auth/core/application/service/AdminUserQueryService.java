@@ -1,16 +1,18 @@
 package com.ho.account.auth.core.application.service;
 
+import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.model.AdminUserView;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.application.port.in.AdminUserQueryUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
+import com.ho.account.auth.core.domain.model.RoleAssignment;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,12 +29,27 @@ public class AdminUserQueryService implements AdminUserQueryUseCase {
     private final Clock clock;
 
     @Override
-    public List<AdminUserView> findAllUsers() {
+    public ListPage<AdminUserView> findUsers(String authenticatedUsername, ListPageRequest pageRequest) {
+        if (authenticatedUsername == null || authenticatedUsername.isBlank()) {
+            throw new UserAccessDeniedException("Authenticated user is required.");
+        }
         Instant evaluatedAt = clock.instant();
-        return authUserQueryPort.findAllUsers().stream()
-                .sorted(Comparator.comparing(AuthUser::getUsername))
+        AuthUser requester = authUserQueryPort.findByUsername(authenticatedUsername.trim())
+                .orElseThrow(() -> new UserAccessDeniedException("System administrator role is required."));
+        // Headers and old JWT roles may outlive a grant change; authorize against every stored assignment first.
+        boolean supportedScopes = requester.getRoleAssignments().stream()
+                .allMatch(RoleAssignment::hasSupportedAuthorizationScope);
+        boolean systemAdmin = requester.effectiveRoleAssignmentsAt(evaluatedAt).stream()
+                .anyMatch(assignment -> assignment.hasSupportedAuthorizationScope()
+                        && ("ROLE_SYSTEM_ADMIN".equals(assignment.roleCode())
+                        || "SYSTEM_ADMIN".equals(assignment.roleCode())));
+        if (!requester.isActive() || requester.isLocked() || !supportedScopes || !systemAdmin) {
+            throw new UserAccessDeniedException("System administrator role is required.");
+        }
+        ListPage<AuthUser> users = authUserQueryPort.findUsers(pageRequest);
+        return new ListPage<>(users.content().stream()
                 .map(user -> toView(user, evaluatedAt))
-                .toList();
+                .toList(), users.page(), users.size(), users.hasNext());
     }
 
     private AdminUserView toView(AuthUser user, Instant evaluatedAt) {

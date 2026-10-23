@@ -1,6 +1,7 @@
 package com.ho.account.closing.batch;
 
 import com.ho.account.closing.application.pipeline.FxValuationPipeline;
+import com.ho.account.closing.application.port.in.FinancialClosingCalculation;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.FxValuationBalance;
 import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
@@ -33,8 +34,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -52,9 +55,11 @@ class FxValuationScopedReaderLifecycleTest {
     @Autowired DataSource dataSource;
     @Autowired JournalFxValuationBalanceSource source;
     @Autowired FxValuationPipeline pipeline;
+    @Autowired FinancialClosingCalculation financialClosingCalculation;
 
     @Test
     void partitionedStepOpensReadsCheckpointsAndClosesItsScopedJdbcCursor() throws Exception {
+        reset(source, pipeline, financialClosingCalculation);
         LocalDate date = LocalDate.of(2026, 9, 11);
         ExecutionContext range = new ExecutionContext();
         range.putString("startAccountCode", "110001");
@@ -90,6 +95,50 @@ class FxValuationScopedReaderLifecycleTest {
         lifecycle.verify(reader).update(any(ExecutionContext.class));
         lifecycle.verify(reader, atLeastOnce()).close();
         verify(pipeline, times(2)).processChunk(anyList(), eq(date), eq(690L));
+        var financialOrder = inOrder(financialClosingCalculation, pipeline);
+        financialOrder.verify(financialClosingCalculation).validateFxValuation(date, 690L);
+        financialOrder.verify(pipeline, times(2)).processChunk(anyList(), eq(date), eq(690L));
+    }
+
+    @Test
+    void failedPostingRestartRerunsCompletedEvidenceValidationBeforeWritingAgain() throws Exception {
+        reset(source, pipeline, financialClosingCalculation);
+        LocalDate date = LocalDate.of(2026, 9, 12);
+        ExecutionContext range = new ExecutionContext();
+        range.putString("startAccountCode", "110001");
+        range.putString("endAccountCode", "110001");
+        when(source.createPartitions(date, "KRW", 1)).thenReturn(Map.of("fx-range-restart", range));
+        when(source.createReader(date, "KRW", "110001", "110001", 1)).thenAnswer(invocation ->
+                new JdbcCursorItemReaderBuilder<FxValuationBalance>()
+                        .name("restart-fx-reader")
+                        .dataSource(dataSource)
+                        .sql("SELECT '110001' AS account_code")
+                        .rowMapper((row, index) -> new FxValuationBalance(
+                                row.getString("account_code"), "USD", BigDecimal.ONE,
+                                new BigDecimal("1300.00")))
+                        .saveState(true)
+                        .build());
+        doThrow(new IllegalStateException("synthetic posting failure"))
+                .doNothing()
+                .when(pipeline).processChunk(anyList(), eq(date), eq(691L));
+        var parameters = new JobParametersBuilder()
+                .addString("valuationDate", date.toString())
+                .addLong("valuationBatchId", 691L)
+                .toJobParameters();
+
+        var failed = launcher.run(fxValuationJob, parameters);
+        var restarted = launcher.run(fxValuationJob, parameters);
+
+        assertThat(failed.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(restarted.getStatus()).as("failures: %s", restarted.getAllFailureExceptions())
+                .isEqualTo(BatchStatus.COMPLETED);
+        verify(financialClosingCalculation, times(2)).validateFxValuation(date, 691L);
+        verify(pipeline, times(2)).processChunk(anyList(), eq(date), eq(691L));
+        var order = inOrder(financialClosingCalculation, pipeline);
+        order.verify(financialClosingCalculation).validateFxValuation(date, 691L);
+        order.verify(pipeline).processChunk(anyList(), eq(date), eq(691L));
+        order.verify(financialClosingCalculation).validateFxValuation(date, 691L);
+        order.verify(pipeline).processChunk(anyList(), eq(date), eq(691L));
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -116,6 +165,11 @@ class FxValuationScopedReaderLifecycleTest {
         @Bean
         FxValuationPipeline pipeline() {
             return mock(FxValuationPipeline.class);
+        }
+
+        @Bean
+        FinancialClosingCalculation financialClosingCalculation() {
+            return mock(FinancialClosingCalculation.class);
         }
 
         @Bean

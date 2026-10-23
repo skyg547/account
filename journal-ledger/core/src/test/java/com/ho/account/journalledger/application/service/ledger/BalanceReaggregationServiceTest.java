@@ -10,7 +10,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -23,6 +25,34 @@ class BalanceReaggregationServiceTest {
 
     @Mock LedgerBalancePersistencePort balances;
     @Mock BalanceReaggregationControlPort control;
+
+    @Test
+    void startFreezesTheRangeThroughTheLatestProjectionOrPostedSource() {
+        LocalDate requestedEnd = DATE.plusDays(1);
+        LocalDate latest = LocalDate.of(2027, 1, 15);
+        when(balances.findLatestBalanceOrPostedDate()).thenReturn(Optional.of(latest));
+        BalanceReaggregationService service = new BalanceReaggregationService(balances, control);
+
+        BalanceReaggregationService.EffectiveDateRange effective = service.start(766, DATE, requestedEnd);
+
+        assertThat(effective).isEqualTo(new BalanceReaggregationService.EffectiveDateRange(DATE, latest));
+        var ordered = inOrder(balances, control);
+        ordered.verify(balances).lockAllBalanceAccounts();
+        ordered.verify(balances).findLatestBalanceOrPostedDate();
+        ordered.verify(control).start(766, DATE, latest);
+    }
+
+    @Test
+    void startKeepsTheRequestedEndWhenNoLaterProjectionOrPostedSourceExists() {
+        LocalDate requestedEnd = DATE.plusDays(1);
+        when(balances.findLatestBalanceOrPostedDate()).thenReturn(Optional.of(DATE));
+        BalanceReaggregationService service = new BalanceReaggregationService(balances, control);
+
+        BalanceReaggregationService.EffectiveDateRange effective = service.start(766, DATE, requestedEnd);
+
+        assertThat(effective.endDate()).isEqualTo(requestedEnd);
+        verify(control).start(766, DATE, requestedEnd);
+    }
 
     @Test
     void reconciliationMismatchDoesNotReleaseTheFailClosedBarrier() {

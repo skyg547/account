@@ -7,12 +7,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * 매입채무와 선급금 상계 요청 DTO입니다.
  *
  * <p>초보자용 설명: 상계는 "미리 준 돈으로 갚아야 할 돈을 줄이는 처리"입니다.
- * 어떤 채무와 어떤 선급금을 연결할지, 얼마를 상계할지, 재시도 작업 ID를 API 경계에서 먼저 검증합니다.</p>
+ * 어떤 채무와 선급금을 연결할지, 얼마를 상계할지, 재시도 작업 ID와 고정 회계일을
+ * API 경계에서 먼저 검증합니다. 금액의 소수 정밀도는 core command가 다시 확인합니다.</p>
  */
 public class OffsetPayableRequest {
 
@@ -29,11 +31,14 @@ public class OffsetPayableRequest {
     private BigDecimal offsetAmount;
 
     @NotBlank(message = "상계 작업 ID는 필수입니다.")
-    @Size(max = 64, message = "상계 작업 ID는 64자를 넘을 수 없습니다.")
+    @Size(max = 60, message = "상계 작업 ID는 60자를 넘을 수 없습니다.")
     private String operationId;
 
+    @NotNull(message = "상계 회계일은 필수입니다.")
+    private LocalDate accountingDate;
+
     public OffsetPayableCommand toCommand() {
-        return new OffsetPayableCommand(payableId, advancePaymentId, offsetAmount, operationId);
+        return new OffsetPayableCommand(payableId, advancePaymentId, offsetAmount, operationId, accountingDate);
     }
 
     public Long getPayableId() { return payableId; }
@@ -47,4 +52,7 @@ public class OffsetPayableRequest {
 
     public String getOperationId() { return operationId; }
     public void setOperationId(String operationId) { this.operationId = operationId; }
+
+    public LocalDate getAccountingDate() { return accountingDate; }
+    public void setAccountingDate(LocalDate accountingDate) { this.accountingDate = accountingDate; }
 }

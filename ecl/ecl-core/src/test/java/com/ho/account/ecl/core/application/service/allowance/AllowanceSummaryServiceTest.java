@@ -40,15 +40,16 @@ class AllowanceSummaryServiceTest {
     }
 
     @Test
-    void rebuildAllowanceSummary_clearsBaseDateWhenNoCompletedResultsExist() {
+    void rebuildAllowanceSummary_keepsPreviousSummaryWhenNoCompletedResultsExist() {
         FakeAllowanceSummaryBuildPort port = new FakeAllowanceSummaryBuildPort(0, 0, 0);
         AllowanceSummaryService service = new AllowanceSummaryService(port);
 
-        AllowanceSummaryBuildResult result = service.rebuildAllowanceSummary(BASE_DATE, "RUN-1", "v1");
+        assertThatThrownBy(() -> service.rebuildAllowanceSummary(BASE_DATE, "RUN-1", "v1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No completed ECL results")
+                .hasMessageContaining(BASE_DATE.toString());
 
-        assertThat(result.sourceResultCount()).isZero();
-        assertThat(result.summaryRowCount()).isZero();
-        assertThat(port.deleted).isTrue();
+        assertThat(port.deleted).isFalse();
         assertThat(port.inserted).isFalse();
     }
 

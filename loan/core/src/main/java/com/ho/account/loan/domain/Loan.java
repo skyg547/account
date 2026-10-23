@@ -342,6 +342,8 @@ public class Loan {
         if (status != LoanStatus.PENDING_DISBURSEMENT) {
             throw new IllegalStateException("Only a pending loan can be disbursed: " + status);
         }
+        // Legacy pending contracts must fail before LoanService posts the disbursal journal.
+        validateSupportedPaymentFrequency();
         if (actualDate == null || actualDate.isBefore(disbursalDate) || actualDate.isAfter(maturityDate)) {
             throw new IllegalArgumentException("disbursalDate must be within the loan contract period.");
         }
@@ -459,9 +461,18 @@ public class Loan {
         interestRate = requireRate(interestRate, "interestRate");
         java.util.Objects.requireNonNull(disbursalDate, "disbursalDate is required.");
         java.util.Objects.requireNonNull(maturityDate, "maturityDate is required.");
-        java.util.Objects.requireNonNull(paymentFrequency, "paymentFrequency is required.");
+        validateSupportedPaymentFrequency();
         if (!maturityDate.isAfter(disbursalDate)) {
             throw new IllegalArgumentException("maturityDate must be after disbursalDate.");
+        }
+    }
+
+    private void validateSupportedPaymentFrequency() {
+        java.util.Objects.requireNonNull(paymentFrequency, "paymentFrequency is required.");
+        // The current EIR schedule uses monthly dates and annualEIR / 12.
+        if (paymentFrequency != PaymentFrequency.MONTHLY) {
+            throw new IllegalArgumentException("paymentFrequency " + paymentFrequency
+                    + " is not supported; only MONTHLY is supported.");
         }
     }
 

@@ -1,6 +1,7 @@
 package com.ho.account.receivable.application.port.in;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 
 /**
@@ -20,6 +21,12 @@ public record ManualMatchingCommand(Long collectionId, Long receivableId, BigDec
         matchingAmount = Objects.requireNonNull(matchingAmount, "matchingAmount is required");
         if (matchingAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("matchingAmount must be greater than zero");
+        }
+        try {
+            // Persisted balances use NUMERIC(19,2); reject fractional cents before any state change.
+            matchingAmount = matchingAmount.setScale(2, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("matchingAmount must be exactly representable to two decimal places", ex);
         }
         if (operationId == null || operationId.isBlank()) {
             throw new IllegalArgumentException("operationId is required for retry-safe matching");

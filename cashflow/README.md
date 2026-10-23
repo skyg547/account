@@ -35,3 +35,22 @@
 기대 결과는 세 모듈의 단위/컨텍스트 테스트가 모두 통과하는 것입니다. API와 Batch는 별도
 인프라 없이 기본 `local` 프로파일로 실행됩니다. 자세한 요청과 배치 파라미터는
 [기능 및 로컬 실행 안내](docs/README.md)를 참고하세요.
+
+## API와 Batch 이미지
+
+저장소 루트를 Docker 빌드 컨텍스트로 사용합니다. Docker를 사용할 수 있는 환경에서 다음 명령으로
+각 실행 모듈의 이미지를 만들 수 있습니다.
+
+```bash
+docker build -f cashflow/api/Dockerfile -t cashflow-api .
+docker build -f cashflow/batch/Dockerfile -t cashflow-batch .
+```
+
+두 이미지 대상은 개발 Compose에 아직 포함되지 않아 `deploy/image-targets.json`에 `enabled: false`로 등록되어 있지만, 위 명령으로 각각 직접 빌드할 수 있습니다.
+
+각 Dockerfile은 Java 17 빌드 단계에서 해당 모듈의 `bootJar`를 실행하고,
+`build/libs`의 `-plain.jar`를 제외한 실행 JAR이 정확히 하나일 때만 `app.jar`로 복사합니다.
+JAR이 없거나 둘 이상이면 이미지 빌드가 실패합니다. 실행 단계는 Java 17 JRE와 비관리자
+`app` 계정을 사용합니다. 이미지 생성은 애플리케이션의 외부 설정이나 영속 저장소를 제공하지
+않습니다. 로컬 메모리 adapter와 배치 재실행 제약은 [기능 및 로컬 실행 안내](docs/README.md)를
+확인하세요.

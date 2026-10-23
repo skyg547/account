@@ -50,6 +50,7 @@ class AuditedJournalCreationIdempotencyCompatibilityTest {
                 }
                 case "findById", "findByIdWithDetailsWithoutLock" ->
                         Optional.ofNullable(journalsById.get((Long) invocation.getArgument(0)));
+                case "nextSlipNumber" -> 1L;
                 default -> Mockito.RETURNS_DEFAULTS.answer(invocation);
             };
         });

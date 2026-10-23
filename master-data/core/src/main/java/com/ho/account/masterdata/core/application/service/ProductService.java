@@ -4,8 +4,14 @@ import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
 import com.ho.account.masterdata.core.application.port.in.ProductUseCase;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -18,28 +24,44 @@ import java.util.Optional;
 public class ProductService implements ProductUseCase {
 
     private final ProductPersistencePort productPersistencePort;
+    private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
 
-    public ProductService(ProductPersistencePort productPersistencePort) {
+    ProductService(ProductPersistencePort productPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(productPersistencePort, businessKeyLockPort, event -> { });
+    }
+
+    @Autowired
+    public ProductService(ProductPersistencePort productPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort, MasterDataAuditPort auditPort) {
         this.productPersistencePort = productPersistencePort;
+        this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort;
     }
 
     /**
      * 새로운 상품을 생성합니다.
      */
     public Product createProduct(ProductCommand command) {
-        productPersistencePort.findActiveByProductCode(command.productCode())
-                .ifPresent(existing -> {
-                    throw new IllegalArgumentException("이미 활성화된 상품 코드입니다: " + command.productCode());
-                });
         Product product = command.toEntity();
+        product.validateBusinessFields();
+        businessKeyLockPort.lock(MasterDataType.PRODUCT, product.getProductCode());
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
+        if (productPersistencePort.existsByProductCode(product.getProductCode())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 상품 코드입니다: " + command.productCode());
+        }
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
-        product.setAuditUser("system");
+        product.setAuditUser(MasterDataActorContext.auditUser());
         
         MasterDataValidityPolicy.applyDefaultWindow(product::getValidFrom, product::setValidFrom,
                 product::getValidTo, product::setValidTo);
 
-        return productPersistencePort.save(product);
+        Product saved = productPersistencePort.save(product);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_CREATE", MasterDataType.PRODUCT,
+                saved.getProductCode(), null, saved.getId());
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -61,40 +83,52 @@ public class ProductService implements ProductUseCase {
      * 상품 정보를 수정합니다. (SCD2 정책에 따라 기존 활성 이력을 종료하고 신규 버전을 생성합니다.)
      */
     public Product updateProduct(Long id, ProductCommand command) {
-        Product currentActive = productPersistencePort.findById(id)
+        String requestedCode = command.productCode() == null ? null
+                : MasterDataFieldRules.code(command.productCode(), "Product code", MasterDataFieldRules.PRODUCT_CODE_MAX);
+        lockBusinessKeyById(id);
+        Product currentActive = productPersistencePort.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
         if (!MasterDataValidityPolicy.isActiveAt(LocalDate.now(), currentActive.getValidFrom(), currentActive.getValidTo())) {
             throw new IllegalArgumentException("활성 상품 버전만 수정할 수 있습니다. ID: " + id);
         }
-        if (command.productCode() != null && !command.productCode().equals(currentActive.getProductCode())) {
-            throw new IllegalArgumentException("상품 코드는 SCD2 버전 수정에서 변경할 수 없습니다: " + currentActive.getProductCode());
+        if (requestedCode != null && !requestedCode.equals(currentActive.getProductCode())) {
+            throw new MasterDataFieldRules.FieldValidationException("Product code cannot change during update.");
         }
 
-        // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
+        // 새 버전의 단가를 포함한 모든 값을 먼저 검증해야 옛 버전을 닫지 않습니다.
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
         LocalDate newValidTo = command.validTo() != null
                 ? command.validTo()
                 : LocalDate.of(9999, 12, 31);
         MasterDataValidityPolicy.requireVersionSplit(
                 currentActive.getValidFrom(), currentActive.getValidTo(), newValidFrom, newValidTo);
-        LocalDate oldValidTo = newValidFrom.minusDays(1);
 
-        currentActive.terminate(oldValidTo);
-        productPersistencePort.save(currentActive);
-
-        // SCD2: 새로운 버전 생성
+        // Construct and validate the effective next row before closing the current version.
         Product newVersion = new Product();
         newVersion.setProductCode(currentActive.getProductCode());
         newVersion.setName(command.name() != null ? command.name() : currentActive.getName());
         newVersion.setDescription(command.description() != null ? command.description() : currentActive.getDescription());
         newVersion.setUnitOfMeasure(command.unitOfMeasure() != null ? command.unitOfMeasure() : currentActive.getUnitOfMeasure());
-        newVersion.setPrice(command.price() != null ? command.price() : currentActive.getPrice());
+        if (command.price() != null) {
+            newVersion.setPrice(command.price());
+        } else if (currentActive.getPrice() != null) {
+            newVersion.setPrice(currentActive.getPrice());
+        }
         newVersion.setProductType(command.productType() != null ? command.productType() : currentActive.getProductType());
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
-        newVersion.setAuditUser("system");
+        newVersion.setAuditUser(MasterDataActorContext.auditUser());
+        newVersion.validateBusinessFields();
 
-        return productPersistencePort.save(newVersion);
+        // SCD2: 검증된 새 버전을 준비한 뒤 기존 활성 버전을 종료합니다.
+        LocalDate oldValidTo = newValidFrom.minusDays(1);
+        currentActive.terminate(oldValidTo);
+        productPersistencePort.save(currentActive);
+
+        Product saved = productPersistencePort.save(newVersion);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_UPDATE", MasterDataType.PRODUCT,
+                saved.getProductCode(), currentActive.getId(), saved.getId());
+        return saved;
     }
 
     /**
@@ -106,14 +140,24 @@ public class ProductService implements ProductUseCase {
 
     @Override
     public void deactivateProduct(Long id, LocalDate effectiveDate) {
-        Product product = productPersistencePort.findById(id)
+        lockBusinessKeyById(id);
+        Product product = productPersistencePort.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
 
-        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+        LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, product.getValidFrom(), product.getValidTo());
         product.terminate(terminationDate);
         product.setUpdatedAt(LocalDateTime.now());
-        product.setAuditUser("system");
+        product.setAuditUser(MasterDataActorContext.auditUser());
         productPersistencePort.save(product);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_DEACTIVATE", MasterDataType.PRODUCT,
+                product.getProductCode(), product.getId(), product.getId());
+    }
+
+    private void lockBusinessKeyById(Long id) {
+        // 변경 가능한 유효기간은 잠금 후에만 읽고, 잠금 전에는 불변 업무 키만 조회합니다.
+        String businessKey = productPersistencePort.findBusinessKeyById(id)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
+        businessKeyLockPort.lock(MasterDataType.PRODUCT, businessKey);
     }
 }

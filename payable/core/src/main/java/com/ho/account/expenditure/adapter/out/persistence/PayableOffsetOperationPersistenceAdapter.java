@@ -3,6 +3,7 @@ package com.ho.account.expenditure.adapter.out.persistence;
 import com.ho.account.expenditure.application.port.out.PayableOffsetOperationPersistencePort;
 import com.ho.account.expenditure.domain.PayableOffsetOperation;
 import com.ho.account.expenditure.infrastructure.persistence.entity.PayableOffsetOperationJpaEntity;
+import com.ho.account.expenditure.infrastructure.persistence.entity.PayableOffsetOperationId;
 import com.ho.account.expenditure.repository.PayableOffsetOperationRepository;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -16,10 +17,10 @@ public class PayableOffsetOperationPersistenceAdapter implements PayableOffsetOp
     }
 
     @Override
-    public Optional<PayableOffsetOperation> findByOperationId(String operationId) {
-        return repository.findById(operationId).map(entity -> new PayableOffsetOperation(
+    public Optional<PayableOffsetOperation> findByPayableIdAndOperationId(Long payableId, String operationId) {
+        return repository.findById(new PayableOffsetOperationId(payableId, operationId)).map(entity -> new PayableOffsetOperation(
                 entity.getOperationId(), entity.getPayableId(), entity.getAdvancePaymentId(),
-                entity.getAmount(), entity.getJournalEntryId()));
+                entity.getAmount(), entity.getAccountingDate(), entity.getJournalEntryId()));
     }
 
     @Override
@@ -29,6 +30,7 @@ public class PayableOffsetOperationPersistenceAdapter implements PayableOffsetOp
         entity.setPayableId(operation.payableId());
         entity.setAdvancePaymentId(operation.advancePaymentId());
         entity.setAmount(operation.amount());
+        entity.setAccountingDate(operation.accountingDate());
         entity.setJournalEntryId(operation.journalEntryId());
         repository.save(entity);
     }

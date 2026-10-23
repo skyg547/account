@@ -1,0 +1,9 @@
+gradle.projectsEvaluated {
+    rootProject.tasks.register('tier2AuditClasspath') {
+        doLast {
+            def paths = [':journal-ledger:core', ':journal-ledger:api', ':journal-ledger:batch', ':closing:core', ':closing:api', ':closing:batch']
+            def entries = paths.collectMany { p -> rootProject.project(p).sourceSets.test.runtimeClasspath.files.toList() }.unique()
+            new File('/tmp/account-tier2-audit-evidence/classpath.txt').text = entries.collect { it.absolutePath }.join(File.pathSeparator)
+        }
+    }
+}

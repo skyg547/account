@@ -16,6 +16,13 @@ spring:
 server:
   port: ${SERVER_PORT:8083}
 
+internal-audit:
+  identity:
+    jwt-secret: ${AUTH_JWT_SECRET:}
+    jwt-issuer: ${AUTH_JWT_ISSUER:auth-service}
+    auth-base-url: ${INTERNAL_AUDIT_AUTH_BASE_URL:}
+    permission-grants: ${INTERNAL_AUDIT_PERMISSION_GRANTS:}
+
 eureka:
   client:
     enabled: ${INTERNAL_AUDIT_EUREKA_ENABLED:false}

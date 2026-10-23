@@ -102,8 +102,10 @@ public class CollectionService implements CollectionUseCase {
         Receivable match = collectionMatchingPolicyPort.selectMatch(collection, openReceivables).orElse(null);
 
         if (match != null) {
+            Receivable lockedMatch = receivablePersistencePort.findByIdForUpdate(match.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + match.getId()));
             // Auto matching consumes the full remainder once for this collection/receivable pair.
-            processMatch(collection, match, collection.getUnallocatedAmount(), "AUTO:" + match.getId());
+            processMatch(collection, lockedMatch, collection.getUnallocatedAmount(), "AUTO:" + match.getId());
         } else {
             collection.markAsUnmatched();
             collectionPersistencePort.save(collection);
@@ -117,7 +119,7 @@ public class CollectionService implements CollectionUseCase {
         BigDecimal amount = command.matchingAmount();
         Collection collection = collectionPersistencePort.findByIdForUpdate(collectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + collectionId));
-
+        // A used key must report a payload conflict before validating a new candidate receivable.
         String operationId = "MANUAL:" + command.operationId();
         Optional<CollectionAllocation> previous = collectionAllocationPersistencePort
                 .findByCollectionIdAndOperationId(collectionId, operationId);
@@ -125,16 +127,16 @@ public class CollectionService implements CollectionUseCase {
             CollectionAllocation allocation = previous.get();
             if (!allocation.getReceivable().getId().equals(receivableId)
                     || allocation.getMatchedAmount().compareTo(amount) != 0) {
-                throw new IllegalArgumentException("Matching operation ID conflicts with a prior allocation: "
+                throw new ReceivableOperationConflictException("Matching operation ID conflicts with a prior allocation: "
                         + command.operationId());
             }
             return;
         }
 
-        validateAccountingPeriodOpen(collection.getCollectionDate());
-
-        Receivable receivable = receivablePersistencePort.findById(receivableId)
+        Receivable receivable = receivablePersistencePort.findByIdForUpdate(receivableId)
                 .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + receivableId));
+        requireSameCustomer(collection, receivable);
+        validateAccountingPeriodOpen(collection.getCollectionDate());
 
         if (amount.compareTo(collection.getUnallocatedAmount()) > 0
                 || amount.compareTo(receivable.getOutstandingAmount()) > 0) {
@@ -150,6 +152,9 @@ public class CollectionService implements CollectionUseCase {
     }
 
     private void processMatch(Collection collection, Receivable receivable, BigDecimal amount, String operationId) {
+        // 자동 매칭 후보도 이 경로를 지나므로 고객 귀속을 상태 변경 전에 함께 검증합니다.
+        requireSameCustomer(collection, receivable);
+
         // DDD: 엔티티 내부 로직 호출
         receivable.applyCollection(amount);
         collection.applyAllocation(amount);
@@ -169,6 +174,14 @@ public class CollectionService implements CollectionUseCase {
         // 매칭 전표 발행 (AR Clearing -> AR)
         BusinessPartnerRef customer = validateCustomer(collection.getCustomerCode());
         postMatchJournal(collection, receivable, amount, customer, operationId);
+    }
+
+    private void requireSameCustomer(Collection collection, Receivable receivable) {
+        String customerCode = collection.getCustomerCode();
+        if (customerCode == null || customerCode.isBlank()
+                || !customerCode.equals(receivable.getCustomerCode())) {
+            throw new IllegalArgumentException("Collection and receivable customer codes must match.");
+        }
     }
 
     private Collection toCollection(CollectionCommand command) {
@@ -195,7 +208,7 @@ public class CollectionService implements CollectionUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 collection.getCollectionDate(),
                 collection.getCollectionDate(),
-                "Collection: " + customer.name() + " - " + collection.getAmount(),
+                "Collection: " + collection.getCustomerCode() + " - " + collection.getAmount(),
                 "COLLECTION_RECOGNITION",
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION", collection.getId().toString(),
@@ -219,7 +232,7 @@ public class CollectionService implements CollectionUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 collection.getCollectionDate(),
                 collection.getCollectionDate(),
-                "Match: " + customer.name() + " - " + amount,
+                "Match: " + collection.getCustomerCode() + " - " + amount,
                 "AR_CLEARING",
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION_MATCH", collection.getId().toString(),

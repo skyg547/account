@@ -11,6 +11,7 @@ import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.service.journal.JournalCreationConflictException;
 import com.ho.account.journalledger.application.service.journal.JournalCreationFingerprint;
+import com.ho.account.journalledger.application.service.journal.JournalEventRequestFingerprint;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -59,7 +60,10 @@ class JournalCreationIdempotencyMvcTest {
                     JournalCreationIdentity identity = invocation.getArgument(0);
                     Map<String, Object> event = invocation.getArgument(1);
                     LocalDate date = invocation.getArgument(2);
-                    String fingerprint = canonicalEvent(event, date);
+                    if (!identity.equals(JournalCreationIdentity.fromEvent(event))) {
+                        throw new IllegalArgumentException("event identity was not canonicalized");
+                    }
+                    String fingerprint = JournalEventRequestFingerprint.calculate(event, date);
                     StoredRequest existing = eventRequests.get(identity);
                     if (existing != null) {
                         if (!existing.fingerprint().equals(fingerprint)) {
@@ -112,6 +116,26 @@ class JournalCreationIdempotencyMvcTest {
                 .andExpect(jsonPath("$.id").value(7651L));
         mvc.perform(eventRequest("EVENT-765", "101.00"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void eventHeaderOnlyAndHeaderPrecedenceConvergeOnCanonicalOperationKey() throws Exception {
+        mvc.perform(eventRequest("HEADER-765", "100.00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7651L));
+        mvc.perform(post("/api/journals/from-event")
+                        .queryParam("accountingDate", "2026-09-25")
+                        .header("X-Auth-User", "event-maker")
+                        .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .header("Idempotency-Key", "HEADER-765")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"eventData":{"eventType":"PAYABLE","eventId":"INV-765",
+                                  "journalOperationKey":"PAYLOAD-IGNORED","operationKey":"ALIAS-IGNORED",
+                                  "amount":100.0}}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7651L));
     }
 
     @Test
@@ -176,12 +200,6 @@ class JournalCreationIdempotencyMvcTest {
                   ]
                 }
                 """.formatted(amount, amount, amount, amount);
-    }
-
-    private static String canonicalEvent(Map<String, Object> event, LocalDate date) {
-        BigDecimal amount = new BigDecimal(event.get("amount").toString()).stripTrailingZeros();
-        return date + "|" + amount.toPlainString() + "|" + event.get("createdBy")
-                + "|" + event.get("lineageSourceType") + "|" + event.get("lineageSourceId");
     }
 
     private record StoredRequest(String fingerprint, JournalEntry entry) { }

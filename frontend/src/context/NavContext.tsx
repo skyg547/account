@@ -34,6 +34,8 @@ export interface Authorization {
   accessType: string;
 }
 
+export type AuthorizationStatus = 'loading' | 'success' | 'unavailable';
+
 interface NavContextType {
   activeCategory: NavCategory;
   setActiveCategory: (category: NavCategory) => void;
@@ -42,6 +44,7 @@ interface NavContextType {
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   userAuthorizations: Authorization[];
+  authorizationStatus: AuthorizationStatus;
   isGovernanceConnected: boolean;
 }
 
@@ -49,61 +52,82 @@ const NavContext = createContext<NavContextType | undefined>(undefined);
 
 const GOVERNANCE_API_BASE_URL = process.env.NEXT_PUBLIC_GOVERNANCE_API_URL || '';
 
-/**
- * [백엔드 미연결 시 로컬 데모용 Mock 권한 목록]
- * 백엔드 거버넌스 API가 꺼져 있어도 화면이 텅 비지 않도록 기본 전체 메뉴 접근을 보장합니다.
- */
-const DEFAULT_ALL_ACCESS: Authorization[] = [
-  { id: 1, roleCode: 'ALL', functionCode: 'MENU:*', accessType: 'READ_WRITE' },
-];
+type AuthorizationSnapshot = {
+  role: UserRole;
+  status: AuthorizationStatus;
+  authorizations: Authorization[];
+  connected: boolean;
+};
+
+function isAuthorizationList(value: unknown, role: UserRole): value is Authorization[] {
+  return Array.isArray(value) && value.every(item =>
+    item !== null && typeof item === 'object' &&
+    typeof item.id === 'number' &&
+    item.roleCode === role &&
+    typeof item.functionCode === 'string' && item.functionCode.length > 0 &&
+    typeof item.accessType === 'string' && item.accessType.length > 0
+  );
+}
 
 export function NavProvider({ children }: { children: ReactNode }) {
   const [activeCategory, setActiveCategory] = useState<NavCategory>('DASHBOARD');
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [userRole, setUserRole] = useState<UserRole>('ACCOUNTING_ADMIN');
-  const [userAuthorizations, setUserAuthorizations] = useState<Authorization[]>(DEFAULT_ALL_ACCESS);
-  const [isGovernanceConnected, setIsGovernanceConnected] = useState(false);
+  const [userRole, setCurrentUserRole] = useState<UserRole>('ACCOUNTING_ADMIN');
+  const [authorizationSnapshot, setAuthorizationSnapshot] = useState<AuthorizationSnapshot>({
+    role: 'ACCOUNTING_ADMIN', status: 'loading', authorizations: [], connected: false,
+  });
+
+  const setUserRole = (role: UserRole) => {
+    if (role === userRole) return;
+    // Clear grants in the same update as the role change, before the next effect starts.
+    setAuthorizationSnapshot({ role, status: 'loading', authorizations: [], connected: false });
+    setCurrentUserRole(role);
+  };
+
+  // A response for an older role must never become the current role's menu grants.
+  const currentSnapshot = authorizationSnapshot.role === userRole
+    ? authorizationSnapshot
+    : { role: userRole, status: 'loading' as const, authorizations: [], connected: false };
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
-  // 권한 그룹이 변경될 때마다 Governance 모듈에서 권한 목록을 불러오고, 실패 시 안전하게 데모 Mock 권한으로 폴백합니다.
+  // A successful empty list means no menu grants; missing or failed data is unavailable.
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
     const fetchAuthorizations = async () => {
       if (userRole === 'SYSTEM_ADMIN') {
-        setUserAuthorizations(DEFAULT_ALL_ACCESS);
+        setAuthorizationSnapshot({ role: userRole, status: 'success', authorizations: [], connected: false });
         return;
       }
 
       if (!GOVERNANCE_API_BASE_URL) {
-        setUserAuthorizations(DEFAULT_ALL_ACCESS);
-        setIsGovernanceConnected(false);
+        setAuthorizationSnapshot({ role: userRole, status: 'unavailable', authorizations: [], connected: false });
         return;
       }
 
+      setAuthorizationSnapshot({ role: userRole, status: 'loading', authorizations: [], connected: false });
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5초 타임아웃 방어
-
         const res = await fetch(`${GOVERNANCE_API_BASE_URL}/api/audit/roles/${userRole}/authorizations`, {
           signal: controller.signal
         });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const data = await res.json();
-          setUserAuthorizations(data.length > 0 ? data : DEFAULT_ALL_ACCESS);
-          setIsGovernanceConnected(true);
-        } else {
-          setUserAuthorizations(DEFAULT_ALL_ACCESS);
-          setIsGovernanceConnected(false);
-        }
+        if (!res.ok) throw new Error('Menu authorization request failed');
+        const data: unknown = await res.json();
+        if (!isAuthorizationList(data, userRole)) throw new Error('Invalid menu authorization response');
+        if (!cancelled) setAuthorizationSnapshot({ role: userRole, status: 'success', authorizations: data, connected: true });
       } catch {
-        setUserAuthorizations(DEFAULT_ALL_ACCESS);
-        setIsGovernanceConnected(false);
+        if (!cancelled) setAuthorizationSnapshot({ role: userRole, status: 'unavailable', authorizations: [], connected: false });
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 
     fetchAuthorizations();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [userRole]);
 
   return (
@@ -114,8 +138,9 @@ export function NavProvider({ children }: { children: ReactNode }) {
       toggleSidebar,
       userRole,
       setUserRole,
-      userAuthorizations,
-      isGovernanceConnected,
+      userAuthorizations: currentSnapshot.authorizations,
+      authorizationStatus: currentSnapshot.status,
+      isGovernanceConnected: currentSnapshot.connected,
     }}>
       {children}
     </NavContext.Provider>

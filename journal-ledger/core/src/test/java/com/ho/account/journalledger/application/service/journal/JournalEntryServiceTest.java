@@ -5,16 +5,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.out.JournalCreationOperationPersistencePort;
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
+import com.ho.account.journalledger.application.port.out.SlipNumberAllocationException;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
+import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalCreationOperation;
 import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
 import com.ho.account.journalledger.domain.journal.domain.ReversalOperationStatus;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.ArgumentMatchers.any;
@@ -51,6 +59,7 @@ class JournalEntryServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(journalPersistencePort.nextSlipNumber()).thenReturn(1L);
         service = new JournalEntryService(journalPersistencePort, journalCreationOperationPersistencePort,
                 journalReversalPersistencePort,
                 journalRuleEngine, postingService, journalValidationEngine);
@@ -117,6 +126,66 @@ class JournalEntryServiceTest {
     }
 
     @Test
+    void committedEventRetryReturnsJournalBeforeRuleReevaluation() {
+        LocalDate date = LocalDate.of(2026, 9, 25);
+        Map<String, Object> event = Map.of(
+                "ruleCode", "PAYABLE", "lineageSourceType", "PAYABLE",
+                "lineageSourceId", "INV-765", "journalOperationKey", "INV-765:v1",
+                "amount", new java.math.BigDecimal("10.00"));
+        JournalCreationIdentity identity = JournalCreationIdentity.fromEvent(event);
+        JournalEntry generated = balancedDraft("service:journal-kafka-maker");
+        generated.setLineageSourceType(identity.sourceType());
+        generated.setLineageSourceId(identity.sourceId());
+        generated.setId(765L);
+        JournalCreationOperation receipt = JournalCreationOperation.create(
+                identity.sourceType(), identity.sourceId(), identity.operationKey(),
+                JournalEventRequestFingerprint.VERSION,
+                JournalEventRequestFingerprint.calculate(event, date), 765L);
+        when(journalCreationOperationPersistencePort.findByIdentity(identity))
+                .thenReturn(Optional.empty(), Optional.of(receipt));
+        AtomicBoolean ruleActive = new AtomicBoolean(true);
+        when(journalRuleEngine.generateJournalEntry(event, date)).thenAnswer(
+                ignored -> ruleActive.get() ? Optional.of(generated) : Optional.empty());
+        when(journalPersistencePort.save(generated)).thenReturn(generated);
+        when(journalPersistencePort.findByIdWithDetailsWithoutLock(765L)).thenReturn(Optional.of(generated));
+
+        assertThat(service.createJournalEntryFromEvent(identity, event, date).orElseThrow()).isSameAs(generated);
+        // The rule is now inactive. A second lookup would return empty and falsely acknowledge it.
+        ruleActive.set(false);
+        Map<String, Object> reorderedRetry = new HashMap<>(event);
+        reorderedRetry.put("amount", 10);
+        assertThat(service.createJournalEntryFromEvent(identity, reorderedRetry, date).orElseThrow()).isSameAs(generated);
+
+        verify(journalRuleEngine, times(1)).generateJournalEntry(any(), any());
+        verify(journalPersistencePort, times(1)).save(any());
+        verify(journalCreationOperationPersistencePort, times(1)).save(any());
+        verify(journalCreationOperationPersistencePort, times(2)).acquireOperationLock(identity);
+    }
+
+    @Test
+    void changedEventAmountConflictsBeforeRuleEvaluationEvenWhenRuleInactive() {
+        LocalDate date = LocalDate.of(2026, 9, 25);
+        Map<String, Object> original = Map.of(
+                "ruleCode", "PAYABLE", "lineageSourceType", "PAYABLE",
+                "lineageSourceId", "INV-765", "journalOperationKey", "INV-765:v1",
+                "amount", new java.math.BigDecimal("10.00"));
+        JournalCreationIdentity identity = JournalCreationIdentity.fromEvent(original);
+        JournalCreationOperation receipt = JournalCreationOperation.create(
+                identity.sourceType(), identity.sourceId(), identity.operationKey(),
+                JournalEventRequestFingerprint.VERSION,
+                JournalEventRequestFingerprint.calculate(original, date), 765L);
+        when(journalCreationOperationPersistencePort.findByIdentity(identity)).thenReturn(Optional.of(receipt));
+        Map<String, Object> changed = new HashMap<>(original);
+        changed.put("amount", new java.math.BigDecimal("11.00"));
+
+        assertThatThrownBy(() -> service.createJournalEntryFromEvent(identity, changed, date))
+                .isInstanceOf(JournalCreationConflictException.class);
+        verify(journalRuleEngine, never()).generateJournalEntry(any(), any());
+        verify(journalPersistencePort, never()).save(any());
+        verify(journalCreationOperationPersistencePort, never()).save(any());
+    }
+
+    @Test
     @DisplayName("전표 생성 시 검증 엔진을 호출한다.")
     void validateCalledOnCreate() {
         JournalEntry entry = new JournalEntry();
@@ -128,6 +197,121 @@ class JournalEntryServiceTest {
 
         verify(journalValidationEngine).validate(entry);
         verify(journalPersistencePort).save(entry);
+        assertThat(entry.getSlipNo()).isEqualTo("JE-" + java.time.format.DateTimeFormatter.BASIC_ISO_DATE.format(entry.getSlipDate()) + "-00000001");
+    }
+
+    @Test
+    void closedSourceEventDateFailsBeforeJournalPersistence() {
+        LocalDate sourceDate = LocalDate.of(2026, 8, 31);
+        Map<String, Object> event = Map.of("ruleCode", "SOURCE_EVENT");
+        JournalEntry generated = balancedDraft("service:journal-kafka-maker");
+        generated.setAccountingDate(sourceDate);
+        when(journalRuleEngine.generateJournalEntry(event, sourceDate)).thenReturn(Optional.of(generated));
+        AccountingPeriodStatusPort periods = org.mockito.Mockito.mock(AccountingPeriodStatusPort.class);
+        when(periods.isClosed(sourceDate)).thenReturn(true);
+        JournalEntryService realPeriodService = new JournalEntryService(
+                journalPersistencePort, journalReversalPersistencePort, journalRuleEngine,
+                postingService, new JournalValidationEngine(List.of(new ClosingLockValidationFilter(periods))));
+
+        assertThatThrownBy(() -> realPeriodService.createJournalEntryFromEvent(event, sourceDate))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간");
+
+        verify(journalRuleEngine).generateJournalEntry(event, sourceDate);
+        verify(periods).isClosed(sourceDate);
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void explicitOpenAdjustmentDateCreatesDraftWithoutReplacingItWithSourceDate() {
+        LocalDate sourceDate = LocalDate.of(2026, 8, 31);
+        LocalDate chosenDate = LocalDate.of(2026, 10, 1);
+        Map<String, Object> event = Map.of(
+                "ruleCode", "ADJUSTMENT", "sourceEventDate", sourceDate.toString());
+        JournalEntry generated = balancedDraft("accounting-admin");
+        generated.setSlipDate(chosenDate);
+        generated.setAccountingDate(chosenDate);
+        when(journalRuleEngine.generateJournalEntry(event, chosenDate)).thenReturn(Optional.of(generated));
+        AccountingPeriodStatusPort periods = org.mockito.Mockito.mock(AccountingPeriodStatusPort.class);
+        when(periods.isClosed(chosenDate)).thenReturn(false);
+        when(journalPersistencePort.save(generated)).thenReturn(generated);
+        JournalEntryService realPeriodService = new JournalEntryService(
+                journalPersistencePort, journalReversalPersistencePort, journalRuleEngine,
+                postingService, new JournalValidationEngine(List.of(new ClosingLockValidationFilter(periods))));
+
+        JournalEntry saved = realPeriodService.createJournalEntryFromEvent(event, chosenDate).orElseThrow();
+
+        assertThat(saved).isSameAs(generated);
+        assertThat(saved.getStatus().name()).isEqualTo("DRAFT");
+        assertThat(saved.getAccountingDate()).isEqualTo(chosenDate).isNotEqualTo(sourceDate);
+        verify(journalRuleEngine).generateJournalEntry(event, chosenDate);
+        verify(periods).isClosed(chosenDate);
+        verify(periods, never()).isClosed(sourceDate);
+        verify(journalPersistencePort).save(generated);
+    }
+
+    @Test
+    void allocatorFailureDoesNotValidateOrSave() {
+        JournalEntry entry = balancedDraft("maker");
+        SlipNumberAllocationException unavailable = new SlipNumberAllocationException("database unavailable");
+        when(journalPersistencePort.nextSlipNumber()).thenThrow(unavailable);
+
+        assertThatThrownBy(() -> directCompatibilityService().createJournalEntry(entry)).isSameAs(unavailable);
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+        assertThat(entry.getSlipNo()).isNull();
+    }
+
+    @Test
+    void exhaustedAllocatorDoesNotValidateOrSave() {
+        JournalEntry entry = balancedDraft("maker");
+        when(journalPersistencePort.nextSlipNumber()).thenReturn(2_821_109_907_456L);
+
+        assertThatThrownBy(() -> directCompatibilityService().createJournalEntry(entry))
+                .isInstanceOf(SlipNumberAllocationException.class).hasMessageContaining("범위를 소진");
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void manualSlipCannotOccupyFutureAutomaticNumber() {
+        JournalEntry entry = balancedDraft("maker");
+        entry.setSlipNo("JE-20260925-00000001");
+
+        assertThatThrownBy(() -> directCompatibilityService().createJournalEntry(entry))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("직접 지정할 수 없습니다");
+        verify(journalPersistencePort, never()).nextSlipNumber();
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void dateOutsideEightDigitContractFailsBeforeAllocation() {
+        JournalEntry entry = balancedDraft("maker");
+        entry.setSlipDate(LocalDate.of(10_000, 1, 1));
+
+        assertThatThrownBy(() -> directCompatibilityService().createJournalEntry(entry))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("0001~9999");
+        verify(journalPersistencePort, never()).nextSlipNumber();
+        verify(journalPersistencePort, never()).save(any());
+    }
+
+    @Test
+    void legacyManualSlipAndAutomaticSlipCanCoexist() {
+        JournalEntry manual = balancedDraft("maker");
+        manual.setSlipNo("JE-20260925-0001");
+        directCompatibilityService().createJournalEntry(manual);
+
+        JournalEntry automatic = balancedDraft("maker");
+        directCompatibilityService().createJournalEntry(automatic);
+
+        assertThat(manual.getSlipNo()).isEqualTo("JE-20260925-0001");
+        assertThat(automatic.getSlipNo()).isEqualTo("JE-20260925-00000001");
+        verify(journalPersistencePort).nextSlipNumber();
+        verify(journalPersistencePort).save(manual);
+        verify(journalPersistencePort).save(automatic);
     }
 
     @Test
@@ -290,6 +474,12 @@ class JournalEntryServiceTest {
         verify(journalPersistencePort, never()).findByIdWithDetails(760L);
         verify(journalPersistencePort, never()).save(any());
         verify(journalReversalPersistencePort, never()).save(any());
+    }
+
+    private JournalEntryService directCompatibilityService() {
+        // Exercises the shared slip allocator without bypassing the production identity guard.
+        return new JournalEntryService(journalPersistencePort, journalRuleEngine,
+                postingService, journalValidationEngine);
     }
 
     private JournalEntry balancedDraft(String maker) {

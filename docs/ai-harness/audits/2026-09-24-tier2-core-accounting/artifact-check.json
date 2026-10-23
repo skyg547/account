@@ -1,0 +1,38 @@
+{
+  "checked_at_utc": "2026-09-24T01:05:26.176281+00:00",
+  "outcome": "PASS",
+  "issue_count": 42,
+  "P1": 26,
+  "P2": 16,
+  "fresh_junit_counts": {
+    "suites": 69,
+    "tests": 369,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "probe_observations": 17,
+  "source_fingerprints_verified": 276,
+  "source_reference_count": 134,
+  "checks": [
+    "JSON parsing",
+    "manifest/draft metadata and exact source references",
+    "copied XML counts",
+    "frozen probe observations",
+    "source fingerprints unchanged",
+    "local Markdown links",
+    "approved-file conflict markers",
+    "tracked changes restricted to four required records",
+    "index empty",
+    "HEAD unchanged",
+    "git diff --check on explicit scope"
+  ],
+  "changed_tracked_files": [
+    "docs/ai-harness/agent-status.md",
+    "docs/ai-harness/handoff.md",
+    "docs/ai-harness/worklog.md",
+    "docs/history/CODEX_WORKLOG.md"
+  ],
+  "production_source_changes": 0,
+  "errors": []
+}

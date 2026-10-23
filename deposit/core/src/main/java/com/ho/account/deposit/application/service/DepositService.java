@@ -20,12 +20,17 @@ import com.ho.account.deposit.domain.DepositStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionDefinition;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -56,14 +61,35 @@ public class DepositService implements DepositUseCase {
     private final JournalPostingPort journalPostingPort;
     private final OutboxPort outboxPort;
     private final OutboxEventPublisher outboxEventPublisher;
+    private final TransactionTemplate balanceChangeTransaction;
 
     @Autowired
     public DepositService(DepositAccountPersistencePort depositAccountPersistencePort,
                           DepositAccountMappingPort depositAccountMappingPort,
                           MasterDataQueryPort masterDataQueryPort,
                           JournalPostingPort journalPostingPort,
-                          @Autowired(required = false) OutboxPort outboxPort,
-                          @Autowired(required = false) OutboxEventPublisher outboxEventPublisher) {
+                          OutboxPort outboxPort,
+                          @Autowired(required = false) OutboxEventPublisher outboxEventPublisher,
+                          PlatformTransactionManager transactionManager) {
+        this.depositAccountPersistencePort = depositAccountPersistencePort;
+        this.depositAccountMappingPort = depositAccountMappingPort;
+        this.masterDataQueryPort = masterDataQueryPort;
+        this.journalPostingPort = journalPostingPort;
+        this.outboxPort = Objects.requireNonNull(outboxPort, "outboxPort must not be null");
+        this.outboxEventPublisher = outboxEventPublisher != null ? outboxEventPublisher
+                : new JournalOutboxRelayService(this.outboxPort, this.journalPostingPort);
+        this.balanceChangeTransaction = new TransactionTemplate(
+                Objects.requireNonNull(transactionManager, "transactionManager must not be null"));
+        this.balanceChangeTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
+    /** Compatibility constructor for account-opening tests that do not exercise balance changes. */
+    public DepositService(DepositAccountPersistencePort depositAccountPersistencePort,
+                          DepositAccountMappingPort depositAccountMappingPort,
+                          MasterDataQueryPort masterDataQueryPort,
+                          JournalPostingPort journalPostingPort,
+                          OutboxPort outboxPort,
+                          OutboxEventPublisher outboxEventPublisher) {
         this.depositAccountPersistencePort = depositAccountPersistencePort;
         this.depositAccountMappingPort = depositAccountMappingPort;
         this.masterDataQueryPort = masterDataQueryPort;
@@ -71,6 +97,7 @@ public class DepositService implements DepositUseCase {
         this.outboxPort = outboxPort != null ? outboxPort : new InMemoryOutboxAdapter();
         this.outboxEventPublisher = outboxEventPublisher != null ? outboxEventPublisher
                 : new JournalOutboxRelayService(this.outboxPort, this.journalPostingPort);
+        this.balanceChangeTransaction = null;
     }
 
     public DepositService(DepositAccountPersistencePort depositAccountPersistencePort,
@@ -122,12 +149,7 @@ public class DepositService implements DepositUseCase {
      */
     @Override
     public void deposit(String accountNumber, BigDecimal amount) {
-        executeWithOptimisticLockRetry(() -> {
-            DepositAccount account = depositAccountPersistencePort.findByAccountNumber(accountNumber)
-                    .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + accountNumber));
-            account.deposit(amount);
-            depositAccountPersistencePort.save(account);
-        });
+        changeBalance(accountNumber, amount, true);
     }
 
     /**
@@ -138,12 +160,74 @@ public class DepositService implements DepositUseCase {
      */
     @Override
     public void withdraw(String accountNumber, BigDecimal amount) {
-        executeWithOptimisticLockRetry(() -> {
+        changeBalance(accountNumber, amount, false);
+    }
+
+    private void changeBalance(String accountNumber, BigDecimal amount, boolean deposit) {
+        if (amount == null) {
+            throw new IllegalArgumentException("거래 금액은 필수입니다.");
+        }
+        BigDecimal journalAmount;
+        try {
+            journalAmount = amount.setScale(2, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("거래 금액은 소수 둘째 자리까지만 허용합니다.", ex);
+        }
+        if (balanceChangeTransaction == null) {
+            throw new IllegalStateException("입출금에는 트랜잭션 관리자가 필요합니다.");
+        }
+
+        // The operation retains its lineage across retries; every failed attempt rolls back first.
+        String transactionId = UUID.randomUUID().toString();
+        executeWithOptimisticLockRetry(() -> balanceChangeTransaction.executeWithoutResult(status -> {
             DepositAccount account = depositAccountPersistencePort.findByAccountNumber(accountNumber)
                     .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + accountNumber));
-            account.withdraw(amount);
+            // Foreign-currency journals need a verified FX rate and converted KRW base amounts.
+            // This use case has neither input, so reject before changing a balance that cannot be journaled.
+            if (!"KRW".equals(account.getCurrencyCode())) {
+                throw new IllegalStateException("외화 입출금에는 환율과 기준통화 금액이 필요합니다.");
+            }
+            if (deposit) {
+                account.deposit(journalAmount);
+            } else {
+                account.withdraw(journalAmount);
+            }
             depositAccountPersistencePort.save(account);
-        });
+            saveBalanceChangeJournal(account, journalAmount, deposit, transactionId);
+        }));
+    }
+
+    private void saveBalanceChangeJournal(DepositAccount account, BigDecimal amount,
+                                          boolean deposit, String transactionId) {
+        DepositAccountMappingPort.InitialDepositAccounts accounts =
+                depositAccountMappingPort.resolveInitialDepositAccounts(account);
+        requireAccounts(accounts.requiredAccountCodes());
+
+        String transactionType = deposit ? "DEPOSIT_DEPOSIT" : "DEPOSIT_WITHDRAWAL";
+        String debitAccount = deposit ? accounts.cashAccountCode() : accounts.depositLiabilityAccountCode();
+        String creditAccount = deposit ? accounts.depositLiabilityAccountCode() : accounts.cashAccountCode();
+        LocalDate accountingDate = LocalDate.now();
+        JournalEntryCommand command = new JournalEntryCommand(
+                accountingDate,
+                accountingDate,
+                (deposit ? "Deposit: " : "Withdrawal: ") + account.getAccountNumber(),
+                transactionType,
+                account.getCurrencyCode(),
+                null,
+                resolveActor(account),
+                resolveActor(account),
+                "DEPOSIT_TRANSACTION",
+                transactionId,
+                List.of(
+                        new JournalLineCommand("DEBIT", debitAccount, amount, amount, null,
+                                account.getCustomerCode(), transactionType),
+                        new JournalLineCommand("CREDIT", creditAccount, amount, amount, null,
+                                account.getCustomerCode(), transactionType)));
+
+        // The scheduler relays this PENDING event only after the account and outbox commit together.
+        outboxPort.saveJournalEvent(JournalOutboxEvent.createPending(
+                "DEPOSIT", "DEPOSIT_TRANSACTION", transactionId, command,
+                "DEPOSIT_TRANSACTION:" + transactionId));
     }
 
     /**

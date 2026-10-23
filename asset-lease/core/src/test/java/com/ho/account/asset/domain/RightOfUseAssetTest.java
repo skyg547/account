@@ -4,11 +4,68 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RightOfUseAssetTest {
+
+    @Test
+    @DisplayName("100.00을 3회 상각하면 마지막 회차가 잔여 33.34를 정리한다.")
+    void finalInstallmentClearsRoundingRemainder() {
+        RightOfUseAsset asset = new RightOfUseAsset();
+        asset.setInitialValue(new BigDecimal("100.00"));
+        asset.setCurrentBookValue(new BigDecimal("100.00"));
+        asset.setAccumulatedDepreciation(BigDecimal.ZERO);
+        asset.setDepreciationAmountPerPeriod(new BigDecimal("33.33"));
+        asset.setStatus(RightOfUseAsset.STATUS_ACTIVE);
+
+        assertThat(asset.depreciate(false)).isEqualByComparingTo("33.33");
+        assertThat(asset.getCurrentBookValue()).isEqualByComparingTo("66.67");
+        assertThat(asset.getStatus()).isEqualTo(RightOfUseAsset.STATUS_ACTIVE);
+        assertThat(asset.depreciate(false)).isEqualByComparingTo("33.33");
+        assertThat(asset.getCurrentBookValue()).isEqualByComparingTo("33.34");
+        assertThat(asset.getStatus()).isEqualTo(RightOfUseAsset.STATUS_ACTIVE);
+
+        // The final installment absorbs only the rounding remainder left by prior periods.
+        assertThat(asset.depreciate(true)).isEqualByComparingTo("33.34");
+        assertThat(asset.getAccumulatedDepreciation()).isEqualByComparingTo("100.00");
+        assertThat(asset.getCurrentBookValue()).isEqualByComparingTo("0.00");
+        assertThat(asset.getStatus()).isEqualTo(RightOfUseAsset.STATUS_FULLY_DEPRECIATED);
+        assertThat(asset.depreciate(true)).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(asset.getAccumulatedDepreciation()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    @DisplayName("마지막 회차가 아니면 잔여 장부가액을 선상각하지 않는다.")
+    void nonFinalInstallmentPreservesRemainingBookValue() {
+        RightOfUseAsset asset = new RightOfUseAsset();
+        asset.setInitialValue(new BigDecimal("100.00"));
+        asset.setCurrentBookValue(new BigDecimal("33.34"));
+        asset.setAccumulatedDepreciation(new BigDecimal("66.66"));
+        asset.setDepreciationAmountPerPeriod(new BigDecimal("33.33"));
+        asset.setStatus(RightOfUseAsset.STATUS_ACTIVE);
+
+        assertThat(asset.depreciate(false)).isEqualByComparingTo("33.33");
+        assertThat(asset.getCurrentBookValue()).isEqualByComparingTo("0.01");
+        assertThat(asset.getAccumulatedDepreciation()).isEqualByComparingTo("99.99");
+        assertThat(asset.getStatus()).isEqualTo(RightOfUseAsset.STATUS_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("마지막 회차에도 장부가액을 넘겨 상각하거나 음수로 만들지 않는다.")
+    void finalInstallmentClampsToRemainingBookValue() {
+        RightOfUseAsset asset = new RightOfUseAsset();
+        asset.setInitialValue(new BigDecimal("100.00"));
+        asset.setCurrentBookValue(new BigDecimal("20.00"));
+        asset.setAccumulatedDepreciation(new BigDecimal("80.00"));
+        asset.setDepreciationAmountPerPeriod(new BigDecimal("33.33"));
+        asset.setStatus(RightOfUseAsset.STATUS_ACTIVE);
+
+        assertThat(asset.depreciate(true)).isEqualByComparingTo("20.00");
+        assertThat(asset.getCurrentBookValue()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(asset.getAccumulatedDepreciation()).isEqualByComparingTo("100.00");
+        assertThat(asset.getStatus()).isEqualTo(RightOfUseAsset.STATUS_FULLY_DEPRECIATED);
+    }
 
     @Test
     @DisplayName("계획된 상각액이 남은 장부가액을 초과하는 경우 남은 장부가액만큼만 안전 상각액으로 계산된다.")

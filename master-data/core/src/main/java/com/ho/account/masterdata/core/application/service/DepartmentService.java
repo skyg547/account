@@ -4,8 +4,13 @@ import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
-import lombok.RequiredArgsConstructor;
+import com.ho.account.masterdata.core.domain.policy.MasterDataFieldRules;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,19 +22,39 @@ import java.util.Optional;
  * 부서 관리 서비스
  */
 @Service
-@RequiredArgsConstructor
 public class DepartmentService implements DepartmentUseCase {
 
     private final DepartmentPersistencePort departmentPersistencePort;
+    private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
+
+    DepartmentService(DepartmentPersistencePort departmentPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(departmentPersistencePort, businessKeyLockPort, event -> { });
+    }
+
+    @Autowired
+    public DepartmentService(DepartmentPersistencePort departmentPersistencePort,
+            MasterDataBusinessKeyLockPort businessKeyLockPort, MasterDataAuditPort auditPort) {
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort;
+    }
 
     @Override
     @Transactional
     public Department createDepartment(DepartmentCommand command) {
-        if (departmentPersistencePort.findActiveByCode(command.code()).isPresent()) {
-            throw new IllegalArgumentException("이미 해당 시점에 활성화된 부서 코드입니다: " + command.code());
+        Department department = command.toEntity();
+        department.validateBusinessFields();
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Department parentCode", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
+        }
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, department.getCode());
+        // CREATE는 신규 업무 키 전용입니다. 미래 예약 및 종료된 SCD2 이력도 키 재사용을 막습니다.
+        if (departmentPersistencePort.existsByCode(department.getCode())) {
+            throw new MasterDataVersionConflictException("이미 이력이 존재하는 부서 코드입니다: " + command.code());
         }
 
-        Department department = command.toEntity();
         
         if (command.hasParentCode()) {
             Department parent = departmentPersistencePort.findActiveByCode(command.parentCode())
@@ -40,7 +65,12 @@ public class DepartmentService implements DepartmentUseCase {
         MasterDataValidityPolicy.applyDefaultWindow(department::getValidFrom, department::setValidFrom,
                 department::getValidTo, department::setValidTo);
 
-        return departmentPersistencePort.save(department);
+        department.setAuditUser(MasterDataActorContext.auditUser());
+
+        Department saved = departmentPersistencePort.save(department);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_CREATE", MasterDataType.DEPARTMENT,
+                saved.getCode(), null, saved.getId());
+        return saved;
     }
 
     @Override
@@ -70,13 +100,18 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department updateDepartment(String code, DepartmentCommand command) {
-        Department currentActive = departmentPersistencePort.findActiveByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
-        if (!MasterDataValidityPolicy.isActiveAt(LocalDate.now(), currentActive.getValidFrom(), currentActive.getValidTo())) {
-            throw new IllegalArgumentException("활성 부서 버전만 수정할 수 있습니다: " + code);
+        String canonicalCode = MasterDataFieldRules.code(code, "Department code", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
+        if (command.parentCode() != null && !command.parentCode().isBlank()) {
+            MasterDataFieldRules.code(command.parentCode(), "Department parentCode", MasterDataFieldRules.DEPARTMENT_CODE_MAX);
         }
-        if (command.code() != null && !command.code().equals(code)) {
-            throw new IllegalArgumentException("부서 코드는 SCD2 버전 수정에서 변경할 수 없습니다: " + code);
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, canonicalCode);
+        Department currentActive = departmentPersistencePort.findActiveByCodeForUpdate(canonicalCode)
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + canonicalCode));
+        if (!MasterDataValidityPolicy.isActiveAt(LocalDate.now(), currentActive.getValidFrom(), currentActive.getValidTo())) {
+            throw new IllegalArgumentException("활성 부서 버전만 수정할 수 있습니다: " + canonicalCode);
+        }
+        if (command.code() != null && !MasterDataFieldRules.code(command.code(), "Department code", MasterDataFieldRules.DEPARTMENT_CODE_MAX).equals(canonicalCode)) {
+            throw new MasterDataFieldRules.FieldValidationException("Department code cannot change during update.");
         }
 
         // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
@@ -90,7 +125,7 @@ public class DepartmentService implements DepartmentUseCase {
         
         // 참조 검증과 신규 버전 조립을 먼저 끝내야 잘못된 parentCode가 현재 버전을 건드리지 않습니다.
         Department newVersion = new Department();
-        newVersion.setCode(code);
+        newVersion.setCode(canonicalCode);
         newVersion.setName(command.name() != null ? command.name() : currentActive.getName());
         newVersion.setType(command.type() != null ? command.type() : currentActive.getType());
         
@@ -104,11 +139,16 @@ public class DepartmentService implements DepartmentUseCase {
         
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(newValidTo);
+        newVersion.setAuditUser(MasterDataActorContext.auditUser());
+        newVersion.validateBusinessFields();
 
         currentActive.terminate(oldValidTo);
         departmentPersistencePort.save(currentActive);
 
-        return departmentPersistencePort.save(newVersion);
+        Department saved = departmentPersistencePort.save(newVersion);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_UPDATE", MasterDataType.DEPARTMENT,
+                saved.getCode(), currentActive.getId(), saved.getId());
+        return saved;
     }
 
     @Override
@@ -120,13 +160,17 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public void deactivateDepartment(String code, LocalDate effectiveDate) {
-        Department department = departmentPersistencePort.findActiveByCode(code)
+        businessKeyLockPort.lock(MasterDataType.DEPARTMENT, code);
+        Department department = departmentPersistencePort.findActiveByCodeForUpdate(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
 
         // SCD2: API 직접 호출은 오늘, 승인 요청 반영은 승인된 effectiveDate를 종료일로 사용합니다.
-        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+        LocalDate terminationDate = MasterDataValidityPolicy.requireNewTerminationDate(
                 effectiveDate, department.getValidFrom(), department.getValidTo());
         department.terminate(terminationDate);
+        department.setAuditUser(MasterDataActorContext.auditUser());
         departmentPersistencePort.save(department);
+        MasterDataAuditRecorder.direct(auditPort, "DIRECT_DEACTIVATE", MasterDataType.DEPARTMENT,
+                department.getCode(), department.getId(), department.getId());
     }
 }

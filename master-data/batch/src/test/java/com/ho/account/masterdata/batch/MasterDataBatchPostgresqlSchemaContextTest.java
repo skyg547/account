@@ -22,12 +22,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
                 "spring.datasource.username=sa",
                 "spring.datasource.password=",
                 "spring.flyway.enabled=true",
-                "spring.flyway.locations=classpath:db/migration",
+                "spring.flyway.target=8.1",
+                "spring.flyway.locations=classpath:db/migration,classpath:db/local-migration,classpath:db/migration-h2",
                 "spring.flyway.clean-disabled=true",
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "spring.batch.job.enabled=false",
                 "spring.batch.jdbc.initialize-schema=always",
-                "spring.sql.init.mode=never",
+                "spring.sql.init.mode=always",
+                "spring.sql.init.schema-locations=classpath:db/local/schema-business-partner-screening.sql",
                 "spring.cloud.config.enabled=false",
                 "spring.cloud.config.import-check.enabled=false",
                 "spring.cloud.discovery.enabled=false",
@@ -49,6 +51,11 @@ class MasterDataBatchPostgresqlSchemaContextTest {
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'public' AND table_name = 'batch_job_instance'
                 """, Integer.class)).isOne();
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name IN ('master_data_audit_events', 'business_partner_screenings', 'business_partner_screening_audit')
+                """, Integer.class)).isEqualTo(3);
     }
 
     @Configuration(proxyBeanMethods = false)

@@ -8,7 +8,7 @@ import java.util.List;
 
 public record RoleAssignmentApplyRequest(
         @NotEmpty List<@NotBlank String> roleCodes,
-        String dataScope,
+        @NotBlank String dataScope,
         Instant validFrom,
         Instant validTo,
         @NotBlank String approvedBy,

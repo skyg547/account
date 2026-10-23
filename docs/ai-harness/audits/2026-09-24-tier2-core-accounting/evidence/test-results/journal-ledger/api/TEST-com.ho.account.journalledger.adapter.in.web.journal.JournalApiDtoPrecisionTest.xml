@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.adapter.in.web.journal.JournalApiDtoPrecisionTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:48" hostname="ho-To-Be-Filled-By-O-E-M" time="0.092">
+  <properties/>
+  <testcase name="HTTP 경계도 원장 DECIMAL(19,2)보다 정밀한 금액을 400 검증 대상으로 분류한다." classname="com.ho.account.journalledger.adapter.in.web.journal.JournalApiDtoPrecisionTest" time="0.092"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

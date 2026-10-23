@@ -6,6 +6,8 @@ import com.ho.account.receivable.domain.ReceivableStatus;
 import com.ho.account.receivable.infrastructure.persistence.entity.ReceivableJpaEntity;
 import com.ho.account.receivable.infrastructure.persistence.mapper.ReceivableMapper;
 import com.ho.account.receivable.repository.ReceivableRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -17,11 +19,14 @@ public class ReceivablePersistenceAdapter implements ReceivablePersistencePort {
 
     private final ReceivableRepository receivableRepository;
     private final ReceivableMapper receivableMapper;
+    private final EntityManager entityManager;
 
     public ReceivablePersistenceAdapter(ReceivableRepository receivableRepository,
-                                         ReceivableMapper receivableMapper) {
+                                         ReceivableMapper receivableMapper,
+                                         EntityManager entityManager) {
         this.receivableRepository = receivableRepository;
         this.receivableMapper = receivableMapper;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -35,6 +40,16 @@ public class ReceivablePersistenceAdapter implements ReceivablePersistencePort {
     public Optional<Receivable> findById(Long id) {
         return receivableRepository.findById(id)
                 .map(receivableMapper::toDomain);
+    }
+
+    @Override
+    public Optional<Receivable> findByIdForUpdate(Long id) {
+        return receivableRepository.findByIdForUpdate(id).map(entity -> {
+            // Auto matching queried candidates earlier in this transaction; refresh after the lock
+            // so an already-managed JPA entity cannot retain a stale outstanding balance.
+            entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+            return receivableMapper.toDomain(entity);
+        });
     }
 
     @Override

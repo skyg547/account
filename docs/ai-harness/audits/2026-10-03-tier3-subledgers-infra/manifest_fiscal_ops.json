@@ -1,0 +1,53 @@
+{
+  "cluster": "fiscal_ops",
+  "issues": [
+    {
+      "id": "FISCAL_OPS_01",
+      "title": "[tax] 세금계산서 금액이 소수 셋째 자리까지 검증을 통과해 저장 시 암묵 반올림됨",
+      "priority": "P2",
+      "module": "tax",
+      "labels": [
+        "module:tax",
+        "area:core",
+        "type:financial",
+        "priority:p2",
+        "agent-loop",
+        "status:draft",
+        "spec-driven"
+      ],
+      "file": "FISCAL_OPS_01.md"
+    },
+    {
+      "id": "FISCAL_OPS_02",
+      "title": "[expenditure-resolution] 예산 행이 없으면 지출결의가 한도 검사 없이 생성됨",
+      "priority": "P1",
+      "module": "expenditure-resolution",
+      "labels": [
+        "module:expenditure-resolution",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:draft",
+        "spec-driven"
+      ],
+      "file": "FISCAL_OPS_02.md"
+    },
+    {
+      "id": "FISCAL_OPS_03",
+      "title": "[expenditure-resolution] 전표 ID가 없는 응답으로 결의서가 APPROVED 처리됨",
+      "priority": "P1",
+      "module": "expenditure-resolution",
+      "labels": [
+        "module:expenditure-resolution",
+        "area:core",
+        "type:financial",
+        "priority:p1",
+        "agent-loop",
+        "status:draft",
+        "spec-driven"
+      ],
+      "file": "FISCAL_OPS_03.md"
+    }
+  ]
+}

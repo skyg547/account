@@ -30,6 +30,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import com.ho.account.shared.infrastructure.SpringServiceDiscoveryRegistry;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -61,6 +62,9 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.kafka.listener.auto-startup=false"
         })
 @Transactional
+// This integration fixture uses Hibernate create-drop instead of Flyway; install the
+// production allocator migration before exercising payable -> journal creation.
+@Sql(scripts = "classpath:db/journal-migration/V19__journal_slip_number_sequence.sql")
 public class IntegratedBusinessProcessTest {
 
     @Autowired
@@ -98,7 +102,7 @@ public class IntegratedBusinessProcessTest {
     @BeforeEach
     void setUp() {
         // This broad legacy fixture intentionally uses Hibernate create-drop instead of Flyway. Mirror
-        // V18's non-entity lock resource so production journal creation cannot bypass its durable path.
+        // V20's non-entity lock resource so production journal creation cannot bypass its durable path.
         jdbc.execute("CREATE TABLE IF NOT EXISTS journal_creation_operation_locks"
                 + " (lock_id INTEGER PRIMARY KEY CHECK (lock_id >= 0 AND lock_id < 256))");
         for (int lockId = 0; lockId < 256; lockId++) {
@@ -223,7 +227,7 @@ public class IntegratedBusinessProcessTest {
                     type = FilterType.ASSIGNABLE_TYPE,
                     classes = JournalLedgerApplication.class))
     @EntityScan(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence",
             "com.ho.account.masterdata.core",
             "com.ho.account.expenditure",
             "com.ho.account.tax"

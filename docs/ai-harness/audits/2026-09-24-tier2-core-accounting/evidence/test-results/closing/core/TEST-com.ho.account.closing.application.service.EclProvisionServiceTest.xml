@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.application.service.EclProvisionServiceTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:13" hostname="ho-To-Be-Filled-By-O-E-M" time="0.247">
+  <properties/>
+  <testcase name="invalidGlPrecisionFailsBeforeCreatingAnAdjustment()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.119"/>
+  <testcase name="roundsAfterSummingExposuresAndSubtractingExistingAllowanceOnlyOnce()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.005"/>
+  <testcase name="processEclProvisionUsesFinalizedAllowanceSummaryInsteadOfFixedRate()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.004"/>
+  <testcase name="[1] target=100.0049" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.019"/>
+  <testcase name="[2] target=99.9951" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.004"/>
+  <testcase name="[3] target=99.9950" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.004"/>
+  <testcase name="[1] target=4808.5714, existing=0.00, amount=4808.57, side=DEBIT, firstAccount=550100" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.006"/>
+  <testcase name="[2] target=100.0050, existing=100.00, amount=0.01, side=DEBIT, firstAccount=550100" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.004"/>
+  <testcase name="[3] target=99.9949, existing=100.00, amount=0.01, side=DEBIT, firstAccount=129100" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.003"/>
+  <testcase name="processEclProvisionRejectsNonPositiveBatchIdBeforeReadingInput()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.001"/>
+  <testcase name="processEclProvisionRejectsMismatchedSummaryDate()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.004"/>
+  <testcase name="processEclProvisionFailsWhenNoAllowanceSummaryExists()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.003"/>
+  <testcase name="processEclProvisionUsesSummaryReversalIncomeAccountForAllowanceRelease()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.003"/>
+  <testcase name="processEclProvisionAggregatesTargetsBeforeSubtractingExistingAllowance()" classname="com.ho.account.closing.application.service.EclProvisionServiceTest" time="0.003"/>
+  <system-out><![CDATA[09:53:13.480 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.491 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.493 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Successfully created ECL provision journal entry. SlipNo: ECL-TEST, Amount: 0.01
+09:53:13.497 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.498 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Successfully created ECL provision journal entry. SlipNo: ECL2026053144ABC, Amount: 200.00
+09:53:13.561 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.562 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- ECL provision target equals existing allowance. No journal required. group=MODERN|KRW|129100
+09:53:13.568 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.569 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- ECL provision target equals existing allowance. No journal required. group=MODERN|KRW|129100
+09:53:13.573 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.574 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- ECL provision target equals existing allowance. No journal required. group=MODERN|KRW|129100
+09:53:13.583 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.584 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Successfully created ECL provision journal entry. SlipNo: ECL-TEST, Amount: 4808.57
+09:53:13.590 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.591 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Successfully created ECL provision journal entry. SlipNo: ECL-TEST, Amount: 0.01
+09:53:13.595 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.596 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Successfully created ECL provision journal entry. SlipNo: ECL-TEST, Amount: 0.01
+09:53:13.603 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.607 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.611 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.612 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Successfully created ECL provision journal entry. SlipNo: ECL2026053145DEF, Amount: 200.00
+09:53:13.615 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Starting ECL Provision calculation for closing date: 2026-05-31
+09:53:13.615 [Test worker] INFO com.ho.account.closing.application.service.EclProvisionService -- Successfully created ECL provision journal entry. SlipNo: ECL20260531ABCDEF123, Amount: 200.00
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -35,6 +35,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.converter.RecordMessageConverter;
 import org.springframework.messaging.Message;
 import org.springframework.test.context.ActiveProfiles;
@@ -52,6 +53,9 @@ class KafkaTransactionListenerPrecisionTest {
     @Autowired
     @Qualifier("kafkaListenerContainerFactory")
     private ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory;
+
+    @Autowired
+    private DefaultErrorHandler journalKafkaErrorHandler;
 
     @Autowired
     private ApplicationContext applicationContext;
@@ -91,6 +95,9 @@ class KafkaTransactionListenerPrecisionTest {
         Object factoryConverter = new DirectFieldAccessor(kafkaListenerContainerFactory)
                 .getPropertyValue("recordMessageConverter");
         assertThat(factoryConverter).isSameAs(recordMessageConverter);
+        Object factoryErrorHandler = new DirectFieldAccessor(kafkaListenerContainerFactory)
+                .getPropertyValue("commonErrorHandler");
+        assertThat(factoryErrorHandler).isSameAs(journalKafkaErrorHandler);
     }
 
     @Test
@@ -139,7 +146,7 @@ class KafkaTransactionListenerPrecisionTest {
                  "ruleCode":"PRECISION_RULE","amount":100.00,"accountingDate":"2026-09-24"}
                 """);
         Map<String, Object> replay = convert("""
-                {"eventType":"PAYABLE","eventId":"INV-765","journalOperationKey":"TAX",\
+                {"eventType":"PAYABLE","eventId":"INV-765","operationKey":"TAX",\
                  "ruleCode":"PRECISION_RULE","amount":100.0,"accountingDate":"2026-09-24"}
                 """);
 
@@ -158,7 +165,13 @@ class KafkaTransactionListenerPrecisionTest {
             assertThat(event.get("auditUser")).isEqualTo("service:journal-kafka-maker");
             assertThat(event.get("lineageSourceType")).isEqualTo("PAYABLE");
             assertThat(event.get("lineageSourceId")).isEqualTo("INV-765");
+            assertThat(event.get("operationKey")).isEqualTo("TAX");
+            assertThat(event.get("journalOperationKey")).isEqualTo("TAX");
         });
+        assertThat(com.ho.account.journalledger.application.service.journal.JournalEventRequestFingerprint.calculate(
+                eventCaptor.getAllValues().get(0), LocalDate.of(2026, 9, 24)))
+                .isEqualTo(com.ho.account.journalledger.application.service.journal.JournalEventRequestFingerprint.calculate(
+                        eventCaptor.getAllValues().get(1), LocalDate.of(2026, 9, 24)));
     }
 
     @Test

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.config.HttpClosingJournalAdapterTest" tests="32" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:32" hostname="ho-To-Be-Filled-By-O-E-M" time="0.854">
+  <properties/>
+  <testcase name="listAndSlipLookupMapProviderResponseIncludingLineage()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.447"/>
+  <testcase name="[1] status=301" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.027"/>
+  <testcase name="[2] status=302" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.007"/>
+  <testcase name="[3] status=303" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[4] status=307" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="[5] status=308" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[1] body=" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.033"/>
+  <testcase name="[2] body={}" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.014"/>
+  <testcase name="[3] body={&quot;journalEntryId&quot;:0,&quot;slipNo&quot;:&quot;CLOSE-42&quot;,&quot;status&quot;:&quot;DRAFT&quot;}" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.013"/>
+  <testcase name="idAndDetailsPreserveClosingRerunContentWithoutDecimalLoss()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.012"/>
+  <testcase name="rejectedApprovalDoesNotPostOrRetryAndDoesNotLeakResponseBody()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[1] status=301" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="[2] status=302" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[3] status=303" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[4] status=307" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[5] status=308" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="postingFailureAfterApprovalReportsPartialProgressWithoutRetry()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="onlyExplicitNotFoundMeansMissingSlip()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.007"/>
+  <testcase name="invalidInputsAndUnavailableQueriesFailWithoutRemoteCalls()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.006"/>
+  <testcase name="emptyListIsValidButMissingBodyAndMismatchedSlipFail()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.013"/>
+  <testcase name="redirectedQueryCannotBeAcceptedAsSuccessfulFinancialContent()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="approveThenPostCarryActorInOrder()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[1] timeout=0ms" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[2] timeout=-1s" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[3] timeout=2147483648ms" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.003"/>
+  <testcase name="[4] timeout=PT0.000001S" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="[5] timeout=garbage" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.004"/>
+  <testcase name="[6] timeout=" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.003"/>
+  <testcase name="idLookupRejectsWrongIdMissingLinesAndProviderFailure()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.009"/>
+  <testcase name="acceptsFiniteTimeoutBoundariesAndIsoNotation()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.005"/>
+  <testcase name="actualHttpTransportDoesNotFollowGetRedirects()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.048"/>
+  <testcase name="draftPostingPreservesDecimalAmountsDeterministicSlipAndLineage()" classname="com.ho.account.closing.config.HttpClosingJournalAdapterTest" time="0.049"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

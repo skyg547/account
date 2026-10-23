@@ -1,11 +1,14 @@
 package com.ho.account.masterdata.core.infrastructure.persistence.repository;
 
 import com.ho.account.masterdata.core.infrastructure.persistence.BusinessPartnerJpaEntity;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +23,13 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface BusinessPartnerRepository extends JpaRepository<BusinessPartnerJpaEntity, Long> {
+
+    String SUMMARY_SELECT = "SELECT new com.ho.account.masterdata.core.application.query.BusinessPartnerSummary("
+            + "bp.id, bp.businessPartnerCode, bp.businessPartnerName, bp.registrationNumber, "
+            + "bp.ceoName, bp.businessType, bp.businessItem, bp.partnerType, bp.useYn, "
+            + "bp.kycStatus, bp.riskRating, bp.validFrom, bp.validTo) "
+            + "FROM BusinessPartnerJpaEntity bp ";
+    String SUMMARY_ORDER = " ORDER BY bp.businessPartnerCode, bp.validFrom, bp.id";
 
     @EntityGraph(attributePaths = "accounts")
     @Query("""
@@ -47,8 +57,7 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             @Param("codes") Collection<String> codes,
             @Param("date") LocalDate date);
 
-    // @todo 운영 PostgreSQL에서는 business_partner_code와 날짜 범위에 exclusion constraint를 추가해야 합니다.
-    // 완료 조건: 겹치는 SCD2 행 저장 자체를 거부하는 forward migration과 PostgreSQL 통합 테스트를 함께 둡니다.
+    // V9의 PostgreSQL exclusion은 useYn과 무관하게 과거 기준일 조회의 유일성도 보호합니다.
     @EntityGraph(attributePaths = "accounts")
     @Query("""
             SELECT bp FROM BusinessPartnerJpaEntity bp
@@ -69,23 +78,17 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
     @EntityGraph(attributePaths = "accounts")
     Optional<BusinessPartnerJpaEntity> findById(Long id);
 
-    @Override
-    @EntityGraph(attributePaths = "accounts")
-    List<BusinessPartnerJpaEntity> findAll();
+    // 업무 키 잠금 전에는 scalar만 조회해 잠금 대기 중 변경된 엔티티가 cache에 남지 않게 합니다.
+    @Query("SELECT bp.businessPartnerCode FROM BusinessPartnerJpaEntity bp WHERE bp.id = :id")
+    Optional<String> findBusinessKeyById(@Param("id") Long id);
 
-    @EntityGraph(attributePaths = "accounts")
-    @Query("""
-            SELECT bp FROM BusinessPartnerJpaEntity bp
-            WHERE bp.useYn = true
-              AND bp.validFrom <= :date
-              AND bp.validTo >= :date
-            ORDER BY bp.businessPartnerCode, bp.validFrom
-            """)
-    List<BusinessPartnerJpaEntity> findActiveBusinessPartners(@Param("date") LocalDate date);
+    // Scalar constructor projection keeps account rows out of list queries, including SCD2 history.
+    @Query(SUMMARY_SELECT + SUMMARY_ORDER)
+    Slice<BusinessPartnerSummary> findAllSummaries(Pageable pageable);
 
-    default List<BusinessPartnerJpaEntity> findByUseYnTrue() {
-        return findActiveBusinessPartners(LocalDate.now());
-    }
+    @Query(SUMMARY_SELECT + "WHERE bp.useYn = true AND bp.validFrom <= :date "
+            + "AND bp.validTo >= :date" + SUMMARY_ORDER)
+    Slice<BusinessPartnerSummary> findActiveSummaries(@Param("date") LocalDate date, Pageable pageable);
 
     /**
      * 존재 여부만 필요한 경로에서는 aggregate와 계좌를 읽지 않고 DB COUNT 결과만 확인합니다.
@@ -102,22 +105,16 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             @Param("businessPartnerCode") String businessPartnerCode,
             @Param("date") LocalDate date);
 
-    default boolean existsByBusinessPartnerCode(String businessPartnerCode) {
-        return existsActiveByBusinessPartnerCode(businessPartnerCode, LocalDate.now());
-    }
+    /** Checks the business key across all SCD2 rows without loading accounts or filtering by date/useYn. */
+    boolean existsByBusinessPartnerCode(String businessPartnerCode);
 
-    @EntityGraph(attributePaths = "accounts")
-    @Query("""
-            SELECT bp FROM BusinessPartnerJpaEntity bp
-            WHERE bp.useYn = true
-              AND bp.validFrom <= :date
-              AND bp.validTo >= :date
-              AND LOWER(bp.businessPartnerName) LIKE LOWER(CONCAT('%', :name, '%'))
-            ORDER BY bp.businessPartnerCode, bp.validFrom
-            """)
-    List<BusinessPartnerJpaEntity> searchActiveByName(
+    @Query(SUMMARY_SELECT + "WHERE bp.useYn = true AND bp.validFrom <= :date "
+            + "AND bp.validTo >= :date "
+            + "AND LOWER(bp.businessPartnerName) LIKE LOWER(CONCAT('%', :name, '%'))" + SUMMARY_ORDER)
+    Slice<BusinessPartnerSummary> searchActiveByName(
             @Param("name") String name,
-            @Param("date") LocalDate date);
+            @Param("date") LocalDate date,
+            Pageable pageable);
 
     long countByBusinessPartnerCode(String businessPartnerCode);
 

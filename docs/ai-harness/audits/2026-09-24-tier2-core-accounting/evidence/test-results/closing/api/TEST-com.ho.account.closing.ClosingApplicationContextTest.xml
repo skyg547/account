@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.ClosingApplicationContextTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:27" hostname="ho-To-Be-Filled-By-O-E-M" time="1.048">
+  <properties/>
+  <testcase name="contextLoadsWithOnlyClosingRuntimeBoundaries()" classname="com.ho.account.closing.ClosingApplicationContextTest" time="1.048"/>
+  <system-out><![CDATA[
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+
+2026-09-24T09:53:20.393+09:00  INFO 583093 --- [closing-service] [    Test worker] c.h.a.c.ClosingApplicationContextTest    : Starting ClosingApplicationContextTest using Java 17.0.20.1 with PID 583093 (started by ho in /tmp/account-tier2-audit-20260924/closing/api)
+2026-09-24T09:53:20.415+09:00  INFO 583093 --- [closing-service] [    Test worker] c.h.a.c.ClosingApplicationContextTest    : The following 1 profile is active: "local"
+2026-09-24T09:53:21.239+09:00  INFO 583093 --- [closing-service] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-09-24T09:53:21.239+09:00  INFO 583093 --- [closing-service] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-09-24T09:53:21.396+09:00  INFO 583093 --- [closing-service] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 149 ms. Found 7 JPA repository interfaces.
+2026-09-24T09:53:21.412+09:00  INFO 583093 --- [closing-service] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-09-24T09:53:21.412+09:00  INFO 583093 --- [closing-service] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-09-24T09:53:21.442+09:00  INFO 583093 --- [closing-service] [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 29 ms. Found 10 JPA repository interfaces.
+2026-09-24T09:53:21.935+09:00  INFO 583093 --- [closing-service] [    Test worker] o.s.cloud.context.scope.GenericScope     : BeanFactory id=d9cfb0d3-e0a8-3747-871b-042a4be58ad7
+2026-09-24T09:53:22.367+09:00  INFO 583093 --- [closing-service] [    Test worker] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-09-24T09:53:22.411+09:00  INFO 583093 --- [closing-service] [    Test worker] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-09-24T09:53:22.441+09:00  INFO 583093 --- [closing-service] [    Test worker] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-09-24T09:53:22.633+09:00  INFO 583093 --- [closing-service] [    Test worker] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-09-24T09:53:22.657+09:00  INFO 583093 --- [closing-service] [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-09-24T09:53:22.815+09:00  INFO 583093 --- [closing-service] [    Test worker] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:closing-api-context user=SA
+2026-09-24T09:53:22.816+09:00  INFO 583093 --- [closing-service] [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-09-24T09:53:24.130+09:00  INFO 583093 --- [closing-service] [    Test worker] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-09-24T09:53:24.217+09:00  INFO 583093 --- [closing-service] [    Test worker] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-09-24T09:53:24.815+09:00  INFO 583093 --- [closing-service] [    Test worker] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-09-24T09:53:26.920+09:00  INFO 583093 --- [closing-service] [    Test worker] DiscoveryClientOptionalArgsConfiguration : Eureka HTTP Client uses RestTemplate.
+2026-09-24T09:53:27.043+09:00  INFO 583093 --- [closing-service] [    Test worker] c.h.a.c.ClosingApplicationContextTest    : Started ClosingApplicationContextTest in 7.223 seconds (process running for 9.05)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

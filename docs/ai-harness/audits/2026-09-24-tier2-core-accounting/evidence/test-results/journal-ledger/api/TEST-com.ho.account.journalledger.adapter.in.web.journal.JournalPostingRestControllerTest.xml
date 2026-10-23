@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.adapter.in.web.journal.JournalPostingRestControllerTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:49" hostname="ho-To-Be-Filled-By-O-E-M" time="0.003">
+  <properties/>
+  <testcase name="REST API 통해 전표 전기 요청 시 JournalPostingPort를 성공적으로 호출하고 200 OK 응답을 반환한다" classname="com.ho.account.journalledger.adapter.in.web.journal.JournalPostingRestControllerTest" time="0.003"/>
+  <system-out><![CDATA[2026-09-24T09:52:49.225+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] a.j.a.i.w.j.JournalPostingRestController : Received REST Journal Posting request for lineageSourceId: INV-100, type: PAYABLE
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

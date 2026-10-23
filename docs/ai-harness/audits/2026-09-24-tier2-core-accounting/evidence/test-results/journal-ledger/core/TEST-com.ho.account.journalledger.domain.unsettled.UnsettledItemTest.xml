@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" tests="41" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:22" hostname="ho-To-Be-Filled-By-O-E-M" time="0.093">
+  <properties/>
+  <testcase name="newAmountPrecisionOverflowIsRejectedEvenWhenRemainingBalanceIsSufficient()" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.007"/>
+  <testcase name="[1] amount=null" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.0"/>
+  <testcase name="[2] amount=0.999" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.0"/>
+  <testcase name="[3] amount=0.001" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.0"/>
+  <testcase name="[4] amount=100000000000000000.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[5] amount=0" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[6] amount=-0.01" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[7] amount=1.01" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.0"/>
+  <testcase name="[1] actor=null" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[2] actor=" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[3] actor=  " classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="multiStepPartialSettlementWithDistinctReferences()" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="oneCentThenRemainderClearsWithoutRounding()" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[1] amount=0.01" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.002"/>
+  <testcase name="[2] amount=1.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[3] amount=1.000" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[4] amount=99999999999999999.99" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="delayedOutOfOrderReplayOfEarlierSettlementReferenceIsIdempotent()" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[1] amount=null" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.002"/>
+  <testcase name="[2] amount=0.999" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[3] amount=0.001" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[4] amount=100000000000000000.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[5] amount=0" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[6] amount=-0.01" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[7] amount=1.01" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[1] settled=99999999999999999.99, remaining=1.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.002"/>
+  <testcase name="[2] settled=0.001, remaining=1.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.0"/>
+  <testcase name="[3] settled=-0.02, remaining=1.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[4] settled=0.00, remaining=1.001" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[5] settled=0.00, remaining=100000000000000001.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[1] amount=null" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[2] amount=0.999" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[3] amount=0.001" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[4] amount=100000000000000000.00" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[5] amount=0" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[6] amount=-0.01" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[7] amount=1.01" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.0"/>
+  <testcase name="repeatedSettlementReferenceDoesNotApplyAmountTwice()" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[1] reference=null" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.002"/>
+  <testcase name="[2] reference=" classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.001"/>
+  <testcase name="[3] reference=  " classname="com.ho.account.journalledger.domain.unsettled.UnsettledItemTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

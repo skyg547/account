@@ -103,6 +103,10 @@ final class JournalApiDto {
             // Rule generation must persist the same lineage protected by the operation claim.
             enriched.put("lineageSourceType", identity.sourceType());
             enriched.put("lineageSourceId", identity.sourceId());
+            // The header wins over both payload key spellings. Normalize both spellings so
+            // rule expressions using the alias still work and equivalent retries hash alike.
+            enriched.put("operationKey", identity.operationKey());
+            enriched.put("journalOperationKey", identity.operationKey());
             return enriched;
         }
     }

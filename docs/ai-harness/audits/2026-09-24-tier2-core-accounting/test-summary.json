@@ -1,0 +1,2926 @@
+{
+  "schema_version": 1,
+  "audit_date": "2026-09-24",
+  "source_commit": "a97d10ab6efc2570a88f83d630242cd748f8be57",
+  "runtime": {
+    "gradle": "8.7",
+    "shell_java": "OpenJDK 21.0.12.1",
+    "declared_gradle_java_toolchain": "17",
+    "probe_java": "21.0.12.1"
+  },
+  "runs": [
+    {
+      "name": "requested-baseline",
+      "command": "./gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test :closing:core:test :closing:api:test :closing:batch:test --offline --no-daemon --console=plain --max-workers=2",
+      "exit_code": 0,
+      "outcome": "BUILD SUCCESSFUL",
+      "tasks_executed": 0,
+      "tasks_up_to_date": 52,
+      "fresh_test_execution": false,
+      "log": "evidence/gradle-baseline.log"
+    },
+    {
+      "name": "forced-fresh-verification",
+      "command": "./gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test :closing:core:test :closing:api:test :closing:batch:test --offline --no-daemon --console=plain --max-workers=2 --rerun-tasks",
+      "exit_code": 0,
+      "outcome": "BUILD SUCCESSFUL",
+      "tasks_executed": 52,
+      "tasks_up_to_date": 0,
+      "fresh_test_execution": true,
+      "log": "evidence/gradle-fresh.log"
+    }
+  ],
+  "counts": {
+    "suites": 69,
+    "tests": 369,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "modules": [
+    {
+      "project": ":journal-ledger:core",
+      "counts": {
+        "suites": 18,
+        "tests": 117,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest",
+          "timestamp": "2026-09-24T00:52:21",
+          "time_seconds": 0.109,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "openPeriodIsNotLocked()",
+              "classname": "com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "missingFiscalPeriodFailsClosed()",
+              "classname": "com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "closedAndPermanentPeriodsAreLocked()",
+              "classname": "com.ho.account.common.adapter.FiscalPeriodAccountingPeriodStatusAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.common.adapter.MonolithJournalQueryAdapterTest",
+          "timestamp": "2026-09-24T00:52:21",
+          "time_seconds": 0.277,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.common.adapter.MonolithJournalQueryAdapterTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "journalDetailUsesAccountingDateForHistoricalAccountCategory()",
+              "classname": "com.ho.account.common.adapter.MonolithJournalQueryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "getJournalDetailAggregateUsesRepositorySummary()",
+              "classname": "com.ho.account.common.adapter.MonolithJournalQueryAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.common.adapter.MonolithLedgerQueryAdapterTest",
+          "timestamp": "2026-09-24T00:52:21",
+          "time_seconds": 0.072,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.common.adapter.MonolithLedgerQueryAdapterTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "getSlBalanceSummariesMapsPartnerAndDepartmentDimensions()",
+              "classname": "com.ho.account.common.adapter.MonolithLedgerQueryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "calculateLedgerSummaryDelegatesToLedgerService()",
+              "classname": "com.ho.account.common.adapter.MonolithLedgerQueryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "getGlBalanceSummariesMapsGlBalances()",
+              "classname": "com.ho.account.common.adapter.MonolithLedgerQueryAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.common.service.SourceDocumentServiceTest",
+          "timestamp": "2026-09-24T00:52:21",
+          "time_seconds": 0.014,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.common.service.SourceDocumentServiceTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "returnsEmptyWhenNoProviderSupportsType()",
+              "classname": "com.ho.account.common.service.SourceDocumentServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "returnsDocumentFromDiscoveredProvider()",
+              "classname": "com.ho.account.common.service.SourceDocumentServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.application.service.journal.JournalEntryServiceTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.115,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.application.service.journal.JournalEntryServiceTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\uc804\uae30\ub294 PostingService \ub2e8\uc77c \uacbd\ub85c\ub85c \uc704\uc784\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.journal.JournalEntryServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc804\ud45c \uc0dd\uc131 \uc2dc \uac80\uc99d \uc5d4\uc9c4\uc744 \ud638\ucd9c\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.journal.JournalEntryServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.044,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest.xml",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\uc870\uac74\uc774 \ub9de\uc9c0 \uc54a\uc73c\uba74 \ube48 Optional\uc744 \ubc18\ud658\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uae08\uc561 \uc218\uc2dd \ud45c\ud604\uc2dd(\uc0ac\uce59\uc5f0\uc0b0)\uc744 \ud3c9\uac00\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ud544\uc218 DSL \uac12\uc774 \ub204\ub77d\ub418\uba74 \uba85\ud655\ud55c \uc608\uc678\ub97c \ubc18\ud658\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uaddc\uce59\uacfc \uc870\uac74\uc774 \uc77c\uce58\ud558\uba74 JournalEntry\ub97c \uc0dd\uc131\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.journal.JournalRuleEngineTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.application.service.journal.validator.AccountValidityValidationFilterTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.003,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.application.service.journal.validator.AccountValidityValidationFilterTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "validatesAccountAtJournalAccountingDate()",
+              "classname": "com.ho.account.journalledger.application.service.journal.validator.AccountValidityValidationFilterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.259,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.application.service.ledger.LedgerServiceTest.xml",
+          "tests": 18,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "GL\uc740 \uacc4\uc815\u00b7\ud1b5\ud654\ub9c8\ub2e4 \uc11c\ub85c \ub2e4\ub978 \ucd5c\ucd08 \ub0a0\uc9dc\ub97c \ucc3e\uace0 \uae30\uc874 \uadf8\ub8f9 \uc21c\uc11c\ub97c \uc720\uc9c0\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] reversed=true",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] reversed=false",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] first=0, second=1, third=2",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] first=0, second=2, third=1",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] first=1, second=0, third=2",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] first=1, second=2, third=0",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] first=2, second=0, third=1",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] first=2, second=1, third=0",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] reversed=true",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] reversed=false",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "SL\uc740 \uacc4\uc815\u00b7\ud1b5\ud654\u00b7\uac70\ub798\ucc98\u00b7\ubd80\uc11c\uc640 null \ucc28\uc6d0\uc744 \uac01\uac01 \ubd84\ub9ac\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ube48 GL/SL \uc870\ud68c\ub294 \uacfc\uac70 \uc794\uc561\uc744 \ucd94\uac00 \uc870\ud68c\ud558\uac70\ub098 \ud569\uc131\ud558\uc9c0 \uc54a\uace0 \ube48 \ubaa9\ub85d\uc744 \ubc18\ud658\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc7ac\uc9d1\uacc4\ub294 \uc77c\ubcc4 \uacc4\uc815/\ud1b5\ud654/\uac70\ub798\ucc98/\ubd80\uc11c \ud569\uacc4\ub97c \ub9cc\ub4e0 \ub4a4 bulk \uc800\uc7a5 \ud3ec\ud2b8\ub85c \uc804\ub2ec\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] start=2026-08-30, firstDate=2026-08-31, lastDate=2026-09-02, beginning=-1000.17, firstDebit=100.03, firstCredit=20.01, lastDebit=50.07, lastCredit=10.02, totalDebit=150.10, totalCredit=30.03, ending=-880.10",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] start=2026-08-30, firstDate=2026-09-01, lastDate=2026-09-04, beginning=1000.00, firstDebit=100.00, firstCredit=20.00, lastDebit=50.00, lastCredit=10.00, totalDebit=150.00, totalCredit=30.00, ending=1120.00",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] start=2026-09-01, firstDate=2026-09-01, lastDate=2026-09-10, beginning=0.00, firstDebit=0.00, firstCredit=0.00, lastDebit=0.00, lastCredit=0.00, totalDebit=0.00, totalCredit=0.00, ending=0.00",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ub2e8\uc77c \ub0a0\uc9dc\uc758 GL/SL\uc740 \uc6d0\ubcf8 \uae08\uc561\uacfc \uac19\uc740 \ubcc4\ub3c4 \uc751\ub2f5 \uac1d\uccb4\ub97c \ubc18\ud658\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.LedgerServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.199,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.application.service.ledger.PostingServiceTest.xml",
+          "tests": 15,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "[1] baseCurrency=false",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] baseCurrency=true",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] closingStatus=OPEN",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] closingStatus=CLOSED",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] closingStatus=PERMANENTLY_CLOSED",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc2e4\uc81c Fiscal adapter\uc5d0\uc11c \ud68c\uacc4\uae30\uac04\uc774 \uc5c6\uc73c\uba74 \uc2b9\uc778 \uc804\ud45c\uc640 \uc6d0\uc7a5\uc744 \ubcc0\uacbd\ud558\uc9c0 \uc54a\ub294\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc800\uc7a5\ub41c \uc0c1\uc138 ID\uac00 \uc5c6\ub294 \uc804\ud45c\ub294 \uae30\uac04 \uc870\ud68c \uc804\uc5d0 \uac70\ubd80\ud558\uc5ec lineage \uac80\uc99d\uc744 \uc720\uc9c0\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] status=DRAFT",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] status=POSTED",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc2b9\uc778\ub41c \uc804\ud45c\ub97c POSTED\ub85c \uc804\ud658\ud558\uace0 GL/SL \uc5d4\ud2b8\ub9ac\uc640 \uc794\uc561\uc744 \uc0dd\uc131\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] systemPoster=false",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] systemPoster=true",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] systemPoster=false",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] systemPoster=true",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uae30\ubcf8 overload\ub3c4 \ud68c\uacc4\uc77c\uc790\uc758 OPEN \ud655\uc778 \ud6c4 SYSTEM\uc73c\ub85c \ud55c \ubc88 \uc804\uae30\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.application.service.ledger.PostingServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.044,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest.xml",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\uc774\uc804 \ucc38\uc870\ubc88\ud638\uac00 \uc9c0\uc5f0 \uc7ac\uc2dc\ub3c4\ub418\uc5b4\ub3c4 \uba71\ub4f1\ud558\uac8c \ucc98\ub9ac\ub418\uc5b4 \uae08\uc561\uc774 \uc911\ubcf5 \ucc28\uac10\ub418\uc9c0 \uc54a\ub294\ub2e4",
+              "classname": "com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc11c\ub85c \ub2e4\ub978 \ucc38\uc870\ubc88\ud638\ub85c \ub2e4\ub2e8\uacc4 \ubd80\ubd84 \ubc18\uc81c \uc2dc \uac01\uac01 \uc815\uc0c1 \ubc18\uc601\ub41c\ub2e4",
+              "classname": "com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ubc18\uc81c\ub294 \ub3c4\uba54\uc778 \uc0c1\ud0dc\ub97c \ubcc0\uacbd\ud55c \ub4a4 \ucd9c\ub825 \ud3ec\ud2b8\uc5d0 \uc800\uc7a5\ud55c\ub2e4",
+              "classname": "com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uac70\ub798\ucc98 \ucf54\ub4dc\uac00 \uc788\uc73c\uba74 DB \uc870\uac74 \uc870\ud68c \ucd9c\ub825 \ud3ec\ud2b8\ub97c \uc0ac\uc6a9\ud55c\ub2e4",
+              "classname": "com.ho.account.journalledger.application.service.unsettled.UnsettledServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.012,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest.xml",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\ucc28\ubcc0 \ub610\ub294 \ub300\ubcc0 \ud55c\ucabd\ub9cc \uc788\ub294 \ubaa9\ub85d\uc740 \ud569\uacc4\uac00 \uc6b0\uc5f0\ud788 0\uc774\uc5b4\ub3c4 \uc804\ud45c\uac00 \ub420 \uc218 \uc5c6\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest",
+              "status": "passed"
+            },
+            {
+              "name": "JournalEntry\uac00 \uc0c1\uc138 \ub77c\uc778\uc758 \uc18c\uc720\uad8c\uc744 \uc124\uc815\ud558\uace0 \uc678\ubd80 \uceec\ub809\uc158 \ubcc0\uacbd\uc744 \ucc28\ub2e8\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc815\uc0c1\uc801\uc778 \ud5e4\ub354 \ubc0f \ucc28\ub300\ubcc0 \ub77c\uc778\uc774 \uc124\uc815\ub41c \uc804\ud45c\ub294 \ubd88\ubcc0\uc131 \uac80\uc99d\uc744 \ud1b5\uacfc\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uac70\ub798\ud1b5\ud654\uac00 \uac19\uc544\ub3c4 \uae30\uc900\ud1b5\ud654 \ucc28\ub300\uac00 \ub2e4\ub974\uba74 \uc2b9\uc778\uc744 \ucc28\ub2e8\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc804\ud45c \uc791\uc131\uc77c(slipDate)\uc774 \ub204\ub77d\ub418\uba74 \ub3c4\uba54\uc778 \ubd88\ubcc0\uc131 \uac80\uc99d \uc2dc \uc608\uc678\uac00 \ubc1c\uc0dd\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.journal.domain.JournalEntryAggregateTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.009,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\ud658\uc728\uc740 \uc18c\uc218 \uc5ec\ub35f \uc790\ub9ac\uae4c\uc9c0 \ubcf4\uc874\ud558\uace0 \ucd08\uacfc \uc815\ubc00\ub3c4\ub294 \uac70\ubd80\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ucc28\ubcc0\uacfc \ub300\ubcc0\uc740 DECIMAL(19,2) \uacc4\uc57d\uc73c\ub85c \uc815\uaddc\ud654\ub41c \uc11c\ub85c \ub2e4\ub978 \ubd88\ubcc0 \ud0c0\uc785\uc774\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc6d0\uc7a5 \uacbd\uacc4\ub294 \uc18c\uc218 \uc13c\ud2b8, \uc74c\uc218, \uc804\uccb4 \uc790\ub9bf\uc218 \ucd08\uacfc\ub97c \ubb34\uc74c \ubc18\uc62c\ub9bc\ud558\uc9c0 \uc54a\uace0 \uac70\ubd80\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.DebitCreditTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.009,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest.xml",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\uc2b9\uc778 \uc804 \uc804\ud45c\ub294 \uc6d0\uc7a5 Aggregate\ub85c \uc2b9\uaca9\ud560 \uc218 \uc5c6\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc800\uc7a5\ub418\uc9c0 \uc54a\uc740 \uc0c1\uc138 \ub77c\uc778\uc740 FK lineage\uac00 \uc5c6\uc73c\ubbc0\ub85c \uc804\uae30 Aggregate \uc0dd\uc131\uc744 \uac70\ubd80\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uac1c\ubcc4 \uc800\uc7a5 \uac00\ub2a5\ud55c \ub300\ud615 \ub77c\uc778\uc758 \ud569\uacc4\ub294 \ub2e8\uc77c \uceec\ub7fc \uc815\ubc00\ub3c4\ub97c \ub118\uc5b4\ub3c4 \ucc28\ub300\uac00 \ub9de\uc73c\uba74 \uc804\uae30\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc2b9\uc778\ub41c \uc804\ud45c\ub97c lineage\uc640 SL \ucc28\uc6d0\uc744 \ubcf4\uc874\ud55c \ubd88\ubcc0 \uc6d0\uc7a5 \uc2a4\ub0c5\uc0f7\uc73c\ub85c \ub9cc\ub4e0\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc800\uc7a5\ub418\uc9c0 \uc54a\uc740 \uc804\ud45c \ud5e4\ub354\ub294 GL/SL lineage\uc758 \uae30\uc900 ID\uac00 \uc5c6\uc73c\ubbc0\ub85c \uc804\uae30\ub97c \uac70\ubd80\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.domain.ledger.domain.GeneralLedgerTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.093,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.domain.unsettled.UnsettledItemTest.xml",
+          "tests": 41,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "newAmountPrecisionOverflowIsRejectedEvenWhenRemainingBalanceIsSufficient()",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] amount=null",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] amount=0.999",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] amount=0.001",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] amount=100000000000000000.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] amount=0",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] amount=-0.01",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[7] amount=1.01",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] actor=null",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] actor=",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] actor=  ",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "multiStepPartialSettlementWithDistinctReferences()",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "oneCentThenRemainderClearsWithoutRounding()",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] amount=0.01",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] amount=1.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] amount=1.000",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] amount=99999999999999999.99",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "delayedOutOfOrderReplayOfEarlierSettlementReferenceIsIdempotent()",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] amount=null",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] amount=0.999",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] amount=0.001",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] amount=100000000000000000.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] amount=0",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] amount=-0.01",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[7] amount=1.01",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] settled=99999999999999999.99, remaining=1.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] settled=0.001, remaining=1.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] settled=-0.02, remaining=1.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] settled=0.00, remaining=1.001",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] settled=0.00, remaining=100000000000000001.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] amount=null",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] amount=0.999",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] amount=0.001",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] amount=100000000000000000.00",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] amount=0",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] amount=-0.01",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[7] amount=1.01",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "repeatedSettlementReferenceDoesNotApplyAmountTwice()",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] reference=null",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] reference=",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] reference=  ",
+              "classname": "com.ho.account.journalledger.domain.unsettled.UnsettledItemTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.infrastructure.adapter.JournalPostingAdapterTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.011,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.infrastructure.adapter.JournalPostingAdapterTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "createDraftEntryMapsCommandFieldsAndBaseAmount()",
+              "classname": "com.ho.account.journalledger.infrastructure.adapter.JournalPostingAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest",
+          "timestamp": "2026-09-24T00:52:22",
+          "time_seconds": 0.939,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest.xml",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "httpAdapterRejectsSubMillisecondTimeoutInsteadOfConvertingItToUnlimited()",
+              "classname": "com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "httpAdapterFailsClosedWithinConfiguredReadTimeout()",
+              "classname": "com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "httpAdapterMapsMasterDataResponsesAndTreatsNotFoundAsEmpty()",
+              "classname": "com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "localAdapterSupportsNonBlankStandaloneReferencesOnly()",
+              "classname": "com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "httpAdapterFailsClosedOnServerErrors()",
+              "classname": "com.ho.account.journalledger.infrastructure.adapter.masterdata.JournalMasterDataQueryAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.infrastructure.persistence.JdbcLedgerBulkPersistenceAdapterTest",
+          "timestamp": "2026-09-24T00:52:23",
+          "time_seconds": 0.381,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.infrastructure.persistence.JdbcLedgerBulkPersistenceAdapterTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "insertsGlAndSlEntriesWithJdbcBatch()",
+              "classname": "com.ho.account.journalledger.infrastructure.persistence.JdbcLedgerBulkPersistenceAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "upsertsGlAndSlBalancesWithJdbcBatch()",
+              "classname": "com.ho.account.journalledger.infrastructure.persistence.JdbcLedgerBulkPersistenceAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.infrastructure.persistence.LedgerEntryPersistenceAdapterTest",
+          "timestamp": "2026-09-24T00:52:24",
+          "time_seconds": 0.126,
+          "xml": "evidence/test-results/journal-ledger/core/TEST-com.ho.account.journalledger.infrastructure.persistence.LedgerEntryPersistenceAdapterTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "JPA adapter\ub294 \ud55c Aggregate\uc758 \uac19\uc740 posting \uac12\uc73c\ub85c GL\uacfc SL \uc5d4\ud2f0\ud2f0\ub97c \ub9cc\ub4e0\ub2e4.",
+              "classname": "com.ho.account.journalledger.infrastructure.persistence.LedgerEntryPersistenceAdapterTest",
+              "status": "passed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "project": ":journal-ledger:api",
+      "counts": {
+        "suites": 11,
+        "tests": 34,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.ho.account.journalledger.IntegratedBusinessProcessTest",
+          "timestamp": "2026-09-24T00:52:43",
+          "time_seconds": 0.855,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.IntegratedBusinessProcessTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "testFullBusinessProcess()",
+              "classname": "com.ho.account.journalledger.IntegratedBusinessProcessTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.JournalLedgerApiLocalProfileTest",
+          "timestamp": "2026-09-24T00:52:46",
+          "time_seconds": 0.01,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.JournalLedgerApiLocalProfileTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "local \ud504\ub85c\ud30c\uc77c \uad6c\ub3d9 \uc2dc H2 \uc778\uba54\ubaa8\ub9ac DB\ub85c ApplicationContext\uac00 \uc815\uc0c1 \ub85c\ub4dc\ub418\uace0 \uc5d4\ud2f0\ud2f0 \ubc0f \uc800\uc7a5\uc18c \ube48\uc774 \uad00\ub9ac\ub41c\ub2e4",
+              "classname": "com.ho.account.journalledger.JournalLedgerApiLocalProfileTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.JournalLedgerPostgresqlSchemaContextTest",
+          "timestamp": "2026-09-24T00:52:47",
+          "time_seconds": 0.053,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.JournalLedgerPostgresqlSchemaContextTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "cleanBaselineMigratesValidatesAndSupportsCoreRepositories()",
+              "classname": "com.ho.account.journalledger.JournalLedgerPostgresqlSchemaContextTest",
+              "status": "passed"
+            },
+            {
+              "name": "v12BackfillIdempotentlyCopiesLastSettlementReference()",
+              "classname": "com.ho.account.journalledger.JournalLedgerPostgresqlSchemaContextTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.UnsettledSettlementPersistenceTest",
+          "timestamp": "2026-09-24T00:52:48",
+          "time_seconds": 0.075,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.UnsettledSettlementPersistenceTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "exactCentSettlementsSurviveJpaRoundTripAndReplaysPreserveFinalState()",
+              "classname": "com.ho.account.journalledger.UnsettledSettlementPersistenceTest",
+              "status": "passed"
+            },
+            {
+              "name": "fractionalCentRejectionLeavesCommittedOpenRowAndReferenceRowsUnchanged()",
+              "classname": "com.ho.account.journalledger.UnsettledSettlementPersistenceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.adapter.in.event.JournalPostingEventListenerTest",
+          "timestamp": "2026-09-24T00:52:48",
+          "time_seconds": 0.221,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.adapter.in.event.JournalPostingEventListenerTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\ube44\ub3d9\uae30 \uc804\ud45c \uc804\uae30 \uc774\ubca4\ud2b8 \uc218\uc2e0 \uc2dc JournalPostingPort\ub97c \uc131\uacf5\uc801\uc73c\ub85c \ud638\ucd9c\ud558\uace0 \uacb0\uacfc\ub97c \ubc18\ud658\ud55c\ub2e4",
+              "classname": "com.ho.account.journalledger.adapter.in.event.JournalPostingEventListenerTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.adapter.in.web.fx.FxDashboardControllerTest",
+          "timestamp": "2026-09-24T00:52:48",
+          "time_seconds": 0.167,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.adapter.in.web.fx.FxDashboardControllerTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "rejectsAggregateTotalsThatDoNotMatchPositions()",
+              "classname": "com.ho.account.journalledger.adapter.in.web.fx.FxDashboardControllerTest",
+              "status": "passed"
+            },
+            {
+              "name": "returnsCompleteDeterministicFxDashboardSnapshot()",
+              "classname": "com.ho.account.journalledger.adapter.in.web.fx.FxDashboardControllerTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.adapter.in.web.journal.JournalApiDtoPrecisionTest",
+          "timestamp": "2026-09-24T00:52:48",
+          "time_seconds": 0.092,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.adapter.in.web.journal.JournalApiDtoPrecisionTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "HTTP \uacbd\uacc4\ub3c4 \uc6d0\uc7a5 DECIMAL(19,2)\ubcf4\ub2e4 \uc815\ubc00\ud55c \uae08\uc561\uc744 400 \uac80\uc99d \ub300\uc0c1\uc73c\ub85c \ubd84\ub958\ud55c\ub2e4.",
+              "classname": "com.ho.account.journalledger.adapter.in.web.journal.JournalApiDtoPrecisionTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.adapter.in.web.journal.JournalByIdQueryTest",
+          "timestamp": "2026-09-24T00:52:49",
+          "time_seconds": 0.184,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.adapter.in.web.journal.JournalByIdQueryTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "missingAndInvalidIdsDoNotReturnFabricatedJournal()",
+              "classname": "com.ho.account.journalledger.adapter.in.web.journal.JournalByIdQueryTest",
+              "status": "passed"
+            },
+            {
+              "name": "returnsLineageAndFinancialLinesFromDetailedUseCase()",
+              "classname": "com.ho.account.journalledger.adapter.in.web.journal.JournalByIdQueryTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.adapter.in.web.journal.JournalPostingRestControllerTest",
+          "timestamp": "2026-09-24T00:52:49",
+          "time_seconds": 0.003,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.adapter.in.web.journal.JournalPostingRestControllerTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "REST API \ud1b5\ud574 \uc804\ud45c \uc804\uae30 \uc694\uccad \uc2dc JournalPostingPort\ub97c \uc131\uacf5\uc801\uc73c\ub85c \ud638\ucd9c\ud558\uace0 200 OK \uc751\ub2f5\uc744 \ubc18\ud658\ud55c\ub2e4",
+              "classname": "com.ho.account.journalledger.adapter.in.web.journal.JournalPostingRestControllerTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest",
+          "timestamp": "2026-09-24T00:52:49",
+          "time_seconds": 0.357,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest.xml",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "[1] path=/api/v1/ledger/sl/balances",
+              "classname": "com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] path=/api/v1/ledger/balances/sl",
+              "classname": "com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] path=/api/v1/ledger/gl/balances",
+              "classname": "com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] path=/api/v1/ledger/balances/gl",
+              "classname": "com.ho.account.journalledger.adapter.in.web.ledger.LedgerPeriodBalanceQueryTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+          "timestamp": "2026-09-24T00:52:49",
+          "time_seconds": 0.355,
+          "xml": "evidence/test-results/journal-ledger/api/TEST-com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest.xml",
+          "tests": 17,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "[1] amount=1.00",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] amount=1.000",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] amount=0.999, expectedReads=1",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] amount=0.001, expectedReads=1",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] amount=100000000000000000.00, expectedReads=1",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] amount=null, expectedReads=0",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] amount=0, expectedReads=0",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] amount=-0.01, expectedReads=0",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[7] amount=1.01, expectedReads=1",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] amount=0.999",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] amount=0.001",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] amount=100000000000000000.00",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] amount=null",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] amount=0",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] amount=-0.01",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "[7] amount=1.01",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            },
+            {
+              "name": "centThenRemainderAndDelayedReplayUseRealDomainState()",
+              "classname": "com.ho.account.journalledger.adapter.in.web.unsettled.UnsettledSettlementPrecisionTest",
+              "status": "passed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "project": ":journal-ledger:batch",
+      "counts": {
+        "suites": 3,
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.ho.account.journalledger.batch.JournalLedgerBatchPostgresqlSchemaContextTest",
+          "timestamp": "2026-09-24T00:53:03",
+          "time_seconds": 0.6,
+          "xml": "evidence/test-results/journal-ledger/batch/TEST-com.ho.account.journalledger.batch.JournalLedgerBatchPostgresqlSchemaContextTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "batchMetadataCoexistsWithJournalSchemaValidation()",
+              "classname": "com.ho.account.journalledger.batch.JournalLedgerBatchPostgresqlSchemaContextTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.batch.config.BalanceReaggregationBatchConfigTest",
+          "timestamp": "2026-09-24T00:53:06",
+          "time_seconds": 0.492,
+          "xml": "evidence/test-results/journal-ledger/batch/TEST-com.ho.account.journalledger.batch.config.BalanceReaggregationBatchConfigTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "Chunk \uae30\ubc18 \uc794\uc561 \uc7ac\uc9d1\uacc4 \ubc30\uce58 \uc2e4\ud589 \ubc0f \uba71\ub4f1\uc131 \uac80\uc99d",
+              "classname": "com.ho.account.journalledger.batch.config.BalanceReaggregationBatchConfigTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest",
+          "timestamp": "2026-09-24T00:53:06",
+          "time_seconds": 0.005,
+          "xml": "evidence/test-results/journal-ledger/batch/TEST-com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "resolvesSingleBaseDateAsOneDayRange()",
+              "classname": "com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest",
+              "status": "passed"
+            },
+            {
+              "name": "rejectsEndDateBeforeStartDate()",
+              "classname": "com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest",
+              "status": "passed"
+            },
+            {
+              "name": "resolvesExplicitStartAndEndDate()",
+              "classname": "com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtilsTest",
+              "status": "passed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "project": ":closing:core",
+      "counts": {
+        "suites": 15,
+        "tests": 119,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.ho.account.closing.application.pipeline.FxValuationPipelineTest",
+          "timestamp": "2026-09-24T00:53:11",
+          "time_seconds": 0.867,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.pipeline.FxValuationPipelineTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "chunkFailureIsAggregatedAndPropagated()",
+              "classname": "com.ho.account.closing.application.pipeline.FxValuationPipelineTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest",
+          "timestamp": "2026-09-24T00:53:12",
+          "time_seconds": 0.024,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest.xml",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "commandRejectsTransactionAmountImbalance()",
+              "classname": "com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest",
+              "status": "passed"
+            },
+            {
+              "name": "commandNormalizesCurrencyAndCopiesLines()",
+              "classname": "com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest",
+              "status": "passed"
+            },
+            {
+              "name": "commandRejectsNonAlphabeticCurrency()",
+              "classname": "com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest",
+              "status": "passed"
+            },
+            {
+              "name": "commandRejectsBaseAmountImbalance()",
+              "classname": "com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.service.AnnualClosingServiceTest",
+          "timestamp": "2026-09-24T00:53:12",
+          "time_seconds": 0.136,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.service.AnnualClosingServiceTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "repeatedAnnualClosingReturnsExistingDeterministicDraft()",
+              "classname": "com.ho.account.closing.application.service.AnnualClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "closesOnlyPostedIncomeStatementBaseBalancesInStableOrder()",
+              "classname": "com.ho.account.closing.application.service.AnnualClosingServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.service.ClosingBatchExecutionRecorderTest",
+          "timestamp": "2026-09-24T00:53:12",
+          "time_seconds": 0.084,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.service.ClosingBatchExecutionRecorderTest.xml",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "provisionFailureRemainsExplicit()",
+              "classname": "com.ho.account.closing.application.service.ClosingBatchExecutionRecorderTest",
+              "status": "passed"
+            },
+            {
+              "name": "valuationFailureRemainsExplicit()",
+              "classname": "com.ho.account.closing.application.service.ClosingBatchExecutionRecorderTest",
+              "status": "passed"
+            },
+            {
+              "name": "valuationHistoryMovesFromRunningToPendingApproval()",
+              "classname": "com.ho.account.closing.application.service.ClosingBatchExecutionRecorderTest",
+              "status": "passed"
+            },
+            {
+              "name": "provisionHistoryMovesFromRunningToPendingApproval()",
+              "classname": "com.ho.account.closing.application.service.ClosingBatchExecutionRecorderTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.service.ClosingServiceTest",
+          "timestamp": "2026-09-24T00:53:12",
+          "time_seconds": 0.362,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.service.ClosingServiceTest.xml",
+          "tests": 14,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\uce98\ub9b0\ub354 \uc0c1\ud0dc\ub294 OPEN\uc73c\ub85c \uc9c1\uc811 \ub418\ub3cc\ub9b4 \uc218 \uc5c6\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ud3c9\uac00 \uc804\ud45c \uc0dd\uc131 \uc2e4\ud328 \uc2dc \ub3c5\ub9bd \uc774\ub825\uc5d0 FAILED\ub97c \uae30\ub85d\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ubaa8\ub4e0 \uc870\uac74 \ucda9\uc871 \uc2dc \uacb0\uc0b0\uc774 \uc815\uc0c1\uc801\uc73c\ub85c \uc644\ub8cc\ub41c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ud68c\uacc4\uae30\uac04 \uae30\uc900\uc815\ubcf4\uac00 \uc5c6\uc73c\uba74 \ub9c8\uac10 \uc5ec\ubd80\ub97c OPEN\uc73c\ub85c \ucd94\uc815\ud558\uc9c0 \uc54a\ub294\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uacb0\uc0b0 \uc870\uc815 \uc804\ud45c \uc0dd\uc131 \uc2dc \uc804\ud45c\uac00 \ub300\ucc28 \ubd88\uc77c\uce58\uba74 \uc608\uc678\uac00 \ubc1c\uc0dd\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uac8c\uc774\ud2b8\ub97c \ud1b5\uacfc\ud558\uc9c0 \ubabb\ud588\uc73c\uba74 \uacb0\uc0b0\uc744 \uc644\ub8cc\ud560 \uc218 \uc5c6\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uacb0\uc0b0 \uc870\uc815\uc740 FiscalPeriod \uc5d4\ud2f0\ud2f0 \ucc38\uc870 \ub300\uc2e0 \ud68c\uae30 ID\ub97c \uc800\uc7a5\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ud3c9\uac00 \ubc30\uce58\ub294 \uc124\uc815\ub41c \uacc4\uc815\uacfc \uae08\uc561\uc73c\ub85c \uc790\ub3d9 \ubd84\uac1c\ub97c \uc0dd\uc131\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uacb0\uc0b0 \uc870\uc815 \uc804\ud45c \uc0dd\uc131 \uc2dc \uc804\ud45c \ud68c\uacc4 \uc77c\uc790\uac00 \ud68c\uae30 \ubc94\uc704\ub97c \ubc97\uc5b4\ub098\uba74 \uc608\uc678\uac00 \ubc1c\uc0dd\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ucda9\ub2f9 \ubc30\uce58\ub294 \uc124\uc815\ub41c \uacc4\uc815\uacfc \uae08\uc561\uc73c\ub85c \uc790\ub3d9 \ubd84\uac1c\ub97c \uc0dd\uc131\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ud3c9\uac00 \ubc30\uce58 \ud68c\uacc4 \ub8f0\uc774 \uc5c6\uc73c\uba74 \ub354\ubbf8 \ubd84\uac1c\ub97c \uc0dd\uc131\ud558\uc9c0 \uc54a\uace0 \uc2e4\ud328\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uacb0\uc0b0 \uc870\uc815 \uc804\ud45c \uc0dd\uc131 \uc2dc \ud68c\uae30\uac00 OPEN\uc774 \uc544\ub2c8\uba74 \uc608\uc678\uac00 \ubc1c\uc0dd\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ud544\uc218 \ud0dc\uc2a4\ud06c\uac00 \uc644\ub8cc\ub418\uc9c0 \uc54a\uc558\uc73c\uba74 \uacb0\uc0b0\uc744 \uc644\ub8cc\ud560 \uc218 \uc5c6\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uacb0\uc0b0 \uce98\ub9b0\ub354 ID\ub85c \ud0dc\uc2a4\ud06c \ubaa9\ub85d\uc744 \uc870\ud68c\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.ClosingServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.service.ClosingSlipNoFactoryTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 0.01,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.service.ClosingSlipNoFactoryTest.xml",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "slipNumberRejectsMissingIdentity()",
+              "classname": "com.ho.account.closing.application.service.ClosingSlipNoFactoryTest",
+              "status": "passed"
+            },
+            {
+              "name": "fxValuationSlipNoUsesSourceCurrencyDiscriminator()",
+              "classname": "com.ho.account.closing.application.service.ClosingSlipNoFactoryTest",
+              "status": "passed"
+            },
+            {
+              "name": "eclProvisionSlipNoIsDeterministicAndFitsJournalColumn()",
+              "classname": "com.ho.account.closing.application.service.ClosingSlipNoFactoryTest",
+              "status": "passed"
+            },
+            {
+              "name": "fxValuationSlipNoUsesAccountDiscriminator()",
+              "classname": "com.ho.account.closing.application.service.ClosingSlipNoFactoryTest",
+              "status": "passed"
+            },
+            {
+              "name": "fxValuationSlipNoIsDeterministicAndFitsJournalColumn()",
+              "classname": "com.ho.account.closing.application.service.ClosingSlipNoFactoryTest",
+              "status": "passed"
+            },
+            {
+              "name": "annualClosingSlipUsesRetainedEarningsAccount()",
+              "classname": "com.ho.account.closing.application.service.ClosingSlipNoFactoryTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 0.247,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.service.EclProvisionServiceTest.xml",
+          "tests": 14,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "invalidGlPrecisionFailsBeforeCreatingAnAdjustment()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "roundsAfterSummingExposuresAndSubtractingExistingAllowanceOnlyOnce()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "processEclProvisionUsesFinalizedAllowanceSummaryInsteadOfFixedRate()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] target=100.0049",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] target=99.9951",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] target=99.9950",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] target=4808.5714, existing=0.00, amount=4808.57, side=DEBIT, firstAccount=550100",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] target=100.0050, existing=100.00, amount=0.01, side=DEBIT, firstAccount=550100",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] target=99.9949, existing=100.00, amount=0.01, side=DEBIT, firstAccount=129100",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "processEclProvisionRejectsNonPositiveBatchIdBeforeReadingInput()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "processEclProvisionRejectsMismatchedSummaryDate()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "processEclProvisionFailsWhenNoAllowanceSummaryExists()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "processEclProvisionUsesSummaryReversalIncomeAccountForAllowanceRelease()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "processEclProvisionAggregatesTargetsBeforeSubtractingExistingAllowance()",
+              "classname": "com.ho.account.closing.application.service.EclProvisionServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 0.054,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.service.EodLifecycleServiceTest.xml",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "rolloverRetryReturnsExistingBodWithoutDuplicateSave()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "bootstrapRetryReturnsInitialRowWithoutDuplicateSave()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "coordinatesLegalEodLifecycleAndDoesNotSaveDesiredStateRetries()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "rolloverRetryRejectsAClosedDateThatIsNotTheDirectPredecessor()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "rolloverCreatesExplicitNextBusinessDateAndPreservesPriorClosedRow()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "reportsMissingStatusAndValidatesInputsBeforePersistence()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "rejectsInvalidRolloverDatesStatesAndHistoricalBranching()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "cancellationRetryIsIdempotentButFreshOpenCannotSkipPreparation()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "bootstrapCreatesOnlyTheFirstRecordAndUsesUtcClock()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "completeBodOpensNewRowAndRetryDoesNotSaveAgain()",
+              "classname": "com.ho.account.closing.application.service.EodLifecycleServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.application.service.FxValuationServiceTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 0.066,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.application.service.FxValuationServiceTest.xml",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "\ub300\ubcc0 \uc815\uc0c1\uc794\uc561 \uacc4\uc815\uc740 \ud3c9\uac00 \uc99d\uac00\ub97c \uc190\uc2e4\ub85c \ubcf4\uace0 \uacc4\uc815 \ub77c\uc778\uc744 \ub300\ubcc0\uc5d0 \uae30\ub85d\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.FxValuationServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\ud658\uc728\uc774 \uc5c6\uc73c\uba74 \ud574\ub2f9 chunk\uac00 \uc2e4\ud328\ud560 \uc218 \uc788\ub3c4\ub85d \uc608\uc678\ub97c \uc804\ud30c\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.FxValuationServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uae30\uc900\uc77c \uacc4\uc815\uacfc\ubaa9\uc774 \uc5c6\uc73c\uba74 \uc804\ud45c \uc5c6\uc774 \uc2e4\ud328\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.FxValuationServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "FX \ud3c9\uac00\ub294 \uc815\ucc45 \ubcf4\uace0\ud1b5\ud654\uc640 \uc7a5\ubd80 \uae30\uc900\ud1b5\ud654 \uc794\uc561\uc73c\ub85c \ucc28\uc561 \uc804\ud45c\ub97c \uc0dd\uc131\ud55c\ub2e4",
+              "classname": "com.ho.account.closing.application.service.FxValuationServiceTest",
+              "status": "passed"
+            },
+            {
+              "name": "\uc7a5\ubd80 \uae30\uc900\ud1b5\ud654 \uc794\uc561\uc774 \uc5c6\uc73c\uba74 \ud3c9\uac00\ub97c \uc131\uacf5\uc73c\ub85c \uc228\uae30\uc9c0 \uc54a\ub294\ub2e4",
+              "classname": "com.ho.account.closing.application.service.FxValuationServiceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.domain.ClosingDomainTransitionTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 0.005,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.domain.ClosingDomainTransitionTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "taskCannotSkipMandatoryWorkOrCompleteBeforeStart()",
+              "classname": "com.ho.account.closing.domain.ClosingDomainTransitionTest",
+              "status": "passed"
+            },
+            {
+              "name": "reopenApprovalEnforcesMakerCheckerAndOneWayDecision()",
+              "classname": "com.ho.account.closing.domain.ClosingDomainTransitionTest",
+              "status": "passed"
+            },
+            {
+              "name": "calendarRequiresInProgressAndDefinedControlsBeforeClose()",
+              "classname": "com.ho.account.closing.domain.ClosingDomainTransitionTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.domain.DailyClosingStatusTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 0.006,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.domain.DailyClosingStatusTest.xml",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "rejectsEveryIllegalSkipAndKeepsClosedRowTerminal()",
+              "classname": "com.ho.account.closing.domain.DailyClosingStatusTest",
+              "status": "passed"
+            },
+            {
+              "name": "cancellationAndBodOpeningUseOnlyTheirLegalOrigins()",
+              "classname": "com.ho.account.closing.domain.DailyClosingStatusTest",
+              "status": "passed"
+            },
+            {
+              "name": "validatesActorAndDoesNotExposePublicStateMutation()",
+              "classname": "com.ho.account.closing.domain.DailyClosingStatusTest",
+              "status": "passed"
+            },
+            {
+              "name": "recordsEodTransitionActorsAndUtcCompatibleTimestamps()",
+              "classname": "com.ho.account.closing.domain.DailyClosingStatusTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.domain.EodStateTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 0.006,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.domain.EodStateTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "permitsOnlyDeclaredSameRowTransitions()",
+              "classname": "com.ho.account.closing.domain.EodStateTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+          "timestamp": "2026-09-24T00:53:13",
+          "time_seconds": 1.197,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest.xml",
+          "tests": 46,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "[1] timeout=0ms",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] timeout=-1s",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] timeout=2147483648ms",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] timeout=invalid",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "missingSlipReturnsEmpty()",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "healthyCreateApprovePostAndQueriesPreservePrecisionActorAndLineage()",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] status=300, path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] status=300, path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] status=300, path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] status=300, path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] status=300, path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] status=301, path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[7] status=301, path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[8] status=301, path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[9] status=301, path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[10] status=301, path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[11] status=302, path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[12] status=302, path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[13] status=302, path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[14] status=302, path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[15] status=302, path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[16] status=303, path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[17] status=303, path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[18] status=303, path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[19] status=303, path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[20] status=303, path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[21] status=304, path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[22] status=304, path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[23] status=304, path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[24] status=304, path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[25] status=304, path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[26] status=307, path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[27] status=307, path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[28] status=307, path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[29] status=307, path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[30] status=307, path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[31] status=308, path=/api/v1/journals/posting",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[32] status=308, path=/api/journals/42/approve",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[33] status=308, path=/api/journals/42/post",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[34] status=308, path=/api/journals/CL-42",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[35] status=308, path=/api/journals",
+              "classname": "com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.infrastructure.source.ClosingReadOnlySourcesTest",
+          "timestamp": "2026-09-24T00:53:14",
+          "time_seconds": 0.011,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.infrastructure.source.ClosingReadOnlySourcesTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "invalidConnectionFailsWithoutIncludingConnectionSecrets()",
+              "classname": "com.ho.account.closing.infrastructure.source.ClosingReadOnlySourcesTest",
+              "status": "passed"
+            },
+            {
+              "name": "sourceConnectionsRemainSeparateReadOnlyAndBoundedWithoutReplacingClosingDataSource()",
+              "classname": "com.ho.account.closing.infrastructure.source.ClosingReadOnlySourcesTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest",
+          "timestamp": "2026-09-24T00:53:15",
+          "time_seconds": 0.14,
+          "xml": "evidence/test-results/closing/core/TEST-com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "historicalRatePreservesPrecisionAndBindsRequestedCurrencyAndDate()",
+              "classname": "com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "overlappingEffectiveAccountsFailRatherThanChoosingArbitraryClassification()",
+              "classname": "com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "absentReferenceIsEmptyAndInvalidInputNeverQueriesDatabase()",
+              "classname": "com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapterTest",
+              "status": "passed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "project": ":closing:api",
+      "counts": {
+        "suites": 11,
+        "tests": 74,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.ho.account.closing.ClosingApplicationContextTest",
+          "timestamp": "2026-09-24T00:53:27",
+          "time_seconds": 1.048,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.ClosingApplicationContextTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "contextLoadsWithOnlyClosingRuntimeBoundaries()",
+              "classname": "com.ho.account.closing.ClosingApplicationContextTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.ClosingDevRuntimeContextTest",
+          "timestamp": "2026-09-24T00:53:29",
+          "time_seconds": 0.025,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.ClosingDevRuntimeContextTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "actualDevApplicationValidatesOnlyClosingSchemaAfterOwnedMigrations()",
+              "classname": "com.ho.account.closing.ClosingDevRuntimeContextTest",
+              "status": "passed"
+            },
+            {
+              "name": "devUsesExactlyOneRemoteProviderPerPortWithoutMonolithOrLocalFakes()",
+              "classname": "com.ho.account.closing.ClosingDevRuntimeContextTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.ClosingPostgresqlSchemaContextTest",
+          "timestamp": "2026-09-24T00:53:31",
+          "time_seconds": 0.064,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.ClosingPostgresqlSchemaContextTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "startsWithJpaValidateAfterCleanBaselineThroughV50(ConfigurableApplicationContext)",
+              "classname": "com.ho.account.closing.ClosingPostgresqlSchemaContextTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.DailyClosingStatusMigrationTest",
+          "timestamp": "2026-09-24T00:53:31",
+          "time_seconds": 0.073,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.DailyClosingStatusMigrationTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "migrationBackfillsLegacyBooleanRowsAndRemovesAmbiguousFlag()",
+              "classname": "com.ho.account.closing.DailyClosingStatusMigrationTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.DailyClosingStatusPersistenceIntegrationTest",
+          "timestamp": "2026-09-24T00:53:32",
+          "time_seconds": 0.147,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.DailyClosingStatusPersistenceIntegrationTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "roundTripUsesLockedLookupAndIncrementsOptimisticVersion()",
+              "classname": "com.ho.account.closing.DailyClosingStatusPersistenceIntegrationTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+          "timestamp": "2026-09-24T00:53:32",
+          "time_seconds": 0.854,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.config.HttpClosingJournalAdapterTest.xml",
+          "tests": 32,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "listAndSlipLookupMapProviderResponseIncludingLineage()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] status=301",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] status=302",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] status=303",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] status=307",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] status=308",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] body=",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] body={}",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] body={\"journalEntryId\":0,\"slipNo\":\"CLOSE-42\",\"status\":\"DRAFT\"}",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "idAndDetailsPreserveClosingRerunContentWithoutDecimalLoss()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "rejectedApprovalDoesNotPostOrRetryAndDoesNotLeakResponseBody()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] status=301",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] status=302",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] status=303",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] status=307",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] status=308",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "postingFailureAfterApprovalReportsPartialProgressWithoutRetry()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "onlyExplicitNotFoundMeansMissingSlip()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "invalidInputsAndUnavailableQueriesFailWithoutRemoteCalls()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "emptyListIsValidButMissingBodyAndMismatchedSlipFail()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "redirectedQueryCannotBeAcceptedAsSuccessfulFinancialContent()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "approveThenPostCarryActorInOrder()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] timeout=0ms",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] timeout=-1s",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] timeout=2147483648ms",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] timeout=PT0.000001S",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] timeout=garbage",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] timeout=",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "idLookupRejectsWrongIdMissingLinesAndProviderFailure()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "acceptsFiniteTimeoutBoundariesAndIsoNotation()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "actualHttpTransportDoesNotFollowGetRedirects()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "draftPostingPreservesDecimalAmountsDeterministicSlipAndLineage()",
+              "classname": "com.ho.account.closing.config.HttpClosingJournalAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+          "timestamp": "2026-09-24T00:53:33",
+          "time_seconds": 0.177,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest.xml",
+          "tests": 23,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "actualTransportRejectsPutRedirectAndNeverFollowsGetRedirectToSuccessfulPeriod()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "statusUpdateCarriesServiceIdentityAndAuditActor()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "lookupUsesMasterDataRoutesAndMapsPeriodDates()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] timeout=0ms",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] timeout=-1s",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] timeout=2147483648ms",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] timeout=PT0.000001S",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] timeout=garbage",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[6] timeout=",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "notFoundIsEmptyButServerFailureIsNotMissingPeriod()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "successfulHttpUpdateStillRequiresRequestedPeriodAndTargetStatus()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "lookupRedirectWithValidPeriodBodyIsNotAnExistingPeriod()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] status=401",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] status=403",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "emptyUpdateBodyAndServerFailureCannotReportSuccessfulTransition()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "emptyLookupBodyRetainsOptionalContract()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "successfulHttpLookupStillRejectsWrongPeriodIdentity()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[1] status=301",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[2] status=302",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[3] status=303",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[4] status=307",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "[5] status=308",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "acceptsFiniteTimeoutBoundariesAndIsoNotation()",
+              "classname": "com.ho.account.closing.config.HttpFiscalPeriodControlAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.web.ClosingControllerTest",
+          "timestamp": "2026-09-24T00:53:33",
+          "time_seconds": 0.351,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.web.ClosingControllerTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "getClosingTasksByCalendarIdReturnsEmptyArrayWhenCalendarHasNoTasks()",
+              "classname": "com.ho.account.closing.web.ClosingControllerTest",
+              "status": "passed"
+            },
+            {
+              "name": "getClosingTasksByCalendarIdReturnsMappedTaskDtosInUseCaseOrder()",
+              "classname": "com.ho.account.closing.web.ClosingControllerTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest",
+          "timestamp": "2026-09-24T00:53:33",
+          "time_seconds": 0.18,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest.xml",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "approveReopenReturnsConflictWhenRequesterIsSameAsApprover()",
+              "classname": "com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest",
+              "status": "passed"
+            },
+            {
+              "name": "requestPeriodReopenReturnsCreatedWhenValid()",
+              "classname": "com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest",
+              "status": "passed"
+            },
+            {
+              "name": "requestPeriodReopenReturnsConflictWhenPendingRequestAlreadyExists()",
+              "classname": "com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest",
+              "status": "passed"
+            },
+            {
+              "name": "returnsNotFoundWhenFiscalPeriodOrApprovalDoesNotExist()",
+              "classname": "com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest",
+              "status": "passed"
+            },
+            {
+              "name": "approveReopenSucceedsWhenApproverIsDifferentFromRequester()",
+              "classname": "com.ho.account.closing.web.ClosingFiscalPeriodControlBoundaryIntegrationTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.web.EodLifecycleControllerTest",
+          "timestamp": "2026-09-24T00:53:33",
+          "time_seconds": 0.175,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.closing.web.EodLifecycleControllerTest.xml",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "missingStatusUsesStableNotFoundContract()",
+              "classname": "com.ho.account.closing.web.EodLifecycleControllerTest",
+              "status": "passed"
+            },
+            {
+              "name": "readWithoutGatewayActorIsUnauthorized()",
+              "classname": "com.ho.account.closing.web.EodLifecycleControllerTest",
+              "status": "passed"
+            },
+            {
+              "name": "commandWithoutClosingRoleIsForbiddenBeforeUseCase()",
+              "classname": "com.ho.account.closing.web.EodLifecycleControllerTest",
+              "status": "passed"
+            },
+            {
+              "name": "bodStartMapsBothExplicitBusinessDates()",
+              "classname": "com.ho.account.closing.web.EodLifecycleControllerTest",
+              "status": "passed"
+            },
+            {
+              "name": "authorizedAccountingAdminPreparesEodWithTrustedActor()",
+              "classname": "com.ho.account.closing.web.EodLifecycleControllerTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.runtime.ActuatorReadinessContractTest",
+          "timestamp": "2026-09-24T00:53:36",
+          "time_seconds": 0.044,
+          "xml": "evidence/test-results/closing/api/TEST-com.ho.account.runtime.ActuatorReadinessContractTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "readinessEndpointIsAvailableWithoutAnExternalRuntime()",
+              "classname": "com.ho.account.runtime.ActuatorReadinessContractTest",
+              "status": "passed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "project": ":closing:batch",
+      "counts": {
+        "suites": 11,
+        "tests": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "name": "com.ho.account.closing.batch.ClosingBatchApplicationContextTest",
+          "timestamp": "2026-09-24T00:53:50",
+          "time_seconds": 0.54,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.ClosingBatchApplicationContextTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "contextLoadsWithoutStartingAJob()",
+              "classname": "com.ho.account.closing.batch.ClosingBatchApplicationContextTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.ClosingBatchDevProfileTest",
+          "timestamp": "2026-09-24T00:53:52",
+          "time_seconds": 0.02,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.ClosingBatchDevProfileTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "devOwnsOnlyClosingEntitiesAndPrimaryDataSource()",
+              "classname": "com.ho.account.closing.batch.ClosingBatchDevProfileTest",
+              "status": "passed"
+            },
+            {
+              "name": "remoteJournalAndReadOnlyMasterAdapterReplaceEmbeddedProviders()",
+              "classname": "com.ho.account.closing.batch.ClosingBatchDevProfileTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.ClosingBatchPostgresqlSchemaContextTest",
+          "timestamp": "2026-09-24T00:53:53",
+          "time_seconds": 0.05,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.ClosingBatchPostgresqlSchemaContextTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "startsWithoutAJobAndValidatesJpaAfterCleanClosingMigrations(ConfigurableApplicationContext)",
+              "classname": "com.ho.account.closing.batch.ClosingBatchPostgresqlSchemaContextTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest",
+          "timestamp": "2026-09-24T00:53:54",
+          "time_seconds": 0.27,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "registersJournalPortsForLocalProfile()",
+              "classname": "com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest",
+              "status": "passed"
+            },
+            {
+              "name": "backsOffWhenJournalPortsAreAlreadyProvided()",
+              "classname": "com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest",
+              "status": "passed"
+            },
+            {
+              "name": "doesNotRegisterJournalPortsOutsideLocalProfile()",
+              "classname": "com.ho.account.closing.batch.ClosingLocalExternalPortProfileTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.FxValuationScopedReaderLifecycleTest",
+          "timestamp": "2026-09-24T00:53:54",
+          "time_seconds": 0.38,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.FxValuationScopedReaderLifecycleTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "partitionedStepOpensReadsCheckpointsAndClosesItsScopedJdbcCursor()",
+              "classname": "com.ho.account.closing.batch.FxValuationScopedReaderLifecycleTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.adapter.out.EclProvisionPersistedRetryTest",
+          "timestamp": "2026-09-24T00:53:54",
+          "time_seconds": 0.098,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.adapter.out.EclProvisionPersistedRetryTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "reusesPersistedTwoDecimalDraftAfterRemoteSuccessAndLocalRetry()",
+              "classname": "com.ho.account.closing.batch.adapter.out.EclProvisionPersistedRetryTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapterTest",
+          "timestamp": "2026-09-24T00:53:55",
+          "time_seconds": 0.012,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapterTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "convertsDebitMinusCreditSignedBalanceToPositiveCreditBalance()",
+              "classname": "com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapterTest",
+          "timestamp": "2026-09-24T00:53:55",
+          "time_seconds": 0.01,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapterTest.xml",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "aggregatesExposureRowsBeforeReturningPostingGroups()",
+              "classname": "com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSourceTest",
+          "timestamp": "2026-09-24T00:53:55",
+          "time_seconds": 0.038,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSourceTest.xml",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "partitionMetadataNeverExceedsConfiguredGridSize()",
+              "classname": "com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSourceTest",
+              "status": "passed"
+            },
+            {
+              "name": "readsPostedSignedForeignAndReportingBalancesWithBoundedPartitions()",
+              "classname": "com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSourceTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest",
+          "timestamp": "2026-09-24T00:53:55",
+          "time_seconds": 0.012,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest.xml",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "existingSlipWithDifferentLineageFailsClosed()",
+              "classname": "com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "postingDelegatesToPostingPortApproveAndPost()",
+              "classname": "com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "exactExistingSlipIsReturnedWithoutCreatingAnotherJournal()",
+              "classname": "com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest",
+              "status": "passed"
+            },
+            {
+              "name": "mapsDeterministicSlipAndImmutableContractLines()",
+              "classname": "com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "name": "com.ho.account.closing.batch.support.ClosingJobParametersTest",
+          "timestamp": "2026-09-24T00:53:55",
+          "time_seconds": 0.005,
+          "xml": "evidence/test-results/closing/batch/TEST-com.ho.account.closing.batch.support.ClosingJobParametersTest.xml",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "test_cases": [
+            {
+              "name": "validatorRejectsInvalidDate()",
+              "classname": "com.ho.account.closing.batch.support.ClosingJobParametersTest",
+              "status": "passed"
+            },
+            {
+              "name": "validatorRejectsNonPositiveBatchId()",
+              "classname": "com.ho.account.closing.batch.support.ClosingJobParametersTest",
+              "status": "passed"
+            },
+            {
+              "name": "validatorRejectsMissingDate()",
+              "classname": "com.ho.account.closing.batch.support.ClosingJobParametersTest",
+              "status": "passed"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "diagnostic_probes": {
+    "source": "evidence/AuditProbes.java",
+    "result_file": "evidence/probe-results.json",
+    "count": 17,
+    "passed_observations": 17,
+    "failed_observations": 0,
+    "meaning": "PASS means the named existing behavior was observed; defect reproductions are not remediations. Synthetic probes are not included in Gradle suite counts.",
+    "results": [
+      {
+        "id": "P01",
+        "kind": "positive-control",
+        "observation": "empty, single, transaction/base imbalance, zero, negative, fractional cent and overflow rejected; balanced and lossless trailing-zero values accepted",
+        "status": "PASS"
+      },
+      {
+        "id": "P02",
+        "kind": "defect-reproduction",
+        "observation": "creator maker approved own DRAFT directly without submission",
+        "status": "PASS"
+      },
+      {
+        "id": "P03",
+        "kind": "defect-reproduction",
+        "observation": "POSTED accepted date change, line amount change, and clearDetails in memory; no HTTP/delete or DB-cascade success asserted",
+        "status": "PASS"
+      },
+      {
+        "id": "P04",
+        "kind": "defect-reproduction",
+        "observation": "two independent inverted reversal objects created; original remains POSTED; persistence/date validation occurs in service",
+        "status": "PASS"
+      },
+      {
+        "id": "P05",
+        "kind": "defect-reproduction",
+        "observation": "USD100 at rate1300 accepted with base100 on each side, instead of base130000",
+        "status": "PASS"
+      },
+      {
+        "id": "P06",
+        "kind": "defect-reproduction",
+        "observation": "untyped JSON 900719925474099.11 becomes 900719925474099.10 and passes ledger precision",
+        "status": "PASS"
+      },
+      {
+        "id": "P07",
+        "kind": "defect-reproduction",
+        "observation": "CLOSING_IN_PROGRESS returned isClosed=false",
+        "status": "PASS"
+      },
+      {
+        "id": "P08",
+        "kind": "defect-reproduction",
+        "observation": "out-of-order bulk input: day2 ending20, expected120",
+        "status": "PASS"
+      },
+      {
+        "id": "P09",
+        "kind": "defect-reproduction",
+        "observation": "backdated +10 changes day1 to110 but day2 remains120, expected130",
+        "status": "PASS"
+      },
+      {
+        "id": "P10",
+        "kind": "defect-reproduction",
+        "observation": "partner null and literal NULL collapsed into one SL row30",
+        "status": "PASS"
+      },
+      {
+        "id": "P11",
+        "kind": "defect-reproduction",
+        "observation": "5000 same-day create calls generated 197 duplicate slip numbers (observational random sample)",
+        "status": "PASS"
+      },
+      {
+        "id": "P12",
+        "kind": "defect-reproduction",
+        "observation": "actual SQL ignores posted KRW200 prior adjustment; service generates another200 at unchanged rate12",
+        "status": "PASS"
+      },
+      {
+        "id": "P13",
+        "kind": "defect-reproduction",
+        "observation": "fixedAsset=true historical-cost candidate revalued by200 with no eligibility check",
+        "status": "PASS"
+      },
+      {
+        "id": "P14",
+        "kind": "defect-reproduction",
+        "observation": "USD target100 minus stored base credit104000 generates allowance DEBIT103900; expected USD20 addition at rate1300",
+        "status": "PASS"
+      },
+      {
+        "id": "P15",
+        "kind": "defect-reproduction",
+        "observation": "target allowance100 accepted with stage totals1+2+3=6; constructor checks only nonnegative values",
+        "status": "PASS"
+      },
+      {
+        "id": "P16",
+        "kind": "defect-reproduction",
+        "observation": "close/reopen/start/reclose accepted original completed task and passed gate",
+        "status": "PASS"
+      },
+      {
+        "id": "P17",
+        "kind": "defect-reproduction",
+        "observation": "annual close accepted CASH_ASSET as retained earnings; source1000->1500 left original1000 draft unchanged",
+        "status": "PASS"
+      }
+    ]
+  },
+  "verification_limits": [
+    "No production data or external service access",
+    "No real PostgreSQL migrations, locking, concurrency, fault-injection or load run",
+    "H2 schema tests and one actual FX-source SQL probe do not establish PostgreSQL semantics",
+    "Coverage percentage not measured; test count is not control completeness"
+  ],
+  "diagnostic_setup_attempts": [
+    {
+      "action": "classpath export initial",
+      "exit_code": 1,
+      "reason": "Temporary Gradle init script used project() on task receiver",
+      "resolution": "Qualified rootProject.project(); retry succeeded; no repository build edit"
+    },
+    {
+      "action": "probe compilation initial",
+      "exit_code": 1,
+      "reason": "Temporary probe used nonexistent getDebitTotal()",
+      "resolution": "Corrected to existing getDebitAmount(); final compile and all probes succeeded"
+    }
+  ],
+  "reproduction_launcher_verification": {
+    "command": "python3 docs/ai-harness/audits/2026-09-24-tier2-core-accounting/evidence/run-probes.py",
+    "exit_code": 0,
+    "observations": 17,
+    "log": "evidence/reproduction-launcher.log",
+    "counting_note": "Second execution verifies documented reproducibility; not added again to unique probe count or Gradle test totals. Frozen original probe-results.json retained."
+  }
+}

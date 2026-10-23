@@ -2,6 +2,7 @@ package com.ho.account.auth.core.application.service;
 
 import com.ho.account.auth.core.application.port.in.AuthUserRoleAssignmentUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersistencePort;
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import java.nio.charset.StandardCharsets;
@@ -36,9 +37,13 @@ public class AuthUserRoleAssignmentService implements AuthUserRoleAssignmentUseC
         if (command == null) {
             throw new IllegalArgumentException("Role assignment command is required.");
         }
-        String username = requireText(command.username(), "username", 80);
+        String username = requireText(command.username(), "username", AuthIdentityPolicy.MAX_USERNAME_LENGTH);
         String approvedBy = requireText(command.approvedBy(), "approvedBy", 80);
         String approvalTraceId = requireText(command.approvalTraceId(), "approvalTraceId", 160);
+        // Scoped grants have no enforcement path yet; reject before constructing or fingerprinting a replacement.
+        if (!"GLOBAL".equals(command.dataScope())) {
+            throw new IllegalArgumentException("Only GLOBAL dataScope is supported.");
+        }
         List<String> roleCodes = normalizeRoleCodes(command.roleCodes());
         if (roleCodes.isEmpty()) {
             throw new IllegalArgumentException("At least one roleCode is required.");

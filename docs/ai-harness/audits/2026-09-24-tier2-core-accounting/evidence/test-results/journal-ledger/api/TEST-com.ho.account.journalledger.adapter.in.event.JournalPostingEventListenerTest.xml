@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.journalledger.adapter.in.event.JournalPostingEventListenerTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:52:48" hostname="ho-To-Be-Filled-By-O-E-M" time="0.221">
+  <properties/>
+  <testcase name="비동기 전표 전기 이벤트 수신 시 JournalPostingPort를 성공적으로 호출하고 결과를 반환한다" classname="com.ho.account.journalledger.adapter.in.event.JournalPostingEventListenerTest" time="0.221"/>
+  <system-out><![CDATA[2026-09-24T09:52:48.691+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] .h.a.j.a.i.e.JournalPostingEventListener : Received Async Journal Posting Event for lineageSourceId: LOAN-999, type: LOAN
+2026-09-24T09:52:48.697+09:00  INFO 580812 --- [journal-ledger-api] [    Test worker] [                                                 ] .h.a.j.a.i.e.JournalPostingEventListener : Successfully processed Async Journal Posting Event: slipNo=SLIP-20260812-0002, id=200
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,16 +1,28 @@
 package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
+import com.ho.account.masterdata.core.application.exception.UnsupportedMasterDataTypeException;
 import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
+import com.ho.account.masterdata.core.application.port.out.MasterDataBusinessKeyLockPort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataAuditPort;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort.CreateOrLoadResult;
 import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.domain.audit.MasterDataAuditEvent;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
+import com.ho.account.masterdata.core.domain.exception.MasterDataVersionConflictException;
 import com.ho.account.masterdata.core.domain.policy.MasterDataChangeVersionPolicy;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -31,14 +43,65 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     private final MasterDataChangeRequestPersistencePort persistencePort;
     private final MasterDataVersionQueryPort versionQueryPort;
     private final MasterDataChangeApplierRegistry applierRegistry;
+    private final MasterDataBusinessKeyLockPort businessKeyLockPort;
+    private final MasterDataAuditPort auditPort;
+    private final MasterDataDueChangeExecutor dueChangeExecutor;
+
+    @Autowired
+    public MasterDataChangeRequestService(
+            MasterDataChangeRequestPersistencePort persistencePort,
+            MasterDataVersionQueryPort versionQueryPort,
+            List<MasterDataChangeApplier> appliers,
+            MasterDataBusinessKeyLockPort businessKeyLockPort,
+            ObjectProvider<MasterDataAuditPort> auditPortProvider,
+            MasterDataDueChangeExecutor dueChangeExecutor) {
+        this(persistencePort, versionQueryPort, appliers, businessKeyLockPort,
+                auditPortProvider.getIfAvailable(() -> event -> { }), dueChangeExecutor);
+    }
 
     public MasterDataChangeRequestService(
             MasterDataChangeRequestPersistencePort persistencePort,
             MasterDataVersionQueryPort versionQueryPort,
-            List<MasterDataChangeApplier> appliers) {
+            List<MasterDataChangeApplier> appliers,
+            MasterDataBusinessKeyLockPort businessKeyLockPort,
+            MasterDataAuditPort auditPort,
+            MasterDataDueChangeExecutor dueChangeExecutor) {
         this.persistencePort = persistencePort;
         this.versionQueryPort = versionQueryPort;
         this.applierRegistry = new MasterDataChangeApplierRegistry(appliers);
+        this.businessKeyLockPort = businessKeyLockPort;
+        this.auditPort = auditPort != null ? auditPort : event -> { };
+        this.dueChangeExecutor = dueChangeExecutor;
+    }
+
+    public MasterDataChangeRequestService(
+            MasterDataChangeRequestPersistencePort persistencePort,
+            MasterDataVersionQueryPort versionQueryPort,
+            List<MasterDataChangeApplier> appliers,
+            MasterDataBusinessKeyLockPort businessKeyLockPort,
+            MasterDataDueChangeExecutor dueChangeExecutor) {
+        this(persistencePort, versionQueryPort, appliers, businessKeyLockPort,
+                event -> { }, dueChangeExecutor);
+    }
+
+    /** Direct construction is retained for core unit tests; Spring injects the proxied executor above. */
+    public MasterDataChangeRequestService(
+            MasterDataChangeRequestPersistencePort persistencePort,
+            MasterDataVersionQueryPort versionQueryPort,
+            List<MasterDataChangeApplier> appliers,
+            MasterDataBusinessKeyLockPort businessKeyLockPort) {
+        this(persistencePort, versionQueryPort, appliers, businessKeyLockPort, event -> { });
+    }
+
+    public MasterDataChangeRequestService(
+            MasterDataChangeRequestPersistencePort persistencePort,
+            MasterDataVersionQueryPort versionQueryPort,
+            List<MasterDataChangeApplier> appliers,
+            MasterDataBusinessKeyLockPort businessKeyLockPort,
+            MasterDataAuditPort auditPort) {
+        this(persistencePort, versionQueryPort, appliers, businessKeyLockPort, auditPort,
+                new MasterDataDueChangeExecutor(
+                        persistencePort, versionQueryPort, appliers, businessKeyLockPort, auditPort));
     }
 
     @Override
@@ -66,33 +129,48 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
             }
         }
 
+        MasterDataChangeRequest created = null;
+        if (request.getSourceReference() != null) {
+            // 먼저 식별자를 예약해 동시 재사용 충돌을 업무 버전 검증보다 앞서 판정합니다.
+            CreateOrLoadResult result = persistencePort.createOrLoad(request);
+            result.request().verifySameChange(request);
+            if (!result.created()) {
+                return result.request();
+            }
+            created = result.request();
+        }
+
         // 구현되지 않은 전략은 접수 후 장기간 방치하지 않고 입구에서 바로 차단합니다.
         MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
+        // UPDATE 검증은 현재 버전을 읽으므로 업무 키 잠금 후에 실행해 종료와 경합해도 같은 상태를 봅니다.
+        lockBusinessKey(request);
         applier.validate(request);
         verifyCurrentVersion(request);
 
-        // @todo 다중 노드에서 같은 targetType/targetKey 요청이 동시에 들어오는 경쟁은
-        // 업무 키 잠금 테이블 또는 PostgreSQL advisory lock 어댑터로 직렬화해야 한다.
-        // @todo 두 노드가 같은 sourceReference를 동시에 최초 저장하면 unique key 충돌이 날 수 있습니다.
-        // 저장 포트가 충돌 후 기존 요청을 다시 읽어 동일 명령인지 검증하는 원자적 멱등 연산을 제공해야 합니다.
-        return persistencePort.save(request);
+        // 생성 예약은 같은 트랜잭션이므로 검증 실패 시 행도 함께 롤백됩니다.
+        MasterDataChangeRequest saved = created != null ? created : persistencePort.save(request);
+        audit("REQUESTED", saved, saved.getRequestedBy(), saved.getReason(), null, null);
+        return saved;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MasterDataChangeRequest> findPendingRequests() {
-        return persistencePort.findByStatus(ChangeStatus.REQUESTED);
+    public PageSlice<MasterDataChangeRequest> findPendingRequests(PageWindow page) {
+        return persistencePort.findByStatus(ChangeStatus.REQUESTED, page);
     }
 
     @Override
     @Transactional
     public MasterDataChangeRequest approve(Long requestId, String approver) {
-        MasterDataChangeRequest request = findForDecision(requestId);
+        MasterDataChangeRequest request = findAfterBusinessKeyLock(requestId);
         MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
+        // The persisted payload may predate current rules; approval must validate it before changing audit state.
         applier.validate(request);
         verifyCurrentVersion(request);
         request.approve(approver);
-        return persistencePort.save(request);
+        MasterDataChangeRequest saved = persistencePort.save(request);
+        audit("APPROVED", saved, saved.getApprovedBy(), saved.getReason(), null, null);
+        return saved;
     }
 
     @Override
@@ -100,46 +178,116 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     public MasterDataChangeRequest reject(Long requestId, String approver, String reason) {
         MasterDataChangeRequest request = findForDecision(requestId);
         request.reject(approver, reason);
-        return persistencePort.save(request);
+        MasterDataChangeRequest saved = persistencePort.save(request);
+        audit("REJECTED", saved, saved.getApprovedBy(), saved.getDecisionReason(), null, null);
+        return saved;
     }
 
     @Override
     @Transactional
     public MasterDataChangeRequest applyApprovedChange(Long requestId) {
-        MasterDataChangeRequest request = findForDecision(requestId);
+        MasterDataChangeRequest request = findAfterBusinessKeyLock(requestId);
+        // 잠금 후 최신 상태가 이미 반영됐으면 원래 결과를 반환하고 이력과 appliedAt을 보존합니다.
+        if (request.getStatus() == ChangeStatus.APPLIED) {
+            return request;
+        }
         return applyAndSave(request, LocalDate.now());
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<MasterDataChangeRequest> applyDueApprovedChanges() {
         LocalDate today = LocalDate.now();
         List<MasterDataChangeRequest> dueChanges = persistencePort.findReadyToApply(today, APPLY_CHUNK_SIZE);
-        List<MasterDataChangeRequest> applied = new ArrayList<>(dueChanges.size());
+        List<MasterDataChangeRequest> results = new ArrayList<>(dueChanges.size());
 
-        // 부수효과와 실패 순서가 중요한 승인 반영이므로 stream보다 순서가 드러나는 반복을 사용합니다.
+        // Selection is only a candidate snapshot. Each request rechecks status under its own
+        // business-key then row lock, so concurrent workers never replay a completed request.
         for (MasterDataChangeRequest candidate : dueChanges) {
-            MasterDataChangeRequest locked = findForDecision(candidate.getId());
-            if (locked.isReadyToApply(today)) {
-                applied.add(applyAndSave(locked, today));
+            try {
+                dueChangeExecutor.applyDue(candidate.getId(), today).ifPresent(results::add);
+            } catch (MasterDataVersionConflictException conflict) {
+                // The failed apply transaction has rolled back. Only a deterministic version
+                // conflict is quarantined; SQL/lock failures must remain eligible for retry.
+                dueChangeExecutor.recordFailure(candidate.getId(), today,
+                        ChangeStatus.FAILED_CONFLICT, "VERSION_CONFLICT").ifPresent(results::add);
+            } catch (IllegalArgumentException invalid) {
+                if (invalid instanceof UnsupportedMasterDataTypeException) {
+                    // Missing strategy wiring is a deployment defect, not invalid request data.
+                    throw invalid;
+                }
+                // Store a fixed label rather than exception text that may contain payload data.
+                dueChangeExecutor.recordFailure(candidate.getId(), today,
+                        ChangeStatus.FAILED_INVALID, "INVALID_REQUEST").ifPresent(results::add);
             }
         }
-
-        // @todo 운영 대량 반영은 요청별 REQUIRES_NEW 트랜잭션과 DB SKIP LOCKED 파티셔닝으로
-        // 분리해 한 건의 실패가 같은 chunk 전체를 롤백하지 않도록 고도화해야 한다.
-        return List.copyOf(applied);
+        return List.copyOf(results);
     }
 
     private MasterDataChangeRequest applyAndSave(MasterDataChangeRequest request, LocalDate today) {
+        if (request.getStatus() == ChangeStatus.APPLIED) {
+            throw new MasterDataVersionConflictException("Change request already applied. ID: " + request.getId());
+        }
         if (!request.isReadyToApply(today)) {
             throw new IllegalStateException("Change request is not ready to apply. ID: " + request.getId());
         }
 
         MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
+        // 단건 반영 호출자가 잡은 업무 키 잠금은 applier와 APPLIED 저장까지 유지됩니다.
         verifyCurrentVersion(request);
-        applier.apply(request);
+        MasterDataActorContext.Actor ingress = MasterDataActorContext.current();
+        String applyingService = ingress == null ? "master-data-scheduler" : ingress.serviceActor();
+        String applyingActor = ingress == null ? request.getApprovedBy() : ingress.businessActor();
+        MasterDataChangeApplier.AppliedVersion version;
+        try (MasterDataActorContext.Scope ignored = MasterDataActorContext.enterApprovedChange(
+                null, applyingActor)) {
+            version = applier.apply(request);
+        }
+        // A successful status must identify the persisted row; otherwise rollback the whole transaction.
+        if (version == null || version.afterId() == null
+                || (request.getChangeType() != MasterDataChangeRequest.ChangeType.CREATE
+                        && version.beforeId() == null)
+                || (request.getChangeType() == MasterDataChangeRequest.ChangeType.UPDATE
+                        && version.beforeId().equals(version.afterId()))
+                || (request.getChangeType() == MasterDataChangeRequest.ChangeType.DEACTIVATE
+                        && !version.beforeId().equals(version.afterId()))) {
+            throw new IllegalStateException("Applied master-data version identifiers are required and must match the change type.");
+        }
         request.markApplied();
-        return persistencePort.save(request);
+        MasterDataChangeRequest saved = persistencePort.save(request);
+        audit("APPLIED", saved, applyingActor, saved.getReason(),
+                version.beforeId(), version.afterId(), applyingService);
+        return saved;
+    }
+
+    private void audit(String eventType, MasterDataChangeRequest request, String businessActor,
+            String reason, Long beforeVersionId, Long afterVersionId) {
+        MasterDataActorContext.Actor ingress = MasterDataActorContext.current();
+        audit(eventType, request, businessActor, reason, beforeVersionId, afterVersionId,
+                ingress == null ? null : ingress.serviceActor());
+    }
+
+    private void audit(String eventType, MasterDataChangeRequest request, String businessActor,
+            String reason, Long beforeVersionId, Long afterVersionId, String serviceActor) {
+        auditPort.append(new MasterDataAuditEvent(eventType, Instant.now(), request.getTargetType(),
+                request.getTargetKey(), request.getId(), request.getSourceReference(),
+                serviceActor, businessActor, MasterDataAuditRecorder.reasonReference(eventType, reason),
+                beforeVersionId, afterVersionId));
+    }
+
+    private MasterDataChangeRequest findAfterBusinessKeyLock(Long requestId) {
+        if (requestId == null) {
+            throw new IllegalArgumentException("Change request ID is required.");
+        }
+        MasterDataChangeRequest identity = persistencePort.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Change request not found. ID: " + requestId));
+        lockBusinessKey(identity);
+        // 처음 읽은 상태를 사용하지 않습니다. 잠금 대기 중 승인/반영된 최신 요청을 다시 읽습니다.
+        return findForDecision(requestId);
+    }
+
+    private void lockBusinessKey(MasterDataChangeRequest request) {
+        businessKeyLockPort.lock(request.getTargetType(), request.getTargetKey());
     }
 
     private MasterDataChangeRequest findForDecision(Long requestId) {

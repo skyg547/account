@@ -18,7 +18,8 @@ public record GenerateCashflowStatementRequest(
         @NotNull CashflowMethod method,
         @NotBlank String currency,
         @NotNull LocalDateTime generatedAt,
-        @NotNull List<@Valid CashflowLineItemRequest> lineItems) {
+        // @Valid skips null elements, so reject them before converting line items.
+        @NotNull List<@NotNull @Valid CashflowLineItemRequest> lineItems) {
 
     public GenerateStatementCommand toCommand() {
         return new GenerateStatementCommand(

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Gateway가 검증해 전달한 역할 헤더를 직접 쓰기 경계에서 확인해, 역할이 없거나 허용되지 않으면
+ * 서비스 입구가 JWT와 일치시킨 역할 헤더를 직접 쓰기 경계에서 확인해, 역할이 없거나 허용되지 않으면
  * 승인 우회 mutation을 fail-closed 합니다.
  *
  * <p>높은 우선순위의 scoped advice가 정책의 {@link ResponseStatusException}을 먼저 처리해 공통
@@ -29,19 +29,27 @@ final class MasterDataDirectWritePolicy {
 
     private static final Set<String> ADMIN_ROLES = Set.of(
             "ADMIN", "SYSTEM_ADMIN", "MASTER_MANAGER", "ACCOUNTING_ADMIN", "PARTNER_MANAGER");
+    private static final Set<String> SCREENING_REVIEWER_ROLES = Set.of("SCREENING_REVIEWER");
 
     MasterDataDirectWritePolicy() {
     }
 
     static void requireAdminRole(String authenticatedRoles) {
+        requireRole(authenticatedRoles, ADMIN_ROLES, "Master Data administrator role is required.");
+    }
+
+    static void requireScreeningReviewerRole(String authenticatedRoles) {
+        requireRole(authenticatedRoles, SCREENING_REVIEWER_ROLES, "Screening reviewer role is required.");
+    }
+
+    private static void requireRole(String authenticatedRoles, Set<String> allowedRoles, String failureReason) {
         boolean authorized = authenticatedRoles != null && Arrays.stream(authenticatedRoles.split(","))
                 .map(String::trim)
                 .filter(role -> !role.isEmpty())
                 .map(role -> role.startsWith("ROLE_") ? role.substring("ROLE_".length()) : role)
-                .anyMatch(ADMIN_ROLES::contains);
+                .anyMatch(allowedRoles::contains);
         if (!authorized) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Master Data administrator role is required.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, failureReason);
         }
     }
 

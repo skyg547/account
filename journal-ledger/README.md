@@ -2,6 +2,8 @@
 
 `journal-ledger`는 회사에서 돈이 나가고 들어오는 모든 거래가 "차변/대변이 일치하는 복식부기 전표" 형태로 기록되는 회계 시스템의 가장 핵심적인 장부 기록 센터입니다. API는 전표/원장 조회와 전기 요청을 받고, Batch는 과거 기간 GL/SL 잔액 재집계를 실행합니다.
 
+도메인 Java 소스는 Spring/JPA import 없이 컴파일됩니다. 저장 테이블·관계·정밀도는 core JAR의 `META-INF/journal-ledger-orm.xml`에 명시하고, Spring Data 저장소와 lifecycle listener는 `infrastructure.persistence`에 둡니다. 처음 보는 개발자는 [계층 가이드](docs/layer-guide.md)에서 도메인 → 출력 포트 → 저장 어댑터 흐름을 확인할 수 있습니다.
+
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
@@ -13,7 +15,7 @@
 1. **전표 (`JournalEntry`):** 회계 처리 한 건의 헤더 ("2026-04-13 대출 실행 전표")
 2. **전표 라인 (`JournalDetail`):** 실제 차변/대변 상세 줄.
 3. **상태 변화:** 작성 중(`DRAFT`) -> 승인 요청(`REQUESTED`) -> 승인됨(`APPROVED`) -> 원장 반영 완료(**`POSTED`**)
-4. **GL / SL:** 
+4. **GL / SL:**
    - `GL (총계정원장)`: 계정과목 중심의 큰 장부
    - `SL (보조원장)`: 거래처, 부서 등 상세 차원을 포함한 보조 장부
 5. **Lineage (추적 키):** 이 전표가 시스템의 어떤 원천 문서(지출결의서 등)에서 왔는지 알려주는 꼬리표(`lineageSourceType`, `lineageSourceId`). 드릴다운(Drill-down)의 핵심입니다.
@@ -43,7 +45,7 @@ sequenceDiagram
     participant DB as Persistence Adapter
 
     App->>Service: 전표 생성 요청 (JournalEntry)
-    Service->>DB: 생성 identity stripe 잠금 / V18 registry 조회
+    Service->>DB: 생성 identity stripe 잠금 / V20 registry 조회
     Note over Service, DB: 같은 fingerprint면 기존 전표 반환<br/>다르면 충돌로 거부
     Service->>Engine: validate(entry) 호출
     Note over Engine: 1. 차대일치 확인<br/>2. 마감 여부 확인(Closing 연동)<br/>3. 계정 유효성 확인(Master 연동)
@@ -123,14 +125,16 @@ erDiagram
 - 전표 생성 전 반드시 `contracts` 모듈의 Port를 통해 계정 코드와 마감 여부를 확인해야 합니다.
 - 전표 헤더의 `currencyCode`와 `exchangeRate`가 현재 계약에서 환산 근거입니다. `currencyCode`의 `null`/공백은 호환성을 위해 KRW로 취급하고, KRW는 환율 생략 또는 1만 허용합니다. 외화는 명시적인 양수 환율과 라인별 `baseAmount`가 필요합니다. 수동 HTTP는 통화와 무관하게 `baseAmount`가 필수입니다. Contract는 null/공백/KRW와 환율 생략 또는 1인 동일단위 입력에 한해서만 누락된 `baseAmount`를 `amount`로 채우며, 외화 누락이나 공급값 불일치는 저장 전에 거부합니다. 자동분개 이벤트는 거래통화 키(`transactionCurrencyCode`, `currencyCode`, `currency`)와 거래통화→기준통화 환율 키(`transactionToBaseRate`, `exchangeRate`, `fxRate`)만 사용하고, 여러 별칭이 함께 있으면 정규화 후 모두 같아야 합니다. 상세 반올림과 잔여 배분은 [업무 흐름 문서](docs/process-flow.md#거래통화에서-기준통화krw로-환산)를 확인하세요.
 - **GL/SL 잔액 조회:** 외부 모듈은 `LedgerQueryPort`를 통해 journal-ledger 엔티티 구조를 모르고도 잔액을 조회할 수 있습니다.
+- **잔액 차원 구분:** 전기와 기간 조회는 같은 계정·통화·거래처·부서 값을 각각 비교합니다. SL의 `null`, 빈 코드, 문자 그대로의 `NULL`, `|`를 포함한 코드는 별개이며, 자세한 예와 회귀 명령은 [업무 흐름의 차원 키 설명](docs/process-flow.md#glsl-잔액-차원-키)을 확인하세요.
+- Kafka 자동분개는 원천 payload의 ISO `accountingDate`를 필수로 요구합니다. 누락·무효 날짜는 전표 생성과 quarantine 저장 전에 실패하며, 소비 시각의 날짜로 대체하지 않습니다. 적용 규칙이 없으면 V18 quarantine에 topic/partition/offset, payload와 최초 회계일을 영속 보존하고 replay도 같은 회계일을 사용합니다. accounting admin은 payload/key를 노출하지 않는 completeness API로 pending age/count와 broker 좌표를 확인하고, 규칙 보정 뒤 행 잠금 기반 replay를 실행합니다. 다른 처리 예외는 기본 2회 재시도 후 같은 partition의 `<topic>.DLT`로 보내며 DLT 발행 실패는 fail-closed합니다. 마감 원천 이벤트, 인증된 별도 조정 전표 흐름, V18 quarantine과 V20 일반 생성 멱등성의 관계는 [업무 흐름 문서](docs/process-flow.md#kafka-미매칭-격리와-재생)를 확인하세요.
 - 전표 HTTP API는 도메인 엔티티를 직접 노출하지 않고 전용 요청/응답 DTO를 사용합니다. 쓰기 명령은 Gateway가 JWT에서 다시 만든 `X-Auth-User`와 `X-Auth-Roles`만 사용하며, maker 작성/승인요청 → 별도 approver 승인 → poster 전기 순서를 강제합니다. 역할과 오류는 [업무 흐름 문서](docs/process-flow.md#maker-checker-승인과-http-권한)를 확인하세요.
-- 전표 생성의 멱등 identity는 lineage 두 값과 명시적인 `operationKey`의 조합입니다. 수동 HTTP는 필수 `Idempotency-Key`, 이벤트 HTTP/Kafka는 `journalOperationKey`/`operationKey`, contract는 전표 번호 `slipNo`와 별개의 `operationKey`를 사용합니다. 키가 없으면 생성 전에 거부합니다. 같은 키·같은 fingerprint는 기존 결과, 같은 키·다른 fingerprint는 HTTP `409 Conflict` 또는 호출 경로의 명시적 실패입니다. 자세한 재시도·배포 조건은 [업무 흐름](docs/process-flow.md#전표-생성-멱등성)과 [동시성 문서](docs/posting-concurrency.md)를 확인하세요.
+- 전표 생성의 멱등 identity는 lineage 두 값과 명시적인 `operationKey`의 조합입니다. 수동 HTTP는 필수 `Idempotency-Key`, 이벤트 HTTP는 이 헤더 또는 payload의 `journalOperationKey`/`operationKey`를 사용하며 헤더가 우선합니다. Kafka는 payload의 두 키 중 하나, contract는 전표 번호 `slipNo`와 별개의 `operationKey`를 사용합니다. 키가 없으면 생성 전에 거부합니다. 같은 키·같은 fingerprint는 기존 결과, 같은 키·다른 fingerprint는 HTTP `409 Conflict` 또는 호출 경로의 명시적 실패입니다. 자세한 재시도·배포 조건은 [업무 흐름](docs/process-flow.md#전표-생성-멱등성)과 [동시성 문서](docs/posting-concurrency.md)를 확인하세요.
 - 공개 `POST /api/journals`의 `entryType`에 caller가 `REVERSAL`을 지정하면 HTTP `400`을 반환합니다. 주변 공백이나 대소문자를 바꾸어도 같게 거부됩니다. 역분개는 원본 잠금과 operation 저장을 함께 수행하는 관리형 `reverseJournalEntry` 유스케이스로만 생성합니다.
 - 미결 반제 요청은 `settlementReference`와 `X-User-ID`를 함께 저장합니다. 동일 참조번호가 재전송되면 금액을 중복 반영하지 않습니다.
-- 같은 전표의 동시 전기는 헤더 잠금과 전표 상세 고유 키로 중복 반영을 차단합니다. 서로 다른 전표의 같은 계정·통화 잔액은 공통 잠금 행을 확보한 뒤 최신 값으로 갱신합니다. `READ_COMMITTED` 쓰기 트랜잭션과 V14가 필요하며, [동작·재시도·배포 조건](docs/posting-concurrency.md)을 확인하세요.
+- 같은 전표의 동시 전기는 헤더 잠금과 전표 상세 고유 키로 중복 반영을 차단합니다. 서로 다른 전표의 같은 계정·통화 잔액은 공통 잠금 행을 확보한 뒤 최신 값으로 갱신합니다. 과거일 전기는 GL 및 정확한 nullable SL 키의 기존 후속일 기초·기말도 같은 delta만큼 set-based로 이동합니다. `READ_COMMITTED` 쓰기 트랜잭션과 V14가 필요하며, [동작·재시도·배포 조건](docs/posting-concurrency.md)을 확인하세요.
 - 역분개 생성은 원본 `POSTED` 헤더를 잠그고, V17의 원본 PK 관계를 확인합니다. V17은 `journal_entries(id, status)` UNIQUE와 operation의 `(original_journal_entry_id, original_journal_status='POSTED')` 복합 FK로 DB 경계에서도 전기된 원본만 허용합니다. 순차·동시 중복은 첫 작성자가 만든 현재 역분개로 수렴합니다. 생성 날짜는 기존 검증 엔진의 회계기간 검사를 통과해야 하고, 취소는 전기되지 않은 역분개를 `REJECTED` 처리한 뒤 권리를 다시 엽니다. [생성·재시도·취소 흐름](docs/process-flow.md#원본당-단일-역분개-작업)과 [V17 배포 조건](docs/posting-concurrency.md#v17-역분개-작업-업그레이드와-롤백)을 확인하세요.
 - 관리형 역분개는 과거 `POSTED` 원본이 새 환산 의미 규칙에 맞지 않더라도 원본의 환율·거래금액·기준금액을 그대로 복사하고 차대만 반전하여 실제 원장 효과를 상쇄할 수 있습니다. 거래/기준통화 차대일치와 금액 정밀도는 계속 검사하며, 공개·임의 `REVERSAL` 생성은 허용하지 않습니다.
-- 재집계 Job은 V15의 영속 제어 행을 `REBUILDING`으로 닫고 JobInstance ID와 정규화 기간을 고정합니다. 장애 중에는 잔액 조회·전기·다른 재집계를 fail-closed로 거부하며, 같은 JobInstance만 저장된 chunk checkpoint에서 재개합니다. 최종 GL/SL 대사가 성공해야 `OPEN`으로 공개됩니다.
+- 재집계 Job은 모든 writer stripe를 잡고 요청 종료일을 기존 GL/SL 최종일과 최신 `POSTED` 회계일까지 확장한 뒤, V15의 영속 제어 행을 `REBUILDING`으로 닫고 JobInstance ID와 유효 기간을 실행 context와 함께 고정합니다. 장애 중에는 잔액 조회·전기·다른 재집계를 fail-closed로 거부하며, 같은 JobInstance만 저장된 chunk checkpoint에서 재개합니다. replay 중에는 후속 delta 전파를 끄고 최종 GL/SL 대사가 성공해야 `OPEN`으로 공개됩니다.
 - 재무 잔액과 기간 집계 조회에는 원장 반영이 끝난 `POSTED` 전표만 포함됩니다. `APPROVED` 전표는 아직 재무제표 금액이 아닙니다.
 - `POSTED` 전표의 공개 setter, 상세 소유권 변경과 `add/remove/clear/setDetails`는 즉시 `IllegalStateException`으로 거부됩니다. JPA 저장 콜백은 일반 repository 삭제를 포함한 이미 확정된 헤더·상세의 수정, merge, 추가·삭제를 막고, 두 journal repository는 콜백을 우회하는 batch 삭제 메서드를 명시적으로 거부합니다. `DRAFT`/`REQUESTED`/`APPROVED`는 기존 상태 규칙 안에서 계속 편집할 수 있습니다. 상세 경계와 우회 위험은 [업무 흐름](docs/process-flow.md#posted-최종-이력-보호)과 [데이터 모델](docs/schema.md#posted-전표의-영속-이력-보호)을 확인하세요.
 - 운영 대량 전기/재집계는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch insert/upsert 어댑터를 사용할 수 있습니다. 기본값은 JPA입니다.
@@ -154,6 +158,13 @@ Linux/macOS에서 Issue #758의 전기 이력 보호를 포함한 모듈 전체 
 ./gradlew :journal-ledger:test
 ```
 
+도메인 경계만 확인하려면 저장소 루트에서 아래 명령을 실행합니다. 도메인 Java 소스에 Spring/JPA 참조가 다시 생기면 테스트가 실패합니다. 전체 명령은 core·API·Batch 테스트도 실행합니다.
+
+```bash
+./gradlew :journal-ledger:core:test --tests '*DomainFrameworkBoundaryTest'
+./gradlew :journal-ledger:test
+```
+
 이 수치는 Issue #758 당시의 역사적 검증 결과(core 29 suites/215 tests, API 15/51,
 batch 4/11, 합계 48 suites/277 tests)이며
 실패·오류·skip은 0입니다. 이 명령은 JPA/도메인 회귀를 확인하며, 직접 SQL이나 운영 DB 권한을
@@ -172,7 +183,7 @@ KRW로 고정되어 있고 환율 공급자·환율 출처·적용일 필드는 
 fail-closed하므로 승인된 정정 절차가 필요합니다.
 
 프로파일을 생략하면 API와 Batch 모두 `local`이 선택되어 각자의 전용 H2 PostgreSQL mode DB에
-모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17/V18을 적용하고 Hibernate가 스키마를 검증합니다.
+모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17/V18/V19/V20을 적용하고 Hibernate가 스키마를 검증합니다.
 `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
 애플리케이션 Flyway와 SQL/Batch 자동 초기화를 끕니다. 배포 전 migration은 별도
 `migration-runner`만 수행합니다. Journal의 Master Data 조회는 local에서 명시적인 local

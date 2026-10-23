@@ -1,11 +1,16 @@
 package com.ho.account.asset.infrastructure.persistence.repository;
 
 import com.ho.account.asset.domain.LeaseContract;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * [헥사고날 아키텍처 - 인프라스트럭처 영속성 계층 (Infrastructure Persistence Repository)]
@@ -17,6 +22,11 @@ import java.util.List;
  */
 @Repository
 public interface LeaseContractRepository extends JpaRepository<LeaseContract, Long> {
+    // Serialize remeasurements before reading balances and future rows, including extension inserts.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from LeaseContract c where c.id = :id")
+    Optional<LeaseContract> findByIdForUpdate(@Param("id") Long id);
+
     List<LeaseContract> findByStatus(String status);
     List<LeaseContract> findByStatusAndEndDateBefore(String status, LocalDate date);
 

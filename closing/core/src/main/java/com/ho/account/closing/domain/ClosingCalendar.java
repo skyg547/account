@@ -1,7 +1,7 @@
 package com.ho.account.closing.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 /**
  * 결산 캘린더(Closing Calendar) 엔티티.
@@ -9,73 +9,61 @@ import java.time.LocalDateTime;
  * <p>특정 회계연도와 회계기간의 결산 진행 상태를 관리합니다.
  * 초보자 관점에서는 "이번 달 마감표"라고 이해하면 됩니다.
  */
-@Entity
-@Table(name = "closing_calendars", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "fiscal_year", "fiscal_period" })
-})
+
 public class ClosingCalendar {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "fiscal_year", nullable = false, length = 4)
     private String fiscalYear;
 
-    @Column(name = "fiscal_period", nullable = false, length = 20) // MM, Q1, H1, YEAR 등 기간 코드
+     // MM, Q1, H1, YEAR 등 기간 코드
     private String fiscalPeriod;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ClosingCalendarStatus status; // OPEN, IN_PROGRESS, CLOSED, PERMANENTLY_CLOSED
 
-    @Column(length = 50)
     private String closeInitiatedBy;
 
     private LocalDateTime closeInitiatedAt;
 
-    @Column(length = 50)
     private String closedBy;
 
     private LocalDateTime closedAt;
 
-    @Column(length = 50)
     private String reopenedBy;
 
     private LocalDateTime reopenedAt;
 
-    @Column(nullable = false)
+    /** Each successful reopen starts a fresh checklist and approval cycle. */
+    private int cycleNumber = 1;
+
+    /** UTC watermark for changes to journal source state admitted through closing. */
+    private LocalDateTime lastSourceChangedAt;
     private boolean isCurrentPeriod; // 현재 활성 결산 기간 여부
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
     private String auditUser;
 
     // Durable intent survives a failed/ambiguous remote Master call. Calendar admission stays closed
     // until the original target is confirmed; a dispatched operation is never automatically replayed.
-    @Column(length = 36)
+
     private String transitionId;
 
-    @Column(length = 6)
     private String transitionTarget;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
     private TransitionStage transitionStage;
 
     private Long transitionFiscalPeriodId;
     private Long transitionApprovalId;
 
-    @Column(length = 50)
     private String transitionActor;
 
     private LocalDateTime transitionPreparedAt;
 
-    @Transient
+    private String transitionEvidenceSetId;
+
     private String name;
 
     public enum ClosingCalendarStatus {
@@ -91,6 +79,21 @@ public class ClosingCalendar {
     public Long getTransitionApprovalId() { return transitionApprovalId; }
     public String getTransitionActor() { return transitionActor; }
     public LocalDateTime getTransitionPreparedAt() { return transitionPreparedAt; }
+    public String getTransitionEvidenceSetId() { return transitionEvidenceSetId; }
+
+    /** Reconstitutes a durable transition exactly as stored, without running a new decision. */
+    public void restoreTransition(String id, String target, TransitionStage stage,
+            Long fiscalPeriodId, Long approvalId, String actor,
+            LocalDateTime preparedAt, String evidenceSetId) {
+        this.transitionId = id;
+        this.transitionTarget = target;
+        this.transitionStage = stage;
+        this.transitionFiscalPeriodId = fiscalPeriodId;
+        this.transitionApprovalId = approvalId;
+        this.transitionActor = actor;
+        this.transitionPreparedAt = preparedAt;
+        this.transitionEvidenceSetId = evidenceSetId;
+    }
 
     public void requireNoTransition() {
         if (transitionId != null) {
@@ -105,13 +108,27 @@ public class ClosingCalendar {
         }
     }
 
-    public void prepareTransition(String target, Long fiscalPeriodId, Long approvalId, String actor) {
+    public void prepareTransition(
+            String target,
+            Long fiscalPeriodId,
+            Long approvalId,
+            String evidenceSetId,
+            String actor) {
         requireNoTransition();
         requireActor(actor);
         if (("OPEN".equals(target) && status != ClosingCalendarStatus.CLOSED)
                 || ("CLOSED".equals(target) && status != ClosingCalendarStatus.IN_PROGRESS)
                 || (!"OPEN".equals(target) && !"CLOSED".equals(target))) {
             throw new IllegalStateException("Invalid calendar transition target: " + target);
+        }
+        if ("CLOSED".equals(target) && (evidenceSetId == null || evidenceSetId.isBlank())) {
+            throw new IllegalStateException("A CLOSED transition requires final-close evidence.");
+        }
+        if (evidenceSetId != null && evidenceSetId.trim().length() > 100) {
+            throw new IllegalArgumentException("evidenceSetId must not exceed 100 characters");
+        }
+        if ("OPEN".equals(target) && evidenceSetId != null) {
+            throw new IllegalStateException("An OPEN transition cannot carry final-close evidence.");
         }
         this.transitionId = java.util.UUID.randomUUID().toString();
         this.transitionTarget = target;
@@ -120,7 +137,15 @@ public class ClosingCalendar {
         this.transitionApprovalId = approvalId;
         this.transitionActor = actor.trim();
         this.transitionPreparedAt = LocalDateTime.now();
+        // Freeze the distributed snapshot with the durable intent so recovery cannot select newer evidence.
+        this.transitionEvidenceSetId = evidenceSetId == null ? null : evidenceSetId.trim();
         this.auditUser = actor.trim();
+    }
+
+    /** @deprecated CLOSED transitions must use the evidence-binding overload. */
+    @Deprecated
+    public void prepareTransition(String target, Long fiscalPeriodId, Long approvalId, String actor) {
+        prepareTransition(target, fiscalPeriodId, approvalId, null, actor);
     }
 
     public void requireTransition(String operationId) {
@@ -131,14 +156,36 @@ public class ClosingCalendar {
 
     public void markTransitionDispatched(String operationId) {
         requireTransition(operationId);
+        requireTransitionEvidence();
         if (transitionStage != TransitionStage.PREPARED) {
             throw new IllegalStateException("A dispatched fiscal period transition cannot be replayed.");
         }
         transitionStage = TransitionStage.DISPATCHED;
     }
 
+    /** Releases only a never-dispatched final-close intent; its prior binding remains in audit history. */
+    public void cancelPreparedClose(String operationId, String actor) {
+        requireTransition(operationId);
+        requireActor(actor);
+        if (status != ClosingCalendarStatus.IN_PROGRESS
+                || transitionStage != TransitionStage.PREPARED
+                || !"CLOSED".equals(transitionTarget)) {
+            throw new IllegalStateException("Only a PREPARED final-close transition can be cancelled.");
+        }
+        transitionId = null;
+        transitionTarget = null;
+        transitionStage = null;
+        transitionFiscalPeriodId = null;
+        transitionApprovalId = null;
+        transitionActor = null;
+        transitionPreparedAt = null;
+        transitionEvidenceSetId = null;
+        auditUser = actor.trim();
+    }
+
     public void finishTransition(String operationId) {
         requireTransition(operationId);
+        requireTransitionEvidence();
         if (transitionStage != TransitionStage.DISPATCHED) {
             throw new IllegalStateException("Fiscal period transition has not been dispatched.");
         }
@@ -154,22 +201,19 @@ public class ClosingCalendar {
         transitionApprovalId = null;
         transitionActor = null;
         transitionPreparedAt = null;
+        transitionEvidenceSetId = null;
     }
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
-            this.status = ClosingCalendarStatus.OPEN;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
+    private void requireTransitionEvidence() {
+        if ("CLOSED".equals(transitionTarget)
+                && (transitionEvidenceSetId == null || transitionEvidenceSetId.isBlank())) {
+            throw new IllegalStateException("CLOSED transition evidence is missing; transition remains fenced.");
+        }
+        if ("OPEN".equals(transitionTarget) && transitionEvidenceSetId != null) {
+            throw new IllegalStateException("OPEN transition carries invalid close evidence; transition remains fenced.");
+        }
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 
     // Getter and Setter
     public Long getId() {
@@ -280,6 +324,42 @@ public class ClosingCalendar {
         return auditUser;
     }
 
+    public int getCycleNumber() {
+        return cycleNumber;
+    }
+
+    public LocalDateTime getLastSourceChangedAt() {
+        return lastSourceChangedAt;
+    }
+
+    public void recordSourceChange() {
+        requireChecklistMutable();
+        LocalDateTime changedAt = LocalDateTime.now(ZoneOffset.UTC);
+        if (lastSourceChangedAt == null || changedAt.isAfter(lastSourceChangedAt)) {
+            lastSourceChangedAt = changedAt;
+        }
+    }
+
+    /** Legacy reopened calendars need a trusted runtime UTC fence before new close evidence. */
+    public void establishLegacyEvidenceFence() {
+        if (reopenedAt != null && lastSourceChangedAt == null) {
+            recordSourceChange();
+        }
+    }
+
+    /** Invalidates current checklist evidence when an admitted source change follows progress. */
+    public void advanceCycleForSourceChange() {
+        requireChecklistMutable();
+        cycleNumber = Math.incrementExact(cycleNumber);
+    }
+
+    /** Reject stale checklist IDs even while the reopened calendar is mutable. */
+    public void requireActiveCycle(int evidenceCycleNumber) {
+        if (evidenceCycleNumber != cycleNumber) {
+            throw new IllegalStateException("Closing task or gate belongs to a previous close cycle.");
+        }
+    }
+
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
     }
@@ -292,8 +372,8 @@ public class ClosingCalendar {
      * @return 완료 가능 여부
      */
     public boolean isReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
-        java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
-        java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+        java.util.List<ClosingTask> safeTasks = activeTasks(tasks);
+        java.util.List<ClosingGate> safeGates = activeGates(gates);
         if (safeTasks.stream().noneMatch(ClosingTask::isMandatory) || safeGates.isEmpty()) {
             return false;
         }
@@ -319,8 +399,8 @@ public class ClosingCalendar {
      * @param gates 현재 회기의 결산 게이트 목록
      */
     public void validateReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
-        java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
-        java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+        java.util.List<ClosingTask> safeTasks = activeTasks(tasks);
+        java.util.List<ClosingGate> safeGates = activeGates(gates);
         if (safeTasks.stream().noneMatch(ClosingTask::isMandatory)) {
             throw new IllegalStateException("At least one mandatory closing task must be defined.");
         }
@@ -366,7 +446,7 @@ public class ClosingCalendar {
         }
         this.status = ClosingCalendarStatus.IN_PROGRESS;
         this.closeInitiatedBy = user.trim();
-        this.closeInitiatedAt = LocalDateTime.now();
+        this.closeInitiatedAt = LocalDateTime.now(ZoneOffset.UTC);
         this.auditUser = user.trim();
     }
 
@@ -375,10 +455,28 @@ public class ClosingCalendar {
         if (this.status != ClosingCalendarStatus.CLOSED) {
             throw new IllegalStateException("Only a CLOSED closing calendar can be reopened.");
         }
+        this.cycleNumber = Math.incrementExact(cycleNumber);
         this.status = ClosingCalendarStatus.OPEN;
         this.reopenedBy = user.trim();
         this.reopenedAt = LocalDateTime.now();
+        // Also fences the next final-close snapshot when no adjustment follows this reopen.
+        LocalDateTime reopenedFence = LocalDateTime.now(ZoneOffset.UTC);
+        if (lastSourceChangedAt == null || reopenedFence.isAfter(lastSourceChangedAt)) {
+            this.lastSourceChangedAt = reopenedFence;
+        }
         this.auditUser = user.trim();
+    }
+
+    private java.util.List<ClosingTask> activeTasks(java.util.List<ClosingTask> tasks) {
+        return (tasks == null ? java.util.List.<ClosingTask>of() : tasks).stream()
+                .filter(task -> task.getCycleNumber() == cycleNumber)
+                .toList();
+    }
+
+    private java.util.List<ClosingGate> activeGates(java.util.List<ClosingGate> gates) {
+        return (gates == null ? java.util.List.<ClosingGate>of() : gates).stream()
+                .filter(gate -> gate.getCycleNumber() == cycleNumber)
+                .toList();
     }
 
     private void requireActor(String user) {

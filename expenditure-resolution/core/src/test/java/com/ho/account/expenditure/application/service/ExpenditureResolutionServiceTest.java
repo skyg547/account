@@ -19,17 +19,23 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -148,6 +154,37 @@ class ExpenditureResolutionServiceTest {
         assertEquals(100L, resolution.getJournalEntryId());
         verify(journalPostingPort).createDraftEntry(any(JournalEntryCommand.class));
         verify(resolutionPersistencePort).save(resolution);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidPostingResults")
+    void approveResolutionRejectsInvalidJournalResponse(
+            String caseName, JournalPostingResult postingResult) {
+        ExpenditureResolutionService service = createService();
+        ExpenditureResolution resolution = requestedResolution();
+        resolution.setLeaseContractId(5L);
+        givenMasterData();
+        when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(resolution));
+        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenReturn(postingResult);
+
+        assertThrows(IllegalStateException.class, () -> service.approveResolution(1L));
+
+        assertEquals(ExpenditureResolutionStatus.REQUESTED, resolution.getStatus());
+        assertNull(resolution.getJournalEntryId());
+        verify(resolutionPersistencePort, never()).save(any(ExpenditureResolution.class));
+        verifyNoInteractions(assetRegistrationPort);
+    }
+
+    private static Stream<Arguments> invalidPostingResults() {
+        return Stream.of(
+                Arguments.of("null posting result", (Object) null),
+                Arguments.of("missing journal entry ID", new JournalPostingResult(null, "SLIP-X", "DRAFT")),
+                Arguments.of("zero journal entry ID", new JournalPostingResult(0L, "SLIP-X", "DRAFT")),
+                Arguments.of("negative journal entry ID", new JournalPostingResult(-1L, "SLIP-X", "DRAFT")),
+                Arguments.of("missing status", new JournalPostingResult(101L, "SLIP-X", null)),
+                Arguments.of("blank status", new JournalPostingResult(101L, "SLIP-X", " ")),
+                Arguments.of("unexpected status", new JournalPostingResult(101L, "SLIP-X", "POSTED")));
     }
 
     @Test

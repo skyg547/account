@@ -51,10 +51,21 @@ public class AuthModuleProperties {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.jwt.secret' must be at least 32 UTF-8 bytes for secure HS256 signing.");
         }
+        if (jwt.getIssuer() == null || jwt.getIssuer().isBlank()
+                || jwt.getAudience() == null || jwt.getAudience().isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: JWT issuer and audience must be configured.");
+        }
+        // A one-second configured TTL can round down to less than one usable JWT second.
+        if (jwt.getExpirationSeconds() < 2) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.jwt.expiration-seconds' must be at least 2.");
+        }
         if (internalApi.getToken() == null || internalApi.getToken().isBlank()) {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
         }
+        masterData.validateTimeouts();
         validateConfiguredUsers();
     }
 
@@ -214,6 +225,7 @@ public class AuthModuleProperties {
     public static class Jwt {
         private String secret;
         private String issuer = "auth-service";
+        private String audience = "account-api";
         private long expirationSeconds = 3600L;
 
         public String getSecret() {
@@ -232,6 +244,14 @@ public class AuthModuleProperties {
             this.issuer = issuer;
         }
 
+        public String getAudience() {
+            return audience;
+        }
+
+        public void setAudience(String audience) {
+            this.audience = audience;
+        }
+
         public long getExpirationSeconds() {
             return expirationSeconds;
         }
@@ -243,6 +263,9 @@ public class AuthModuleProperties {
 
     public static class MasterData {
         private String baseUrl = "http://localhost:8082";
+        // Bind text first so even malformed external values produce only a field-path validation error.
+        private String connectTimeoutMillis = "1000";
+        private String readTimeoutMillis = "3000";
 
         public String getBaseUrl() {
             return baseUrl;
@@ -250,6 +273,47 @@ public class AuthModuleProperties {
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
+        }
+
+        public String getConnectTimeoutMillis() {
+            return connectTimeoutMillis;
+        }
+
+        public void setConnectTimeoutMillis(String connectTimeoutMillis) {
+            this.connectTimeoutMillis = connectTimeoutMillis;
+        }
+
+        public String getReadTimeoutMillis() {
+            return readTimeoutMillis;
+        }
+
+        public void setReadTimeoutMillis(String readTimeoutMillis) {
+            this.readTimeoutMillis = readTimeoutMillis;
+        }
+
+        public int validatedConnectTimeoutMillis() {
+            return boundedTimeout(connectTimeoutMillis, "auth.master-data.connect-timeout-millis");
+        }
+
+        public int validatedReadTimeoutMillis() {
+            return boundedTimeout(readTimeoutMillis, "auth.master-data.read-timeout-millis");
+        }
+
+        private void validateTimeouts() {
+            validatedConnectTimeoutMillis();
+            validatedReadTimeoutMillis();
+        }
+
+        private static int boundedTimeout(String value, String fieldPath) {
+            try {
+                int millis = Integer.parseInt(value);
+                if (millis > 0 && millis <= 10_000) {
+                    return millis;
+                }
+            } catch (NumberFormatException ignored) {
+                // Keep the supplied text out of the startup error, including nested causes.
+            }
+            throw failClosed(fieldPath + " must be between 1 and 10000 milliseconds.");
         }
     }
 
@@ -280,7 +344,7 @@ public class AuthModuleProperties {
     public static class LoginSecurity {
         private int maxFailures = 5;
         private long lockDurationMinutes = 15L;
-        private String store = "memory";
+        private String store = "jpa";
 
         public int getMaxFailures() {
             return maxFailures;

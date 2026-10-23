@@ -1,0 +1,29 @@
+{
+  "cluster": "reporting_mart",
+  "issues": [
+    {
+      "id": "REPORTING_MART_01",
+      "title": "[reporting] 서로 다른 통화의 GL 잔액을 계정코드만으로 합산하여 FINAL 재무제표에 저장",
+      "priority": "P1",
+      "module": "reporting",
+      "labels": ["module:reporting", "area:core", "type:financial", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "REPORTING_MART_01.md"
+    },
+    {
+      "id": "REPORTING_MART_02",
+      "title": "[account-mart] 기준일 외화 환율 누락 시 원금을 KRW 평가금액으로 저장",
+      "priority": "P1",
+      "module": "account-mart",
+      "labels": ["module:account-mart", "area:core", "type:financial", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "REPORTING_MART_02.md"
+    },
+    {
+      "id": "REPORTING_MART_03",
+      "title": "[account-mart] GL/SL 대사 불일치에도 통합 배치가 스냅샷과 준비 완료 이벤트까지 진행",
+      "priority": "P1",
+      "module": "account-mart",
+      "labels": ["module:account-mart", "area:batch", "type:financial", "priority:p1", "agent-loop", "status:ready", "spec-driven"],
+      "file": "REPORTING_MART_03.md"
+    }
+  ]
+}

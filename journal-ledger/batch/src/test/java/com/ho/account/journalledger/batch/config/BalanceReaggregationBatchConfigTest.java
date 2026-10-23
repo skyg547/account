@@ -4,11 +4,13 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
+import com.ho.account.journalledger.infrastructure.persistence.repository.GlBalanceRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.SlBalanceRepository;
+import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.BalanceReaggregationService;
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
@@ -16,6 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.BatchStatus;
@@ -29,32 +33,43 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @SpringBatchTest
 @SpringBootTest(
@@ -82,6 +97,24 @@ import static org.mockito.Mockito.verify;
 @ActiveProfiles("local")
 class BalanceReaggregationBatchConfigTest {
 
+    private static final Instant INITIAL_CLOCK_INSTANT = Instant.parse("2026-08-04T00:30:00Z");
+    private static final String CLEANUP_POSTGRES_URL = System.getenv("JOURNAL_BALANCE_CLEANUP_TEST_POSTGRES_URL");
+    private static final String CLEANUP_POSTGRES_SCHEMA = "cleanup_" + UUID.randomUUID().toString().replace("-", "");
+
+    @DynamicPropertySource
+    static void disposablePostgres(DynamicPropertyRegistry registry) {
+        if (CLEANUP_POSTGRES_URL == null || CLEANUP_POSTGRES_URL.isBlank()) {
+            return;
+        }
+        registry.add("spring.datasource.url", () -> CLEANUP_POSTGRES_URL
+                + (CLEANUP_POSTGRES_URL.contains("?") ? "&" : "?")
+                + "currentSchema=" + CLEANUP_POSTGRES_SCHEMA);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("spring.datasource.username", () -> "postgres");
+        registry.add("spring.flyway.schemas", () -> CLEANUP_POSTGRES_SCHEMA);
+        registry.add("spring.jpa.properties.hibernate.default_schema", () -> CLEANUP_POSTGRES_SCHEMA);
+    }
+
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
 
@@ -100,6 +133,9 @@ class BalanceReaggregationBatchConfigTest {
     @Autowired
     private SlBalanceRepository slBalanceRepository;
 
+    @Autowired
+    private LedgerBalancePersistencePort balancePersistence;
+
     @SpyBean
     private LedgerService ledgerService;
 
@@ -115,19 +151,58 @@ class BalanceReaggregationBatchConfigTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @MockBean
+    private Clock clock;
+
     @BeforeEach
     void setUp() {
-        reset(ledgerService, reaggregationService);
+        reset(clock, ledgerService, reaggregationService);
+        setClock(INITIAL_CLOCK_INSTANT);
         jdbcTemplate.update("UPDATE ledger_reaggregation_control SET status = 'OPEN',"
                 + " owner_job_instance_id = NULL, range_start = NULL, range_end = NULL, epoch = epoch + 1"
                 + " WHERE control_id = 1");
         jobLauncherTestUtils.setJob(dailyBalanceReaggregationJob);
         glBalanceRepository.deleteAllInBatch();
         slBalanceRepository.deleteAllInBatch();
-        // This fixed in-memory H2 database is disposable test state. Child rows must be removed first
-        // so fixture cleanup respects the journal_details -> journal_entries foreign key.
+        // The isolated test database is disposable. Remove child rows first so fixture cleanup
+        // respects the journal_details -> journal_entries foreign key on H2 and PostgreSQL.
         jdbcTemplate.update("DELETE FROM journal_details");
         jdbcTemplate.update("DELETE FROM journal_entries");
+    }
+
+    @Test
+    @DisplayName("GL/SL cleanup은 양끝 날짜를 포함하고 실패한 트랜잭션에서는 함께 롤백한다")
+    void cleanupDateBoundariesAndRollbackForBothLedgers() {
+        LocalDate start = LocalDate.of(2026, 8, 10);
+        LocalDate end = LocalDate.of(2026, 8, 12);
+        List<LocalDate> dates = List.of(start.minusDays(1), start, end, end.plusDays(1));
+        glBalanceRepository.saveAllAndFlush(dates.stream()
+                .map(date -> existingGlBalance(date, BigDecimal.ONE)).toList());
+        slBalanceRepository.saveAllAndFlush(dates.stream()
+                .map(this::existingSlBalance).toList());
+
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.executeWithoutResult(status -> {
+            balancePersistence.deleteBalancesBetween(start, end);
+            assertBalanceDateCounts(start, end, 0);
+            status.setRollbackOnly();
+        });
+        assertBalanceDateCounts(start, end, 2);
+
+        transaction.executeWithoutResult(status -> balancePersistence.deleteBalancesBetween(start, end));
+        assertBalanceDateCounts(start, end, 0);
+        assertThat(glBalanceRepository.findAll()).extracting(GlBalance::getBalanceDate)
+                .containsExactlyInAnyOrder(start.minusDays(1), end.plusDays(1));
+        assertThat(slBalanceRepository.findAll()).extracting(SlBalance::getBalanceDate)
+                .containsExactlyInAnyOrder(start.minusDays(1), end.plusDays(1));
+    }
+
+    private void assertBalanceDateCounts(LocalDate start, LocalDate end, int expected) {
+        for (String table : List.of("gl_balances", "sl_balances")) {
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table
+                    + " WHERE balance_date BETWEEN ? AND ?", Integer.class, start, end))
+                    .as(table + " inclusive cleanup count").isEqualTo(expected);
+        }
     }
 
     @Test
@@ -203,6 +278,40 @@ class BalanceReaggregationBatchConfigTest {
                 "10100", "KRW", targetDate, YearMonth.from(targetDate)).orElseThrow();
         assertThat(debitBal2.getDebitAmount()).isEqualByComparingTo(new BigDecimal("50000.00"));
         assertThat(debitBal2.getCreditAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("요청 종료일 뒤의 마지막 POSTED 일자까지 범위를 고정해 모든 후속 잔액을 재생한다")
+    void expandsAndFreezesRequestedRangeThroughTheLatestPostedSource() throws Exception {
+        LocalDate requestedDate = LocalDate.of(2026, 12, 31);
+        LocalDate latestPostedDate = LocalDate.of(2027, 2, 10);
+        JournalEntry first = approvedEntry(
+                "EXPAND-FIRST", requestedDate, "10100", "20100", new BigDecimal("100.00"));
+        JournalEntry sparseSuccessor = approvedEntry(
+                "EXPAND-SPARSE", latestPostedDate, "10100", "20100", new BigDecimal("20.00"));
+        journalEntryRepository.saveAllAndFlush(List.of(first, sparseSuccessor));
+        postPersistedEntries(List.of(first, sparseSuccessor));
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addString("startDate", requestedDate.toString())
+                .addString("endDate", requestedDate.toString())
+                .addLong("expandedRange", System.currentTimeMillis())
+                .toJobParameters());
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        verify(reaggregationService).clean(anyLong(), eq(requestedDate), eq(latestPostedDate));
+        GlBalance successor = glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
+                "10100", "KRW", latestPostedDate, YearMonth.from(latestPostedDate)).orElseThrow();
+        assertThat(successor.getBeginningBalance()).isEqualByComparingTo("100.00");
+        assertThat(successor.getDebitAmount()).isEqualByComparingTo("20.00");
+        assertThat(successor.getEndingBalance()).isEqualByComparingTo("120.00");
+        assertThat(slBalanceRepository.findAll()).filteredOn(balance ->
+                        balance.getAccountCode().equals("10100") && balance.getBalanceDate().equals(latestPostedDate))
+                .singleElement().satisfies(balance -> {
+                    assertThat(balance.getBeginningBalance()).isEqualByComparingTo("100.00");
+                    assertThat(balance.getDebitAmount()).isEqualByComparingTo("20.00");
+                    assertThat(balance.getEndingBalance()).isEqualByComparingTo("120.00");
+                });
     }
 
     @Test
@@ -368,6 +477,157 @@ class BalanceReaggregationBatchConfigTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    @DisplayName("날짜 없는 실행은 실패 후 날짜가 바뀌어도 같은 JobInstance와 최초 고정 기간으로 재시작한다")
+    void noDateRestartReusesTheFrozenRangeAfterTheClockAdvances() throws Exception {
+        LocalDate frozenDate = LocalDate.of(2026, 8, 3);
+        List<JournalEntry> sources = new ArrayList<>();
+        for (int index = 0; index < 51; index++) {
+            sources.add(approvedEntry("NO-DATE-RESTART-" + index, frozenDate,
+                    "10100", "20100", BigDecimal.ONE));
+        }
+        journalEntryRepository.saveAllAndFlush(sources);
+        postPersistedEntries(sources);
+
+        AtomicInteger writerInvocations = new AtomicInteger();
+        doAnswer(call -> {
+            if (writerInvocations.incrementAndGet() == 2) {
+                throw new IllegalStateException("injected failure after one committed chunk");
+            }
+            return call.callRealMethod();
+        }).when(ledgerService).updateLedgerBalancesBulkForReaggregation(
+                anyLong(), any(LocalDate.class), any(LocalDate.class), anyList());
+        JobParameters parameters = new JobParametersBuilder()
+                .addLong("noDateRestart", 768L)
+                .toJobParameters();
+
+        JobExecution failed = jobLauncherTestUtils.launchJob(parameters);
+
+        assertThat(failed.getStatus()).isEqualTo(BatchStatus.FAILED);
+        assertThat(glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
+                "10100", "KRW", frozenDate, YearMonth.from(frozenDate)).orElseThrow().getDebitAmount())
+                .isEqualByComparingTo("50.00");
+        setClock(Instant.parse("2026-08-05T00:30:00Z"));
+
+        JobExecution restarted = jobLauncherTestUtils.launchJob(parameters);
+
+        assertThat(restarted.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(restarted.getJobInstance().getInstanceId()).isEqualTo(failed.getJobInstance().getInstanceId());
+        verify(reaggregationService, times(1)).start(anyLong(), eq(frozenDate), eq(frozenDate));
+        verify(reaggregationService, times(1)).clean(anyLong(), eq(frozenDate), eq(frozenDate));
+        verify(reaggregationService, times(1)).reconcileAndRelease(anyLong(), eq(frozenDate), eq(frozenDate));
+        verify(ledgerService, times(3)).updateLedgerBalancesBulkForReaggregation(
+                anyLong(), eq(frozenDate), eq(frozenDate), anyList());
+        verify(clock, times(1)).instant();
+        assertThat(glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
+                "10100", "KRW", frozenDate, YearMonth.from(frozenDate)).orElseThrow().getDebitAmount())
+                .isEqualByComparingTo("51.00");
+    }
+
+    @Test
+    @DisplayName("start 직후 자정이 지나도 cleanup·reader·writer·finalize는 최초 기간만 사용한다")
+    void midnightAfterStartResolutionDoesNotMoveLaterStepRanges() throws Exception {
+        LocalDate frozenDate = LocalDate.of(2026, 8, 3);
+        JournalEntry source = approvedEntry(
+                "MIDNIGHT-FROZEN", frozenDate, "10100", "20100", new BigDecimal("10.00"));
+        journalEntryRepository.saveAndFlush(source);
+        postPersistedEntries(List.of(source));
+        doAnswer(call -> {
+            Object result = call.callRealMethod();
+            setClock(Instant.parse("2026-08-05T00:30:00Z"));
+            return result;
+        }).when(reaggregationService).start(anyLong(), any(LocalDate.class), any(LocalDate.class));
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addLong("midnight", 768L)
+                .toJobParameters());
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        verify(reaggregationService).start(anyLong(), eq(frozenDate), eq(frozenDate));
+        verify(reaggregationService).clean(anyLong(), eq(frozenDate), eq(frozenDate));
+        verify(reaggregationService).reconcileAndRelease(anyLong(), eq(frozenDate), eq(frozenDate));
+        verify(ledgerService).updateLedgerBalancesBulkForReaggregation(
+                anyLong(), eq(frozenDate), eq(frozenDate), anyList());
+        verify(clock, times(1)).instant();
+        assertThat(glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
+                "10100", "KRW", frozenDate, YearMonth.from(frozenDate))).isPresent();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidIntegrationParameters")
+    @DisplayName("잘못되거나 모호한 날짜 요청은 barrier와 기존 잔액을 변경하기 전에 실패한다")
+    void invalidDateRequestsFailBeforeStartOrCleanup(
+            String description, JobParameters parameters) throws Exception {
+        LocalDate balanceDate = LocalDate.of(2026, 7, 31);
+        GlBalance existing = existingGlBalance(balanceDate, new BigDecimal("77.00"));
+        glBalanceRepository.saveAndFlush(existing);
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(parameters);
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        verify(reaggregationService, never()).start(anyLong(), any(LocalDate.class), any(LocalDate.class));
+        verify(reaggregationService, never()).clean(anyLong(), any(LocalDate.class), any(LocalDate.class));
+        BalanceReaggregationControlPort.ControlSnapshot snapshot = reaggregationControl.snapshot();
+        assertThat(snapshot.status()).isEqualTo(BalanceReaggregationControlPort.Status.OPEN);
+        assertThat(snapshot.ownerJobInstanceId()).isNull();
+        assertThat(snapshot.startDate()).isNull();
+        assertThat(snapshot.endDate()).isNull();
+        assertThat(glBalanceRepository.findById(existing.getId())).get()
+                .extracting(GlBalance::getDebitAmount)
+                .isEqualTo(new BigDecimal("77.00"));
+    }
+
+    private static Stream<Arguments> invalidIntegrationParameters() {
+        return Stream.of(
+                invalidParameters("malformed", builder -> builder
+                        .addString("startDate", "2026-02-30").addString("endDate", "2026-03-01")),
+                invalidParameters("inverted", builder -> builder
+                        .addString("startDate", "2026-04-30").addString("endDate", "2026-04-01")),
+                invalidParameters("conflicting single aliases", builder -> builder
+                        .addString("baseDate", "2026-04-01").addString("targetDate", "2026-04-02")),
+                invalidParameters("conflicting aliases", builder -> builder
+                        .addString("startDate", "2026-04-01").addString("fromDate", "2026-04-02")
+                        .addString("endDate", "2026-04-30")),
+                invalidParameters("single/range mixing", builder -> builder
+                        .addString("baseDate", "2026-04-01").addString("startDate", "2026-04-01")
+                        .addString("endDate", "2026-04-01")));
+    }
+
+    private static Arguments invalidParameters(
+            String description, java.util.function.Consumer<JobParametersBuilder> customization) {
+        JobParametersBuilder builder = new JobParametersBuilder().addString("invalidCase", description);
+        customization.accept(builder);
+        return Arguments.of(description, builder.toJobParameters());
+    }
+
+    private void setClock(Instant instant) {
+        when(clock.instant()).thenReturn(instant);
+        when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+    }
+
+    private GlBalance existingGlBalance(LocalDate date, BigDecimal debitAmount) {
+        GlBalance balance = new GlBalance();
+        balance.setAccountCode("EXISTING");
+        balance.setCurrencyCode("KRW");
+        balance.setBalanceDate(date);
+        balance.setPeriod(YearMonth.from(date));
+        balance.setBeginningBalance(BigDecimal.ZERO);
+        balance.setDebitAmount(debitAmount);
+        balance.setCreditAmount(BigDecimal.ZERO);
+        balance.setEndingBalance(debitAmount);
+        return balance;
+    }
+
+    private SlBalance existingSlBalance(LocalDate date) {
+        SlBalance balance = new SlBalance();
+        balance.setAccountCode("EXISTING");
+        balance.setCurrencyCode("KRW");
+        balance.setBalanceDate(date);
+        balance.setPeriod(YearMonth.from(date));
+        balance.setDebitAmount(BigDecimal.ONE);
+        return balance;
+    }
+
     private JournalEntry approvedEntry(String slipNo, LocalDate date, String debitAccount,
                                        String creditAccount, BigDecimal amount) {
         JournalEntry entry = draftEntry(slipNo, date, debitAccount, creditAccount, amount);
@@ -412,11 +672,11 @@ class BalanceReaggregationBatchConfigTest {
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
     @EntityScan(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence",
             "org.springframework.batch.core"
     })
     @EnableJpaRepositories(basePackages = {
-            "com.ho.account.journalledger.domain",
+            "com.ho.account.journalledger.infrastructure.persistence.repository",
             "com.ho.account.journalledger.adapter.out.persistence"
     })
     @ComponentScan(basePackages = {

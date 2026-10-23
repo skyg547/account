@@ -37,6 +37,14 @@ import java.util.Optional;
 public interface JournalPersistencePort {
 
     /**
+     * Reserves one database-backed number for an automatically generated slip.
+     * Sequence gaps after rollback are acceptable; reusing a number is not.
+     */
+    default long nextSlipNumber() {
+        throw new SlipNumberAllocationException("전표번호 채번 저장소가 구성되지 않았습니다.");
+    }
+
+    /**
      * 전표를 저장하거나 수정합니다 (Upsert 방식).
      *
      * [업무 설명]

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:55" hostname="ho-To-Be-Filled-By-O-E-M" time="0.012">
+  <properties/>
+  <testcase name="existingSlipWithDifferentLineageFailsClosed()" classname="com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest" time="0.003"/>
+  <testcase name="postingDelegatesToPostingPortApproveAndPost()" classname="com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest" time="0.001"/>
+  <testcase name="exactExistingSlipIsReturnedWithoutCreatingAnotherJournal()" classname="com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest" time="0.002"/>
+  <testcase name="mapsDeterministicSlipAndImmutableContractLines()" classname="com.ho.account.closing.batch.adapter.out.JournalLedgerClosingJournalEntryAdapterTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

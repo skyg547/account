@@ -14,7 +14,11 @@ import com.ho.account.contracts.journal.JournalPostingResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -58,6 +62,52 @@ class HttpExpenditureJournalAdapterTest {
         assertThat(result.slipNo()).isEqualTo("JE-2026-101");
         assertThat(result.status()).isEqualTo("DRAFT");
         server.verify();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("malformedSuccessResponses")
+    void rejectsMalformedSuccessfulDraftEntryResponse(String caseName, String responseBody) {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://journal-ledger.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpExpenditureJournalAdapter adapter = new HttpExpenditureJournalAdapter(builder.build());
+
+        server.expect(requestTo("http://journal-ledger.test/api/v1/journals/posting"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(draftCommand()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Journal ledger posting");
+        server.verify();
+    }
+
+    private static Stream<Arguments> malformedSuccessResponses() {
+        return Stream.of(
+                Arguments.of("empty response body", ""),
+                Arguments.of("missing journal entry ID", "{\"slipNo\":\"SLIP-X\",\"status\":\"DRAFT\"}"),
+                Arguments.of("null journal entry ID", "{\"journalEntryId\":null,\"status\":\"DRAFT\"}"),
+                Arguments.of("zero journal entry ID", "{\"journalEntryId\":0,\"status\":\"DRAFT\"}"),
+                Arguments.of("negative journal entry ID", "{\"journalEntryId\":-1,\"status\":\"DRAFT\"}"),
+                Arguments.of("missing status", "{\"journalEntryId\":101,\"slipNo\":\"SLIP-X\"}"),
+                Arguments.of("blank status", "{\"journalEntryId\":101,\"status\":\" \"}"),
+                Arguments.of("unexpected status", "{\"journalEntryId\":101,\"status\":\"POSTED\"}"));
+    }
+
+    private static JournalEntryCommand draftCommand() {
+        return new JournalEntryCommand(
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 1),
+                "Expenditure Resolution Journal",
+                "GENERAL",
+                "KRW",
+                BigDecimal.ONE,
+                "SYSTEM",
+                "SYSTEM",
+                "EXP_RESOLUTION",
+                "1001",
+                List.of(new JournalLineCommand(
+                        "DEBIT", "41000", BigDecimal.valueOf(1000), BigDecimal.valueOf(1000),
+                        "D-1", "BP-1", "Debit cash")));
     }
 
     @Test

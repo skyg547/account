@@ -2,6 +2,7 @@ package com.ho.account.reconciliation.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
+import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
@@ -13,6 +14,7 @@ import com.ho.account.reconciliation.application.port.in.RunReconciliationComman
 import com.ho.account.reconciliation.domain.DifferenceReasonCode;
 import com.ho.account.reconciliation.domain.ReconciliationAdjustmentPolicy;
 import com.ho.account.reconciliation.domain.ReconciliationDifference;
+import com.ho.account.reconciliation.domain.ReconciliationItem;
 import com.ho.account.reconciliation.domain.ReconciliationRule;
 import com.ho.account.reconciliation.domain.ReconciliationRun;
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
@@ -30,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -118,11 +121,11 @@ class ReconciliationServiceTest {
         ArgumentCaptor<ReconciliationDifference> differenceCaptor = ArgumentCaptor.forClass(ReconciliationDifference.class);
         verify(reconciliationDifferenceRepository).save(differenceCaptor.capture());
         ReconciliationDifference difference = differenceCaptor.getValue();
-        assertThat(difference.getAmountExpected()).isEqualByComparingTo("1000.00");
-        assertThat(difference.getAmountActual()).isEqualByComparingTo("950.00");
+        assertThat(difference.getAmountExpected()).isEqualByComparingTo("50.00");
+        assertThat(difference.getAmountActual()).isEqualByComparingTo("0.00");
         assertThat(difference.getDifferenceAmount()).isEqualByComparingTo("50.00");
         assertThat(difference.getReasonCode()).isSameAs(reasonCode);
-        assertThat(difference.getSourceItemRef()).contains("\"type\":\"SUMMARY\"").contains("\"unit\":\"GL daily reconciliation\"");
+        assertThat(difference.getSourceItemRef()).contains("\"type\":\"SOURCE\"").contains("\"id\":\"SRC-50\"");
         assertThat(difference.getTargetItemRef()).contains("\"type\":\"SUMMARY\"").contains("\"unit\":\"GL daily reconciliation\"");
 
         verify(journalPostingPort, never()).createDraftEntry(any());
@@ -138,7 +141,7 @@ class ReconciliationServiceTest {
         when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of(rule));
         stubRunSave();
         stubJournalTarget(reconciliationDate, "995.00");
-        stubExternalSnapshot(2, "1000.00");
+        stubExternalSnapshot(1, "1000.00");
 
         ReconciliationRun run = reconciliationService.performReconciliation(new RunReconciliationCommand(10L, reconciliationDate, "TEST_USER"));
 
@@ -308,11 +311,153 @@ class ReconciliationServiceTest {
     private void stubJournalTarget(LocalDate reconciliationDate, String debitAmount) {
         when(journalQueryPort.getJournalDetailAggregateByAccount(reconciliationDate, reconciliationDate, JournalSide.DEBIT, ""))
                 .thenReturn(new JournalDetailAggregateSummary(1L, new BigDecimal(debitAmount)));
+        when(journalQueryPort.getJournalDetailsByAccountCodes(reconciliationDate, reconciliationDate, List.of()))
+                .thenReturn(List.of(journalDetail(201L, JournalSide.DEBIT, reconciliationDate, "", debitAmount)));
     }
 
     private void stubExternalSnapshot(long count, String amount) {
         when(externalReconSnapshotPort.loadSnapshot(any(ExternalReconSnapshotRequest.class))).thenReturn(
                 new ExternalReconSnapshot(count, new BigDecimal(amount)));
+        LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
+        List<ReconciliationItem> items = count == 1
+                ? List.of(sourceItem("SRC-1000", reconciliationDate, "", "1000.00"))
+                : List.of(sourceItem("SRC-950", reconciliationDate, "", "950.00"),
+                        sourceItem("SRC-50", reconciliationDate, "", "50.00"));
+        when(externalReconSnapshotPort.loadItems(any(ExternalReconSnapshotRequest.class))).thenReturn(items);
+    }
+
+    private ReconciliationItem sourceItem(String id, LocalDate date, String accountCode, String amount) {
+        return ReconciliationItem.ofSource(id, date, id, "", accountCode, new BigDecimal(amount), "source " + id);
+    }
+
+    private JournalDetailSummary journalDetail(Long id, JournalSide side, LocalDate date, String accountCode, String amount) {
+        JournalDetailSummary detail = new JournalDetailSummary();
+        detail.setId(id);
+        detail.setSide(side);
+        detail.setAccountingDate(date);
+        detail.setAccountCode(accountCode);
+        detail.setSlipNo("SRC-950");
+        detail.setBaseAmount(new BigDecimal(amount));
+        detail.setAmount(new BigDecimal(amount));
+        return detail;
+    }
+
+    @Test
+    void debitTargetIgnoresCreditDetailOnSameDateAndAccount() {
+        assertOnlyConfiguredTargetSideIsMatched(JournalSide.DEBIT);
+    }
+
+    @Test
+    void creditTargetIgnoresDebitDetailOnSameDateAndAccount() {
+        assertOnlyConfiguredTargetSideIsMatched(JournalSide.CREDIT);
+    }
+
+    private void assertOnlyConfiguredTargetSideIsMatched(JournalSide targetSide) {
+        LocalDate date = LocalDate.of(2026, 5, 11);
+        String accountCode = "111000";
+        ReconciliationUnit unit = reconciliationUnit("{\"targetAccountCode\":\"111000\",\"targetSide\":\""
+                + targetSide + "\"}");
+        JournalSide oppositeSide = targetSide == JournalSide.DEBIT ? JournalSide.CREDIT : JournalSide.DEBIT;
+        JournalDetailSummary intended = journalDetail(201L, targetSide, date, accountCode, "100.00");
+        JournalDetailSummary opposite = journalDetail(202L, oppositeSide, date, accountCode, "100.00");
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of());
+        stubRunAndDifferenceSaves();
+        when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH"))
+                .thenReturn(Optional.of(reasonCode(false)));
+        when(externalReconSnapshotPort.loadSnapshot(any(ExternalReconSnapshotRequest.class)))
+                .thenReturn(new ExternalReconSnapshot(2L, new BigDecimal("200.00")));
+        when(externalReconSnapshotPort.loadItems(any(ExternalReconSnapshotRequest.class)))
+                .thenReturn(List.of(sourceItem("SRC-1", date, accountCode, "100.00"),
+                        sourceItem("SRC-2", date, accountCode, "100.00")));
+        when(journalQueryPort.getJournalDetailAggregateByAccount(date, date, targetSide, accountCode))
+                .thenReturn(new JournalDetailAggregateSummary(1L, new BigDecimal("100.00")));
+        // The detail query spans both sides; only the requested side belongs in this aggregate.
+        when(journalQueryPort.getJournalDetailsByAccountCodes(date, date, List.of(accountCode)))
+                .thenReturn(List.of(intended, opposite));
+
+        ReconciliationRun run = reconciliationService.performReconciliation(
+                new RunReconciliationCommand(10L, date, "TEST_USER"));
+
+        assertThat(run.getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
+        assertThat(run.getTotalItemsSource()).isEqualTo(2L);
+        assertThat(run.getTotalAmountSource()).isEqualByComparingTo("200.00");
+        assertThat(run.getTotalItemsTarget()).isEqualTo(1L);
+        assertThat(run.getTotalAmountTarget()).isEqualByComparingTo("100.00");
+        assertThat(run.getMatchedItemsCount()).isEqualTo(1L);
+        assertThat(run.getMatchedAmount()).isEqualByComparingTo("100.00");
+        assertThat(run.getUnmatchedItemsCount()).isEqualTo(1L);
+        assertThat(run.getUnmatchedAmount()).isEqualByComparingTo("100.00");
+        ArgumentCaptor<ReconciliationDifference> differenceCaptor = ArgumentCaptor.forClass(ReconciliationDifference.class);
+        verify(reconciliationDifferenceRepository).save(differenceCaptor.capture());
+        ReconciliationDifference difference = differenceCaptor.getValue();
+        assertThat(difference.getDifferenceType()).isEqualTo(ReconciliationDifference.DifferenceType.MISSING_TARGET);
+        assertThat(difference.getDifferenceAmount()).isEqualByComparingTo("100.00");
+        assertThat(difference.getSourceItemRef()).contains("SRC-2").doesNotContain("\"id\":\"202\"");
+        assertThat(difference.getTargetItemRef()).doesNotContain("\"id\":\"202\"");
+        verify(journalPostingPort, never()).createDraftEntry(any());
+    }
+
+    @Test
+    void aggregateCountMismatchFailsClosedAndCorrectedRetryCompletesOnce() {
+        assertAggregateMismatchFailsThenRetries(2L, "100.00");
+    }
+
+    @Test
+    void aggregateAmountMismatchFailsClosedAndCorrectedRetryCompletesOnce() {
+        assertAggregateMismatchFailsThenRetries(1L, "100.01");
+    }
+
+    private void assertAggregateMismatchFailsThenRetries(long incorrectCount, String incorrectAmount) {
+        LocalDate date = LocalDate.of(2026, 5, 11);
+        String accountCode = "111000";
+        ReconciliationUnit unit = reconciliationUnit("{\"targetAccountCode\":\"111000\",\"targetSide\":\"DEBIT\"}");
+        List<ReconciliationRun> savedRuns = new ArrayList<>();
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRunRepository.findByReconciliationUnitAndReconciliationDate(unit, date))
+                .thenAnswer(invocation -> List.copyOf(savedRuns));
+        when(reconciliationRunRepository.save(any(ReconciliationRun.class))).thenAnswer(invocation -> {
+            ReconciliationRun run = invocation.getArgument(0);
+            if (run.getId() == null) {
+                run.setId(900L + savedRuns.size());
+                savedRuns.add(run);
+            }
+            return run;
+        });
+        when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of());
+        when(externalReconSnapshotPort.loadSnapshot(any(ExternalReconSnapshotRequest.class)))
+                .thenReturn(new ExternalReconSnapshot(1L, new BigDecimal("100.00")));
+        when(externalReconSnapshotPort.loadItems(any(ExternalReconSnapshotRequest.class)))
+                .thenReturn(List.of(sourceItem("SRC-1", date, accountCode, "100.00")));
+        when(journalQueryPort.getJournalDetailAggregateByAccount(date, date, JournalSide.DEBIT, accountCode))
+                .thenReturn(new JournalDetailAggregateSummary(incorrectCount, new BigDecimal(incorrectAmount)),
+                        new JournalDetailAggregateSummary(1L, new BigDecimal("100.00")));
+        when(journalQueryPort.getJournalDetailsByAccountCodes(date, date, List.of(accountCode)))
+                .thenReturn(List.of(journalDetail(201L, JournalSide.DEBIT, date, accountCode, "100.00")));
+
+        RunReconciliationCommand command = new RunReconciliationCommand(10L, date, "TEST_USER");
+        assertThatThrownBy(() -> reconciliationService.performReconciliation(command))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Reconciliation failed for unit 10");
+        assertThat(savedRuns).hasSize(1);
+        assertThat(savedRuns.get(0).getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.FAILED);
+        verify(reconciliationDifferenceRepository, never()).save(any());
+        verify(journalPostingPort, never()).createDraftEntry(any());
+
+        // A failed snapshot must be retryable; a successful retry must be returned unchanged on rerun.
+        ReconciliationRun corrected = reconciliationService.performReconciliation(command);
+        assertThat(corrected.getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
+        assertThat(corrected.getTotalItemsTarget()).isEqualTo(1L);
+        assertThat(corrected.getTotalAmountTarget()).isEqualByComparingTo("100.00");
+        assertThat(corrected.getMatchedItemsCount()).isEqualTo(1L);
+        assertThat(corrected.getMatchedAmount()).isEqualByComparingTo("100.00");
+        assertThat(savedRuns).hasSize(2);
+        assertThat(reconciliationService.performReconciliation(command)).isSameAs(corrected);
+        verify(journalQueryPort, times(2)).getJournalDetailAggregateByAccount(date, date, JournalSide.DEBIT, accountCode);
+        verify(reconciliationDifferenceRepository, never()).save(any());
+        verify(journalPostingPort, never()).createDraftEntry(any());
     }
 
     private ReconciliationUnit reconciliationUnit(String criteriaJson) {

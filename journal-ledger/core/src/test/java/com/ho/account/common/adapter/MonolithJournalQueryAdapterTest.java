@@ -8,7 +8,7 @@ import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
+import com.ho.account.journalledger.infrastructure.persistence.repository.JournalDetailRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

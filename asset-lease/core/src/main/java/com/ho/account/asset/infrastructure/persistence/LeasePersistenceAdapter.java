@@ -44,6 +44,11 @@ public class LeasePersistenceAdapter implements LeasePersistencePort {
     }
 
     @Override
+    public Optional<LeaseContract> findContractByIdForUpdate(Long id) {
+        return leaseContractRepository.findByIdForUpdate(id);
+    }
+
+    @Override
     public List<LeaseContract> findActiveContracts(String status) {
         return leaseContractRepository.findByStatus(status);
     }

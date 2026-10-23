@@ -1,5 +1,6 @@
 package com.ho.account.auth.core.infrastructure.security;
 
+import com.ho.account.auth.core.domain.model.AuthIdentityPolicy;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -14,7 +15,7 @@ import java.time.temporal.ChronoUnit;
 class LoginAttemptJpaEntity {
 
     @Id
-    @Column(name = "username", nullable = false, length = 80)
+    @Column(name = "username", nullable = false, length = AuthIdentityPolicy.MAX_USERNAME_LENGTH)
     private String username;
 
     @Column(name = "failure_count", nullable = false)
@@ -43,6 +44,11 @@ class LoginAttemptJpaEntity {
 
     void recordFailure(String reason, int maxFailures, long lockDurationMinutes, Clock clock) {
         Instant now = clock.instant();
+        // An expired lock starts a new failure window; reads never remove the shared row.
+        if (this.lockedUntil != null && !now.isBefore(this.lockedUntil)) {
+            this.failureCount = 0;
+            this.lockedUntil = null;
+        }
         this.failureCount = this.failureCount + 1;
         this.lastFailureReason = normalizeReason(reason);
         this.lastFailureAt = now;
@@ -64,11 +70,12 @@ class LoginAttemptJpaEntity {
         return lockedUntil;
     }
 
+    String getLastFailureReason() {
+        return lastFailureReason;
+    }
+
     private static String normalizeReason(String reason) {
-        if (reason == null || reason.isBlank()) {
-            return "UNKNOWN";
-        }
-        String text = reason.trim();
-        return text.length() > 120 ? text.substring(0, 120) : text;
+        // Persist only application-owned codes; callers must never turn credential text into audit data.
+        return LoginFailureReasonCodes.normalize(reason);
     }
 }

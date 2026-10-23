@@ -83,7 +83,7 @@ public class PurchaseService implements PurchaseUseCase {
         payablePersistencePort.save(payable);
 
         // 2. 전표 발행
-        postPurchaseJournal(savedInvoice, vendor.name());
+        postPurchaseJournal(savedInvoice);
 
         return savedInvoice;
     }
@@ -145,7 +145,7 @@ public class PurchaseService implements PurchaseUseCase {
                 .orElseThrow(() -> new IllegalArgumentException("Vendor info missing in master data: " + vendorCode));
     }
 
-    private void postPurchaseJournal(PurchaseInvoice invoice, String vendorName) {
+    private void postPurchaseJournal(PurchaseInvoice invoice) {
         PayableAccountMappingPort.PurchaseRecognitionAccounts accounts =
                 payableAccountMappingPort.resolvePurchaseRecognitionAccounts(invoice);
         requireAccounts(accounts.requiredAccountCodes());
@@ -153,7 +153,8 @@ public class PurchaseService implements PurchaseUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 invoice.getIssueDate(),
                 invoice.getIssueDate(),
-                "Purchase: " + invoice.getInvoiceNo() + " - " + vendorName,
+                // Vendor display names can change between retries; persisted source codes keep the request stable.
+                "Purchase: " + invoice.getInvoiceNo() + " - " + invoice.getVendorCode(),
                 "PURCHASE_RECOGNITION",
                 null,
                 null,

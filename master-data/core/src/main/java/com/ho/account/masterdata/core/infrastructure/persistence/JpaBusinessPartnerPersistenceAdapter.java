@@ -3,12 +3,22 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.BusinessPartnerAccount;
+import com.ho.account.masterdata.core.application.query.BusinessPartnerSummary;
+import com.ho.account.masterdata.core.application.query.PageSlice;
+import com.ho.account.masterdata.core.application.query.PageWindow;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 거래처 도메인 aggregate와 JPA 저장 모델 사이를 번역하는 출력 어댑터입니다.
@@ -21,6 +31,9 @@ import org.springframework.stereotype.Component;
 public class JpaBusinessPartnerPersistenceAdapter implements BusinessPartnerPersistencePort {
 
     private final BusinessPartnerRepository businessPartnerRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public JpaBusinessPartnerPersistenceAdapter(BusinessPartnerRepository businessPartnerRepository) {
         this.businessPartnerRepository = businessPartnerRepository;
@@ -35,6 +48,13 @@ public class JpaBusinessPartnerPersistenceAdapter implements BusinessPartnerPers
     public Optional<BusinessPartner> findByBusinessPartnerCode(String businessPartnerCode) {
         return businessPartnerRepository.findByBusinessPartnerCode(businessPartnerCode)
                 .map(this::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<BusinessPartner> findByBusinessPartnerCodeForUpdate(String businessPartnerCode) {
+        return businessPartnerRepository.findByBusinessPartnerCode(businessPartnerCode)
+                .map(this::toFreshDomain);
     }
 
     @Override
@@ -64,30 +84,51 @@ public class JpaBusinessPartnerPersistenceAdapter implements BusinessPartnerPers
     }
 
     @Override
-    public List<BusinessPartner> findAll() {
-        return businessPartnerRepository.findAll().stream()
-                .map(this::toDomain)
-                .toList();
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<BusinessPartner> findByIdForUpdate(Long id) {
+        return businessPartnerRepository.findById(id).map(this::toFreshDomain);
     }
 
     @Override
-    public List<BusinessPartner> findByUseYnTrue() {
-        return businessPartnerRepository.findByUseYnTrue().stream()
-                .map(this::toDomain)
-                .toList();
+    public Optional<String> findBusinessKeyById(Long id) {
+        return businessPartnerRepository.findBusinessKeyById(id);
     }
 
     @Override
-    public List<BusinessPartner> searchActiveByName(String name, LocalDate asOfDate) {
-        return businessPartnerRepository.searchActiveByName(name, asOfDate).stream()
-                .map(this::toDomain)
-                .toList();
+    public PageSlice<BusinessPartnerSummary> findAllSummaries(PageWindow page) {
+        return toPageSlice(businessPartnerRepository.findAllSummaries(PageRequest.of(page.page(), page.size())));
+    }
+
+    @Override
+    public PageSlice<BusinessPartnerSummary> findActiveSummaries(LocalDate asOfDate, PageWindow page) {
+        return toPageSlice(businessPartnerRepository.findActiveSummaries(
+                asOfDate, PageRequest.of(page.page(), page.size())));
+    }
+
+    @Override
+    public PageSlice<BusinessPartnerSummary> searchActiveByName(String name, LocalDate asOfDate, PageWindow page) {
+        return toPageSlice(businessPartnerRepository.searchActiveByName(
+                name, asOfDate, PageRequest.of(page.page(), page.size())));
+    }
+
+    private PageSlice<BusinessPartnerSummary> toPageSlice(Slice<BusinessPartnerSummary> slice) {
+        return new PageSlice<>(slice.getContent(), slice.hasNext());
     }
 
     @Override
     public BusinessPartner save(BusinessPartner businessPartner) {
-        BusinessPartnerJpaEntity persisted = businessPartnerRepository.save(toJpaEntity(businessPartner));
+        BusinessPartnerJpaEntity entity = toJpaEntity(businessPartner);
+        // 기존 구간 종료를 먼저 flush해야 새 IDENTITY 행의 즉시 INSERT가 중복 기간으로 거부되지 않습니다.
+        BusinessPartnerJpaEntity persisted = entity.getId() == null
+                ? businessPartnerRepository.save(entity)
+                : businessPartnerRepository.saveAndFlush(entity);
         return toDomain(persisted);
+    }
+
+    private BusinessPartner toFreshDomain(BusinessPartnerJpaEntity entity) {
+        // 상위 트랜잭션이 미리 읽은 객체도 키 잠금 대기 후 DB의 최신 구간으로 다시 검증합니다.
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+        return toDomain(entity);
     }
 
     /**

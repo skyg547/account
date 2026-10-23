@@ -8,14 +8,16 @@ import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepos
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -27,37 +29,52 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OdsReconciliationService {
 
+    private static final BigDecimal GL_SL_TOLERANCE = new BigDecimal("0.01");
+
     private final OdsGeneralLedgerRepository glRepository;
     private final OdsBalanceHistRepository balanceRepository;
     private final OdsReconcileHistRepository reconcileRepository;
     private final AllowanceInputPositionRepository martRepository;
 
     /**
-     * 특정 기준일의 총계정원장(GL)과 보조원장(SL, 잔액이력)을 비교 대사한다.
+     * 기준일의 GL/SL 계정·통화 합집합을 대사하고 불일치 건수를 반환한다.
+     * 이력은 호출한 배치 Step의 실패 롤백과 분리해 커밋한다.
      */
-    public void reconcileGlToSl(LocalDate baseDate) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int reconcileGlToSl(LocalDate baseDate) {
         log.info("🔍 [대사 시작] GL vs SL 정합성 검증 (기준일: {})", baseDate);
 
-        List<OdsBalanceHistRepository.BalanceSummary> slSummaries = Objects.requireNonNull(balanceRepository
-                .findBalanceSummaryByBaseDate(baseDate));
+        Map<ReconciliationKey, BigDecimal> slBalances = Objects.requireNonNull(balanceRepository
+                .findBalanceSummaryByBaseDate(baseDate)).stream()
+                .collect(Collectors.toMap(
+                        sl -> new ReconciliationKey(sl.getSubjectCode(), sl.getCurrencyCode()),
+                        OdsBalanceHistRepository.BalanceSummary::getBalanceAmount,
+                        BigDecimal::add));
 
-        Map<String, OdsGeneralLedgerRepository.SubjectCurrencyBalanceSummary> glMap = Objects.requireNonNull(
+        Map<ReconciliationKey, BigDecimal> glBalances = Objects.requireNonNull(
                 glRepository.getBalanceSummaryByBaseDate(baseDate))
                 .stream()
                 .collect(Collectors.toMap(
-                        gl -> gl.getSubjectCode() + "_" + gl.getCurrencyCode(),
-                        gl -> gl
+                        gl -> new ReconciliationKey(gl.getSubjectCode(), gl.getCurrencyCode()),
+                        OdsGeneralLedgerRepository.SubjectCurrencyBalanceSummary::getBalanceAmount,
+                        BigDecimal::add
                 ));
 
-        for (OdsBalanceHistRepository.BalanceSummary sl : slSummaries) {
-            String key = sl.getSubjectCode() + "_" + sl.getCurrencyCode();
-            BigDecimal glAmt = glMap.containsKey(key) ? glMap.get(key).getBalanceAmount() : BigDecimal.ZERO;
-            BigDecimal slAmt = sl.getBalanceAmount();
+        Set<ReconciliationKey> keys = new HashSet<>(slBalances.keySet());
+        keys.addAll(glBalances.keySet());
+        int mismatchCount = 0;
+
+        for (ReconciliationKey key : keys) {
+            BigDecimal glAmt = glBalances.getOrDefault(key, BigDecimal.ZERO);
+            BigDecimal slAmt = slBalances.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal diff = glAmt.subtract(slAmt);
 
-            boolean mismatched = diff.abs().compareTo(new BigDecimal("0.01")) > 0;
+            // 금액이 0이어도 한쪽에만 존재하는 계정·통화는 원천 누락이므로 실패한다.
+            boolean mismatched = !glBalances.containsKey(key) || !slBalances.containsKey(key)
+                    || diff.abs().compareTo(GL_SL_TOLERANCE) > 0;
             if (mismatched) {
-                log.warn("🚨 [대사 불일치] 키: {}, GL: {}, SL: {}, 차이: {}", key, glAmt, slAmt, diff);
+                mismatchCount++;
+                log.warn("🚨 [대사 불일치] 키: {}, GL: {}, SL: {}, 차이: {}", key.item(), glAmt, slAmt, diff);
             }
 
             OdsReconcileHist hist = OdsReconcileHist.builder()
@@ -65,7 +82,7 @@ public class OdsReconciliationService {
                     .sourceSystem("GL")
                     .targetSystem("SL")
                     .reconcileType("GL_SL_AUDIT")
-                    .reconcileItem(key)
+                    .reconcileItem(key.item())
                     .sourceAmount(glAmt)
                     .targetAmount(slAmt)
                     .diffAmount(diff)
@@ -74,10 +91,19 @@ public class OdsReconciliationService {
                     .build();
             reconcileRepository.save(hist);
         }
+        return mismatchCount;
     }
 
-    public void reconcileGlVsSl(LocalDate baseDate) {
-        reconcileGlToSl(baseDate);
+    // 기존 호출자의 별칭도 프록시 진입점이므로 독립 트랜잭션을 명시한다.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int reconcileGlVsSl(LocalDate baseDate) {
+        return reconcileGlToSl(baseDate);
+    }
+
+    private record ReconciliationKey(String subjectCode, String currencyCode) {
+        String item() {
+            return subjectCode + "_" + currencyCode;
+        }
     }
 
     public void reconcileMartVsGl(LocalDate baseDate) {
@@ -119,4 +145,3 @@ public class OdsReconciliationService {
         }
     }
 }
-

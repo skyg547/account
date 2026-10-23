@@ -1,0 +1,47 @@
+[
+  {
+    "id": "SUBLEDGER_CORE_01",
+    "title": "[payable] 다른 공급업체의 선급금으로 매입채무를 상계할 수 있음",
+    "url": "https://github.com/skyg547/account/issues/828"
+  },
+  {
+    "id": "SUBLEDGER_CORE_02",
+    "title": "[receivable] 다른 고객의 수납으로 매출채권을 수동 반제할 수 있음",
+    "url": "https://github.com/skyg547/account/issues/829"
+  },
+  {
+    "id": "SUBLEDGER_CORE_03",
+    "title": "[payable] 동시 지급 런이 동일 채무의 지급 후보를 중복 생성할 수 있음",
+    "url": "https://github.com/skyg547/account/issues/830"
+  },
+  {
+    "id": "BANKING_CREDIT_01",
+    "title": "[deposit] 입출금 잔액 변경에 대응하는 분개 outbox가 없다",
+    "url": "https://github.com/skyg547/account/issues/831"
+  },
+  {
+    "id": "BANKING_CREDIT_02",
+    "title": "[loan] 비월별 상환 주기를 받아도 월별 이자·원금 스케줄을 생성한다",
+    "url": "https://github.com/skyg547/account/issues/832"
+  },
+  {
+    "id": "FISCAL_OPS_01",
+    "title": "[tax] 세금계산서 금액이 소수 셋째 자리까지 검증을 통과해 저장 시 암묵 반올림됨",
+    "url": "https://github.com/skyg547/account/issues/833"
+  },
+  {
+    "id": "FISCAL_OPS_02",
+    "title": "[expenditure-resolution] 예산 행이 없으면 지출결의가 한도 검사 없이 생성됨",
+    "url": "https://github.com/skyg547/account/issues/834"
+  },
+  {
+    "id": "FISCAL_OPS_03",
+    "title": "[expenditure-resolution] 전표 ID가 없는 응답으로 결의서가 APPROVED 처리됨",
+    "url": "https://github.com/skyg547/account/issues/835"
+  },
+  {
+    "id": "INFRA_GOV_02",
+    "title": "[internal-audit] 직접 호출에서 위조한 인증 헤더만으로 감사 명령을 실행한다",
+    "url": "https://github.com/skyg547/account/issues/836"
+  }
+]

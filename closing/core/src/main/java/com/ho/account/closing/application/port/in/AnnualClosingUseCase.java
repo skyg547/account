@@ -5,7 +5,7 @@ package com.ho.account.closing.application.port.in;
  */
 public interface AnnualClosingUseCase {
     /**
-     * 손익 대체 분개를 생성합니다.
+     * 승인된 회계연도별 이익잉여금 매핑을 사용해 손익 대체 분개를 생성합니다.
      */
-    void performIncomeStatementClosing(int year, String retainedEarningsAccountCode);
+    void performIncomeStatementClosing(int year);
 }

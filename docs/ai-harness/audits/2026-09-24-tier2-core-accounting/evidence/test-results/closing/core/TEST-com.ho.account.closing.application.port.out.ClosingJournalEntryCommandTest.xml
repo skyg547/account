@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:12" hostname="ho-To-Be-Filled-By-O-E-M" time="0.024">
+  <properties/>
+  <testcase name="commandRejectsTransactionAmountImbalance()" classname="com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest" time="0.004"/>
+  <testcase name="commandNormalizesCurrencyAndCopiesLines()" classname="com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest" time="0.01"/>
+  <testcase name="commandRejectsNonAlphabeticCurrency()" classname="com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest" time="0.001"/>
+  <testcase name="commandRejectsBaseAmountImbalance()" classname="com.ho.account.closing.application.port.out.ClosingJournalEntryCommandTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

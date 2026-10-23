@@ -1,7 +1,6 @@
 package com.ho.account.closing.dto;
 
 import com.ho.account.closing.domain.ClosingTask;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -12,7 +11,4 @@ import lombok.Data;
 public class ClosingTaskStatusUpdateDto {
     @NotNull
     private ClosingTask.ClosingTaskStatus status;
-
-    @NotBlank
-    private String user;
 }

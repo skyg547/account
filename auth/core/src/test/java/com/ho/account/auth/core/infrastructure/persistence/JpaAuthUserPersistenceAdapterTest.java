@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersistencePort.RoleAssignmentReplacement;
+import com.ho.account.auth.core.application.model.ListPage;
+import com.ho.account.auth.core.application.model.ListPageRequest;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
@@ -21,12 +23,14 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
 
-@DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"})
+@DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.jpa.properties.hibernate.session_factory.statement_inspector=com.ho.account.auth.core.infrastructure.persistence.SqlLimitInspector"})
 @ContextConfiguration(classes = JpaAuthUserPersistenceAdapterTest.JpaTestConfiguration.class)
 class JpaAuthUserPersistenceAdapterTest {
 
@@ -45,6 +49,9 @@ class JpaAuthUserPersistenceAdapterTest {
     @Autowired
     private RoleAssignmentApplyLogJpaRepository applyLogRepository;
 
+    @Autowired
+    private TestEntityManager entityManager;
+
     @Test
     void findByUsernameLoadsApprovedEffectiveRoleAssignments() {
         userRepository.save(userWithRoles());
@@ -62,7 +69,28 @@ class JpaAuthUserPersistenceAdapterTest {
     }
 
     @Test
-    void findAllUsersEagerlyLoadsRolesInUsernameOrder() {
+    void legacyBlankScopeHydratesWithoutBecomingGlobal() {
+        userRepository.save(userWithRoles());
+        userRepository.flush();
+        entityManager.getEntityManager().createNativeQuery("""
+                update auth_role_assignments set data_scope = ''
+                where username = 'teller' and role_code = 'ROLE_TELLER'
+                """).executeUpdate();
+        entityManager.clear();
+
+        AuthUser user = adapter.findByUsername("teller").orElseThrow();
+
+        assertThat(user.getRoleAssignments())
+                .filteredOn(assignment -> assignment.roleCode().equals("ROLE_TELLER"))
+                .singleElement()
+                .satisfies(assignment -> {
+                    assertThat(assignment.dataScope()).isEmpty();
+                    assertThat(assignment.hasSupportedAuthorizationScope()).isFalse();
+                });
+    }
+
+    @Test
+    void findUserPageLoadsRolesInUsernameOrder() {
         AuthUserJpaEntity teller = userWithRoles();
         AuthUserJpaEntity admin = new AuthUserJpaEntity(
                 "admin",
@@ -75,12 +103,42 @@ class JpaAuthUserPersistenceAdapterTest {
         userRepository.saveAll(List.of(teller, admin));
         userRepository.flush();
 
-        List<AuthUser> users = adapter.findAllUsers();
+        List<AuthUser> users = adapter.findUsers(new ListPageRequest(0, 20)).content();
 
         assertThat(users).extracting(AuthUser::getUsername)
                 .containsExactly("admin", "teller");
         assertThat(users.get(0).effectiveRolesAt(NOW)).containsExactly("ROLE_ADMIN");
         assertThat(users.get(1).getRoleAssignments()).hasSize(3);
+    }
+
+    @Test
+    void userPagesApplySqlLimitBeforeRoleFetchAndCoverEveryUsername() {
+        for (int index = 0; index < 43; index++) {
+            AuthUserJpaEntity user = new AuthUserJpaEntity(
+                    "page-user-" + String.format("%03d", index), dynamicPassword, null, true, false, 1L);
+            user.addRoleAssignment(RoleAssignmentJpaEntity.from(RoleAssignment.approved("ROLE_USER")));
+            userRepository.save(user);
+        }
+        userRepository.flush();
+        entityManager.clear();
+        SqlLimitInspector.STATEMENTS.clear();
+
+        var first = adapter.findUsers(new ListPageRequest(0, 17));
+        var second = adapter.findUsers(new ListPageRequest(1, 17));
+        var third = adapter.findUsers(new ListPageRequest(2, 17));
+        List<String> names = java.util.stream.Stream.of(first, second, third)
+                .flatMap(page -> page.content().stream())
+                .map(AuthUser::getUsername).toList();
+
+        assertThat(names).hasSize(43).doesNotHaveDuplicates().isSorted();
+        assertThat(first.hasNext()).isTrue();
+        assertThat(second.hasNext()).isTrue();
+        assertThat(third.hasNext()).isFalse();
+        assertThat(first.content()).allSatisfy(user -> assertThat(user.getRoleAssignments()).hasSize(1));
+        assertThat(SqlLimitInspector.STATEMENTS.stream()
+                .filter(sql -> sql.contains("from auth_users") && sql.contains("order by"))
+                .filter(sql -> sql.contains("fetch first") || sql.contains(" limit ")))
+                .hasSizeGreaterThanOrEqualTo(3);
     }
 
     @Test

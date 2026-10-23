@@ -78,4 +78,43 @@ class ClosingTransitionControllerTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("PERIOD_TRANSITION_RECOVERY_REQUIRED"));
     }
+
+    @Test
+    void cancellationRequiresTrustedClosingActorAndForwardsExactOperationAndReason() throws Exception {
+        String path = "/api/closing/calendars/10/transition/cancel-prepared";
+        String body = "{\"operationId\":\"operation-1\",\"reason\":\"expired snapshot\",\"actor\":\"forged\"}";
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(path).header("X-Auth-User", "operator").header("X-Auth-Roles", "AUDITOR")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(recovery);
+
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setId(10L);
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        when(recovery.cancelPreparedClose(10L, "operation-1", "expired snapshot", "trusted-operator"))
+                .thenReturn(calendar);
+        mvc.perform(post(path).header("X-Auth-User", "trusted-operator")
+                .header("X-Auth-Roles", "CLOSING_MANAGER")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.calendarStatus").value("IN_PROGRESS"));
+        verify(recovery).cancelPreparedClose(10L, "operation-1", "expired snapshot", "trusted-operator");
+    }
+
+    @Test
+    void transitionQueryShowsBoundEvidenceIdToRecoveryOperator() throws Exception {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setId(10L);
+        calendar.setFiscalYear("2026");
+        calendar.setFiscalPeriod("01");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        calendar.prepareTransition("CLOSED", 20L, null, "bound-set-1", "closer");
+        when(recovery.findTransition(10L)).thenReturn(calendar);
+
+        mvc.perform(get("/api/closing/calendars/10/transition")
+                .header("X-Auth-User", "operator").header("X-Auth-Roles", "CLOSING_MANAGER"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.evidenceSetId").value("bound-set-1"))
+                .andExpect(jsonPath("$.operationId").value(calendar.getTransitionId()));
+    }
 }

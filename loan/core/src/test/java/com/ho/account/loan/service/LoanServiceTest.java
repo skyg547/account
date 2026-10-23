@@ -73,6 +73,43 @@ class LoanServiceTest {
     }
 
     @Test
+    void existingNonMonthlyLoanCannotReplaceSchedules() {
+        Loan loan = activeLoan();
+        loan.setPaymentFrequency(Loan.PaymentFrequency.QUARTERLY);
+        when(persistencePort.findLoanForUpdate(1L)).thenReturn(Optional.of(loan));
+        when(persistencePort.findDeferredItems(loan)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.generateAmortizationSchedule(
+                1L, loan.getDisbursalDate(), loan.getCurrentEIR(), "loan-user"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("paymentFrequency QUARTERLY");
+        verify(persistencePort, never()).deleteSchedules(anyList());
+        verify(persistencePort, never()).saveSchedules(anyList());
+        verify(persistencePort, never()).saveLoan(any());
+    }
+
+    @Test
+    void existingNonMonthlyPendingLoanCannotPostDisbursalJournal() {
+        Loan loan = pendingLoan();
+        loan.setPaymentFrequency(Loan.PaymentFrequency.QUARTERLY);
+        LocalDate date = loan.getDisbursalDate();
+        when(persistencePort.findLoanForUpdate(1L)).thenReturn(Optional.of(loan));
+        when(referenceDataPort.requireAccount("101999", date))
+                .thenReturn(new AccountReference("101999", "Cash"));
+        when(referenceDataPort.requireAccount("131999", date))
+                .thenReturn(new AccountReference("131999", "Loan receivable"));
+
+        assertThatThrownBy(() -> service.disburseLoan(
+                1L, date, loan.getPrincipalAmount(), "loan-user"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("paymentFrequency QUARTERLY");
+        assertThat(loan.getStatus()).isEqualTo(Loan.LoanStatus.PENDING_DISBURSEMENT);
+        verify(journalPort, never()).post(any());
+        verify(persistencePort, never()).saveLoan(any());
+        verify(persistencePort, never()).saveDisbursal(any());
+    }
+
+    @Test
     void genericEventsCannotForgeScheduledRepaymentCompletion() {
         assertThatThrownBy(() -> service.processLoanEvent(1L,
                 LoanEvent.EventType.SCHEDULED_REPAYMENT, LocalDate.of(2090, 1, 15),

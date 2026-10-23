@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.application.service.ClosingServiceTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:12" hostname="ho-To-Be-Filled-By-O-E-M" time="0.362">
+  <properties/>
+  <testcase name="캘린더 상태는 OPEN으로 직접 되돌릴 수 없다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.26"/>
+  <testcase name="평가 전표 생성 실패 시 독립 이력에 FAILED를 기록한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.012"/>
+  <testcase name="모든 조건 충족 시 결산이 정상적으로 완료된다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.01"/>
+  <testcase name="회계기간 기준정보가 없으면 마감 여부를 OPEN으로 추정하지 않는다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.007"/>
+  <testcase name="결산 조정 전표 생성 시 전표가 대차 불일치면 예외가 발생한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.008"/>
+  <testcase name="게이트를 통과하지 못했으면 결산을 완료할 수 없다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.005"/>
+  <testcase name="결산 조정은 FiscalPeriod 엔티티 참조 대신 회기 ID를 저장한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.006"/>
+  <testcase name="평가 배치는 설정된 계정과 금액으로 자동 분개를 생성한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.007"/>
+  <testcase name="결산 조정 전표 생성 시 전표 회계 일자가 회기 범위를 벗어나면 예외가 발생한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.004"/>
+  <testcase name="충당 배치는 설정된 계정과 금액으로 자동 분개를 생성한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.006"/>
+  <testcase name="평가 배치 회계 룰이 없으면 더미 분개를 생성하지 않고 실패한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.008"/>
+  <testcase name="결산 조정 전표 생성 시 회기가 OPEN이 아니면 예외가 발생한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.004"/>
+  <testcase name="필수 태스크가 완료되지 않았으면 결산을 완료할 수 없다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.005"/>
+  <testcase name="결산 캘린더 ID로 태스크 목록을 조회한다" classname="com.ho.account.closing.application.service.ClosingServiceTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

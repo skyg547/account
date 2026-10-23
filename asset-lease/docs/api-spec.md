@@ -73,10 +73,14 @@
 - **목적:** 리스 기간 연장, 리스료 변경 등 계약 조건 변경 시 리스부채와 사용권자산을 재측정합니다.
 - **Request Body (LeaseRemeasurementRequest):**
   - `contractId` (Long): 대상 계약 ID
-  - `newMonthlyPayment` (BigDecimal): 변경된 월 리스료
-  - `newEndDate` (LocalDate): 변경된 종료일
-  - `newDiscountRate` (BigDecimal): 변경된 이자율
-- **Success Response:** `200 OK` (재측정 결과가 반영된 엔티티)
+  - `remeasurementDate` (LocalDate, 필수): 아직 `SCHEDULED`인 첫 회차의 날짜 (`YYYY-MM-DD`)
+  - `newMonthlyPayment` (BigDecimal, 선택): 변경된 월 리스료, 양수·소수 둘째 자리까지
+  - `newEndDate` (LocalDate, 선택): 변경된 종료일, 기준일 이후
+  - `newDiscountRate` (BigDecimal, 선택): 변경된 연 이자율(%), 0 이상·소수 넷째 자리까지
+- **Header:** `X-User-ID` (실행자, 필수)
+- **예시:** `{"contractId":1,"remeasurementDate":"2026-06-01","newMonthlyPayment":2400.00}`
+- **Success Response:** `200 OK` (조건이 반영된 계약 엔티티; 부채·사용권자산·상환표는 DB에 함께 저장)
+- **검증:** 이미 `PAID`인 기준일이나 미처리 과거 회차, 계약 기간 밖 기준일, 잘못된 금액·이자율은 거절한다. 같은 조건과 기준일의 재시도는 미래 회차를 중복 생성하지 않는다.
 
 ## 3. 현재 구현 주의사항
 

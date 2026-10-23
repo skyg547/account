@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ho.account.closing.application.service.FxValuationServiceTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-24T00:53:13" hostname="ho-To-Be-Filled-By-O-E-M" time="0.066">
+  <properties/>
+  <testcase name="대변 정상잔액 계정은 평가 증가를 손실로 보고 계정 라인을 대변에 기록한다" classname="com.ho.account.closing.application.service.FxValuationServiceTest" time="0.054"/>
+  <testcase name="환율이 없으면 해당 chunk가 실패할 수 있도록 예외를 전파한다" classname="com.ho.account.closing.application.service.FxValuationServiceTest" time="0.003"/>
+  <testcase name="기준일 계정과목이 없으면 전표 없이 실패한다" classname="com.ho.account.closing.application.service.FxValuationServiceTest" time="0.003"/>
+  <testcase name="FX 평가는 정책 보고통화와 장부 기준통화 잔액으로 차액 전표를 생성한다" classname="com.ho.account.closing.application.service.FxValuationServiceTest" time="0.003"/>
+  <testcase name="장부 기준통화 잔액이 없으면 평가를 성공으로 숨기지 않는다" classname="com.ho.account.closing.application.service.FxValuationServiceTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

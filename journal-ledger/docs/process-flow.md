@@ -59,33 +59,55 @@ flowchart LR
 identity 값은 앞뒤 공백을 제거한 뒤 source type 최대 50자, source ID와 operation key 최대
 100자로 제한하며 대소문자는 구분합니다. 호출자는 재시도 때 같은 표기를 안정적으로 유지해야 합니다.
 
-서비스는 전표로 저장될 생성 의미를 정규화하고 version 1 SHA-256 fingerprint를 계산합니다.
+수동 HTTP와 contract 명령은 전표로 저장될 생성 의미를 정규화하고 version 1 SHA-256
+fingerprint를 계산합니다.
 전표·회계 일자, 설명, 유형, 통화·환율, trusted maker/audit identity, lineage와 각 라인의 차대·계정·금액·
 기준금액·부서·거래처·적요가 대상입니다. 숫자의 불필요한 scale과 라인 순서는 결과를
 바꾸지 않지만, 같은 라인이 두 번 나타나는 multiplicity는 보존합니다. 서버가 생성한 `slipNo`와
 생성 뒤의 lifecycle 상태는 fingerprint에 넣지 않습니다. 따라서 재시도 여부는 JSON 문자열의
-공백이나 map 순서가 아니라 저장 의미로 판단합니다.
-같은 identity와 같은 fingerprint면 V18 registry가 가리키는 기존 전표를 반환합니다. identity는
-같지만 fingerprint가 다르면 금액이나 계정 같은 원 요청이 바뀐 것이므로 기존 전표를 반환하지
+공백이나 map 순서가 아니라 저장 의미로 판단합니다. 이벤트 HTTP/Kafka는 별도의 version 2
+요청 fingerprint를 회계일과 trusted maker가 반영된 이벤트 payload에서 계산합니다. 중첩 map의
+키 순서는 무시하고 숫자 scale은 정규화하지만, 배열 순서·문자열·금액·회계일·maker 변경은
+서로 다른 요청입니다. `journalOperationKey`와 `operationKey`는 선택된 작업 키로 함께
+정규화하므로 규칙 수식의 별칭 접근과 재시도 fingerprint가 동일하게 동작합니다. 같은 identity의
+기존 receipt는 DB 잠금 아래에서 이 요청 fingerprint로
+먼저 비교하므로 활성 규칙이 삭제·비활성화되거나 수정된 뒤에도 같은 이벤트면 기존 전표를
+반환합니다. 첫 전달에서만 현재 규칙을 평가합니다. 기존 receipt가 없고 규칙이 매칭되지 않으면
+receipt를 만들지 않아 나중에 규칙 보정 뒤 다시 처리할 수 있습니다.
+자동분개 설명은 payload의 `description` → `memo` → `title`을 우선합니다. 모두 없으면
+변경 가능한 규칙 표시명(`ruleName`) 대신 안정적인 `ruleCode`를 전표 설명으로 사용합니다.
+라인 설명 수식이 비어 있을 때도 이 전표 설명을 사용합니다. 규칙 표시명 등 규칙 정의만 바뀌어도
+완료된 이벤트 요청의 기존 전표는 다시 생성하지 않습니다. 반면 같은 키로 이벤트 payload의 금액·
+명시적 설명 등이 바뀌면 충돌로 거부합니다.
+같은 identity와 같은 fingerprint면 V20 registry가 가리키는 기존 전표를 반환합니다. identity는
+같지만 fingerprint가 다르면 원 요청이 바뀐 것이므로 기존 전표를 반환하지
 않고 명시적인 생성 충돌로 실패합니다. 오류 응답과 로그에는 fingerprint나 원 요청 내용을
 노출하지 않습니다. HTTP는 이를 `409 Conflict`로 매핑하고, contract는 예외를
 호출자에게 전달하며, Kafka는 listener 실패를 다시 던져 배포된 retry/DLQ 정책이 처리하게 합니다.
-충돌은 기존 전표와 registry를 변경하지 않습니다. 이벤트 규칙이 매칭되지 않아 전표가 생성되지
-않은 경우에도 receipt를 만들지 않으므로, 나중 요청은 같은 identity로 규칙 평가를 다시 수행합니다.
+충돌은 기존 전표와 registry를 변경하지 않습니다.
+Kafka 미매칭은 별도 V18 quarantine에 broker 좌표와 원본 payload를 보존합니다. 관리자 replay도
+보존된 업무 키·lineage·회계일로 V20 생성 유스케이스를 호출하고 전표와 quarantine 상태를 한
+트랜잭션에 commit합니다. 서로 다른 transport의 maker principal이 달라지면 감사 내용이 다르므로
+같은 operation key라도 fingerprint 충돌로 거부합니다. 수동·contract version 1과 이벤트
+HTTP·Kafka version 2는 비교 대상이 다른 요청 표현이므로, 동일한 source에서 이 경로들이
+충돌하지 않도록 operation key namespace를 분리해야 합니다.
 
 DB stripe 잠금은 아직 registry 행이 없는 첫 요청끼리도 같은 identity에 대해 순서를 정합니다.
 잠금을 잡은 뒤 registry를 다시 조회하고, 첫 요청만 검증·전표 저장·registry 연결을 하나의
 트랜잭션에서 commit합니다. 검증, 전표 저장 또는 registry 저장이 실패하면 전부 rollback되므로
 완료되지 않은 receipt가 남지 않습니다. 호출자는 모호한 실패 뒤 동일한 세 키와 payload로 전체
-명령을 재시도할 수 있습니다. V18 UNIQUE는 애플리케이션 잠금의 마지막 방어선이며, 제약 경쟁도
+명령을 재시도할 수 있습니다. V20 UNIQUE는 애플리케이션 잠금의 마지막 방어선이며, 제약 경쟁도
 성공한 기존 결과를 새 트랜잭션에서 다시 확인해야 하지 무조건 성공으로 간주하지 않습니다.
 
 관리형 역분개는 V17의 `journal_reversal_operations`와 원본 전표 잠금으로 소유권을 정하며 이 일반
 생성 registry의 `PRIMARY`를 재사용하지 않습니다. 원본당 단일 역분개, 취소 후 재생성, 전기 경쟁
 규칙은 아래 [원본당 단일 역분개 작업](#원본당-단일-역분개-작업)의 독립 계약을 유지합니다.
 identity 없는 core 호환 생성 메서드는 production wiring에서 생성 전에 거부합니다. 테스트용
-embedded 호환 구성에는 V18 receipt가 없으므로 외부 재시도 경로가 사용하면 안 됩니다.
+embedded 호환 구성에는 V20 receipt가 없으므로 외부 재시도 경로가 사용하면 안 됩니다.
 이 문서의 멱등 보장은 위 표의 identity-aware 경로에 한정됩니다.
+V20 이전 전표는 registry에 자동 연결되지 않습니다. 배포 전 처리됐지만 응답이 유실된 이벤트를
+새 코드에 그대로 다시 보내면 기존 전표를 찾지 못해 중복 생성할 수 있으므로, cutover 전에 모든
+writer와 입력을 fence하고 대기 중인 outbox/Kafka/클라이언트 재시도를 기존 전표와 대사해야 합니다.
 
 ### 거래통화에서 기준통화(KRW)로 환산
 
@@ -135,7 +157,7 @@ KRW 130,000이어야 하며 USD 100을 그대로 공급할 수 없습니다.
 승인 내용과 현재 장부가 달라지므로, `POSTED` 원본은 그대로 두고 정정 사실도 별도 전표로
 남깁니다.
 
-1. 최초 `APPROVED -> POSTED` 전환은 정상 처리됩니다. JPA 콜백은 로드·저장 직후 캡처한
+1. 최초 `APPROVED -> POSTED` 전환은 정상 처리됩니다. `META-INF/journal-ledger-orm.xml`에 연결된 infrastructure lifecycle listener는 로드·저장 직후 캡처한
    persisted 상태와 현재 상태를 함께 보므로, 이 최초 전환을 이미 확정된 이력의 수정으로
    오인하지 않습니다.
 2. 한번 commit된 `POSTED` 전표에서는 헤더·감사 setter, 상세의 금액·차대 구분·계정·차원·적요·
@@ -351,6 +373,60 @@ JDBC bulk 모드는 H2 기준 SQL 동작을 `JdbcLedgerBulkPersistenceAdapterTes
 5. 차대변은 `JournalSide` 타입으로 제한되어 잘못된 문자열을 저장 전에 차단합니다.
 6. 필수 표현식 값, 외화 환율이 없거나 금액이 0 이하이면 전표 생성을 중단합니다.
 
+### Kafka 미매칭 격리와 재생
+
+Kafka listener는 성공/실패를 로그만으로 결정하지 않습니다. 규칙이 하나도 일치하지 않으면
+V18의 `journal_event_quarantine`에 `(source_topic, source_partition, source_offset)`을 고유
+operation identity로 저장합니다. 같은 broker record의 재전달은 새 예외 행을 만들지 않습니다.
+일반 journal lineage는 한 원천이 여러 전표를 만들 수 있으므로 이 고유 키로 사용하지 않습니다.
+
+Kafka payload의 `accountingDate`는 필수 ISO 날짜 문자열(`YYYY-MM-DD`)입니다. 빠짐, `null`,
+빈 문자열, 잘못된 날짜나 다른 타입은 전표 생성과 quarantine 저장 전에 소비 실패로 처리되어
+아래의 재시도/DLT 경로로 갑니다. 리스너는 소비 시각의 날짜를 대신 쓰지 않습니다. 정상적으로
+격리된 미매칭 이벤트는 최초 수신 시 확정한 회계일을 별도 열에 보존하고, 월말·연말 이후
+재생해도 그 날짜로 규칙과 마감 검증을 다시 실행합니다. 재생 API는 다른 회계일을
+지정하는 파라미터가 없으며, payload의 날짜도 저장된 회계일을 덮어쓰지 못합니다.
+
+원천 회계일이 마감 기간이면 규칙 매칭 후 `ClosingLockValidationFilter`가 해당 날짜를
+거부하고 전표를 저장하지 않습니다. 이는 규칙 미매칭 quarantine과 달리 처리 실패이므로
+재시도/DLT로 조사합니다. 개방 기간에 조정 전표가 필요한 회계 담당자는 원천 Kafka record를
+수정하거나 재생 날짜를 바꾸는 대신, 인증된 별도 HTTP 생성 흐름에서 회계일을 명시합니다.
+예를 들어 `ROLE_ACCOUNTING_ADMIN`과 `X-Auth-User`를 가진 담당자가 유효한 조정 룰 및
+개방 기간을 확인한 후 `POST /api/journals/from-event?accountingDate=2026-10-01`에
+`{"eventData":{"ruleCode":"ADJUSTMENT_RULE","amount":"100.00"}}`를 보냅니다.
+이 API는 maker 역할을 검사하고 요청자 신원을 payload보다 우선하며, 마감 회계일은 생성
+검증에서 거부합니다. 생성된 초안은 기존 승인·전기 흐름과 자기 승인 금지를 따릅니다.
+조정 룰과 개방 기간이 준비되지 않으면 이 예시는 성공하지 않습니다.
+
+`ROLE_ACCOUNTING_ADMIN` 또는 `ROLE_ADMIN`은 `X-Auth-User`와 함께 다음 control API를 사용합니다.
+
+- `GET /api/journals/event-quarantine/summary`: 미해결/재생 완료 수와 가장 오래된 미해결 시각
+- `GET /api/journals/event-quarantine?status=QUARANTINED&limit=50`: 오래된 순 broker 좌표·상태
+- `POST /api/journals/event-quarantine/{id}/replay`: 현재 규칙으로 잠금 기반 재생
+
+목록과 응답은 원문 payload 및 Kafka key를 노출하지 않습니다. 재생은 quarantine 행을
+`FOR UPDATE`로 잠근 뒤 저장된 payload를 복원하고 기존 룰 엔진·검증 엔진·전표 저장 경로를
+그대로 호출합니다. 규칙이 여전히 없으면 HTTP 409이며 attempt/actor/time만 남고 계속
+`QUARANTINED`입니다. 규칙이 생겼으면 전표 insert와 `REPLAYED`, 연결 journal ID가 같은 DB
+트랜잭션으로 커밋됩니다. 두 replay가 경쟁하면 첫 요청만 전표를 만들고 다음 요청은 잠금 뒤
+이미 연결된 같은 전표를 반환합니다.
+
+목록 `limit`은 1~100만 허용하며 범위를 벗어나면 persistence 호출 전 HTTP 400입니다. 존재하지
+않는 quarantine replay만 전용 예외를 통해 404로 응답하고, 실제 DB/serialization/룰 처리 장애를
+404로 축소하지 않습니다. summary의 두 상태 count와 가장 오래된 미해결 시각은 세 번 조회하지
+않고 하나의 조건부 aggregate SQL로 읽어 READ_COMMITTED에서도 같은 statement snapshot을 봅니다.
+
+V18 quarantine은 Kafka broker record의 미매칭 완전성을 관리합니다. 일반 전표 생성의
+HTTP/contract/manual/Kafka 재시도는 위 V20 operation key와 versioned fingerprint로
+별도 보호합니다. replay가 나중에 전표를 만들 때도 같은 V20 업무 identity를 사용합니다.
+lineage 전체에 UNIQUE를 추가하지 않으며 null slip 번호에서 작업 키를 추측하지 않습니다.
+
+룰 평가·검증·DB 예외처럼 quarantine 정상 처리가 아닌 실패는 설정된 `DefaultErrorHandler`가
+기본 1초 간격으로 2회 재시도합니다. 최초 시도를 포함한 세 번째 실패 뒤 같은 partition의
+`<source-topic>.DLT`로 발행하고, DLT 발행 자체가 실패하면 원본 record를 성공 처리하지 않습니다.
+운영 시작 전에 DLT가 원본보다 적지 않은 partition 수로 생성됐는지와 생산/소비 ACL을 확인해야
+합니다. local profile은 broker가 없어 listener auto-startup이 꺼져 있습니다.
+
 `JournalRuleEngine`은 `JournalRuleQueryPort`를 통해 규칙을 읽습니다. JPA 저장소 세부 구조와 조회 메서드는 `JournalRuleQueryAdapter` 뒤에 숨깁니다.
 거래통화는 `transactionCurrencyCode`, `currencyCode`, `currency`와 각각의 `transaction.*`
 형태만, 환율은 `transactionToBaseRate`, `exchangeRate`, `fxRate`와 각각의 `transaction.*`
@@ -373,8 +449,8 @@ binary floating-point인 `Double`이 아니라 `BigDecimal`로 만들며, JSON �
 `DECIMAL(19,2)` 계약을 `RoundingMode.UNNECESSARY`로 검사합니다. 따라서
 `900719925474099.11`은 센트까지 그대로 유지되고, `100.000000000000001`처럼 허용 범위를
 넘는 소수는 `100.00`으로 반올림되기 전에 HTTP 400 또는 Kafka 리스너 예외로 거부됩니다.
-Kafka 리스너는 이 예외를 소비 실패로 다시 던지며, 실제 재시도 횟수와 DLQ 라우팅은 배포별
-Kafka 오류 처리 설정의 책임입니다. 이 경계 설정은 정밀도를 보존할 뿐 금액을 확정하거나
+Kafka 리스너는 이 예외를 소비 실패로 다시 던지고, 위의 bounded retry/DLT 정책을 적용합니다.
+이 경계 설정은 정밀도를 보존할 뿐 금액을 확정하거나
 반올림하지 않으며, 금융 유효성 판단은 계속 core 도메인이 담당합니다.
 
 ## 미결 등록·반제 흐름
@@ -547,9 +623,30 @@ sequenceDiagram
 V15 barrier가 전체 Job 수명 동안 입력과 공개를 통제합니다. 실패하면 부분 잔액은 DB에 남을 수
 있지만 조회·전기에는 수락되지 않습니다. 같은 JobInstance 재시작은 성공한 cleanup/chunk를
 건너뛰고 checkpoint에서 계속하며, 다른 인스턴스는 owner 충돌로 실패합니다.
+
+### GL/SL 잔액 차원 키
+
+전기 시 일별 잔액을 묶는 키와 기간 조회 결과를 묶는 키는 같은 차원 값을 그대로 비교합니다.
+GL은 계정 코드와 통화, SL은 계정 코드·거래처 코드·부서 코드·통화의 순서쌍입니다.
+각 구성요소는 정확한 문자열 값과 `null` 여부로 비교합니다. 따라서 거래처가 없는
+`null`, 빈 문자열 `""`, 실제 코드 `"NULL"`, 구분자 `|`가 든 코드는 서로 다른 값이며,
+다른 차원에 `|`가 들어 있어도 합쳐지지 않습니다. 키를 표시용 문자열로 이어 붙이거나
+`null`을 특정 문자열로 바꾸지 않습니다.
+
+예를 들어 같은 날짜·계정의 거래처 `null` 차변 10과 거래처 `"NULL"` 차변 20은
+SL에 별도 잔액 두 행으로 저장되고, 각 차원의 기간 조회에도 별도로 나타납니다.
+해당 GL 차변은 30이며 두 SL 차변의 합도 30입니다. 기간 조회는 차원별로 가장 이른
+일별 기초를 한 번만 취하고 기간 중 차변·대변을 더해 기말을 계산합니다. 기존에 이미
+잘못 합쳐 저장된 행을 자동 분리하지는 않으므로 과거 데이터는 원본 `POSTED` 전표와
+GL/SL 대사를 거친 재집계 계획이 필요합니다.
+
+저장소 루트에서 `./gradlew :journal-ledger:test`를 실행하면 이 경계의 서비스·영속성
+회귀를 확인할 수 있습니다. 기대 결과는 서로 다른 SL 행과 GL/SL 총액 일치, 테스트
+실패 0입니다. H2 기반 검증은 운영 PostgreSQL 데이터의 과거 오귀속 여부를 증명하지 않습니다.
+
 ## 재시도와 정합성 주의사항
 
-- 같은 생성 identity의 동등 요청은 V18 receipt가 가리키는 기존 전표를 반환합니다. 내용이 다르면 기존 결과를 성공으로 오인하지 않고 충돌하며, 실패한 트랜잭션은 버리고 같은 identity·payload로 전체 명령을 재시도합니다.
+- 같은 생성 identity의 동등 요청은 V20 receipt가 가리키는 기존 전표를 반환합니다. 내용이 다르면 기존 결과를 성공으로 오인하지 않고 충돌하며, 실패한 트랜잭션은 버리고 같은 identity·payload로 전체 명령을 재시도합니다.
 - 동일 반제 참조번호는 다시 적용하지 않습니다.
 - 같은 전표의 동시 요청은 DB 헤더 잠금으로 직렬화합니다. 커밋 후 재요청은 최신 `POSTED` 상태를 읽고 승인 상태 검증으로 거부하므로 추가 GL/SL·잔액 효과가 없습니다. 상세 동작과 검증은 [동시 전기 제어](posting-concurrency.md)를 참고합니다.
 - 서로 다른 전표도 계정·통화별 공통 잠금을 먼저 확보하여 GL/SL의 최신 금액에 누적합니다. 신규 잔액과 NULL SL 차원도 포함합니다. 데드락 실패는 호출자의 전체 트랜잭션을 롤백한 뒤 새 트랜잭션으로 재시도합니다.
@@ -557,3 +654,16 @@ V15 barrier가 전체 Job 수명 동안 입력과 공개를 통제합니다. 실
 - 과거 날짜 전표는 이후 잔액 재집계 범위를 확인해야 합니다.
 - 거래처별 미결 조회는 출력 포트의 DB 조건 조회를 사용해 대량 데이터를 메모리에 올리지 않습니다.
 - GL/SL 조건 조회도 `LedgerBalancePersistenceAdapter`의 DB 쿼리에서 필터링합니다.
+
+## 자동 전표번호 생성
+
+`createJournalEntry`와 이벤트 생성, 역분개 생성은 `slipNo`가 비어 있을 때
+`JournalPersistencePort`로 데이터베이스 번호를 한 번 예약하고
+`JE-YYYYMMDD-XXXXXXXX`을 만든 뒤 기존 검증·저장 경로로 이어집니다.
+`YYYYMMDD`는 전표 작성일 `slipDate`이며 회계 반영일 `accountingDate`와 다를 수 있습니다.
+번호 생성에 실패하면 임의 번호나 로컬 카운터로 대체하지 않고 생성 요청을 실패시킵니다.
+HTTP 수동·룰 이벤트·외부 posting 생성은 채번 저장소 오류나 범위 소진에 `503`을 반환합니다.
+수동 번호 형식 및 전표 업무 검증 오류는 기존 `400` 응답을 유지합니다.
+`journal_entries.slip_no`의 UNIQUE 제약은 최종 중복 방어선입니다.
+새 자동 형식과 같은 수동 지정 번호는 사전에 거부합니다. 과거 4자리 번호와 다른 수동
+번호는 기존 UNIQUE 제약을 따르며, 원천 이벤트 멱등성 정책은 변경되지 않습니다.

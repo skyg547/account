@@ -1,13 +1,13 @@
 package com.ho.account.closing.batch.config;
 
-import com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapter;
-import com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapter;
 import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
-import com.ho.account.closing.infrastructure.source.ClosingReadOnlySources;
 import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
 import com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapter;
+import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJournalEntryAdapter;
 import com.ho.account.closing.infrastructure.source.ClosingReadOnlySourceConfiguration;
+import com.ho.account.closing.infrastructure.source.ClosingReadOnlySources;
 import com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapter;
+import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -20,18 +20,18 @@ import org.springframework.context.annotation.Profile;
  */
 @Configuration(proxyBeanMethods = false)
 @Profile("dev")
-@Import({ClosingReadOnlySourceConfiguration.class, HttpClosingJournalAdapter.class})
+@Import({ClosingReadOnlySourceConfiguration.class, HttpClosingJournalAdapter.class,
+        JournalLedgerClosingJournalEntryAdapter.class})
 public class ClosingBatchDevConfiguration {
 
     @Bean
-    public JournalFxValuationBalanceSource journalFxValuationBalanceSource(ClosingReadOnlySources sources,
-                                                                       FxValuationEligibilityResolver eligibilityResolver) {
-        return new JournalFxValuationBalanceSource(sources.journalDataSource(), sources.journalJdbcTemplate(), eligibilityResolver);
-    }
-
-    @Bean
-    public GlAllowanceBalanceLookupAdapter glAllowanceBalanceLookupAdapter(JournalFxValuationBalanceSource balanceSource) {
-        return new GlAllowanceBalanceLookupAdapter(balanceSource);
+    public JournalFxValuationBalanceSource journalFxValuationBalanceSource(
+            ClosingReadOnlySources sources,
+            FxValuationEligibilityResolver eligibilityResolver) {
+        return new JournalFxValuationBalanceSource(
+                sources.journalDataSource(),
+                sources.journalJdbcTemplate(),
+                eligibilityResolver);
     }
 
     @Bean

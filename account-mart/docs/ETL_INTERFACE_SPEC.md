@@ -10,7 +10,7 @@
 | `ods_collateral_mst` / `ods_coll_mst` | 담보 유형과 평가액 |
 | `ods_apart_coll_detail` | 부동산/아파트 담보의 지역 코드, KB 시세, 전용면적 기반 LGD 선행 입력 검증 |
 | `ods_general_ledger` | ODS 잔액 대사 |
-| `exchange_rate` | 외화 익스포저 원화 환산 |
+| `market_exchange_rate` | 기준일 외화 익스포저의 원화 환산 |
 
 ETL 결과는 `allowance_input_positions`를 거쳐 `allowance_exposure_snapshots`로 고정됩니다.
 
@@ -31,6 +31,8 @@ CLI 실행 예시는 다음과 같습니다.
 
 - 원천 계좌와 고객 기준정보는 같은 기준일 기준으로 맞춰야 합니다.
 - 부동산/아파트 담보는 마스터와 상세 데이터가 같은 담보번호로 연결되어야 합니다.
-- 외화 익스포저는 환율 누락 시 snapshot 생성 전에 실패 또는 격리되어야 합니다.
+- KRW 포지션의 `marketValue`는 원금을 소수 4자리 `HALF_UP`으로 맞춥니다. 외화 포지션은 `baseDate`에 해당하는 `market_exchange_rate`의 외화/KRW 매매기준율(`base_rate`)로 원금을 곱한 뒤 같은 방식으로 반올림합니다.
+- 외화는 기준일과 해당 통화/KRW 환율이 필수이며, `base_rate`가 없거나 0 이하이면 CDM 변환이 실패합니다. 원금을 1:1 원화 평가금액으로 저장하지 않으며 `cdmLoadStep`과 `integratedPositionEtlJob`이 실패해 snapshot 생성으로 진행하지 않습니다.
+- 실패 시 기준일 환율 데이터를 확인·보정한 뒤 같은 기준일로 Job을 재실행합니다. 완료 여부뿐 아니라 CDM Step 실패 상태와 누락 환율 원인을 함께 확인하세요.
 - ODS와 GL 대사는 잔액 총액뿐 아니라 통화/계정 축을 함께 확인해야 합니다.
 - ETL 완료 후 ECL 모듈이 읽는 snapshot은 더 이상 원천 변경에 흔들리지 않는 고정 입력이어야 합니다.

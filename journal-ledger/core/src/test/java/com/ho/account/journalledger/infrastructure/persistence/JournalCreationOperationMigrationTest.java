@@ -15,9 +15,9 @@ class JournalCreationOperationMigrationTest {
     private static final String FINGERPRINT_B = "b".repeat(64);
 
     @Test
-    void cleanV18CreatesCompleteLockSetAndEnforcesOperationRelationships() {
+    void cleanV20CreatesCompleteLockSetAndEnforcesOperationRelationships() {
         PostingTestDatabase database = PostingTestDatabase.create();
-        migrateTo(database, "18");
+        migrateTo(database, "20");
         JdbcTemplate jdbc = new JdbcTemplate(database.dataSource());
 
         assertCompleteLockSet(jdbc);
@@ -54,11 +54,11 @@ class JournalCreationOperationMigrationTest {
                 "INSERT INTO journal_creation_operation_locks(lock_id) VALUES (256)"))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history"
-                + " WHERE version = '18' AND success = TRUE", Integer.class)).isOne();
+                + " WHERE version = '20' AND success = TRUE", Integer.class)).isOne();
     }
 
     @Test
-    void v17ToV18PreservesLegacyJournalsWithoutInventingOperationIdentity() {
+    void v17ToV20PreservesLegacyJournalsWithoutInventingOperationIdentity() {
         PostingTestDatabase database = PostingTestDatabase.create();
         migrateTo(database, "17");
         JdbcTemplate jdbc = new JdbcTemplate(database.dataSource());
@@ -66,7 +66,7 @@ class JournalCreationOperationMigrationTest {
         insertJournal(jdbc, 11L, "GL765-LEGACY-2", "80.40");
         BigDecimal amountBefore = totalJournalAmount(jdbc);
 
-        migrateTo(database, "18");
+        migrateTo(database, "20");
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM journal_entries", Integer.class)).isEqualTo(2);
         assertThat(totalJournalAmount(jdbc)).isEqualByComparingTo(amountBefore);
