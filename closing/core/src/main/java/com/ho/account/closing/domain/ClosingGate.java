@@ -61,6 +61,11 @@ public class ClosingGate {
         return cycleNumber;
     }
 
+    /** Restores the persisted cycle without assigning historical evidence to the calendar's current cycle. */
+    public void setCycleNumber(int cycleNumber) {
+        this.cycleNumber = cycleNumber;
+    }
+
     public void assignCycle(ClosingCalendar calendar) {
         if (calendar == null) {
             throw new IllegalArgumentException("calendar must not be null");

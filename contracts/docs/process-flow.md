@@ -74,3 +74,24 @@ Port 메서드가 자동으로 네트워크 호출로 바뀌지 않습니다. �
 - 404, 업무 거절, 일시 장애의 오류 의미
 - 계약 version과 하위 호환성
 - 민감정보와 감사 추적
+
+## 6. 기간 증빙과 전표 커밋을 연결하는 순서 (GH-762)
+
+1. Closing이 Master의 기간 ID·일자 범위를 검증하고 Journal `checkpoint(scope)`를 호출합니다.
+   Journal은 진행 중인 금액 변경의 실제 트랜잭션 종료를 기다린 뒤 영속 revision을 반환합니다.
+2. 증빙 제공자는 **이 응답 이후** primary 원천에서 새 snapshot/조회 트랜잭션을 시작합니다.
+   기존 snapshot이나 replica의 지연된 결과에 새 checkpoint를 붙이면 이 계약을 충족하지 않습니다.
+3. Closing은 checkpoint를 대사 증빙 내용 및 digest와 함께 저장합니다. 증빙 제출만으로
+   신규 전표가 차단되지는 않습니다.
+4. 최종 마감은 영속 transition ID를 operation ID로 삼아 `fence(command)`를 호출합니다.
+   Journal이 전표와 같은 DB 잠금을 획득한 뒤 revision을 원자적으로 비교합니다. 중간에 전표가
+   커밋했다면 증빙을 거절하고, 일치하면 ACTIVE fence를 커밋한 후 응답합니다.
+5. Closing은 정확히 일치하는 ACTIVE 응답을 확인한 뒤 Master 마감을 진행합니다. 이후 해당
+   cutoff까지의 신규 금액 변경은 거절됩니다. 과거일 전표도 후속 잔액에 영향을 주므로 포함됩니다.
+6. 취소·재오픈은 Closing의 복구 가능한 영속 단계에서 `release`합니다. 응답 유실은 같은 명령으로
+   재시도하며, 옛 해제 요청은 새 operation의 fence를 해제할 수 없습니다.
+
+로컬 메서드 호출과 원격 HTTP 호출은 같은 영속 구현을 사용합니다. HTTP timeout은 성공/실패를
+단정할 수 없는 결과이며, 이를 근거로 마감을 확정하거나 게이트를 자동 해제하면 안 됩니다.
+Journal 전체 admission row로 금액 변경이 직렬화되는 비용과 재시도·배포 조건은
+[`journal-ledger` 동시성 문서](../../journal-ledger/docs/posting-concurrency.md)에 설명합니다.

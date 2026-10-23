@@ -1,3 +1,24 @@
+# GH-762 handoff
+
+Implementation and verified independent review are complete. Parent publication of a Draft with `Refs #762` is next.
+
+- Issue: [#762](https://github.com/skyg547/account/issues/762).
+- Branch/worktree: `agent/762-period-admission`, `/tmp/account-762-period-admission`; fetched base `ed539846a92f46e09896d0a56ab808a4f94cacc7` remains current.
+- Allowed scope: `journal-ledger/**`, `closing/**`, `contracts/**`. Shared harness/history and original checkout are untouched. Parent records cross-module work in this module-local harness under the user's explicit scope restriction.
+- Behavior: Journal writers hold the shared DB gate through commit. Final-close evidence carries an immutable checkpoint and CAS fences the accepted snapshot. Persistent command receipts/tombstones survive timeout and restart; cancellation and reopen retain release intent before remote action.
+- Verification: literal three-module command PASS; **1,255 PASS, 1 optional PG skip, 0 failures/errors**. Separate real PostgreSQL22 PASS covers that skip. Actual Journal JVM ACK→kill→restart/replay/release proof PASS. Four API/Batch bootJARs and byte-identical packaged V20/V58 PASS. Independent reviews report no remaining P0–P3 and Q1–Q4 PASS.
+- Baseline blockers repaired within scope: Closing port/hydration/composition gaps and stale financial test fixtures; existing financial/lineage/locking controls preserved. Inherited README merge markers were reconciled to actual V49–V58 guidance; exact-file marker scan is clean.
+- Before deployment: stop old monetary writers, apply migrations, reconcile/install all historical CLOSED/PERMANENTLY_CLOSED fence coverage, use fresh primary snapshots after checkpoint and keep Master period definitions frozen during pending transitions. One authoritative Journal DB and READ_COMMITTED monetary transactions are required. Global serialization, TLS/service identity and production load need deployment review.
+- Rollback: quiesce monetary writers and close transitions; use reviewed code revert or forward schema correction while preserving revision, command and release history. Gate removal reopens GL07, so unprotected traffic must not resume.
+- Authority separation: requested `gpt-6-astra`/`xhigh` module writers implement; independent reviewers remain read-only; parent alone owns records/commit/push/Draft PR. Human reviewer owns later Ready, merge, Issue close, deployment and resource deletion.
+- Retained evidence: `/tmp/account-762-evidence/`, task PostgreSQL container `account-762-period-admission-pg`, and `/tmp/account-762-audited-proof` at `a97d10ab`. Runtime smoke child JVMs exited. Historical RED is a synthetic-outbound probe; current real protocol tests and actual JVM durability proof have separate documented scopes.
+
+[Detailed commands, test counts and limitations](../issue-762/verification.md) · [Q1–Q4 and work log](worklog.md).
+
+---
+
+다음은 보존된 이전 작업 기록이며 현재 GH-762 상태가 아닙니다.
+
 # GH-894 handoff
 
 Issue [#894](https://github.com/skyg547/account/issues/894) is `status:blocked` on the Loan integration regression. Its module-scoped implementation is on `agent/894-domain-persistence-boundary` in `/tmp/account-894-domain-persistence-boundary`, based on `origin/main@9348966a`. [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`. Other modules and shared harness/history were not edited.

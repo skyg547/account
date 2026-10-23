@@ -6,12 +6,16 @@ import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQ
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubjectPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaMasterDataAuditAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaBusinessPartnerPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.AccountSubjectMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.DepartmentMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnResource;
+import org.springframework.boot.autoconfigure.orm.jpa.EntityManagerFactoryBuilderCustomizer;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
@@ -28,13 +32,12 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EntityScan(basePackages = {
         "com.ho.account.closing.domain",
         "com.ho.account.closing.infrastructure.persistence",
-        "com.ho.account.journalledger.domain",
+        "com.ho.account.journalledger.infrastructure.persistence",
         "com.ho.account.masterdata.core.domain",
         "com.ho.account.masterdata.core.infrastructure.persistence"
 })
 @EnableJpaRepositories(basePackages = {
-        "com.ho.account.journalledger.domain",
-        "com.ho.account.journalledger.adapter.out.persistence",
+        "com.ho.account.journalledger.infrastructure.persistence.repository",
         "com.ho.account.masterdata.core.infrastructure.persistence.repository"
 })
 @Import({
@@ -42,6 +45,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         MonolithExchangeRateQueryAdapter.class,
         MonolithMasterDataQueryAdapter.class,
         JpaFiscalPeriodPersistenceAdapter.class,
+        JpaMasterDataAuditAdapter.class,
         FiscalPeriodMapper.class,
         JpaAccountSubjectPersistenceAdapter.class,
         AccountSubjectMapper.class,
@@ -50,4 +54,16 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         DepartmentMapper.class
 })
 public class ClosingMonolithConfiguration {
+
+    @Bean
+    @ConditionalOnResource(resources = "classpath:META-INF/journal-ledger-orm.xml")
+    EntityManagerFactoryBuilderCustomizer embeddedJournalMappings() {
+        // Plain Journal domain classes need XML mappings only when that optional module is embedded.
+        return builder -> builder.setPersistenceUnitPostProcessors(unit -> {
+            String mapping = "META-INF/journal-ledger-orm.xml";
+            if (!unit.getMappingFileNames().contains(mapping)) {
+                unit.addMappingFileName(mapping);
+            }
+        });
+    }
 }

@@ -70,7 +70,7 @@ public class ClosingCalendarEntity {
     private String transitionTarget;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column(length = 30)
     private ClosingCalendar.TransitionStage transitionStage;
 
     private Long transitionFiscalPeriodId;
@@ -83,6 +83,15 @@ public class ClosingCalendarEntity {
 
     @Column(length = 100)
     private String transitionEvidenceSetId;
+
+    @Column(length = 36)
+    private String journalFenceOperationId;
+    private Long journalFencePeriodId;
+    private java.time.LocalDate journalFenceStartDate;
+    private java.time.LocalDate journalFenceEndDate;
+    private Long journalFenceRevision;
+    @Column(length = 50)
+    private String journalFenceActor;
 
     @Transient
     private String name;

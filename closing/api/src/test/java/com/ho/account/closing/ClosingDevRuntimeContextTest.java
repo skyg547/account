@@ -23,6 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ActiveProfiles("dev")
 @SpringBootTest(classes = ClosingApplication.class,
@@ -69,6 +70,15 @@ class ClosingDevRuntimeContextTest {
     @Autowired ApplicationContext context;
     @Autowired EntityManagerFactory entityManagerFactory;
     @Autowired JdbcTemplate jdbc;
+
+    @Test
+    void missingJournalFenceIntegrationFailsClosedInsteadOfReturningLocalSuccess() {
+        var fence = context.getBean("closingJournalPeriodFence",
+                com.ho.account.contracts.journal.JournalPeriodFencePort.class);
+        assertThatThrownBy(() -> fence.checkpoint(new com.ho.account.contracts.journal.JournalPeriodScope(
+                1L, java.time.LocalDate.of(2026, 1, 1), java.time.LocalDate.of(2026, 1, 31))))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("authoritative Journal");
+    }
 
     @Test
     void actualDevApplicationValidatesOnlyClosingSchemaAfterOwnedMigrations() {

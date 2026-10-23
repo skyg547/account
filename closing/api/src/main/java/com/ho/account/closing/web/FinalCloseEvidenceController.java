@@ -47,6 +47,16 @@ public class FinalCloseEvidenceController {
         this.properties = properties;
     }
 
+    /** Obtain this token before starting fresh authoritative source reads. */
+    @PostMapping("/checkpoint")
+    public com.ho.account.contracts.journal.JournalPeriodCheckpoint checkpoint(
+            @PathVariable @Positive Long calendarId,
+            @RequestHeader(name = AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = AUTH_ROLES_HEADER, required = false) String roles) {
+        requireEvidenceProvider(actor, roles);
+        return useCase.checkpoint(calendarId);
+    }
+
     @PostMapping
     public ResponseEntity<FinalCloseEvidenceResponse> record(
             @PathVariable @Positive Long calendarId,

@@ -3,8 +3,8 @@ package com.ho.account.closing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,13 +47,21 @@ class ClosingFinancialRunManifestIntegrationTest {
                 mock(FxValuationEvidencePort.class), mock(FxValuationService.class), ecl, properties, manifest);
         ClosingJournalEntryCommand a = command("A");
         ClosingJournalEntryCommand b = command("B");
-        when(ecl.prepareEclProvision(DATE, 88L)).thenReturn(List.of(a, b), List.of());
+        EclProvisionService.PreparedEclProvision original =
+                new EclProvisionService.PreparedEclProvision(List.of(), List.of(a, b));
+        EclProvisionService.PreparedEclProvision omitted =
+                new EclProvisionService.PreparedEclProvision(List.of(), List.of());
+        when(ecl.prepareEclProvisionSnapshot(DATE, 88L)).thenReturn(original, omitted);
         Map<String, Long> draftIds = new HashMap<>();
         AtomicInteger attempts = new AtomicInteger();
-        when(ecl.postPreparedEclProvision(any())).thenAnswer(invocation -> {
-            List<ClosingJournalEntryCommand> commands = invocation.getArgument(0);
+        when(ecl.postPreparedEclProvision(any(EclProvisionService.PreparedEclProvision.class), any()))
+                .thenAnswer(invocation -> {
+            List<ClosingJournalEntryCommand> commands = invocation.getArgument(1);
             assertThat(commands).containsExactly(a, b);
             int attempt = attempts.incrementAndGet();
+            // Current preparation is rechecked, while the committed manifest keeps the original commands.
+            assertThat(invocation.<EclProvisionService.PreparedEclProvision>getArgument(0))
+                    .isSameAs(attempt == 1 ? original : omitted);
             java.util.ArrayList<ClosingJournalEntryResult> results = new java.util.ArrayList<>();
             for (ClosingJournalEntryCommand command : commands) {
                 if (attempt == 1 && command.slipNo().equals("SLIP-B")) {
@@ -73,7 +81,7 @@ class ClosingFinancialRunManifestIntegrationTest {
         assertThat(result.journalCount()).isEqualTo(2);
         assertThat(result.singleJournalEntryId()).isNull();
         assertThat(draftIds).containsEntry("SLIP-A", 901L).containsEntry("SLIP-B", 902L);
-        verify(ecl).prepareEclProvision(DATE, 88L);
+        verify(ecl, times(2)).prepareEclProvisionSnapshot(DATE, 88L);
         assertThat(manifest.loadOrCreate("PROVISION", 88L, List::of)).containsExactly(a, b);
     }
 

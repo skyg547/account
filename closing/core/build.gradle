@@ -31,6 +31,7 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.postgresql:postgresql'
+    testRuntimeOnly 'com.h2database:h2'
     // Exercise Journal's actual status-port consumers without coupling the Closing runtime to Journal.
     testImplementation project(':journal-ledger:core')
 }

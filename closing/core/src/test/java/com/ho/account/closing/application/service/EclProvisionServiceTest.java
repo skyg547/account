@@ -7,10 +7,12 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryPort;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
+import com.ho.account.closing.application.port.out.ClosingJournalLineage;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
 import com.ho.account.closing.application.port.out.EclProvisionSnapshotPort;
 import com.ho.account.closing.domain.EclAllowanceSummary;
+import com.ho.account.closing.domain.EclProvisionSnapshot;
 import com.ho.account.closing.domain.ProvisionBatch;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,6 +36,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -51,6 +57,8 @@ class EclProvisionServiceTest {
     private FxExchangeRateLookupPort rates;
     @Mock
     private EclProvisionSnapshotPort snapshots;
+    @Captor
+    private ArgumentCaptor<List<EclProvisionSnapshot>> recordedSnapshots;
 
     private ClosingAccountingProperties accountingProperties;
     private EclProvisionService service;
@@ -173,7 +181,30 @@ class EclProvisionServiceTest {
                 .thenReturn(balance("KRW", "0", "0"));
 
         assertThat(service.processEclProvision(date, 47L)).isEmpty();
-        verifyNoInteractions(closingJournalEntryPort);
+
+        // Zero money effects still bind source lineage so a retry cannot replace the confirmed zero snapshot.
+        var order = inOrder(closingJournalEntryPort, snapshots);
+        order.verify(closingJournalEntryPort).preflightEclLineage(any());
+        order.verify(snapshots).recordAll(recordedSnapshots.capture(), eq(Map.of()));
+        assertThat(recordedSnapshots.getValue()).hasSize(1);
+        EclProvisionSnapshot recorded = recordedSnapshots.getValue().get(0);
+        assertThat(recorded.baseDate()).isEqualTo(date);
+        assertThat(recorded.provisionBatchId()).isEqualTo(47L);
+        assertThat(recorded.runId()).isEqualTo("RUN-ZERO");
+        assertThat(recorded.modelVersion()).isEqualTo("MODEL-ZERO");
+        assertThat(recorded.legalEntityCode()).isEqualTo("ENTITY");
+        assertThat(recorded.currencyCode()).isEqualTo("KRW");
+        assertThat(recorded.allowanceAccountCode()).isEqualTo("129100");
+        assertThat(List.of(recorded.targetAllowanceAmount(), recorded.sourceExposureAmount(),
+                recorded.stage1AllowanceAmount(), recorded.stage2AllowanceAmount(), recorded.stage3AllowanceAmount(),
+                recorded.existingTransactionAmount(), recorded.existingBaseAmount(),
+                recorded.adjustmentTransactionAmount(), recorded.adjustmentBaseAmount()))
+                .allSatisfy(amount -> assertThat(amount).isZero());
+        verify(closingJournalEntryPort).preflightEclLineage(List.of(new ClosingJournalLineage(
+                ClosingSlipNoFactory.eclProvision(date, "ENTITY|KRW|129100", 47L), date, "KRW",
+                recorded.reference(), recorded.operationKey(), true)));
+        verify(closingJournalEntryPort, never()).createDraftAdjustment(any());
+        verify(closingJournalEntryPort, never()).approveAndPost(any(), any());
     }
 
     @Test
@@ -220,7 +251,12 @@ class EclProvisionServiceTest {
         when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
                 .thenReturn(balance("KRW", "0", "0"));
 
-        ClosingJournalEntryCommand command = service.prepareEclProvision(date, 47L).get(0);
+        EclProvisionService.PreparedEclProvision prepared = service.prepareEclProvisionSnapshot(date, 47L);
+        assertThat(prepared.snapshots()).hasSize(1);
+        assertThat(prepared.commands()).hasSize(1);
+        // Reversal compatibility is checked before preparation can reserve source evidence or write a journal.
+        verifyNoInteractions(snapshots, closingJournalEntryPort);
+        ClosingJournalEntryCommand command = prepared.commands().get(0);
         JournalEntry posted = new JournalEntry();
         posted.setId(741L);
         posted.setSlipNo(command.slipNo());

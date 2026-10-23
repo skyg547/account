@@ -1,3 +1,32 @@
+# GH-762 — period admission remediation
+
+- Issue: [#762](https://github.com/skyg547/account/issues/762), `Refs #762`; branch `agent/762-period-admission`; worktree `/tmp/account-762-period-admission`; base `origin/main@ed539846a92f46e09896d0a56ab808a4f94cacc7` (remote base rechecked unchanged before publication).
+- Status: implementation, verification and independent review complete; Draft PR publication is the next parent-owned step.
+- Scope: exactly `journal-ledger/**`, `closing/**`, `contracts/**`. User forbids common harness/history edits; these three module-local records carry the cross-module handoff. Original checkout and prior blocked worktree remain untouched.
+- Model/ownership: requested `gpt-6-astra`, `xhigh`. `journal_writer` and `closing_writer` owned disjoint modules; `closing_test_writer` received bounded Closing test/config/adapter allowlists. Parent owns contracts, cross-module proof, these records and Git/GitHub. `/root/journal_analysis` and `/root/closing_analysis` reviewed read-only and changed no production/test files.
+- Result: every monetary write holds the durable Journal revision lock through its enclosing commit. Fresh-source evidence binds that revision; final-close CAS drains in-flight writes and rejects changed snapshots. Durable ACTIVE/RELEASED operation receipts protect timeout/restart/cancel/reopen without delayed reactivation or stale release. V20/V58 and dedicated internal service authentication support embedded and HTTP adapters.
+- Final literal `./gradlew :journal-ledger:test :closing:test :contracts:test`: PASS, exit0, 1m36; 1,256 discovered / **1,255 PASS, 0 failures/errors, 1 optional PostgreSQL skip**. Journal core353/API86/Batch38; Closing core448 (447 PASS+1 skip)/API187/Batch133; contracts11. Unchanged successful tasks were up-to-date (2 executed/52 up-to-date); no skipped required evidence is represented as PASS.
+- Separate actual PostgreSQL16.13: Journal18 + Closing protocol3 + annual MVCC1 = **22 PASS**, failures/errors/skips0. The annual case covers the default suite's optional skip. Actual Journal API ACTIVE ACK → JVM kill → new JVM same receipt/release/tombstone smoke PASS. This is ACK-after-commit crash durability; in-flight process-kill/load/TLS deployment testing is not claimed.
+- Historical RED: unchanged audited `a97d10ab` production with byte-identical synthetic-outbound probe fails1/1 as intended (expected snapshot0, actual committed effects4); current actual protocol/PostingService regressions pass. The old probe is documentation-only, not a current GREEN test. Detailed scope, SHA and exact commands: [verification.md](../issue-762/verification.md).
+- Packaging: all four Journal/Closing API/Batch bootJARs PASS; nested V20/V58 bytes equal source. Static whitespace, exact-file conflict-marker, allowlist and unmerged-index gates PASS. Changed files: Journal25/Closing56/Contracts10 =91.
+- Independent review: corrected exact-HTTP200/JSON acknowledgement, historical-close bootstrap guidance, V58 NULL CHECK, and stale snapshot documentation. Both read-only reviewers report no remaining P0–P3 and Q1–Q4 PASS from diff/docs/preserved XML.
+- Baseline repairs needed for the requested suites: restore existing Closing hydration/persistence port methods, Master audit composition and optional embedded Journal mappings; align stale ECL/entity/classification fixtures while preserving money/lineage/uniqueness/locking assertions. Production financial calculations were not changed by those repairs.
+- Conflict record: inherited `closing/README.md` conflict markers already present at base were resolved under parent ownership by preserving valid lineage/reopen guidance and reconciling actual V49–V58 migrations. No Git merge conflict or unmerged index remains. Shared `conflict-log.md` stays outside the authorized allowlist.
+- Deployment/rollback: one authoritative Journal DB and READ_COMMITTED monetary transactions; intentional global write serialization. Stop old writers, apply migrations, reconcile/install historical CLOSED/PERMANENTLY_CLOSED fence coverage, freeze Master period definitions during pending transitions, and collect evidence from new primary snapshots. Trusted service transport/TLS and production load remain human deployment gates. Rollback requires quiescing writers/transitions and a reviewed code/forward-schema plan preserving revisions, receipts and release tombstones; removing the gate reopens GL07.
+- Authority separation: parent may commit/push/publish this Draft under the user's request. Independent agents review only. Human reviewer owns subsequent Ready, merge, Issue close, deployment and branch/worktree deletion. Publication does not imply production readiness.
+- Evidence: `/tmp/account-762-evidence/{final-aggregate,closing-full,postgres-journal-and-api,postgres-closing}`, `/tmp/account-762-final-aggregate.log`, `/tmp/account-762-packaging.log`, `/tmp/account-762-runtime-restart.log`. Task-only PostgreSQL container and audited proof worktree are retained for handoff; runtime smoke child JVMs have exited.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Journal admission adapter:41; Closing transition transactions:184; aggregate1,255 PASS, realPG22 PASS | 해당 없음: 코드 변경 적용 | 전역 직렬화 운영 부하 | journal_analysis / closing_analysis, diff·XML |
+| Q2 | PASS | Journal posting-concurrency:374; Closing process-flow:176; Contracts process-flow:78 | 해당 없음: 프로토콜 변경 적용 | 새 primary snapshot·Master 정의 동결 | 두 reviewer, 흐름 대조 |
+| Q3 | PASS | 모듈 README/schema/beginner/local-run; issue-762/verification.md | 해당 없음: 사용·배포 변경 적용 | 역사적 봉인 대사·TLS·운영 검증 | 두 reviewer, 정정 후 재검토 |
+| Q4 | PASS | Journal commit/tombstone 주석; Closing coordinator:90/transactions:242 | 해당 없음: 비자명 상태 전이 적용 | 후속 변경의 순서 보존 | 두 reviewer, 코드 인접 주석 |
+
+---
+
+다음은 보존된 이전 작업 기록이며 현재 GH-762 상태가 아닙니다.
+
 # 2026-10-09 — GH-894 domain persistence boundary
 
 - Issue [#894](https://github.com/skyg547/account/issues/894), base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`, branch `agent/894-domain-persistence-boundary`, worktree `/tmp/account-894-domain-persistence-boundary`. Detached RED proof: `/tmp/account-894-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.

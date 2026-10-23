@@ -87,6 +87,7 @@ class PostingServiceTest {
                 ledgerEntryPersistencePort, ledgerService);
         order.verify(journalPersistencePort).findByIdWithDetails(1L);
         order.verify(accountingPeriodStatusPort).isClosed(ACCOUNTING_DATE);
+        order.verify(ledgerService).admitMonetaryMovement(ACCOUNTING_DATE);
         order.verify(journalPersistencePort).save(entry);
         order.verify(ledgerEntryPersistencePort).save(ledger);
         order.verify(ledgerService).updateLedgerBalancesBulk(entry.getDetails());
@@ -350,6 +351,23 @@ class PostingServiceTest {
         verify(journalReversalPersistencePort, never()).save(any());
     }
 
+    @Test
+    void monetaryFenceDenialPrecedesStatusAuditAndLedgerWrites() {
+        JournalEntry entry = approvedEntry();
+        JournalState before = JournalState.capture(entry);
+        when(journalPersistencePort.findByIdWithDetails(1L)).thenReturn(Optional.of(entry));
+        org.mockito.Mockito.doThrow(new IllegalStateException("fenced"))
+                .when(ledgerService).admitMonetaryMovement(ACCOUNTING_DATE);
+
+        assertThatThrownBy(() -> service.postJournalEntry(1L, "poster"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("fenced");
+
+        assertThat(JournalState.capture(entry)).isEqualTo(before);
+        verify(journalPersistencePort, never()).save(any());
+        verifyNoInteractions(ledgerEntryPersistencePort);
+        verify(ledgerService, never()).updateLedgerBalancesBulk(any());
+    }
+
     private PostingService postingService(AccountingPeriodStatusPort periodStatusPort) {
         return new PostingService(journalPersistencePort, journalReversalPersistencePort,
                 ledgerEntryPersistencePort, ledgerService,
@@ -372,6 +390,7 @@ class PostingServiceTest {
         verify(journalPersistencePort).save(entry);
         ArgumentCaptor<GeneralLedger> ledgerCaptor = ArgumentCaptor.forClass(GeneralLedger.class);
         verify(ledgerEntryPersistencePort).save(ledgerCaptor.capture());
+        verify(ledgerService).admitMonetaryMovement(ACCOUNTING_DATE);
         verify(ledgerService).updateLedgerBalancesBulk(entry.getDetails());
         verifyNoMoreInteractions(journalPersistencePort, ledgerEntryPersistencePort, ledgerService);
         return ledgerCaptor.getValue();

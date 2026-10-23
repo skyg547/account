@@ -1,5 +1,7 @@
 package com.ho.account.journalledger.application.service.ledger;
 
+import com.ho.account.journalledger.application.port.out.JournalMonetaryAdmissionPort;
+
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import org.junit.jupiter.api.Test;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -21,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BalanceReaggregationServiceTest {
+    private final JournalMonetaryAdmissionPort monetaryAdmission = mock(JournalMonetaryAdmissionPort.class);
     private static final LocalDate DATE = LocalDate.of(2026, 9, 24);
 
     @Mock LedgerBalancePersistencePort balances;
@@ -31,7 +35,7 @@ class BalanceReaggregationServiceTest {
         LocalDate requestedEnd = DATE.plusDays(1);
         LocalDate latest = LocalDate.of(2027, 1, 15);
         when(balances.findLatestBalanceOrPostedDate()).thenReturn(Optional.of(latest));
-        BalanceReaggregationService service = new BalanceReaggregationService(balances, control);
+        BalanceReaggregationService service = new BalanceReaggregationService(balances, control, monetaryAdmission);
 
         BalanceReaggregationService.EffectiveDateRange effective = service.start(766, DATE, requestedEnd);
 
@@ -46,7 +50,7 @@ class BalanceReaggregationServiceTest {
     void startKeepsTheRequestedEndWhenNoLaterProjectionOrPostedSourceExists() {
         LocalDate requestedEnd = DATE.plusDays(1);
         when(balances.findLatestBalanceOrPostedDate()).thenReturn(Optional.of(DATE));
-        BalanceReaggregationService service = new BalanceReaggregationService(balances, control);
+        BalanceReaggregationService service = new BalanceReaggregationService(balances, control, monetaryAdmission);
 
         BalanceReaggregationService.EffectiveDateRange effective = service.start(766, DATE, requestedEnd);
 
@@ -63,7 +67,7 @@ class BalanceReaggregationServiceTest {
                 List.of(new BalanceReaggregationControlPort.GlActual(DATE, key,
                         amount("0"), amount("9"), amount("0"), amount("9"))),
                 List.of(), List.of(), List.of()));
-        BalanceReaggregationService service = new BalanceReaggregationService(balances, control);
+        BalanceReaggregationService service = new BalanceReaggregationService(balances, control, monetaryAdmission);
 
         assertThatThrownBy(() -> service.reconcileAndRelease(767, DATE, DATE))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("amount mismatch");
@@ -92,7 +96,7 @@ class BalanceReaggregationServiceTest {
                         new BalanceReaggregationControlPort.SlActual(DATE, slLiteral,
                                 amount("0"), amount("6"), amount("0"), amount("6"))),
                 List.of(), List.of()));
-        BalanceReaggregationService service = new BalanceReaggregationService(balances, control);
+        BalanceReaggregationService service = new BalanceReaggregationService(balances, control, monetaryAdmission);
 
         service.reconcileAndRelease(767, DATE, DATE);
 

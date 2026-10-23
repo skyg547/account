@@ -82,6 +82,8 @@ class ClosingAuthorizationIntegrationTest {
         calendar.setFiscalPeriod(period.fiscalPeriod());
         calendar.setStatus(ClosingCalendarStatus.CLOSED);
         calendar.setAuditUser("fixture");
+        calendar.restoreJournalFenceCommand(FinalCloseEvidenceFixtures.closedFence(
+                period.id(), period.fiscalYear(), period.fiscalPeriod()));
         calendar = calendars.save(calendar);
 
         ResponseEntity<JsonNode> request = exchange(

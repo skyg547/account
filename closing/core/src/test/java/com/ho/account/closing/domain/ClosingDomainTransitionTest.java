@@ -1,7 +1,13 @@
 package com.ho.account.closing.domain;
 
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
+import com.ho.account.contracts.journal.JournalPeriodFenceCommand;
+import com.ho.account.contracts.journal.JournalPeriodScope;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -140,6 +146,172 @@ class ClosingDomainTransitionTest {
         calendar.validateReadyToClose(List.of(priorTask, renewedTask), List.of(priorGate, renewedGate));
         assertThat(priorTask.getStatus()).isEqualTo(ClosingTask.ClosingTaskStatus.COMPLETED);
         assertThat(priorGate.getStatus()).isEqualTo(ClosingGate.ClosingGateStatus.PASSED);
+    }
+
+    @Test
+    void completedCloseKeepsTheExactFenceForTheFutureReopen() {
+        ClosingCalendar calendar = preparedClose();
+        String operationId = calendar.getTransitionId();
+        JournalPeriodFenceCommand command = journalCommand(operationId);
+        calendar.bindJournalFence(command);
+        calendar.markTransitionDispatched(operationId);
+
+        calendar.finishTransition(operationId);
+
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        assertThat(calendar.getTransitionId()).isNull();
+        assertThat(calendar.getTransitionEvidenceSetId()).isNull();
+        assertThat(calendar.getJournalFenceCommand()).isEqualTo(command);
+        assertThat(calendar.getClosedBy()).isEqualTo("closer");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"operation", "actor", "period"})
+    void journalFenceMustMatchThePreparedCloseIdentity(String mismatch) {
+        ClosingCalendar calendar = preparedClose();
+        String operationId = calendar.getTransitionId();
+        JournalPeriodFenceCommand command = new JournalPeriodFenceCommand(
+                "operation".equals(mismatch) ? "another-close" : operationId,
+                new JournalPeriodCheckpoint(new JournalPeriodScope("period".equals(mismatch) ? 21L : 20L,
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)), 0),
+                "actor".equals(mismatch) ? "another-closer" : "closer");
+
+        assertThatThrownBy(() -> calendar.bindJournalFence(command)).isInstanceOf(IllegalStateException.class);
+
+        assertThat(calendar.getTransitionId()).isEqualTo(operationId);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.PREPARED);
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
+        assertThat(calendar.getJournalFenceCommand()).isNull();
+    }
+
+    @Test
+    void preparedCloseCannotReplaceItsBoundJournalCheckpoint() {
+        ClosingCalendar calendar = preparedClose();
+        JournalPeriodFenceCommand original = journalCommand(calendar.getTransitionId());
+        calendar.bindJournalFence(original);
+        calendar.bindJournalFence(original);
+        JournalPeriodFenceCommand newer = new JournalPeriodFenceCommand(original.operationId(),
+                new JournalPeriodCheckpoint(original.checkpoint().scope(), 1), original.actor());
+
+        assertThatThrownBy(() -> calendar.bindJournalFence(newer)).isInstanceOf(IllegalStateException.class);
+
+        assertThat(calendar.getJournalFenceCommand()).isEqualTo(original);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.PREPARED);
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
+    }
+
+    @Test
+    void cancellationCannotEraseEvidenceOrFenceUntilReleaseIsPending() {
+        ClosingCalendar calendar = preparedClose();
+        String operationId = calendar.getTransitionId();
+        JournalPeriodFenceCommand command = journalCommand(operationId);
+        calendar.bindJournalFence(command);
+
+        assertThatThrownBy(() -> calendar.cancelPreparedClose(operationId, "operator"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("release must be pending");
+        calendar.prepareCancellation(operationId);
+
+        // Keep the original binding while a release acknowledgement can still be lost and retried.
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.CANCEL_RELEASE_PENDING);
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
+        assertThat(calendar.getJournalFenceCommand()).isEqualTo(command);
+        assertThatThrownBy(calendar::requireChecklistMutable).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> calendar.markTransitionDispatched(operationId))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> calendar.cancelPreparedClose("other-operation", "operator"))
+                .isInstanceOf(IllegalStateException.class);
+
+        calendar.cancelPreparedClose(operationId, "operator");
+
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(calendar.getTransitionId()).isNull();
+        assertThat(calendar.getTransitionEvidenceSetId()).isNull();
+        assertThat(calendar.getJournalFenceCommand()).isNull();
+        assertThat(calendar.getCycleNumber()).isEqualTo(1);
+        calendar.requireChecklistMutable();
+    }
+
+    @Test
+    void dispatchedCloseCannotBeCancelledOrHaveItsFenceRebound() {
+        ClosingCalendar calendar = preparedClose();
+        String operationId = calendar.getTransitionId();
+        JournalPeriodFenceCommand command = journalCommand(operationId);
+        calendar.bindJournalFence(command);
+        calendar.markTransitionDispatched(operationId);
+
+        assertThatThrownBy(() -> calendar.prepareCancellation(operationId))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> calendar.bindJournalFence(command)).isInstanceOf(IllegalStateException.class);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.DISPATCHED);
+        assertThat(calendar.getJournalFenceCommand()).isEqualTo(command);
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("original-evidence");
+    }
+
+    @Test
+    void reopenedCalendarRemainsFencedUntilItsOriginalCloseFenceIsReleased() {
+        ClosingCalendar calendar = preparedClose();
+        String closeOperation = calendar.getTransitionId();
+        JournalPeriodFenceCommand originalClose = journalCommand(closeOperation);
+        calendar.bindJournalFence(originalClose);
+        calendar.markTransitionDispatched(closeOperation);
+        calendar.finishTransition(closeOperation);
+        calendar.prepareTransition("OPEN", 20L, 30L, null, "approver");
+        String reopenOperation = calendar.getTransitionId();
+        calendar.markTransitionDispatched(reopenOperation);
+
+        calendar.finishTransition(reopenOperation);
+
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.RELEASE_PENDING);
+        assertThat(calendar.getJournalFenceCommand()).isEqualTo(originalClose);
+        assertThatThrownBy(calendar::requireChecklistMutable).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> calendar.finishTransition(reopenOperation)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> calendar.finishJournalRelease(closeOperation)).isInstanceOf(IllegalStateException.class);
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+
+        // Reopen has a new operation ID, but releases the durable command from the earlier close.
+        calendar.finishJournalRelease(reopenOperation);
+
+        assertThat(calendar.getTransitionId()).isNull();
+        assertThat(calendar.getJournalFenceCommand()).isNull();
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+        calendar.requireChecklistMutable();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"OPEN", "CLOSED"})
+    void legacyTransitionWithoutDurableFenceCannotFinish(String target) {
+        ClosingCalendar calendar = new ClosingCalendar();
+        ClosingCalendar.ClosingCalendarStatus initial = "OPEN".equals(target)
+                ? ClosingCalendar.ClosingCalendarStatus.CLOSED : ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS;
+        calendar.setStatus(initial);
+        calendar.prepareTransition(target, 20L, "OPEN".equals(target) ? 30L : null,
+                "CLOSED".equals(target) ? "legacy-evidence" : null, "actor");
+        String operationId = calendar.getTransitionId();
+        calendar.markTransitionDispatched(operationId);
+
+        assertThatThrownBy(() -> calendar.finishTransition(operationId))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("no durable Journal fence");
+
+        assertThat(calendar.getStatus()).isEqualTo(initial);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.DISPATCHED);
+        assertThat(calendar.getTransitionId()).isEqualTo(operationId);
+        assertThat(calendar.getCycleNumber()).isEqualTo(1);
+        assertThat(calendar.getClosedAt()).isNull();
+        assertThat(calendar.getReopenedAt()).isNull();
+    }
+
+    private ClosingCalendar preparedClose() {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        calendar.prepareTransition("CLOSED", 20L, null, "original-evidence", "closer");
+        return calendar;
+    }
+
+    private JournalPeriodFenceCommand journalCommand(String operationId) {
+        return new JournalPeriodFenceCommand(operationId, new JournalPeriodCheckpoint(
+                new JournalPeriodScope(20L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)), 0), "closer");
     }
 
     private ClosingTask mandatoryTask() {

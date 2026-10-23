@@ -1,3 +1,20 @@
+# GH-762 agent status
+
+- [Issue #762](https://github.com/skyg547/account/issues/762): implementation, verification and independent review complete; Draft publication is next. Branch `agent/762-period-admission`, worktree `/tmp/account-762-period-admission`, base `ed539846a92f46e09896d0a56ab808a4f94cacc7`.
+- Scope: Journal25/Closing56/Contracts10 =91 changed files, all inside the three authorized directories. User forbids shared harness/history changes, so records remain module-local.
+- Result: transaction-held Journal revision admission, checkpoint-bound final-close evidence, durable ACTIVE/RELEASED receipts, and recoverable cancel/reopen release with dedicated HTTP service authentication.
+- Literal requested aggregate PASS: **1,255 PASS / 1 optional PG skip / 0 failures/errors**. Separate PostgreSQL22 PASS includes the skipped case. Actual Journal JVM kill/restart smoke and all four API/Batch bootJARs PASS; V20/V58 packaged bytes match source.
+- Audited unchanged production reproduces RED (snapshot0, later4 committed effects); current actual admission/PostingService regressions pass. Evidence scopes are distinguished in [verification.md](../issue-762/verification.md).
+- Independent read-only Journal/contracts and Closing reviewers: no remaining P0–P3, Q1–Q4 PASS. Static scope/whitespace/marker/unmerged checks PASS; inherited README conflict resolved against actual migrations.
+- Requested model: `gpt-6-astra`, `xhigh`. Module writers implement; separate reviewers inspect; parent owns Git/GitHub and these records. Human owns subsequent Ready/merge/Issue close/deployment/cleanup.
+- Deployment gates: one authoritative DB, READ_COMMITTED writes, global serialization load validation, historical closed-period fence bootstrap, fresh primary snapshots, frozen Master definitions, and trusted TLS transport. Preserve revision/receipt/tombstone history during reviewed rollback.
+
+See [worklog.md](worklog.md) for commands and Q1–Q4, and [handoff.md](handoff.md) for next ownership.
+
+---
+
+다음은 보존된 이전 작업 기록이며 현재 GH-762 상태가 아닙니다.
+
 # GH-894 agent status
 
 - Issue [#894](https://github.com/skyg547/account/issues/894): `status:blocked` on the Loan integration regression after module implementation and requested test; [Draft PR #909](https://github.com/skyg547/account/pull/909) open with `Refs #894`. Base `origin/main@9348966a`; branch `agent/894-domain-persistence-boundary`; worktree `/tmp/account-894-domain-persistence-boundary`; audited proof `/tmp/account-894-audited-proof@a97d10ab`.

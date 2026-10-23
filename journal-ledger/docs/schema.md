@@ -370,3 +370,18 @@ SELECT/INSERT/UPDATE 권한과 DLT topic/ACL 확인 → 새 listener 기동 순�
 필요해도 적용된 V18을 삭제하거나 Flyway `repair`하지 않습니다. 이전 listener는 미매칭을 정상
 acknowledge하므로 rollback 상태에서는 Kafka listener를 재개하지 말고, 후속 forward fix와 기존
 quarantine/전표 대사를 마친 뒤 재개합니다.
+
+## V20 Journal 기간 admission과 fence
+
+- `journal_monetary_revision`: `control_id=1` 단일 행, 음수 불가 `revision BIGINT`.
+  모든 금액 쓰기는 이 행의 DB 트랜잭션 잠금을 보유하고 같은 트랜잭션에서 revision을 증가시킵니다.
+- `journal_period_fences`: `operation_id VARCHAR(100)` PK, `fiscal_period_id`, 날짜 범위,
+  `expected_revision`, `actor`, ACTIVE/RELEASED, 생성/해제 시각을 저장합니다. 명령 payload는
+  애플리케이션에서 불변으로 비교하며 재시도에도 삭제·재결합하지 않습니다. `state, range_end`
+  인덱스는 과거 쓰기가 영향을 주는 활성 fence 검사에 사용됩니다. RELEASED tombstone은 영구 보존합니다.
+- revision은 건수/금액이나 사용자에게 표시할 전표번호가 아닙니다. 한 전기에서 여러 번 증가할 수
+  있고, 다른 기간의 변경으로도 증가할 수 있는 낙관적 동시성 토큰입니다.
+- V20 전에는 모든 구버전 writer/Batch와 트랜잭션을 drain해야 합니다. V20의 fence 테이블은 비어 있으므로
+  기존 CLOSED/PERMANENTLY_CLOSED cutoff를 검토된 영속 fence와 대사·설치하는 별도 전진 정합성 게이트가
+  끝나기 전에는 새 금액 writer도 재개하지 않습니다. 전역 잠금의 성능 비용,
+  배포/재시작/롤백 전제와 HTTP 프로토콜은 [posting-concurrency.md](posting-concurrency.md)를 따릅니다.

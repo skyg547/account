@@ -9,6 +9,7 @@ import com.ho.account.journalledger.application.port.out.BalanceReaggregationCon
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort.SlKey;
 import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort.SlMovement;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
+import com.ho.account.journalledger.application.port.out.JournalMonetaryAdmissionPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,12 +26,13 @@ public class BalanceReaggregationService {
 
     private final LedgerBalancePersistencePort balances;
     private final BalanceReaggregationControlPort control;
+    private final JournalMonetaryAdmissionPort monetaryAdmission;
 
     @Transactional
     public EffectiveDateRange start(long ownerJobInstanceId, LocalDate startDate, LocalDate endDate) {
         requireRange(startDate, endDate);
-        // Start takes every writer stripe before changing publication state. A writer that won a
-        // stripe is included first; a writer that lost observes REBUILDING after it wakes.
+        // Match posting's singleton -> stripe order. Checkpoints cannot certify a rebuild gap.
+        monetaryAdmission.beginReaggregation(startDate);
         balances.lockAllBalanceAccounts();
         LocalDate effectiveEndDate = balances.findLatestBalanceOrPostedDate()
                 .filter(latest -> latest.isAfter(endDate))
@@ -48,6 +50,7 @@ public class BalanceReaggregationService {
 
     @Transactional
     public void reconcileAndRelease(long ownerJobInstanceId, LocalDate startDate, LocalDate endDate) {
+        monetaryAdmission.completeReaggregation();
         // The final transaction waits for every committed chunk, then compares compact daily groups
         // while POSTED input is still frozen. Any mismatch rolls back and deliberately stays closed.
         balances.lockAllBalanceAccounts();

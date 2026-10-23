@@ -31,6 +31,7 @@
 현재 주요 계약:
 
 - 전표: `JournalPostingPort`, `JournalQueryPort`, `JournalEntryCommand`
+- 마감 admission: `JournalPeriodFencePort`, `JournalPeriodCheckpoint`, `JournalPeriodFenceCommand`
 - 원장: `LedgerQueryPort`, `LedgerBalanceSummary`
 - 기준정보: `MasterDataQueryPort`, `AccountSubjectRef`, `FiscalPeriodControlPort`
 - 지출/리스: `BudgetControlPort`, `LeasePaymentResolutionPort`

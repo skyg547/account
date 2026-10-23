@@ -1,6 +1,7 @@
 package com.ho.account.closing.dto;
 
 import com.ho.account.closing.application.port.in.FinalCloseEvidenceUseCase;
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
 import com.ho.account.closing.domain.FinalCloseEvidenceControl;
 import com.ho.account.closing.domain.FinalCloseEvidenceTotal;
 import jakarta.validation.Valid;
@@ -32,7 +33,8 @@ public record FinalCloseEvidenceRequest(
         @Size(min = 64, max = 64)
         @Pattern(regexp = "[0-9a-f]{64}", message = "contentDigest must be a lowercase SHA-256 hex value")
         String contentDigest,
-        @NotEmpty @Size(max = 32) List<@NotNull @Valid Control> controls) {
+        @NotEmpty @Size(max = 32) List<@NotNull @Valid Control> controls,
+        @NotNull JournalPeriodCheckpoint journalCheckpoint) {
 
     public FinalCloseEvidenceUseCase.Submission toSubmission() {
         return new FinalCloseEvidenceUseCase.Submission(
@@ -44,7 +46,7 @@ public record FinalCloseEvidenceRequest(
                 ledgerCutoff,
                 observedAt,
                 contentDigest,
-                controls.stream().map(Control::toDomain).toList());
+                controls.stream().map(Control::toDomain).toList(), journalCheckpoint);
     }
 
     public record Control(
