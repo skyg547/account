@@ -155,6 +155,7 @@ public class SalesService implements SalesUseCase {
                 "SALES_RECOGNITION",
                 null, null, invoice.getCreatedBy(), invoice.getCreatedBy(),
                 "SALES_INVOICE", invoice.getId().toString(),
+                null, "PRIMARY",
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsReceivableAccountCode(), invoice.getTotalAmount(), null, null,
                                 customer.code(), "Accounts Receivable"),

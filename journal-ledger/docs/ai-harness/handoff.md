@@ -1,3 +1,23 @@
+# GH-765 blocked handoff
+
+Issue [#765](https://github.com/skyg547/account/issues/765) is blocked after a verified module-local implementation candidate failed independent review. No commit, push, or Draft PR was created, and the remote Issue is OPEN with `status:blocked`.
+
+- Branch/worktrees: `agent/765-journal-idempotency`, `/tmp/account-765-journal-idempotency`; audited proof `/tmp/account-765-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`; base `14731f730a200f279602c4b08934fb66731e34ea`.
+- Scope honored: all candidate edits and these records are under `journal-ledger/**`; shared contracts, other modules, and repository shared harness/history files are unchanged.
+- Candidate behavior: durable operation identity/fingerprint, database serialization, duplicate-result reuse, content-conflict rejection, HTTP/Kafka mappings, migration, regression tests, and functional documentation.
+- Verification: exact module suite377 PASS (core301/API64/batch12, failures/errors/skips0); focused core53 PASS; PostgreSQL16 concurrency/migration6 PASS; audited byte-identical regression SHA `0782dc3c…a5615f` fails1/1 on `a97d10ab` and passes current; static gates PASS.
+- Review result: merge-blocking P1; Q1-Q3 FAIL and Q4 PASS. The contract has no operation key independent of `slipNo`. Receivable and Payable can emit byte-identical commands for distinct valid allocations/offsets under one lineage, so journal-ledger cannot distinguish a retry from a legitimate new operation.
+- Resume decision — recommended: expand the allowlist to `contracts/**` and affected producer modules. Add a durable retry-stable `operationKey`/`requestId`, preserve Receivable allocation/request identity and Payable offset/advance identity, and audit all remaining producers before remediating the receiver.
+- Alternative: explicitly relax the acceptance criterion and authorize a breaking fail-closed rule for ambiguous missing operation keys. This is not equivalent to the requested multi-journal compatibility.
+- Resource/rollback: `account-765-postgres` is stopped and retained. No production schema/data was touched and no published change exists; the candidate remains uncommitted for the scope decision.
+- Authority separation: Planner and Reviewer were read-only; writers had disjoint module allowlists; the parent Integrator owns records and Git/GitHub. Review failure overrides the earlier publication authorization. Human approval is required for scope expansion; Ready, merge, Issue close, deployment, and cleanup remain unperformed.
+
+Detailed commands and evidence are in [worklog.md](worklog.md). Remote blocker record: <https://github.com/skyg547/account/issues/765#issuecomment-5821997472>.
+
+---
+
+The following is retained historical handoff and is not a current GH-765 report.
+
 # GH-763 handoff
 
 Issue #763 implementation, audited RED/current GREEN proof, requested verification, corrected independent review, and module-local records are complete. [Draft PR #796](https://github.com/skyg547/account/pull/796) is open with `Refs #763`; reviewed implementation/record commit `1c502c65` is published.

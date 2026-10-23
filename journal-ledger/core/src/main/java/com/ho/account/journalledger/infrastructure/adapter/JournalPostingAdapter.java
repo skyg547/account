@@ -3,6 +3,7 @@ package com.ho.account.journalledger.infrastructure.adapter;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalActor;
 import com.ho.account.journalledger.domain.journal.domain.JournalCurrencyConversionPolicy;
@@ -14,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
  *
  * ───────────────────────────────────────────────────────────────────────────────────
  * 🐣 [초보자를 위한 아키텍처 및 MSA 전환 교육용 주석 (Pedagogical Comments)]
- * 
+ *
  * 1. 모놀리스 직접 결합(Monolith Direct Coupling)의 한계와 탈피:
  *    - 기존 As-Is 구조: 타 모듈(Receivable, Payable, Loan, Deposit 등)이 journal-ledger 모듈 내부의
  *      `MonolithJournalPostingAdapter`나 `JournalUseCase` 서비스 Bean을 직접 주입받아 Java 메서드를 호출했습니다.
@@ -38,11 +39,11 @@ import java.util.stream.Collectors;
  *      배포 환경에 따라 In-Memory 로컬 Bean 호출, REST HTTP Client, Async Messaging(Kafka/Outbox) 등으로
  *      호출 방식을 자유롭게 전환할 수 있습니다.
  *
- * 3. Transactional Outbox 및 멱등성(Idempotency) 보장:
+ * 3. Durable operation identity 및 멱등성(Idempotency) 보장:
  *    - MSA 분리 환경에서 네트워크 유실 및 At-Least-Once Delivery로 인한 메시지 중복 수신이 발생할 수 있습니다.
- *    - 본 어댑터는 수신된 `JournalEntryCommand`의 `lineageSourceType`과 `lineageSourceId`를 기반으로 
- *      이미 발행된 동일 원천 전표가 존재하는지 멱등성 검사(Idempotency Check)를 수행합니다.
- *    - 중복 요청 시 기존 전표 식별자 및 상태를 반환하여 중복 전표가 생기는 것을 방지합니다.
+ *    - 본 어댑터는 lineage와 명시적인 operationKey를 애플리케이션 유스케이스에 전달합니다.
+ *      slipNo는 전표 번호이며 생성 작업 키로 추정하지 않습니다. lineage 자체는 계속 one-to-many입니다.
+ *    - 유스케이스가 영속 잠금과 요청 fingerprint를 함께 검사하여 같은 내용만 기존 전표로 수렴시킵니다.
  * ───────────────────────────────────────────────────────────────────────────────────
  */
 @Component
@@ -53,21 +54,21 @@ public class JournalPostingAdapter implements JournalPostingPort {
 
     @Override
     public JournalPostingResult createDraftEntry(JournalEntryCommand command) {
-        // 1. 멱등성(Idempotency) 검사: 동일 lineageSourceType & lineageSourceId 로 이미 발행된 전표가 있는지 확인
-        if (command.lineageSourceType() != null && command.lineageSourceId() != null) {
-            List<JournalEntry> existingEntries = journalUseCase.getJournalEntriesBySource(
-                    command.lineageSourceType(), command.lineageSourceId());
-            if (!existingEntries.isEmpty()) {
-                JournalEntry existing = existingEntries.get(0);
-                return new JournalPostingResult(
-                        existing.getId(),
-                        existing.getSlipNo(),
-                        existing.getStatus().name()
-                );
-            }
-        }
+        Objects.requireNonNull(command, "command must not be null");
+        return createDraftEntry(command, new JournalCreationIdentity(
+                command.lineageSourceType(),
+                command.lineageSourceId(),
+                command.operationKey()));
+    }
 
-        // 2. 신규 전표 엔티티 조립 (계약 커맨드 -> journal-ledger 도메인 모델 변환)
+    /** Keeps command mapping and the application identity boundary inside this adapter. */
+    private JournalPostingResult createDraftEntry(
+            JournalEntryCommand command,
+            JournalCreationIdentity identity) {
+        Objects.requireNonNull(command, "command must not be null");
+        Objects.requireNonNull(identity, "identity must not be null");
+
+        // 신규 전표 엔티티 조립 (계약 커맨드 -> journal-ledger 도메인 모델 변환)
         JournalEntry entry = new JournalEntry();
         entry.setAccountingDate(command.accountingDate());
         entry.setSlipDate(command.slipDate());
@@ -100,7 +101,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
         // 분개 상세(JournalDetail) 라인 생성
         entry.setDetails(command.lines().stream().map(line -> {
             JournalDetail detail = new JournalDetail();
-            
+
             detail.setAccountCode(line.accountCode());
             detail.setAmount(line.amount());
             if (line.baseAmount() == null) {
@@ -114,24 +115,24 @@ public class JournalPostingAdapter implements JournalPostingPort {
                 detail.setBaseAmount(line.baseAmount());
             }
             detail.setSide("DEBIT".equalsIgnoreCase(line.drcrType()) ? JournalSide.DEBIT : JournalSide.CREDIT);
-            
+
             if (line.departmentCode() != null) {
                 detail.setDepartmentCode(line.departmentCode());
             }
-            
+
             if (line.businessPartnerCode() != null) {
                 detail.setBusinessPartnerCode(line.businessPartnerCode());
             }
-            
+
             detail.setDetailDescription(line.detailDescription());
             detail.setAuditUser(maker);
             detail.setJournalEntry(entry);
             return detail;
         }).collect(Collectors.toList()));
 
-        // 3. 유즈케이스 호출 및 생성 결과 반환
-        JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
-        
+        // Lock/compare/save/link is owned by the application use case, not this transport adapter.
+        JournalEntry savedEntry = journalUseCase.createJournalEntry(identity, entry);
+
         return new JournalPostingResult(
                 savedEntry.getId(),
                 savedEntry.getSlipNo(),

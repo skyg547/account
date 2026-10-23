@@ -3,11 +3,14 @@ package com.ho.account.journalledger.application.service.journal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
+import com.ho.account.journalledger.application.port.out.JournalCreationOperationPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalCreationOperation;
 import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
 import com.ho.account.journalledger.domain.journal.domain.ReversalOperationStatus;
 import java.time.LocalDate;
@@ -34,6 +37,8 @@ class JournalEntryServiceTest {
     @Mock
     private JournalPersistencePort journalPersistencePort;
     @Mock
+    private JournalCreationOperationPersistencePort journalCreationOperationPersistencePort;
+    @Mock
     private JournalReversalPersistencePort journalReversalPersistencePort;
     @Mock
     private JournalRuleEngine journalRuleEngine;
@@ -46,8 +51,69 @@ class JournalEntryServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new JournalEntryService(journalPersistencePort, journalReversalPersistencePort,
+        service = new JournalEntryService(journalPersistencePort, journalCreationOperationPersistencePort,
+                journalReversalPersistencePort,
                 journalRuleEngine, postingService, journalValidationEngine);
+    }
+
+    @Test
+    @DisplayName("같은 생성 identity와 fingerprint 재시도는 현재 검증을 다시 실행하지 않고 기존 전표를 반환한다.")
+    void equivalentCreationRetryReturnsExistingJournalWithoutRevalidation() {
+        JournalCreationIdentity identity = JournalCreationIdentity.primary("ISSUE_765", "RETRY-1");
+        JournalEntry retryRequest = balancedDraft("maker");
+        retryRequest.setLineageSourceType(identity.sourceType());
+        retryRequest.setLineageSourceId(identity.sourceId());
+        String fingerprint = JournalCreationFingerprint.calculate(retryRequest);
+        JournalCreationOperation operation = JournalCreationOperation.create(
+                identity.sourceType(), identity.sourceId(), identity.operationKey(),
+                JournalCreationFingerprint.CURRENT_VERSION, fingerprint, 765L);
+        JournalEntry existing = balancedDraft("maker");
+        existing.setId(765L);
+        existing.setSlipNo("JE-20260925-0765");
+        when(journalCreationOperationPersistencePort.findByIdentity(identity))
+                .thenReturn(Optional.of(operation));
+        when(journalPersistencePort.findByIdWithDetailsWithoutLock(765L)).thenReturn(Optional.of(existing));
+
+        JournalEntry result = service.createJournalEntry(identity, retryRequest);
+
+        assertThat(result).isSameAs(existing);
+        assertThat(result.getDetails()).hasSize(2);
+        verify(journalCreationOperationPersistencePort).acquireOperationLock(identity);
+        verify(journalCreationOperationPersistencePort).findByIdentity(identity);
+        verify(journalPersistencePort).findByIdWithDetailsWithoutLock(765L);
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+        verify(journalCreationOperationPersistencePort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("같은 생성 identity의 금융 내용 변경은 명시적 conflict이며 검증과 쓰기를 수행하지 않는다.")
+    void changedCreationRetryThrowsClearConflictBeforeRevalidationOrWrite() {
+        JournalCreationIdentity identity = JournalCreationIdentity.primary("ISSUE_765", "RETRY-2");
+        JournalEntry firstRequest = balancedDraft("maker");
+        firstRequest.setLineageSourceType(identity.sourceType());
+        firstRequest.setLineageSourceId(identity.sourceId());
+        JournalCreationOperation operation = JournalCreationOperation.create(
+                identity.sourceType(), identity.sourceId(), identity.operationKey(),
+                JournalCreationFingerprint.CURRENT_VERSION,
+                JournalCreationFingerprint.calculate(firstRequest), 766L);
+        when(journalCreationOperationPersistencePort.findByIdentity(identity))
+                .thenReturn(Optional.of(operation));
+        JournalEntry changedRetry = balancedDraft("maker");
+        changedRetry.setLineageSourceType(identity.sourceType());
+        changedRetry.setLineageSourceId(identity.sourceId());
+        changedRetry.setDescription("changed financial request");
+
+        assertThatThrownBy(() -> service.createJournalEntry(identity, changedRetry))
+                .isInstanceOf(JournalCreationConflictException.class)
+                .hasMessage("Journal creation identity is already linked to different request content.");
+
+        verify(journalCreationOperationPersistencePort).acquireOperationLock(identity);
+        verify(journalCreationOperationPersistencePort).findByIdentity(identity);
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
+        verify(journalPersistencePort, never()).findById(any());
+        verify(journalCreationOperationPersistencePort, never()).save(any());
     }
 
     @Test
@@ -55,11 +121,25 @@ class JournalEntryServiceTest {
     void validateCalledOnCreate() {
         JournalEntry entry = new JournalEntry();
         entry.setSlipDate(java.time.LocalDate.now());
+        JournalEntryService compatibilityService = new JournalEntryService(
+                journalPersistencePort, journalRuleEngine, postingService, journalValidationEngine);
 
-        service.createJournalEntry(entry);
+        compatibilityService.createJournalEntry(entry);
 
         verify(journalValidationEngine).validate(entry);
         verify(journalPersistencePort).save(entry);
+    }
+
+    @Test
+    void productionDirectCreateRequiresExplicitOperationIdentityEvenWithSlipNo() {
+        JournalEntry entry = balancedDraft("maker");
+        entry.setSlipNo("LEGACY-765");
+
+        assertThatThrownBy(() -> service.createJournalEntry(entry))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Explicit journal creation operation identity");
+        verify(journalValidationEngine, never()).validate(any());
+        verify(journalPersistencePort, never()).save(any());
     }
 
     @Test

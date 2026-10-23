@@ -7,6 +7,8 @@ import com.ho.account.expenditure.infrastructure.persistence.entity.PayableJpaEn
 import com.ho.account.expenditure.infrastructure.persistence.mapper.PayableMapper;
 import com.ho.account.expenditure.repository.PayableRepository;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -40,6 +42,12 @@ public class PayablePersistenceAdapter implements PayablePersistencePort {
     public Optional<Payable> findById(Long id) {
         return payableRepository.findById(id)
                 .map(payableMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Payable> findByIdForUpdate(Long id) {
+        return payableRepository.findByIdForUpdate(id).map(payableMapper::toDomain);
     }
 
     @Override

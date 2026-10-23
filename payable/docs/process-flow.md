@@ -95,18 +95,22 @@ flowchart TD
     C --> D[선급금 전표 초안 생성]
     D --> E[AdvancePaymentResponse 반환]
 
-    F[POST /api/payments/offset-payable] --> G[OffsetPayableCommand]
-    G --> H[Payable 조회]
-    G --> I[AdvancePayment 조회]
+    F[POST /api/payments/offset-payable + operationId] --> G[OffsetPayableCommand]
+    G --> H[Payable 행 잠금 및 작업 이력 조회]
+    G --> I[AdvancePayment 행 잠금]
     H --> J[Payable.applyOffset]
     I --> K[AdvancePayment.applyOffset]
     J --> L[잔액과 상태 저장]
     K --> L
-    L --> M[상계 전표 초안 생성]
+    L --> M[상계 전표 초안 생성 및 작업 이력 저장]
     M --> N[PayableResponse 반환]
 ```
 
 상계는 채무와 선급금 양쪽 잔액을 동시에 줄이는 업무다. 한쪽만 바뀌면 거래처 잔액이 틀어지므로 `PaymentService`가 두 도메인 객체를 함께 조회하고 같은 트랜잭션에서 처리한다.
+
+`operationId`는 호출자가 상계 한 건에 부여하는 64자 이하의 고유 문자열이다. 응답을 잃어 다시 요청할 때는 같은 값을 보내고, 같은 채무와 선급금을 다시 상계하려는 새 업무에는 새 값을 보낸다. 예: `POST /api/payments/offset-payable` 본문 `{"payableId":100,"advancePaymentId":200,"offsetAmount":100.00,"operationId":"a0fc4e2f-14e6-4535-b15c-dc49664e6af4"}`. 같은 키의 재시도는 이미 저장된 상계 이력을 확인하고 잔액과 전표를 다시 만들지 않는다. 키를 다른 채무·선급금·금액에 재사용하면 명시적으로 실패한다. 현재 응답은 원래 시점의 잔액 스냅샷이 아니라 조회 시점의 최신 채무 상태를 반환한다.
+
+저널 생성 키는 매입 인식 `PURCHASE_RECOGNITION:{invoiceNo}:{vendorCode}`, 지급 `PAYMENT_EXECUTION:{paymentId}`, 선급금 `ADVANCE_PAYMENT:{advancePaymentId}`, 상계 `AP_ADVANCE_OFFSET:{operationId}`다. 같은 채무의 두 상계는 라인리지를 공유할 수 있지만 서로 다른 전표 생성 사건으로 취급된다. 전표 번호 `slipNo`는 이 식별자와 독립적이다.
 
 ## 전표 유형과 차대변
 

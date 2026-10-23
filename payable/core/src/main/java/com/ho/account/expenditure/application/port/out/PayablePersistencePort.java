@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface PayablePersistencePort {
     Payable save(Payable payable);
     Optional<Payable> findById(Long id);
+    /** Hold this payable row through an offset transaction so retries see the committed operation. */
+    Optional<Payable> findByIdForUpdate(Long id);
     List<Payable> findByDueDateBeforeAndStatusNot(LocalDate date, PayableStatus status);
     List<Payable> findByVendorCodeAndOutstandingAmountGreaterThan(String vendorCode, BigDecimal amount);
 }

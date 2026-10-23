@@ -51,8 +51,8 @@ class PayableBatchPostgresqlSchemaContextTest {
     void batchMetadataCoexistsWithValidatedBusinessSchema() {
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM flyway_schema_history
-                WHERE version = '1' AND success = TRUE
-                """, Integer.class)).isOne();
+                WHERE version IN ('1', '2') AND success = TRUE
+                """, Integer.class)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'public' AND table_name = 'batch_job_instance'

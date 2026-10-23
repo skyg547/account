@@ -161,6 +161,9 @@ public class PurchaseService implements PurchaseUseCase {
                 invoice.getCreatedBy(),
                 "PURCHASE_INVOICE",
                 invoice.getInvoiceNo() + "_" + invoice.getVendorCode(),
+                null,
+                // A vendor can reuse an invoice number; both business identifiers form one recognition event.
+                "PURCHASE_RECOGNITION:" + invoice.getInvoiceNo() + ":" + invoice.getVendorCode(),
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.expenseAccountCode(), invoice.getNetAmount(), null, null,
                                 invoice.getVendorCode(), "Purchase Expense"),

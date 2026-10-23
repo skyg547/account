@@ -92,6 +92,7 @@ class PurchaseServiceTest {
 
         assertThat(journalCommand.createdBy()).isEqualTo("buyer-user");
         assertThat(journalCommand.auditUser()).isEqualTo("buyer-user");
+        assertThat(journalCommand.operationKey()).isEqualTo("PURCHASE_RECOGNITION:PI-001:V001");
         assertThat(journalCommand.lines()).extracting("accountCode")
                 .containsExactly("EXP-001", "VAT-001", "AP-001");
     }

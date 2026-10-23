@@ -8,6 +8,8 @@ erDiagram
     PAYMENT_RUNS ||--o{ PAYMENTS : batches
     PAYABLES ||--o{ PAYMENTS : settled_by
     ADVANCE_PAYMENTS ||--o{ PAYABLES : offsets
+    PAYABLES ||--o{ PAYABLE_OFFSET_OPERATIONS : has
+    ADVANCE_PAYMENTS ||--o{ PAYABLE_OFFSET_OPERATIONS : applies
 
     PURCHASE_INVOICES {
         Long id PK
@@ -67,6 +69,14 @@ erDiagram
         String status
         Long journal_entry_id
     }
+
+    PAYABLE_OFFSET_OPERATIONS {
+        String operation_id PK
+        Long payable_id FK
+        Long advance_payment_id FK
+        BigDecimal amount
+        Long journal_entry_id
+    }
 ```
 
 ## 상태 전이
@@ -108,6 +118,7 @@ erDiagram
 - `payableId`: 지급이 정확히 어떤 채무를 차감하는지 가리키는 내부 ID.
 - `journalEntryId`: 원장 전표 ID. 현재 전표 초안 생성 결과와 연결할 확장 지점이다.
 - `referenceNo`: 은행 지급 또는 로컬 지급 어댑터가 반환한 외부 추적 번호.
+- `operationId`: 상계 한 건을 재시도할 때 유지하는 호출자 제공 ID. `payable_offset_operations`의 기본 키이며 채무·선급금·금액·전표 결과와 함께 저장된다. 같은 채무에 여러 정상 상계가 가능하므로 `payableId` 자체를 유니크 키로 사용하지 않는다.
 
 ## 계정 매핑 설정
 
@@ -139,4 +150,4 @@ erDiagram
 
 ## PostgreSQL 기준선
 
-전용 Flyway V1은 5개 소유 테이블을 생성한다. `numeric(19,2)` 금액, 인보이스 합계, 상태-잔액, 원천 인보이스 복합 FK와 공급업체 일치, 지급 라인리지 및 배치 조회 인덱스를 강제한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.
+전용 Flyway V1은 5개 소유 테이블을 생성하고 V2는 상계 작업 이력 테이블과 채무·선급금 조회 인덱스를 추가한다. `numeric(19,2)` 금액, 인보이스 합계, 상태-잔액, 원천 인보이스 복합 FK와 공급업체 일치, 지급 라인리지 및 배치 조회 인덱스를 강제한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.

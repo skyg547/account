@@ -3,13 +3,17 @@ package com.ho.account.journalledger.adapter.in.kafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.journalledger.JournalLedgerApplication;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
+import com.ho.account.journalledger.application.service.journal.JournalCreationConflictException;
 import com.ho.account.journalledger.application.service.journal.JournalRuleEngine;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
@@ -24,6 +28,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -64,9 +69,10 @@ class KafkaTransactionListenerPrecisionTest {
         receivedEvent = new AtomicReference<>();
         generatedEntry = new AtomicReference<>();
 
-        when(journalUseCase.createJournalEntryFromEvent(any(), any())).thenAnswer(invocation -> {
-            Map<String, Object> event = invocation.getArgument(0);
-            LocalDate accountingDate = invocation.getArgument(1);
+        when(journalUseCase.createJournalEntryFromEvent(
+                any(JournalCreationIdentity.class), any(), any(LocalDate.class))).thenAnswer(invocation -> {
+            Map<String, Object> event = invocation.getArgument(1);
+            LocalDate accountingDate = invocation.getArgument(2);
             receivedEvent.set(event);
             Optional<JournalEntry> result = ruleEngine.generateJournalEntry(event, accountingDate);
             result.ifPresent(generatedEntry::set);
@@ -91,7 +97,7 @@ class KafkaTransactionListenerPrecisionTest {
     @DisplayName("Kafka ConsumerRecord JSON의 큰 소수 금액을 production converter와 룰 엔진이 정확히 보존한다")
     void preservesLargeDecimalThroughKafkaConverterAndListener() {
         Map<String, Object> event = convert("""
-                {"ruleCode":"PRECISION_RULE","amount":900719925474099.11,"accountingDate":"2026-09-24"}
+                {"ruleCode":"PRECISION_RULE","eventId":"PRECISION-764","journalOperationKey":"MAIN:v1","amount":900719925474099.11,"accountingDate":"2026-09-24"}
                 """);
 
         listener.listenTransactionEvent(event);
@@ -111,7 +117,7 @@ class KafkaTransactionListenerPrecisionTest {
     @DisplayName("Kafka JSON의 초과 소수 자릿수는 룰 보간 뒤 도메인 경계에서 재시도 예외로 전파한다")
     void propagatesExcessPrecisionAsListenerFailureWithoutRounding() {
         Map<String, Object> event = convert("""
-                {"ruleCode":"PRECISION_RULE","amount":100.000000000000001,"accountingDate":"2026-09-24"}
+                {"ruleCode":"PRECISION_RULE","eventId":"PRECISION-764","journalOperationKey":"MAIN:v1","amount":100.000000000000001,"accountingDate":"2026-09-24"}
                 """);
 
         assertThatThrownBy(() -> listener.listenTransactionEvent(event))
@@ -124,6 +130,63 @@ class KafkaTransactionListenerPrecisionTest {
         // The listener received the original scale; failure is domain validation, not converter rounding.
         assertExactDecimal(receivedEvent.get().get("amount"), "100.000000000000001", 15);
         assertThat(generatedEntry.get()).isNull();
+    }
+
+    @Test
+    void equivalentKafkaReplayUsesTheSameDurableIdentityAndTrustedLineage() {
+        Map<String, Object> first = convert("""
+                {"eventType":"PAYABLE","eventId":"INV-765","journalOperationKey":"TAX",\
+                 "ruleCode":"PRECISION_RULE","amount":100.00,"accountingDate":"2026-09-24"}
+                """);
+        Map<String, Object> replay = convert("""
+                {"eventType":"PAYABLE","eventId":"INV-765","journalOperationKey":"TAX",\
+                 "ruleCode":"PRECISION_RULE","amount":100.0,"accountingDate":"2026-09-24"}
+                """);
+
+        listener.listenTransactionEvent(first);
+        listener.listenTransactionEvent(replay);
+
+        ArgumentCaptor<JournalCreationIdentity> identityCaptor =
+                ArgumentCaptor.forClass(JournalCreationIdentity.class);
+        ArgumentCaptor<Map<String, Object>> eventCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(journalUseCase, times(2)).createJournalEntryFromEvent(
+                identityCaptor.capture(), eventCaptor.capture(), any(LocalDate.class));
+        assertThat(identityCaptor.getAllValues()).containsOnly(
+                new JournalCreationIdentity("PAYABLE", "INV-765", "TAX"));
+        assertThat(eventCaptor.getAllValues()).allSatisfy(event -> {
+            assertThat(event.get("createdBy")).isEqualTo("service:journal-kafka-maker");
+            assertThat(event.get("auditUser")).isEqualTo("service:journal-kafka-maker");
+            assertThat(event.get("lineageSourceType")).isEqualTo("PAYABLE");
+            assertThat(event.get("lineageSourceId")).isEqualTo("INV-765");
+        });
+    }
+
+    @Test
+    void changedKafkaReplayConflictPropagatesAsRetryDlqFailure() {
+        when(journalUseCase.createJournalEntryFromEvent(
+                any(JournalCreationIdentity.class), any(), any(LocalDate.class)))
+                .thenThrow(new JournalCreationConflictException());
+        Map<String, Object> changedReplay = convert("""
+                {"eventType":"PAYABLE","eventId":"INV-765","journalOperationKey":"TAX","amount":101.00,"accountingDate":"2026-09-24"}
+                """);
+
+        assertThatThrownBy(() -> listener.listenTransactionEvent(changedReplay))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("retry/DLQ")
+                .hasCauseInstanceOf(JournalCreationConflictException.class);
+    }
+
+    @Test
+    void kafkaEventWithoutOperationKeyFailsBeforeRuleEvaluation() {
+        Map<String, Object> legacyEvent = convert("""
+                {"eventType":"PAYABLE","eventId":"INV-765","amount":100.00,"accountingDate":"2026-09-24"}
+                """);
+
+        assertThatThrownBy(() -> listener.listenTransactionEvent(legacyEvent))
+                .isInstanceOf(RuntimeException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class)
+                .cause().hasMessageContaining("operationKey");
+        assertThat(receivedEvent.get()).isNull();
     }
 
     @SuppressWarnings("unchecked")

@@ -1,3 +1,26 @@
+# GH-765 agent status — BLOCKED
+
+- Issue: [#765](https://github.com/skyg547/account/issues/765); owner `agent:codex`, remote status `status:blocked`.
+- Status: a module-local implementation candidate and verification evidence are preserved, but independent review found a merge-blocking P1. No commit, push, or Draft PR was created.
+- Base: `origin/main@14731f730a200f279602c4b08934fb66731e34ea`.
+- Branch/worktrees: `agent/765-journal-idempotency`, `/tmp/account-765-journal-idempotency`; detached audited proof `/tmp/account-765-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model/ownership: `gpt-5.6-sol`, high. Planner and independent Reviewer were read-only; Core, SQL, API, Test, and Documentation writers used disjoint `journal-ledger/**` allowlists; the parent owns these records and Git/GitHub state.
+- Allowlist: `journal-ledger/**` only. Other modules, shared contracts, and repository-level harness/history files are unchanged.
+- Candidate: V18 durable operation/fingerprint records, database stripe locks, lock→lookup→compare→save/link flow, HTTP/Kafka operation-key mapping, conflict handling, regressions, and functional documentation.
+- Verification before review: exact `./gradlew :journal-ledger:test` PASS, 377 tests (core301/API64/batch12), failures/errors/skips0; focused core53 PASS; disposable PostgreSQL16 concurrency/migration6 PASS; static scope/whitespace/conflict/index gates PASS.
+- RED/GREEN: byte-identical audited regression SHA-256 `0782dc3cb82780c27f55d9ed778499ee3ac9ae2cc3cf08b4ebd76499c9a5615f` fails1/1 on audited `a97d10ab` and passes after the candidate change.
+- Blocking P1: the frozen `JournalEntryCommand` carries no independent, retry-stable operation identity. Receivable can emit multiple `COLLECTION_MATCH/<collectionId>` allocations without allocation/receivable identity, and Payable can emit multiple `PAYABLE_OFFSET/<payableId>` offsets without offset/advance identity. Distinct legitimate operations can therefore be byte-identical. Mapping null `slipNo` to `PRIMARY` collapses them, while deriving a key from content cannot distinguish an identical retry from a second valid operation.
+- Quality contract: Q1 FAIL, Q2 FAIL, Q3 FAIL, Q4 PASS. The candidate does not satisfy the acceptance criterion that legitimate multi-journal source events retain distinct operation identities.
+- Unblock requirement: authorize `contracts/**` plus affected producer modules so a durable `operationKey`/`requestId` is carried separately from `slipNo`; preserve Receivable allocation/request identity and Payable offset/advance identity, and audit remaining producers. The alternative is an explicit acceptance-criteria relaxation for a breaking fail-closed migration of ambiguous null-key commands.
+- Rollback/resources: no published change exists. Discarding this uncommitted worktree restores the base; no schema or data change was deployed. Task PostgreSQL container `account-765-postgres` is stopped and retained.
+- Authority: user authorized module implementation, testing, push, and Draft PR, but review failure prevents publication under the repository completion contract. Ready, merge, Issue close, deployment, and cleanup were not performed.
+
+See [worklog.md](worklog.md) for commands and evidence, and [handoff.md](handoff.md) for the decision needed to resume.
+
+---
+
+The following is retained historical status and is not a current GH-765 report.
+
 # GH-763 agent status
 
 - Issue: [#763](https://github.com/skyg547/account/issues/763); owner `agent:codex`, review handoff target `status:needs-review`.

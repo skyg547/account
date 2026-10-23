@@ -15,6 +15,14 @@
 | `CollectionController` | `GET` | `/api/collections/unmatched` | 자동 매칭되지 않은 수납 목록을 조회한다. |
 | `CollectionController` | `POST` | `/api/collections/manual-match` | 사용자가 지정한 채권에 수동으로 수납액을 배분한다. |
 
+`manual-match` 본문에는 `collectionId`, `receivableId`, `matchingAmount`와 함께 클라이언트가 정한 `operationId`(1~90자)를 넣는다. 응답을 받지 못했을 때는 **같은** ID와 내용으로 재시도한다. 같은 수납에서 ID를 재사용하면서 채권 또는 금액을 바꾸면 요청이 거부된다.
+
+```json
+{"collectionId": 20, "receivableId": 30, "matchingAmount": 100.00, "operationId": "bank-match-2026-001"}
+```
+
+위 요청이 성공하면 HTTP 200이며, 같은 본문을 다시 보내도 배분·전표를 추가하지 않는다. 같은 수납과 채권에 다음 100원을 따로 배분하려면 다른 `operationId`가 필요하다.
+
 ## 매출 인보이스 조회 흐름
 
 ```mermaid
@@ -56,6 +64,7 @@ flowchart TD
 - 인보이스 총액은 공급가액과 세액의 합으로 만들어진다.
 - 채권은 인보이스 총액과 만기일을 기준으로 열린 상태로 생성된다.
 - 전표 생성에 필요한 매출채권, 매출, 매출부가세 계정이 존재해야 한다.
+- 매출 인식 전표는 인보이스 출처에서 `PRIMARY` 작업 ID를 사용한다. 수납 인식도 수납 출처에서 `PRIMARY`를 사용한다.
 
 ## 수납과 매칭 흐름
 
@@ -80,6 +89,8 @@ flowchart TD
 ```
 
 자동 매칭은 안전을 우선한다. 후보가 여러 개면 임의로 하나를 고르지 않고 미매칭 상태로 남긴다. 잘못된 채권을 닫는 것보다 사람이 확인하도록 남기는 편이 고객 잔액과 감사 추적에 안전하다.
+
+매칭은 수납 행을 잠근 상태에서 해당 작업 ID의 기존 배분을 확인하고, 새 배분에는 `(collection_id, operation_id)` 유일 제약을 적용한다. 수동 작업 ID는 `MANUAL:<operationId>`, 자동 작업 ID는 `AUTO:<receivableId>`이다. 자동 매칭은 해당 수납의 남은 금액 전체를 한 채권에 배분하므로 같은 수납/채권 자동 작업은 한 건이다. 같은 수납/채권에 별도 부분 배분을 하려면 수동 요청마다 새로운 ID를 사용한다. 두 ID는 원장 전표에도 그대로 전달하여 원장 측의 원자적 중복 판단에 사용한다.
 
 ## 자동 매칭 정책
 

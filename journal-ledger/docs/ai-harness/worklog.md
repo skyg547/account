@@ -1,3 +1,57 @@
+# GH-765 worklog — blocked at independent review
+
+## Scope and execution
+
+- Issue: [#765](https://github.com/skyg547/account/issues/765), GL10, P1, journal creation atomic idempotency.
+- Branch/worktree: `agent/765-journal-idempotency`; `/tmp/account-765-journal-idempotency`; base `origin/main@14731f730a200f279602c4b08934fb66731e34ea`.
+- Audited proof: `/tmp/account-765-regression-proof` detached at `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope: `journal-ledger/**` only. Shared contracts, producer modules, and repository-level harness/history files were not edited.
+- Model: `gpt-5.6-sol`, reasoning high. Read-only Planner/Reviewer were separated from disjoint Core/SQL/API/Test/Documentation writers; parent Integrator owns Git/GitHub and these records.
+
+## Candidate implementation
+
+- Added a source type/source ID/operation key identity and a versioned canonical SHA-256 financial fingerprint.
+- Added V18 durable operation records and 256 database stripe locks, with service flow lock→lookup→fingerprint comparison→validation/save→operation link.
+- Added manual HTTP `Idempotency-Key`, event/Kafka mappings, explicit content-conflict handling, persistence/concurrency/migration regressions, and module documentation.
+- The shared contract adapter maps `slipNo` where present and used `PRIMARY` for a missing value. This fallback is the review-blocking defect described below; the candidate must not be published as a complete remediation.
+
+## Verification evidence completed before the block
+
+- `./gradlew :journal-ledger:test --console=plain --no-daemon --max-workers=1`: BUILD SUCCESSFUL; core301, API64, batch12 = 377 tests, failures/errors/skips0.
+- Focused core selection: 53/53 PASS.
+- Disposable PostgreSQL16:
+  `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:36651/posting765 ./gradlew :journal-ledger:core:test --tests '*JournalCreationConcurrencyIntegrationTest' --tests '*JournalCreationOperationMigrationTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`: 6/6 PASS.
+- The task container `account-765-postgres` was stopped after verification and retained; no production database or credentials were used.
+- Static gates before the review: 39 changed/untracked files, all under `journal-ledger/**`; `git diff --check`, untracked-whitespace, exact conflict-marker, and unmerged-index checks PASS.
+
+## Audited RED/current GREEN
+
+- Regression: `AuditedJournalCreationIdempotencyCompatibilityTest`.
+- Current and audited-proof file SHA-256 are identical: `0782dc3cb82780c27f55d9ed778499ee3ac9ae2cc3cf08b4ebd76499c9a5615f`.
+- Exact audited production at `a97d10ab6efc2570a88f83d630242cd748f8be57`: 1/1 expected failure at line62, BUILD FAILED.
+- Candidate: the same regression passes as part of the successful module verification.
+
+## Independent review and blocker
+
+- Severity: P1, merge-blocking. Q1 FAIL, Q2 FAIL, Q3 FAIL, Q4 PASS.
+- `JournalEntryCommand` has no independent operation identity. Its nullable `slipNo` is a globally unique resulting journal number, not a source-scoped retry key.
+- Receivable collection processing can create multiple allocations under `COLLECTION_MATCH/<collectionId>`, but the outbound command omits both receivable identity and persisted allocation/request identity.
+- Payable processing can create multiple offsets under `PAYABLE_OFFSET/<payableId>`, but the outbound command omits both advance-payment identity and persisted offset-operation identity.
+- Consequently, a retry and a second legitimate operation can be byte-identical at the journal-ledger boundary. A lineage/`PRIMARY` key collapses valid operations; a fingerprint-derived key has the same ambiguity; random/time/sequence keys are not stable across retries.
+- This cannot be repaired inside `journal-ledger/**` while preserving all stated acceptance criteria. The producer must carry a durable retry-stable operation key separately from `slipNo`.
+
+## Handoff and publication state
+
+- Required expansion: `contracts/**` plus affected producers, at minimum Receivable and Payable, followed by an audit of every command producer. Preserve allocation/request and offset/advance identities in the contract.
+- Alternative requiring explicit product approval: relax the acceptance criteria and reject ambiguous missing-key contract commands in a breaking fail-closed migration.
+- Issue label changed from `status:in-progress` to `status:blocked`; blocker comment: <https://github.com/skyg547/account/issues/765#issuecomment-5821997472>.
+- No commit, push, Draft PR, Ready transition, merge, Issue close, deployment, cleanup, or data mutation was performed.
+- Rollback: no published artifact exists. The uncommitted worktree may be discarded only after the owner decides not to expand scope; applied production migration rollback is not applicable.
+
+---
+
+The following is retained historical worklog and is not a current GH-765 report.
+
 # 2026-09-25 — GH-763 foreign journal transaction-to-base conversion
 
 ## Intake, isolation, and ownership

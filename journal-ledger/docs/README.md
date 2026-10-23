@@ -5,10 +5,10 @@
 ## 문서 목록
 
 1. [beginner-guide.md](./beginner-guide.md): 초보자 개념, 코드 탐색, DDD/헥사고날 구조
-2. [process-flow.md](./process-flow.md): 전표·원장·미결 업무와 데이터 흐름
-3. [schema.md](./schema.md): 핵심 테이블 관계와 소유권
+2. [process-flow.md](./process-flow.md): 전표 생성 멱등성, 승인·전기·미결 업무와 데이터 흐름
+3. [schema.md](./schema.md): 핵심 테이블 관계, V18 생성 작업 registry와 소유권
 4. [ledger-carry-forward.md](./ledger-carry-forward.md): 원장 잔액 이월 상세
-5. [posting-concurrency.md](./posting-concurrency.md): 동일/서로 다른 전표의 동시 전기, 역분개, 잔액 잠금, 재시도, V13/V14/V15/V17 업그레이드와 검증
+5. [posting-concurrency.md](./posting-concurrency.md): 동시 생성·전기, 역분개, 잔액 잠금, 재시도, V13/V14/V15/V17/V18 배포·롤백과 검증
 6. [layer-guide.md](./layer-guide.md): application/domain/adapter 계층과 출력 포트 경계
 
 루트 `README.md`에는 모듈 개요와 빠른 실행 정보만 두고, 상세 설명은 위 문서에서 통합 관리합니다.
@@ -32,6 +32,7 @@ IntelliJ에서는 공유 실행 설정 `Journal Ledger Batch Reaggregation`을 �
 
 - **Kafka 기반 비동기 전표 처리**:
   - `KafkaTransactionListener`를 통해 `transaction-events` 토픽으로부터 다른 서브레저 모듈(예: 결산, 대사, 수납)의 회계 이벤트를 수신합니다.
+  - 발행자는 `journalOperationKey`를 안정적으로 재사용해야 합니다. 같은 lineage와 작업 키의 같은 내용은 기존 결과로 수렴하고, 내용이 바뀌면 실패하여 새 전표로 덮어쓰지 않습니다.
   - 전표 생성에 실패할 경우(예외 발생) 무음 처리하지 않고 명시적으로 `RuntimeException`을 던져, Spring Kafka의 기본 **DLQ(Dead Letter Queue)** 및 Retry 메커니즘을 유도하는 Fail-Safe 설계를 따릅니다.
 - **Journal Rule Engine (자동 분개 룰 엔진)**:
   - 계정과 차대변은 활성 규칙으로 결정하지만 거래통화와 거래통화→KRW 환율은 이벤트의 명시적인 transaction provenance만 사용합니다. 통화는 `transactionCurrencyCode`/`currencyCode`/`currency`, 환율은 `transactionToBaseRate`/`exchangeRate`/`fxRate`와 각각의 `transaction.*` 형태만 허용하며 `company`, `functionalCurrency`, `reportingCurrency`, `accountingPolicy` 기준통화에서 추론하지 않습니다.
@@ -66,11 +67,11 @@ journal-ledger:
 
 ## 로컬 실행
 
-루트 [docs/local-development.md](../../docs/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
+루트 [docs/guides/local-development.md](../../docs/guides/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
 
 API local과 Batch local은 서로 다른 H2 메모리 DB를 사용하지만 둘 다 module-owned Flyway
-V1~V17을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블과
-V17 역분개 operation 관계도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
+V1~V18을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블,
+V17 역분개 operation 관계와 V18 생성 작업 registry도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
 승인된 별도 migration-runner가 먼저 적용한 스키마를 validate합니다.
 
 ```powershell

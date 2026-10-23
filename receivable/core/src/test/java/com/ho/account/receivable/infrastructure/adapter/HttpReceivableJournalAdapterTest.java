@@ -3,6 +3,7 @@ package com.ho.account.receivable.infrastructure.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -31,6 +32,7 @@ class HttpReceivableJournalAdapterTest {
 
         server.expect(requestTo("http://journal-ledger.test/api/v1/journals/posting"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.operationKey").value("MANUAL:allocation-3001"))
                 .andRespond(withSuccess("""
                         {"journalEntryId":301,"slipNo":"JE-AR-301","status":"DRAFT"}
                         """, MediaType.APPLICATION_JSON));
@@ -46,6 +48,8 @@ class HttpReceivableJournalAdapterTest {
                 "AR_USER",
                 "RECEIVABLE",
                 "3001",
+                null,
+                "MANUAL:allocation-3001",
                 List.of(
                         new JournalLineCommand("DEBIT", "11200", BigDecimal.valueOf(8000), BigDecimal.valueOf(8000), "D-1", "CUST-1", "Debit AR"),
                         new JournalLineCommand("CREDIT", "41000", BigDecimal.valueOf(8000), BigDecimal.valueOf(8000), "D-1", "CUST-1", "Credit Sales")

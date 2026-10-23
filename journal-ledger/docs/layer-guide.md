@@ -37,6 +37,8 @@ application 계층은 유즈케이스 흐름을 조정합니다.
 - `LedgerService`는 잔액 집계 흐름을 담당하고 `LedgerBalancePersistencePort`에 저장/조회 세부사항을 위임합니다.
 - `UnsettledService`는 미결 반제 유즈케이스를 조정하고 `UnsettledItem` 도메인 메서드가 상태 전이를 처리하게 합니다.
 - `JournalEntryService`는 수동·contract·자동 전표를 같은 검증 파이프라인으로 보내며, `PostingService`는 전기 전에 같은 환산 불변식을 가진 `GeneralLedger` 스냅샷을 만듭니다.
+- `JournalEntryService`의 생성 경계는 `(sourceType, sourceId, operationKey)`와 versioned fingerprint를 사용해 첫 생성과 동등 재시도를 구분합니다. 생성 작업 잠금·registry는 `JournalCreationOperationPersistencePort` 뒤에 두고, 전표와 registry를 한 트랜잭션으로 묶습니다.
+- identity가 없는 호환 `createJournalEntry(JournalEntry)`는 production wiring에서 거부합니다. 테스트용 embedded 호환 구성만 V18 receipt 없이 실행되므로 외부 재시도 경로가 사용하면 안 됩니다. HTTP·메시지·contract는 반드시 `JournalCreationIdentity`를 받는 overload를 사용하며, 관리형 역분개는 V17 전용 유즈케이스를 사용합니다.
 
 ## domain 계층
 
@@ -66,6 +68,7 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 - Web Controller는 DTO 검증, 헤더 추출, 응답 변환을 담당합니다.
 - Kafka Listener는 이벤트 역직렬화와 실패 전파를 담당합니다.
 - Controller가 JPA Repository를 직접 호출하지 않습니다.
+- 수동 HTTP는 필수 `Idempotency-Key`를 내부 생성 작업 키로 매핑합니다. 이벤트 HTTP는 헤더 또는 payload의 `journalOperationKey`/`operationKey`를 요구하고, Kafka는 payload 값을 요구합니다. Posting REST와 Spring event는 command의 명시적인 `operationKey`를 보존합니다. 키가 없으면 생성 전에 실패하며 `slipNo`에서 추정하지 않습니다. 어댑터는 키를 전달하고 중복 판정과 fingerprint 비교는 core에서 수행합니다.
 - 수동 HTTP는 caller의 필수 `baseAmount`를 도메인으로 전달합니다. Contract adapter는 외화 누락을 거부하되, null/공백/KRW 통화와 환율 생략 또는 1인 동일단위 입력에만 누락값을 `amount`로 채우는 호환 예외를 적용합니다. 자동분개는 공통 도메인 정책으로 기준금액을 생성합니다.
 
 ### 외화 provenance 경계
@@ -90,6 +93,7 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 | 기능 | 출력 포트 | 기본 어댑터 | 대량 어댑터 |
 | --- | --- | --- | --- |
 | 전표 저장 | `JournalPersistencePort` | JPA | 별도 필요 시 추가 |
+| 전표 생성 멱등성 | `JournalCreationOperationPersistencePort` | DB stripe lock + V18 registry | - |
 | 자동분개 규칙 조회 | `JournalRuleQueryPort` | JPA | - |
 | GL/SL 엔트리 저장 | `LedgerEntryPersistencePort.save(GeneralLedger)` | Aggregate → JPA entity mapping 후 `saveAll` | 같은 Aggregate를 JDBC batch insert |
 | GL/SL 잔액 저장 | `LedgerBalancePersistencePort` | JPA `saveAll` | JDBC upsert/update+insert |

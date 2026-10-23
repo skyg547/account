@@ -9,7 +9,7 @@
 **Q. 이 모듈은 정확히 무슨 일을 하나요?**
 거래를 회계 전표로 만들고, 승인받고, 최종적으로 원장(Ledger)에 반영한 뒤, 나중에 감사관이 "이 돈 어디서 왔어?" 하고 물어볼 때 끝까지 추적할 수 있게 기록을 남기는 곳입니다.
 
-**초보자가 알아야 할 핵심 9가지 개념:**
+**초보자가 알아야 할 핵심 10가지 개념:**
 1. **전표 (`JournalEntry`):** 회계 처리 한 건의 헤더 ("2026-04-13 대출 실행 전표")
 2. **전표 라인 (`JournalDetail`):** 실제 차변/대변 상세 줄.
 3. **상태 변화:** 작성 중(`DRAFT`) -> 승인 요청(`REQUESTED`) -> 승인됨(`APPROVED`) -> 원장 반영 완료(**`POSTED`**)
@@ -21,6 +21,7 @@
 7. **전기된 이력은 수정하지 않음:** `POSTED` 전표는 헤더, 감사 정보, 상세 금액·계정·차대 구분·차원·적요와 상세 구성까지 원본 그대로 보존합니다. 오류 정정은 원본을 고치는 대신 원본을 연결한 새 역분개 또는 조정 전표로 기록합니다.
 8. **역분개는 원본당 하나의 작업:** 원본은 `POSTED`로 보존하고 `journal_reversal_operations`가 현재 역분개를 연결합니다. 중복 요청은 첫 요청이 만든 같은 전표를 반환하며, 전기 전 취소한 경우에만 새 역분개를 만들 수 있습니다.
 9. **외화 환산:** 현재 기준통화는 KRW로 고정되어 있습니다. 전표 헤더의 거래통화와 거래통화→KRW 환율을 근거로 일반 전표 라인의 `baseAmount`를 검증하며, 예를 들어 USD 100과 환율 1300의 기준통화 금액은 KRW 130,000이어야 합니다. 관리형 역분개는 과거 실제 원장 효과를 상쇄하기 위한 exact-copy 예외입니다.
+10. **생성 멱등성:** `(lineageSourceType, lineageSourceId, operationKey)`가 한 생성 작업을 식별합니다. 같은 내용의 재시도는 기존 전표를 반환하고, 같은 키로 금액 같은 재무 내용이 달라지면 충돌로 거부합니다. 같은 원천에서 여러 전표가 필요하면 작업 키를 다르게 지정합니다.
 
 차변과 대변 금액은 단순 `BigDecimal`이 아니라 `Debit`/`Credit` Value Object로 구분합니다.
 두 타입은 기존 DB의 `DECIMAL(19,2)` 계약을 공유하며 소수 둘째 자리를 넘는 값을 몰래
@@ -42,10 +43,12 @@ sequenceDiagram
     participant DB as Persistence Adapter
 
     App->>Service: 전표 생성 요청 (JournalEntry)
+    Service->>DB: 생성 identity stripe 잠금 / V18 registry 조회
+    Note over Service, DB: 같은 fingerprint면 기존 전표 반환<br/>다르면 충돌로 거부
     Service->>Engine: validate(entry) 호출
     Note over Engine: 1. 차대일치 확인<br/>2. 마감 여부 확인(Closing 연동)<br/>3. 계정 유효성 확인(Master 연동)
     Engine-->>Service: 검증 성공
-    Service->>DB: DRAFT 상태로 저장
+    Service->>DB: DRAFT 전표와 생성 registry를 함께 저장
     Service-->>App: 생성 완료 (ID 반환)
 
     Note over App, DB: [승인 프로세스 생략]
@@ -78,6 +81,7 @@ flowchart LR
 ```mermaid
 erDiagram
     JOURNAL_ENTRY ||--o{ JOURNAL_DETAIL : "contains"
+    JOURNAL_CREATION_OPERATION }o--|| JOURNAL_ENTRY : "resolves to"
     JOURNAL_ENTRY ||--o| JOURNAL_REVERSAL_OPERATION : "is source of"
     JOURNAL_REVERSAL_OPERATION ||--|| JOURNAL_ENTRY : "points to current reversal"
     JOURNAL_ENTRY {
@@ -93,6 +97,15 @@ erDiagram
         String business_partner_code "ID Reference (master-data)"
         BigDecimal amount "금액"
         String side "DEBIT / CREDIT"
+    }
+    JOURNAL_CREATION_OPERATION {
+        Long id PK
+        String source_type "identity UK part"
+        String source_id "identity UK part"
+        String operation_key "identity UK part"
+        Integer fingerprint_version
+        String request_fingerprint "SHA-256"
+        Long journal_entry_id UK
     }
     JOURNAL_REVERSAL_OPERATION {
         Long original_journal_entry_id PK
@@ -111,6 +124,7 @@ erDiagram
 - 전표 헤더의 `currencyCode`와 `exchangeRate`가 현재 계약에서 환산 근거입니다. `currencyCode`의 `null`/공백은 호환성을 위해 KRW로 취급하고, KRW는 환율 생략 또는 1만 허용합니다. 외화는 명시적인 양수 환율과 라인별 `baseAmount`가 필요합니다. 수동 HTTP는 통화와 무관하게 `baseAmount`가 필수입니다. Contract는 null/공백/KRW와 환율 생략 또는 1인 동일단위 입력에 한해서만 누락된 `baseAmount`를 `amount`로 채우며, 외화 누락이나 공급값 불일치는 저장 전에 거부합니다. 자동분개 이벤트는 거래통화 키(`transactionCurrencyCode`, `currencyCode`, `currency`)와 거래통화→기준통화 환율 키(`transactionToBaseRate`, `exchangeRate`, `fxRate`)만 사용하고, 여러 별칭이 함께 있으면 정규화 후 모두 같아야 합니다. 상세 반올림과 잔여 배분은 [업무 흐름 문서](docs/process-flow.md#거래통화에서-기준통화krw로-환산)를 확인하세요.
 - **GL/SL 잔액 조회:** 외부 모듈은 `LedgerQueryPort`를 통해 journal-ledger 엔티티 구조를 모르고도 잔액을 조회할 수 있습니다.
 - 전표 HTTP API는 도메인 엔티티를 직접 노출하지 않고 전용 요청/응답 DTO를 사용합니다. 쓰기 명령은 Gateway가 JWT에서 다시 만든 `X-Auth-User`와 `X-Auth-Roles`만 사용하며, maker 작성/승인요청 → 별도 approver 승인 → poster 전기 순서를 강제합니다. 역할과 오류는 [업무 흐름 문서](docs/process-flow.md#maker-checker-승인과-http-권한)를 확인하세요.
+- 전표 생성의 멱등 identity는 lineage 두 값과 명시적인 `operationKey`의 조합입니다. 수동 HTTP는 필수 `Idempotency-Key`, 이벤트 HTTP/Kafka는 `journalOperationKey`/`operationKey`, contract는 전표 번호 `slipNo`와 별개의 `operationKey`를 사용합니다. 키가 없으면 생성 전에 거부합니다. 같은 키·같은 fingerprint는 기존 결과, 같은 키·다른 fingerprint는 HTTP `409 Conflict` 또는 호출 경로의 명시적 실패입니다. 자세한 재시도·배포 조건은 [업무 흐름](docs/process-flow.md#전표-생성-멱등성)과 [동시성 문서](docs/posting-concurrency.md)를 확인하세요.
 - 공개 `POST /api/journals`의 `entryType`에 caller가 `REVERSAL`을 지정하면 HTTP `400`을 반환합니다. 주변 공백이나 대소문자를 바꾸어도 같게 거부됩니다. 역분개는 원본 잠금과 operation 저장을 함께 수행하는 관리형 `reverseJournalEntry` 유스케이스로만 생성합니다.
 - 미결 반제 요청은 `settlementReference`와 `X-User-ID`를 함께 저장합니다. 동일 참조번호가 재전송되면 금액을 중복 반영하지 않습니다.
 - 같은 전표의 동시 전기는 헤더 잠금과 전표 상세 고유 키로 중복 반영을 차단합니다. 서로 다른 전표의 같은 계정·통화 잔액은 공통 잠금 행을 확보한 뒤 최신 값으로 갱신합니다. `READ_COMMITTED` 쓰기 트랜잭션과 V14가 필요하며, [동작·재시도·배포 조건](docs/posting-concurrency.md)을 확인하세요.
@@ -158,7 +172,7 @@ KRW로 고정되어 있고 환율 공급자·환율 출처·적용일 필드는 
 fail-closed하므로 승인된 정정 절차가 필요합니다.
 
 프로파일을 생략하면 API와 Batch 모두 `local`이 선택되어 각자의 전용 H2 PostgreSQL mode DB에
-모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17을 적용하고 Hibernate가 스키마를 검증합니다.
+모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17/V18을 적용하고 Hibernate가 스키마를 검증합니다.
 `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
 애플리케이션 Flyway와 SQL/Batch 자동 초기화를 끕니다. 배포 전 migration은 별도
 `migration-runner`만 수행합니다. Journal의 Master Data 조회는 local에서 명시적인 local

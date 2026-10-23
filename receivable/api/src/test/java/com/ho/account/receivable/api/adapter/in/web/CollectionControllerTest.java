@@ -62,12 +62,14 @@ class CollectionControllerTest {
         request.setCollectionId(10L);
         request.setReceivableId(20L);
         request.setMatchingAmount(new BigDecimal("300.00"));
+        request.setOperationId("manual-match-1");
 
         controller.manualMatchCollection(request);
 
         assertThat(useCase.matchedCommand.collectionId()).isEqualTo(10L);
         assertThat(useCase.matchedCommand.receivableId()).isEqualTo(20L);
         assertThat(useCase.matchedCommand.matchingAmount()).isEqualByComparingTo("300.00");
+        assertThat(useCase.matchedCommand.operationId()).isEqualTo("manual-match-1");
     }
 
     private static Collection collection(String customerCode, String amount) {

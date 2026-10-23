@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ho.account.journalledger.application.port.out.JournalCreationOperationPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.service.journal.JournalEntryService;
@@ -37,9 +38,14 @@ class JournalCreateReversalGuardMvcTest {
         journalPersistence = org.mockito.Mockito.mock(JournalPersistencePort.class);
         JournalReversalPersistencePort reversals =
                 org.mockito.Mockito.mock(JournalReversalPersistencePort.class);
+        JournalCreationOperationPersistencePort creations =
+                org.mockito.Mockito.mock(JournalCreationOperationPersistencePort.class);
+        when(creations.findByIdentity(any())).thenReturn(java.util.Optional.empty());
+        when(creations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         validationEngine = org.mockito.Mockito.mock(JournalValidationEngine.class);
         JournalEntryService service = new JournalEntryService(
                 journalPersistence,
+                creations,
                 reversals,
                 org.mockito.Mockito.mock(JournalRuleEngine.class),
                 org.mockito.Mockito.mock(PostingService.class),
@@ -57,6 +63,7 @@ class JournalCreateReversalGuardMvcTest {
         mockMvc.perform(post("/api/journals")
                         .header("X-Auth-User", "journal-maker")
                         .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .header("Idempotency-Key", "REVERSAL-GUARD")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createRequest(entryType)))
                 .andExpect(status().isBadRequest());
@@ -78,6 +85,7 @@ class JournalCreateReversalGuardMvcTest {
         mockMvc.perform(post("/api/journals")
                         .header("X-Auth-User", " Journal-Maker ")
                         .header("X-Auth-Roles", "ROLE_JOURNAL_MAKER")
+                        .header("Idempotency-Key", "NORMAL-GUARD")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createRequest("NORMAL")))
                 .andExpect(status().isOk())

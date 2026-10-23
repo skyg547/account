@@ -7,6 +7,7 @@
 ```mermaid
 erDiagram
     JOURNAL_ENTRIES ||--o{ JOURNAL_DETAILS : contains
+    JOURNAL_CREATION_OPERATIONS }o--|| JOURNAL_ENTRIES : resolves_to
     JOURNAL_ENTRIES ||--o| JOURNAL_REVERSAL_OPERATIONS : source
     JOURNAL_REVERSAL_OPERATIONS ||--|| JOURNAL_ENTRIES : current_reversal
     JOURNAL_RULES ||--o{ JOURNAL_RULE_CONDITIONS : matches
@@ -22,12 +23,38 @@ erDiagram
 | --- | --- | --- |
 | `journal_entries` | 전표 헤더와 상태, 원천 추적 | `slip_no`, `status`, `accounting_date`, `created_by`, `approved_by`, `audit_user`, lineage 필드 |
 | `journal_details` | 차변/대변 라인 | `account_code`, `side`, `amount`, 거래처·부서 코드 |
+| `journal_creation_operation_locks` | 아직 registry가 없는 최초 요청까지 직렬화하는 256개 고정 stripe | `lock_id` 0~255 PK/CHECK |
+| `journal_creation_operations` | 일반 전표 생성 identity, fingerprint와 결과 전표의 영속 연결 | source type/ID + operation key UK, fingerprint version/digest, journal entry UK/FK, 생성 시각 |
 | `journal_reversal_operations` | 원본당 현재 역분개 작업과 수명주기 | 원본 PK, `original_journal_status=POSTED`, 역분개 UK, `PENDING/POSTED/CANCELLED`, 전기·취소 감사 시간 |
 | `journal_rules` | 적용 가능한 자동분개 규칙 | 규칙 코드, 우선순위, 유효기간 |
 | `journal_rule_conditions` | 규칙 적용 조건 | 필드, 연산자, 비교값 |
 | `journal_rule_details` | 규칙이 생성할 라인 명세 | `drcr_type`, 계정·금액·적요 표현식 |
 
 `journal_rule_details.drcr_type`은 DB에는 문자열로 저장하지만 도메인에서는 `JournalSide` 열거형으로 제한합니다.
+
+### 전표 생성 operation identity
+
+V18의 `journal_creation_operations`는 lineage 전체를 유일하게 만들지 않습니다. 대신
+`(source_type, source_id, operation_key)`에 UNIQUE를 적용하여 한 원천 안에서 각 생성 작업을
+따로 식별합니다. `journal_entry_id`도 UNIQUE/FK이므로 하나의 완료 operation은 정확히 하나의
+전표를 가리키며, 같은 전표를 서로 다른 생성 identity의 결과로 등록할 수 없습니다.
+
+`fingerprint_version`과 64자리 lowercase SHA-256 `request_fingerprint`는 함께 비교합니다.
+버전이 다르거나 digest가 다르면 같은 요청이라고 추측하지 않고 충돌로 거부합니다. digest는
+민감한 생성 payload 대신 비교할 수 있는 값일 뿐이므로 오류 응답과 일반 로그에 출력하지 않습니다.
+registry 행과 대상 전표는 같은 생성 트랜잭션에서 commit 또는 rollback됩니다. 따라서
+`journal_entry_id`가 없는 예약 행이나 실패 결과를 저장하는 별도 상태는 없습니다.
+
+동시 최초 요청은 `journal_creation_operation_locks`의 고정된 DB stripe 행을 `FOR UPDATE`로
+잠근 뒤 registry를 다시 조회합니다. 세 identity 문자열의 안정적인 hash를 256개 stripe로
+매핑합니다.
+stripe는 성능을 위한 identity 해시 분할이고 업무 소유권 데이터는 아닙니다. 서로 다른 identity가
+같은 stripe에 매핑되면 안전하게 순서대로 실행될 수 있으므로 잠금 행을 삭제하거나 일부만 seed하면
+안 됩니다. 최종 UNIQUE 제약은 잠금 규칙을 우회하거나 잘못 배포한 writer에 대한 DB 방어선입니다.
+
+V17의 `journal_reversal_operations`는 이 registry와 목적과 수명주기가 다릅니다. 관리형 역분개는
+원본 전표 ID와 `PENDING/POSTED/CANCELLED` 상태로 재생성 권리를 관리하고, 일반 생성의
+`PRIMARY` operation이나 V18 registry를 역분개 소유권으로 사용하지 않습니다.
 
 V16은 `journal_entries.approved_by`를 추가합니다. 새 전표는 `created_by`(maker),
 `approved_by`(checker), `audit_user`(마지막 상태 처리자)를 분리하므로 전기 후 `audit_user`가 poster로
@@ -328,3 +355,22 @@ operation을 무시하므로 역분개 생성·승인·전기 writer를 복구 �
 
 잔여 위험은 JPA 콜백과 포트를 우회하는 직접 SQL writer, 운영 PostgreSQL에서 미검증한
 lock wait/분산 장애/부하, backfill 전에 조정해야 하는 기존 중복·손상 lineage입니다.
+
+## 전표 생성 operation registry (V18)
+
+`V18__journal_creation_operations.sql`은 `journal_creation_operation_locks` 256행과
+`journal_creation_operations`를 새로 만듭니다. identity 컬럼 길이는 source type 50,
+source ID와 operation key 각각 100입니다. 애플리케이션 identity는 값을 trim한 뒤 blank를 거부합니다. fingerprint version은
+양수, digest는 64자리 lowercase hexadecimal이라는 CHECK를 적용합니다.
+
+이 migration은 기존 `journal_entries`를 읽어 registry를 backfill하지 않습니다. 과거 lineage에는
+신뢰할 operation key와 canonical fingerprint가 없으므로 임의의 `PRIMARY`를 만들면 서로 다른
+합법적 전표를 한 작업으로 잘못 합칠 수 있기 때문입니다. V18 배포 뒤 새 코드가 처리한 생성만
+registry 보호를 받습니다. 이 배포 절차는 기존 전표를 operation에 연결하거나 lineage 중 하나를
+승자로 고르지 않으며, 필요하면 별도 승인된 대사와 forward remediation으로 다룹니다.
+
+runtime role은 lock 테이블의 `SELECT/UPDATE`, registry의 `SELECT/INSERT`, identity sequence를
+사용하는 데 필요한 최소 권한이 있어야 합니다. registry는 완료 receipt이므로 runtime의
+`UPDATE/DELETE` 대상이 아닙니다. migration/DDL 권한은 계속 별도 release role만 가집니다.
+적용 뒤에는 lock ID가 정확히 0~255인지, UNIQUE/FK/CHECK와 Hibernate validate가 모두 맞는지
+확인합니다. 배포·롤백과 writer fencing은 [동시성 문서](posting-concurrency.md#v18-전표-생성-멱등성-업그레이드와-롤백)를 따릅니다.

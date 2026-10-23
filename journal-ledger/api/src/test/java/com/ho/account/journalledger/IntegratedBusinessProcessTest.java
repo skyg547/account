@@ -28,6 +28,7 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import com.ho.account.shared.infrastructure.SpringServiceDiscoveryRegistry;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -89,10 +90,23 @@ public class IntegratedBusinessProcessTest {
     @Autowired
     private com.ho.account.masterdata.core.application.port.out.FiscalPeriodPersistencePort fiscalPeriodPersistencePort;
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
     private BusinessPartner vendor;
 
     @BeforeEach
     void setUp() {
+        // This broad legacy fixture intentionally uses Hibernate create-drop instead of Flyway. Mirror
+        // V18's non-entity lock resource so production journal creation cannot bypass its durable path.
+        jdbc.execute("CREATE TABLE IF NOT EXISTS journal_creation_operation_locks"
+                + " (lock_id INTEGER PRIMARY KEY CHECK (lock_id >= 0 AND lock_id < 256))");
+        for (int lockId = 0; lockId < 256; lockId++) {
+            jdbc.update("MERGE INTO journal_creation_operation_locks (lock_id) KEY(lock_id) VALUES (?)", lockId);
+        }
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM journal_creation_operation_locks", Integer.class)).isEqualTo(256);
+
         // 1. 마스터 데이터 설정
         vendor = new BusinessPartner();
         vendor.setBusinessPartnerCode("VEND-001");

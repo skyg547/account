@@ -53,11 +53,22 @@ public interface JournalUseCase {
      * JournalEntry 도메인 객체를 그대로 받아 저장합니다.
      * Controller에서 DTO → 도메인 변환 후 이 메서드를 호출하는 흐름입니다.
      *
+     * <p>Compatibility entry point for embedded callers without the durable operation port.
+     * Production wiring requires the overload with an explicit creation identity.</p>
+     *
      * @param journalEntry 저장할 전표 도메인 객체 (details 포함)
      * @return 저장된 전표 (id, slipNo 등 DB에서 생성된 필드 포함)
      * @throws IllegalStateException 차변합계 ≠ 대변합계일 경우
      */
     JournalEntry createJournalEntry(JournalEntry journalEntry);
+
+    /**
+     * Creates or reuses the one journal linked to a durable creation identity.
+     *
+     * <p>An equivalent retry returns the existing journal. Reusing the identity with different
+     * financial or audit content fails rather than acknowledging the earlier journal.</p>
+     */
+    JournalEntry createJournalEntry(JournalCreationIdentity identity, JournalEntry journalEntry);
 
     /**
      * 이벤트 데이터로부터 자동 전표를 생성합니다.
@@ -77,6 +88,12 @@ public interface JournalUseCase {
      * @return 생성된 전표 (Optional) — 규칙 미매칭 시 empty
      */
     Optional<JournalEntry> createJournalEntryFromEvent(Map<String, Object> eventData, LocalDate accountingDate);
+
+    /** Event-based creation variant with an explicit durable operation identity. */
+    Optional<JournalEntry> createJournalEntryFromEvent(
+            JournalCreationIdentity identity,
+            Map<String, Object> eventData,
+            LocalDate accountingDate);
 
     /**
      * 특정 기간의 전표 목록을 조회합니다.

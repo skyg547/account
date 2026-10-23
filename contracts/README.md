@@ -38,6 +38,10 @@
 - 세금/마감: `TaxInvoiceQueryPort`, `AccountingPeriodStatusPort`
 - 원문서 추적: `SourceDocumentProvider`
 
+전표 생성 명령의 `operationKey`는 lineage 안에서 한 업무 사건/버전을 가리킵니다.
+재시도에는 동일 키와 동일 전표 내용(작성자 포함)을 사용하며, `slipNo`와는 독립적입니다.
+생성자 및 원격 JSON 호환 조건은 [계약 스키마](./docs/schema.md)에 정리했습니다.
+
 ## 이번 점검에서 강화한 정합성
 
 - 전표 일자는 필수이며 라인 목록은 비어 있을 수 없습니다.

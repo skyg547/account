@@ -1,6 +1,8 @@
 package com.ho.account.journalledger.adapter.in.web.journal;
 
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import com.ho.account.journalledger.application.service.journal.JournalCreationConflictException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,6 +26,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JournalController {
 
+    private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
     private final JournalUseCase journalUseCase;
 
     /**
@@ -33,11 +37,15 @@ public class JournalController {
     public ResponseEntity<JournalApiDto.View> createJournalEntry(
             @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
             @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles,
+            @RequestHeader(name = IDEMPOTENCY_KEY_HEADER) String operationKey,
             @Valid @RequestBody JournalApiDto.CreateRequest request) {
         String maker = JournalCommandAuthorization.requireMaker(actor, roles);
         try {
+            JournalCreationIdentity identity = request.creationIdentity(maker, operationKey);
             return ResponseEntity.ok(JournalApiDto.View.from(
-                    journalUseCase.createJournalEntry(request.toDomain(maker))));
+                    journalUseCase.createJournalEntry(identity, request.toDomain(maker, identity))));
+        } catch (JournalCreationConflictException e) {
+            return ResponseEntity.status(409).body(null);
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -50,14 +58,19 @@ public class JournalController {
     public ResponseEntity<JournalApiDto.View> createJournalEntryFromEvent(
             @RequestHeader(name = JournalCommandAuthorization.AUTH_USER_HEADER, required = false) String actor,
             @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles,
+            @RequestHeader(name = IDEMPOTENCY_KEY_HEADER, required = false) String operationKey,
             @Valid @RequestBody JournalApiDto.EventRequest request,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
         String maker = JournalCommandAuthorization.requireMaker(actor, roles);
         try {
-            return journalUseCase.createJournalEntryFromEvent(request.eventDataWithActor(maker), accountingDate)
+            JournalCreationIdentity identity = request.creationIdentity(operationKey);
+            return journalUseCase.createJournalEntryFromEvent(
+                            identity, request.eventDataWithActor(maker, identity), accountingDate)
                     .map(JournalApiDto.View::from)
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.noContent().build());
+        } catch (JournalCreationConflictException e) {
+            return ResponseEntity.status(409).build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }

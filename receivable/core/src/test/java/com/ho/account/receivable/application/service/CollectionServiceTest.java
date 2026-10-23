@@ -32,6 +32,7 @@ import com.ho.account.receivable.domain.ReceivableStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -104,6 +105,7 @@ class CollectionServiceTest {
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("CASH-001", "CLR-001");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("PRIMARY");
     }
 
     @Test
@@ -173,7 +175,7 @@ class CollectionServiceTest {
         Collection collection = collection();
         Receivable receivable = receivable();
 
-        when(collectionPersistencePort.findById(20L)).thenReturn(Optional.of(collection));
+        when(collectionPersistencePort.findByIdForUpdate(20L)).thenReturn(Optional.of(collection));
         when(accountingPeriodStatusPort.isClosed(collection.getCollectionDate())).thenReturn(false);
         when(receivablePersistencePort.findById(30L)).thenReturn(Optional.of(receivable));
         when(receivablePersistencePort.save(receivable)).thenReturn(receivable);
@@ -186,18 +188,125 @@ class CollectionServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(300L, "SLIP-300", "DRAFT"));
 
-        service.manualMatchCollection(new ManualMatchingCommand(20L, 30L, new BigDecimal("100.00")));
+        service.manualMatchCollection(new ManualMatchingCommand(20L, 30L, new BigDecimal("100.00"), "payment-1"));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("CLR-002", "AR-002");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("MANUAL:payment-1");
         ArgumentCaptor<CollectionAllocation> allocationCaptor = ArgumentCaptor.forClass(CollectionAllocation.class);
         verify(collectionAllocationPersistencePort).save(allocationCaptor.capture());
         assertThat(allocationCaptor.getValue().getMatchedAmount()).isEqualByComparingTo("100.00");
+        assertThat(allocationCaptor.getValue().getOperationId()).isEqualTo("MANUAL:payment-1");
         assertThat(allocationCaptor.getValue().getResidualCollectionAmount()).isEqualByComparingTo("0.00");
         assertThat(allocationCaptor.getValue().getResidualReceivableAmount()).isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    @DisplayName("동일 수동 매칭 작업 ID 재시도는 잔액과 전표를 다시 변경하지 않는다")
+    void manualMatchRetryReusesAllocation() {
+        Collection collection = collection();
+        Receivable receivable = receivable();
+        stubManualMatch(collection, receivable);
+        ManualMatchingCommand request = new ManualMatchingCommand(20L, 30L, new BigDecimal("100.00"), "request-7");
+
+        service.manualMatchCollection(request);
+        ArgumentCaptor<CollectionAllocation> allocationCaptor = ArgumentCaptor.forClass(CollectionAllocation.class);
+        verify(collectionAllocationPersistencePort).save(allocationCaptor.capture());
+        when(collectionAllocationPersistencePort.findByCollectionIdAndOperationId(20L, "MANUAL:request-7"))
+                .thenReturn(Optional.of(allocationCaptor.getValue()));
+
+        service.manualMatchCollection(request);
+
+        assertThat(collection.getMatchedAmount()).isEqualByComparingTo("100.00");
+        assertThat(receivable.getOutstandingAmount()).isEqualByComparingTo("400.00");
+        verify(journalPostingPort, times(1)).createDraftEntry(any());
+        verify(collectionAllocationPersistencePort, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("동일 작업 ID의 다른 채권 또는 금액은 명확한 충돌로 거부한다")
+    void manualMatchRejectsChangedRetry() {
+        Collection collection = collection();
+        CollectionAllocation existing = CollectionAllocation.record(collection, receivable(),
+                new BigDecimal("100.00"), "MANUAL:request-7");
+        when(collectionPersistencePort.findByIdForUpdate(20L)).thenReturn(Optional.of(collection));
+        when(collectionAllocationPersistencePort.findByCollectionIdAndOperationId(20L, "MANUAL:request-7"))
+                .thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.manualMatchCollection(
+                new ManualMatchingCommand(20L, 30L, new BigDecimal("99.00"), "request-7")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("conflicts");
+        assertThatThrownBy(() -> service.manualMatchCollection(
+                new ManualMatchingCommand(20L, 31L, new BigDecimal("100.00"), "request-7")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("conflicts");
+        verify(journalPostingPort, never()).createDraftEntry(any());
+    }
+
+    @Test
+    @DisplayName("수동 매칭은 재시도에 사용할 작업 ID를 요구한다")
+    void manualMatchRequiresOperationId() {
+        assertThatThrownBy(() -> new ManualMatchingCommand(20L, 30L, new BigDecimal("100.00"), " "))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("operationId");
+    }
+
+    @Test
+    @DisplayName("같은 수납과 채권의 별도 부분 매칭은 작업 ID별로 두 전표를 만든다")
+    void separateManualAllocationsHaveDistinctJournalOperations() {
+        Collection collection = collection();
+        collection.setAmount(new BigDecimal("300.00"));
+        Receivable receivable = receivable();
+        stubManualMatch(collection, receivable);
+
+        service.manualMatchCollection(new ManualMatchingCommand(20L, 30L, new BigDecimal("100.00"), "first"));
+        service.manualMatchCollection(new ManualMatchingCommand(20L, 30L, new BigDecimal("100.00"), "second"));
+
+        ArgumentCaptor<JournalEntryCommand> journalCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort, times(2)).createDraftEntry(journalCaptor.capture());
+        assertThat(journalCaptor.getAllValues()).extracting(JournalEntryCommand::operationKey)
+                .containsExactly("MANUAL:first", "MANUAL:second");
+        assertThat(journalCaptor.getAllValues()).extracting(JournalEntryCommand::lineageSourceId)
+                .containsExactly("20", "20");
+    }
+
+    @Test
+    @DisplayName("자동 매칭의 롤백 후 재시도는 같은 전표 작업 ID를 사용한다")
+    void autoMatchRetryUsesStableOperationKey() {
+        Collection first = collection();
+        Collection retry = collection();
+        Receivable firstReceivable = receivable();
+        Receivable retryReceivable = receivable();
+        when(collectionPersistencePort.findByIdForUpdate(20L))
+                .thenReturn(Optional.of(first), Optional.of(retry));
+        when(receivablePersistencePort.findOpenItemsByCustomerCode("C001"))
+                .thenReturn(List.of(firstReceivable), List.of(retryReceivable));
+        when(collectionMatchingPolicyPort.selectMatch(any(), any()))
+                .thenReturn(Optional.of(firstReceivable), Optional.of(retryReceivable));
+        when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer()));
+        when(receivableAccountMappingPort.resolveCollectionMatchAccounts(any(), any()))
+                .thenReturn(new ReceivableAccountMappingPort.CollectionMatchAccounts("CLR-002", "AR-002"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+
+        service.attemptAutoMatching(20L);
+        service.attemptAutoMatching(20L);
+
+        ArgumentCaptor<JournalEntryCommand> journalCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort, times(2)).createDraftEntry(journalCaptor.capture());
+        assertThat(journalCaptor.getAllValues()).extracting(JournalEntryCommand::operationKey)
+                .containsExactly("AUTO:30", "AUTO:30");
+    }
+
+    private void stubManualMatch(Collection collection, Receivable receivable) {
+        when(collectionPersistencePort.findByIdForUpdate(20L)).thenReturn(Optional.of(collection));
+        when(receivablePersistencePort.findById(30L)).thenReturn(Optional.of(receivable));
+        when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer()));
+        when(receivableAccountMappingPort.resolveCollectionMatchAccounts(collection, receivable))
+                .thenReturn(new ReceivableAccountMappingPort.CollectionMatchAccounts("CLR-002", "AR-002"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
     }
 
     @Test

@@ -14,17 +14,27 @@
 | 미결 항목 | 아직 돈을 받거나 지급하지 않아 남아 있는 채권·채무 | `UnsettledItem` |
 | 반제 | 미결 채권·채무를 수금·지급과 연결해 잔액을 줄이는 작업 | `OPEN -> PARTIAL -> CLEARED` |
 | Lineage | 원천 문서까지 되짚는 추적 정보 | `lineageSourceType`, `lineageSourceId` |
+| 생성 작업 키 | 같은 원천에서 여러 전표를 구분하고 재시도를 알아보는 키 | `operationKey`; 세 값 `(sourceType, sourceId, operationKey)`가 한 생성 작업을 식별 |
 | 거래통화 | 실제 거래 금액의 통화 | 전표 헤더 `currencyCode` |
 | 기준통화 금액 | 거래 금액을 회사 장부 통화로 바꾼 금액 | 라인 `baseAmount`; 현재 기준통화는 KRW |
 
 ## 전표 한 건이 처리되는 순서
 
 1. HTTP API는 거래 내용과 Gateway가 검증한 `X-Auth-User`/`X-Auth-Roles`를 받습니다. Kafka와 Spring contract 이벤트는 각각 리스너 전용 service principal을 maker로 사용합니다.
-2. 수동 전표는 API DTO에서 도메인 객체로 변환되고, 자동 전표는 `JournalRuleEngine`이 규칙을 적용합니다.
-3. 검증 엔진이 차대일치, 거래통화→KRW 환산, 기간 잠금, 계정 유효성을 확인합니다.
-4. maker가 `DRAFT`를 `REQUESTED`로 제출하고, canonical identity가 다른 approver가 `APPROVED`로 전환합니다.
-5. posting 역할을 가진 actor가 전기하면 GL/SL과 잔액을 갱신한 뒤 `POSTED`가 됩니다. 이때 최종 처리자와 별개로 `approvedBy`가 남습니다.
-6. 채권·채무 라인은 필요 시 미결 항목으로 등록되고, 수금·지급 때 반제됩니다.
+2. 생성 요청은 원천 유형·원천 ID·생성 작업 키와 정규화한 요청 내용의 fingerprint를 함께 준비합니다. 같은 세 키를 재사용하면서 금액 같은 내용이 달라지면 재시도가 아니라 충돌입니다.
+3. 수동 전표는 API DTO에서 도메인 객체로 변환되고, 자동 전표는 `JournalRuleEngine`이 규칙을 적용합니다.
+4. 검증 엔진이 차대일치, 거래통화→KRW 환산, 기간 잠금, 계정 유효성을 확인합니다.
+5. 첫 요청만 `DRAFT`와 생성 작업 기록을 같은 트랜잭션에 저장합니다. 같은 fingerprint의 재시도는 새 전표를 만들지 않고 기존 결과를 반환합니다.
+6. maker가 `DRAFT`를 `REQUESTED`로 제출하고, canonical identity가 다른 approver가 `APPROVED`로 전환합니다.
+7. posting 역할을 가진 actor가 전기하면 GL/SL과 잔액을 갱신한 뒤 `POSTED`가 됩니다. 이때 최종 처리자와 별개로 `approvedBy`가 남습니다.
+8. 채권·채무 라인은 필요 시 미결 항목으로 등록되고, 수금·지급 때 반제됩니다.
+
+예를 들어 한 청구서가 본 전표와 수수료 전표를 각각 만들 수 있다면 두 요청은 같은 lineage를
+공유하더라도 `MAIN:v1`, `FEE:v1`처럼 서로 다른 작업 키를 써야 합니다. 작업 키는
+lineage 전체를 전표 한 건으로 제한하는 규칙이 아닙니다.
+수동 HTTP는 필수 `Idempotency-Key`를 사용합니다. 이벤트 HTTP/Kafka는
+`journalOperationKey`(또는 호환 별칭 `operationKey`)를 필수로 사용합니다. 계약 호출은
+전표 번호 `slipNo`와 별도의 `operationKey`를 필수로 사용합니다. 키가 없으면 전표를 생성하지 않습니다.
 
 ## 외화 전표를 이해하는 방법
 
@@ -93,6 +103,8 @@ HTTP/Kafka Adapter
 - maker와 approver가 trim/lowercase 후에도 서로 다른 canonical identity인가?
 - 원장 조회는 `POSTED` 전표만 포함하는가?
 - 같은 외부 요청이 재시도되어도 중복 전기·반제가 발생하지 않는가?
+- 같은 lineage에서 전표가 여러 건 필요하면 서로 다른 생성 작업 키를 주었는가?
+- 생성 작업 키를 재사용할 때 요청 내용도 원래 fingerprint와 같은가?
 - 애플리케이션 서비스가 JPA 저장소를 직접 참조하지 않는가?
 
 재집계는 "새 장부가 완성될 때까지 공사 중 표지판을 세우는 작업"입니다. 시작하면 영속

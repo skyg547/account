@@ -3,6 +3,7 @@ package com.ho.account.journalledger.adapter.in.web.journal;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.journalledger.application.service.journal.JournalCreationConflictException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,17 +54,19 @@ public class JournalPostingRestController {
             @RequestHeader(name = JournalCommandAuthorization.AUTH_ROLES_HEADER, required = false) String roles,
             @Valid @RequestBody JournalEntryCommand command) {
         String maker = JournalCommandAuthorization.requireMaker(actor, roles);
-        log.info("Received REST Journal Posting request for lineageSourceId: {}, type: {}",
-                command.lineageSourceId(), command.lineageSourceType());
+        log.info("Received REST Journal Posting request");
         
         try {
             JournalPostingResult result = journalPostingPort.createDraftEntry(withTrustedMaker(command, maker));
             return ResponseEntity.ok(result);
+        } catch (JournalCreationConflictException e) {
+            log.warn("Journal creation conflict for the supplied operation identity");
+            return ResponseEntity.status(409).build();
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid journal entry command: {}", e.getMessage());
+            log.warn("Invalid journal entry command");
             return ResponseEntity.badRequest().build();
         } catch (IllegalStateException e) {
-            log.warn("Journal creation failed due to state rule: {}", e.getMessage());
+            log.warn("Journal creation failed due to state rule");
             return ResponseEntity.badRequest().build();
         }
     }
@@ -72,6 +75,6 @@ public class JournalPostingRestController {
         return new JournalEntryCommand(
                 command.slipDate(), command.accountingDate(), command.description(), command.entryType(),
                 command.currencyCode(), command.exchangeRate(), maker, maker, command.lineageSourceType(),
-                command.lineageSourceId(), command.slipNo(), command.lines());
+                command.lineageSourceId(), command.slipNo(), command.operationKey(), command.lines());
     }
 }

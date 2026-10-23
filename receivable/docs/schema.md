@@ -113,9 +113,10 @@ erDiagram
 - 금액 필드는 `BigDecimal`이며 도메인 메서드에서 0 이하 금액과 잔액 초과 금액을 막는다.
 - 자동 매칭은 단일 후보일 때만 수행한다.
 - 부분 매칭은 `Collection.matchedAmount`와 `CollectionAllocation`에 모두 남긴다.
+- `CollectionAllocation.operationId`는 수동/자동 매칭 사건을 식별한다. `(collection_id, operation_id)`가 유일하므로 동일 수납의 중복 작업은 두 배분으로 저장할 수 없다.
 - 수납 인식과 채권 반제는 분리된 전표 유형으로 남아 현금 입금과 채권 감소를 추적할 수 있다.
 - `customerCode`는 외부 customer 엔티티 직접 참조가 아니라 master-data 코드 참조다.
 
 ## PostgreSQL 기준선
 
-전용 Flyway V1은 6개 소유 테이블을 생성한다. `numeric(19,2)` 금액, 인보이스 합계, 인보이스당 채권 1개, 고객 귀속 복합 FK, 상태-잔액/매칭 금액, 배분 라인리지 및 배치 조회 인덱스를 강제한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.
+전용 Flyway V1은 6개 소유 테이블을 생성한다. `numeric(19,2)` 금액, 인보이스 합계, 인보이스당 채권 1개, 고객 귀속 복합 FK, 상태-잔액/매칭 금액, 배분 라인리지 및 배치 조회 인덱스를 강제한다. V2는 기존 배분에 `LEGACY:<id>`를 채운 뒤 `operation_id` 필수값과 유일 제약을 추가한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.

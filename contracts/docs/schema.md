@@ -12,7 +12,17 @@
 - `exchangeRate`: `BigDecimal`
 - `createdBy`, `auditUser`
 - `lineageSourceType`, `lineageSourceId`
+- `slipNo`: 선택하는 전표 번호이며 멱등성 식별자가 아닙니다.
+- `operationKey`: 같은 `lineageSourceType`/`lineageSourceId` 안에서 한 전표 생성 업무 사건 또는 버전을 식별하는 선택 필드입니다. 제공하면 공백 제거 후 1–100자여야 합니다. 재시도에는 같은 키와 같은 전표 내용(작성자 포함)을 보내고, 별도 전표가 필요한 사건에는 다른 키를 사용합니다.
 - `lines`: 비어 있지 않은 불변 `List<JournalLineCommand>`
+
+새 표준 생성자의 마지막 세 인자는 `slipNo, operationKey, lines`입니다. 기존 11인자
+(`lines`만)·12인자(`slipNo, lines`) 생성자와 이전 JSON 요청은 `operationKey=null`로
+계속 만들 수 있습니다. 키가 없는 기존 요청의 처리 정책은 journal-ledger 제공 어댑터가
+결정하므로, 새 호출자는 명시적 키를 보내야 사건별 식별을 보장받습니다. `operationKey`는
+lineage 전체에 하나만 허용한다는 뜻이 아닙니다. 또한 Outbox의 별도
+`idempotencyKey`가 명령 필드에 자동 복사되지는 않습니다. 원격 배포 시 새 필드를 보내는
+호출자보다 수신자를 먼저 배포하고 JSON 수신 호환성을 확인합니다.
 
 ### `JournalLineCommand`
 
