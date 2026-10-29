@@ -10,7 +10,7 @@ Draft PR: [#943](https://github.com/skyg547/account/pull/943), `Refs #811`; bran
 | --- | --- | --- | --- |
 | Q1 readable code and responsibilities | PASS | `src/context/NavContext.tsx` snapshot lifecycle; `src/app/system/menus/page.tsx` role/grant validation and authoritative reload; focused Node 22/22 | Human review |
 | Q2 flow, exceptions, rationale | PASS | `docs/master-system-spec.md` sections 5–6 and loading/failure/approval tests | Actual Gateway/Auth/DB smoke |
-| Q3 feature and beginner documentation | PASS | `docs/master-system-spec.md` request path, failure behavior, local commands and remaining contract | Node 20/browser run |
+| Q3 feature and beginner documentation | PASS | `docs/master-system-spec.md` request path, failure behavior, local commands and remaining contract; `README.md` BFF path and #838 dependency | Node 20/browser run |
 | Q4 adjacent intent comments | PASS | Snapshot invalidation, complete-table validation, wildcard cell and approval/refetch comments in changed source | Human review |
 
 ## Verification and limitations

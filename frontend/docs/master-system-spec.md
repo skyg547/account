@@ -112,7 +112,7 @@ HTTP 거절·서버 장애·통신 실패·잘못된 JSON·ID 누락 또는 잘�
 
 | 작업 / 의존성 | 정확한 변경 범위 또는 보류 사유 | 필수 검증 |
 | --- | --- | --- |
-| #811 프런트 안전 연동 (이번 Draft) | `frontend/src/context/NavContext.tsx`, `frontend/src/app/system/menus/page.tsx`, `frontend/tests/menu-authorizations.test.mjs`, 필요 시 `frontend/tests/menu-page.test.mjs`, `frontend/docs/master-system-spec.md` (최대 5파일). Gateway·실행 호스트가 준비되기 전에도 실패를 정직하게 표시합니다. | 정상 목록·빈 목록, 401/403/404, 통신 실패·잘못된 JSON·부분 조회, 오래된 응답, POST/DELETE 실패와 재조회 결과, Mock 저장 금지. Node 테스트·TypeScript·lint; `:frontend:test`는 Gradle 프로젝트 존재 여부부터 확인합니다. |
+| #811 프런트 안전 연동 (이번 Draft) | `frontend/src/context/NavContext.tsx`, `frontend/src/app/system/menus/page.tsx`, `frontend/tests/menu-authorizations.test.mjs`, `frontend/docs/master-system-spec.md`, `frontend/README.md` (정확히 5파일). Gateway·실행 호스트가 준비되기 전에도 실패를 정직하게 표시합니다. | 정상 목록·빈 목록, 401/403/404, 통신 실패·잘못된 JSON·부분 조회, 오래된 응답, POST/DELETE 실패와 재조회 결과, Mock 저장 금지. Node 테스트·TypeScript·lint; `:frontend:test`는 Gradle 프로젝트 존재 여부부터 확인합니다. |
 | #838 실행 호스트·Gateway 후속 (별도 작업) | #838이 이미 OPEN/진행 중이며 `gateway/**`, `config-repo/**`, `auth/**`, `shared-kernel/**`를 승인받았습니다. 원래 #811의 자식별 5파일 제한을 넘는 실제 범위이므로 담당 Integrator가 runtime 조립·스키마·보안 정책·Gateway mirror를 충돌 없는 5파일 이하 작업으로 재분할해 정확한 allowlist를 확정해야 합니다. 여기서는 해당 파일을 수정하거나 중복 Issue를 만들지 않습니다. | 합성 DB에서 실제 runtime mapping과 use case/영속성 기동, Gateway 두 설정의 대상·인증 일치, 미인증 401·금지 403·누락 404, 읽기/쓰기 감사·승인 및 회귀 테스트. |
 | 최종 연결 검수 (#811과 #838 이후) | 담당자와 allowlist는 두 작업의 계약이 정해진 뒤 확정합니다. 아직 ready 후보가 아닙니다. | local 합성 서버/DB에서 runtime mappings → Gateway → BFF/Frontend의 인증된 조회와 쓰기, 비인가와 실패 상태를 실제 HTTP로 확인합니다. 정적 route 검사나 프런트 단위 테스트만으로 기능 완료를 판정하지 않습니다. |
 
