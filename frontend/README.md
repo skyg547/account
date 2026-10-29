@@ -46,8 +46,9 @@ npm run dev -- --hostname 0.0.0.0
 실행할 때만 환경 변수를 지정하세요. 로그인은 항상 same-origin `/api/auth/login`을 사용하므로
 Gateway와 Auth가 모두 실행 중이어야 하며, Auth에 미리 발급된 계정의 아이디와 비밀번호가
 필요합니다. Frontend와 Gateway에는 별도 `BFF_GATEWAY_SHARED_SECRET`을 같은 값으로 주입해야
-하며 JWT 키나 내부 API token을 재사용하지 않습니다. 운영자가 발급한 계정만 사용합니다. 기존 PAT/Governance 화면은 아직
-Gateway 전용 route와 권한 경계가 완성되지 않아 직접 override 계약을 유지합니다.
+하며 JWT 키나 내부 API token을 재사용하지 않습니다. 운영자가 발급한 계정만 사용합니다. 메뉴 권한 화면과 Sidebar는
+동일 출처 BFF의 `/api/audit/**`를 사용하지만 Gateway route와 실행 서비스 연결은 #838에서 진행 중입니다.
+PAT 토큰 화면은 별도의 직접 Auth URL override 계약을 사용하며, 메뉴 권한 연결 범위와는 별개입니다.
 
 ### 🧩 컨테이너로 프론트엔드만 단독 기동하기 (`compose.dev.yml`)
 
