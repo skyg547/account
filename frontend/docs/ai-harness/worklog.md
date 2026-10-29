@@ -2,6 +2,7 @@
 
 ## 2026-10-29 — authenticated menu-permission frontend handoff
 
+- Draft PR [#943](https://github.com/skyg547/account/pull/943), `Refs #811`; the frontend scope is reviewable but #811 end-to-end acceptance remains open.
 - Issue #811 frontend scope was expanded by its latest user comment to `frontend/**`; the request forbids edits to other modules and shared harness docs. The original parent Issue's runtime/Gateway decisions remain a separate integration gate. #838 already owns that work and has an active worktree, so this branch changes no Gateway/Auth/shared-kernel/config-repo files.
 - `NavContext` now requests role grants through the same-origin HttpOnly BFF path, exposes only validated `READ` grants, invalidates snapshots on role/path changes, clears on `/login`, and refetches after navigation back into the app. `SYSTEM_ADMIN` remains a UI-only display bypass without authenticated actor binding.
 - The menu page no longer displays Mock roles/grants or simulates writes. It requires complete valid role/grant reads, sends POST/DELETE through the BFF, and refetches authoritative state before saying a change is reflected. A 202 approval request or unchanged state is reported as pending/unverified.

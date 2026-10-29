@@ -4,6 +4,8 @@
 
 The frontend portion is ready for Draft review. The change removes misleading local menu-permission state and uses the authenticated same-origin BFF. The full #811 feature is not verified until #838 supplies the actual Auth runtime/Gateway route and a local synthetic DB end-to-end read/write smoke passes.
 
+Draft PR: [#943](https://github.com/skyg547/account/pull/943), `Refs #811`; branch `agent/811-menu-permission-frontend`, worktree `/tmp/account-811-menu-permission-frontend`.
+
 | Q | Result | Evidence | Next gate |
 | --- | --- | --- | --- |
 | Q1 readable code and responsibilities | PASS | `src/context/NavContext.tsx` snapshot lifecycle; `src/app/system/menus/page.tsx` role/grant validation and authoritative reload; focused Node 21/21 | Human review |
