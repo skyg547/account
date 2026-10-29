@@ -178,8 +178,11 @@ export default function SystemMenusPage() {
         if (mounted.current) setError('변경 요청 후 현재 권한을 확인하지 못했습니다. 승인 상태를 확인해 주세요.');
         return;
       }
-      // The legacy API can queue approval (including HTTP 202); only the refetch is authoritative.
-      if (hasMenuPermission(loaded.authorizations, roleCode, href) === shouldAllow) {
+      // A missing role cannot prove a revoke: the target's grants were never reread.
+      const targetWasReread = loaded.roles.some(role => role.roleCode === roleCode) &&
+        Object.hasOwn(loaded.authorizations, roleCode);
+      // The legacy API can queue approval (including HTTP 202); only the target refetch is authoritative.
+      if (targetWasReread && hasMenuPermission(loaded.authorizations, roleCode, href) === shouldAllow) {
         if (mounted.current) setNotice('현재 권한 반영을 확인했습니다.');
       } else if (mounted.current) {
         setError('변경 요청이 접수되었지만 권한 반영은 확인되지 않았습니다. 승인 상태를 확인해 주세요.');

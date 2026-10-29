@@ -11,3 +11,10 @@
 - Requested `./gradlew :frontend:test --offline --console=plain --no-daemon` failed before tests: Gradle root has no `:frontend` project. The Node commands above are the applicable frontend checks; this task did not change root build configuration.
 - Independent read-only review corrected two P2 issues before approval: valid lowercase/hyphen role codes and stale grants across login/navigation. Final review found no remaining P0–P3 findings and Q1–Q4 PASS on the four changed code/test/functional-doc files.
 - Rollback: revert the Issue #811 frontend commit(s). No DB schema, runtime service, operational data or other module was changed.
+
+## 2026-10-29 — independent follow-up review and missing-role correction
+
+- Fresh independent Astra high review found one P2: a DELETE 202 followed by a successful roles response omitting the target role was reported as reflected, although that role's grants were never reread. An added page regression failed before the fix and passed after it for both an empty role list and an unrelated-only list.
+- `page.tsx` now confirms a grant change only when the target role and its validated grant list were reread. The feature document explains that a missing target role leaves the write result unconfirmed. Independent read-only rereview: no remaining P0–P3, Q1–Q4 PASS.
+- Final local verification: combined Node menu/BFF/admin suite 46/46 PASS (22/16/8), `npx --no-install tsc --noEmit --incremental false` PASS, `npm run lint -- --quiet` PASS, `git diff --check -- frontend` PASS. Requested `./gradlew :frontend:test --offline --console=plain --no-daemon` failed before tests because the root build has no `:frontend` project. Node 20, browser and actual runtime/Gateway/DB smoke remain unverified.
+- Draft CI Merge Guard currently fails with `DRAFT_NOT_MERGE_READY, TRUST_POLICY_UNCONFIGURED`; this does not establish frontend test failure or merge readiness. No shared harness or other module files were changed.

@@ -622,6 +622,29 @@ test('menu page treats a DELETE 202 approval as pending while the grant remains'
   } finally { harness.cleanup(); }
 });
 
+test('menu page cannot confirm DELETE when the target role disappears during refetch', async () => {
+  for (const refreshedRoles of [[], [{ roleCode: 'AUDITOR', roleName: 'Auditor' }]]) {
+    let roleReads = 0;
+    const harness = createPageHarness(async (url, options) => {
+      if (url === '/api/audit/roles') return pageResponse(++roleReads === 1 ? userRole : refreshedRoles);
+      if (options.method === 'DELETE') return pageResponse({ status: 'PENDING' }, 202);
+      if (url.includes('/AUDITOR/')) return pageResponse([]);
+      return pageResponse([grant('USER', 'MENU:/ledger/entry')]);
+    });
+    try {
+      harness.render();
+      harness.runEffects();
+      await settle();
+      findButton(harness.render(), '권한 회수 요청').props.onClick();
+      await settle();
+      const html = renderToStaticMarkup(harness.render());
+      assert.match(html, /권한 반영은 확인되지 않았습니다/);
+      assert.doesNotMatch(html, /현재 권한 반영을 확인했습니다/);
+      assert.match(html, refreshedRoles.length === 0 ? /등록된 역할이 없습니다/ : /AUDITOR/);
+    } finally { harness.cleanup(); }
+  }
+});
+
 test('menu page disables data after a failed write and refuses a second in-flight write', async () => {
   let finishWrite;
   let writes = 0;
