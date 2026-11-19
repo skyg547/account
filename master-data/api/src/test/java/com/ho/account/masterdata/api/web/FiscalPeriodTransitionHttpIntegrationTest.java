@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -71,7 +70,8 @@ class FiscalPeriodTransitionHttpIntegrationTest {
     private static final String SECRET = "synthetic-transition-signing-key-for-http-773";
     private static final String BODY = "{\"expectedStatus\":\"CLOSED\",\"targetStatus\":\"OPEN\"}";
 
-    @SpringBootConfiguration
+    // Explicit ContextConfiguration source only: no component stereotype or discoverable Boot root.
+    // Otherwise neighboring SpringBootTest classes can select this fixture instead of the real API.
     @EnableAutoConfiguration
     @EntityScan(basePackages = "com.ho.account.masterdata.core")
     @EnableJpaRepositories(basePackageClasses = FiscalPeriodRepository.class)

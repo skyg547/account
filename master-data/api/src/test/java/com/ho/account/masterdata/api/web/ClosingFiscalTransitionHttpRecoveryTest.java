@@ -66,9 +66,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.client.ClientHttpRequestFactory;
@@ -381,8 +381,9 @@ class ClosingFiscalTransitionHttpRecoveryTest {
         }
     }
 
-    @Configuration(proxyBeanMethods = false)
-    @EnableTransactionManagement
+    @TestConfiguration(proxyBeanMethods = false)
+    // Match Boot's class proxies: the coordinator also implements the narrower recovery interface.
+    @EnableTransactionManagement(proxyTargetClass = true)
     @EnableJpaRepositories(basePackageClasses = ClosingCalendarRepository.class)
     @Import({JpaClosingAggregatePersistenceAdapter.class, JpaPeriodLockPersistenceAdapter.class,
             ClosingPeriodTransitionService.class, ClosingAdmissionService.class})

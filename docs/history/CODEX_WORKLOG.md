@@ -1,3 +1,8 @@
+## 2026-11-20 — GH-773 CI fixture correction
+
+- Published PR954 head81bf510e passed Closing/contract tests, but Master API168 tests had35 failures/14 existing skips:19 concrete-coordinator lookup failures and16 ingress404s. Actual HTML showed new fixture BootstrapConfiguration hijacking neighboring tests, and a JDK transaction proxy incompatible with concrete coordinator lookup.
+- Two test files only: explicit lite fixture no longer advertises an application root; independent Closing fixture is TestConfiguration with class transaction proxies. Assertions,19 fault cases, test counts and production behavior unchanged. Independent /root/review773_revision found no delta issue; diff check PASS. New-head CI is required; the earlier failed run is not acceptance evidence. No local dependency downloads/runtime bypass.
+
 ## 2026-11-19 — GH-773 rejected PR942 remediation / verification-blocked draft
 
 - Trace: [Issue773](https://github.com/skyg547/account/issues/773), replacement for closed [PR942](https://github.com/skyg547/account/pull/942); `agent/773-transition-revision`, external `C:/tmp/account-work-773-revision`, base main `ed539846`, rejected head `3153e898`. Parent publishes new Draft after checkpoint; current user authorizes implementation/publication/review/merge after actual gates.
