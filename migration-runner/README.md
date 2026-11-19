@@ -16,6 +16,30 @@ java -jar migration-runner\build\libs\account-migration-runner.jar --list
 Internal Audit V60까지 포함한 현재 stack은 `READY 17 / BLOCKED 0`이다. 모든 context가 release artifact에 포함되어
 있지만, `READY`는 승인된 실제 PostgreSQL 검증이 끝났다는 뜻이 아니다.
 
+## Migration test engines
+
+`MigrationExecutorH2Test`는 H2에서 지원하는 context의 신규 설치·Batch metadata와
+거부 경로를 검사한다. Master Data의 전체 release history는 V9부터 PostgreSQL의
+range exclusion·확장·트랜잭션 SQL을 사용하므로 H2 호환 모드로 검증하지 않는다.
+
+`MasterDataMigrationExecutorPostgresqlTest`는 외부 접속정보 없이 폐기형 로컬
+PostgreSQL을 시작하고, 테스트마다 빈 DB를 만든다. 실제 패키징된
+`db/contexts/master-data`와 `MigrationExecutor`를 사용해 신규 설치, 전체 JPA 소유
+테이블/정밀도/FK/index/unique, 발행된 V5에서 최신 버전으로의 순방향 업그레이드,
+Batch metadata, 중복 실행, 기간 중복 거부와 음수 가격 거부를 검사한다. 운영
+target을 제한하거나 release SQL을 제거하지 않는다. PostgreSQL 실행 실패는 테스트
+실패이며 환경 변수를 이용한 외부 DB 대체나 조건부 skip은 없다.
+
+```powershell
+.\gradlew.bat :migration-runner:test :migration-runner:bootJar --no-daemon --console=plain --max-workers=1
+```
+
+첫 실행에는 테스트 전용 embedded-postgres 의존성과 플랫폼 실행 파일 캐시가 필요하다.
+개발 PC에서는 저장소 정책에 따라 다운로드·로컬 DB 실행 승인을 먼저 받고, 기존 캐시로
+실행할 때는 `--offline`을 추가한다. H2 결과만으로 PostgreSQL 검증까지 통과했다고
+판단하지 않는다. 코드 되돌림은 이 테스트/build 변경의 검토된 revert로 수행하며,
+발행된 migration과 업무 데이터는 보존한다.
+
 ## Commands
 
 자격증명은 명령행 인자가 아니라 실행 환경의 secret injection으로만 전달한다.
