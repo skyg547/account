@@ -21,4 +21,9 @@ public class JpaProvisionBatchPersistenceAdapter implements ProvisionBatchPersis
     public Optional<ProvisionBatch> findById(Long id) {
         return repository.findById(id).map(ClosingEntityMapper::toDomain);
     }
+
+    @Override
+    public Optional<ProvisionBatch> findByExecutionKey(String executionKey) {
+        return repository.findByExecutionKey(executionKey).map(ClosingEntityMapper::toDomain);
+    }
 }

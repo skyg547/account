@@ -38,6 +38,10 @@
 - 세금/마감: `TaxInvoiceQueryPort`, `AccountingPeriodStatusPort`
 - 원문서 추적: `SourceDocumentProvider`
 
+`FiscalPeriodControlPort`의 새 준비·적용·확인·영수증 조회 계약은 응답 유실 후 같은 회계기간
+전이를 식별하는 데 사용합니다. [전이 흐름](./docs/process-flow.md#회계기간-마감재개와-응답-유실)과
+[필드 계약](./docs/schema.md#회계기간-전이-영수증-fiscalperiodcontrolport)을 참조하세요.
+
 ## 이번 점검에서 강화한 정합성
 
 - 전표 일자는 필수이며 라인 목록은 비어 있을 수 없습니다.

@@ -39,7 +39,7 @@ import org.springframework.transaction.support.TransactionTemplate;
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "spring.jpa.open-in-view=false",
                 "spring.sql.init.mode=always",
-                "spring.sql.init.schema-locations=classpath:db/local/schema-business-partner-screening.sql",
+                "spring.sql.init.schema-locations=classpath:db/local/schema-business-partner-screening.sql,classpath:db/local/schema-fiscal-period-transitions.sql",
                 "spring.cloud.config.enabled=false",
                 "spring.cloud.config.import-check.enabled=false",
                 "spring.cloud.discovery.enabled=false",

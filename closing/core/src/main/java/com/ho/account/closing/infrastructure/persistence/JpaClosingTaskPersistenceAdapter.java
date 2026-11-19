@@ -38,6 +38,12 @@ public class JpaClosingTaskPersistenceAdapter implements ClosingTaskPersistenceP
                 .map(ClosingEntityMapper::toDomain).toList();
     }
 
+    @Override
+    public List<ClosingTask> findActiveByClosingCalendarId(Long calendarId) {
+        return repository.findActiveByClosingCalendarId(calendarId).stream()
+                .map(ClosingEntityMapper::toDomain).toList();
+    }
+
     private ClosingTaskEntity attach(ClosingTaskEntity entity) {
         entity.setClosingCalendar(calendarRepository.getReferenceById(entity.getClosingCalendar().getId()));
         return entity;

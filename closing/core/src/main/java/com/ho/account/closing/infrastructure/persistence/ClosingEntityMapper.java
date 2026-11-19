@@ -29,7 +29,8 @@ final class ClosingEntityMapper {
         domain.restoreTransition(entity.getTransitionId(), entity.getTransitionTarget(),
                 entity.getTransitionStage(), entity.getTransitionFiscalPeriodId(),
                 entity.getTransitionApprovalId(), entity.getTransitionActor(),
-                entity.getTransitionPreparedAt(), entity.getTransitionEvidenceSetId());
+                entity.getTransitionPreparedAt(), entity.getTransitionEvidenceSetId(),
+                entity.getTransitionProtocol());
         return domain;
     }
 
@@ -59,6 +60,7 @@ final class ClosingEntityMapper {
         entity.setTransitionActor(domain.getTransitionActor());
         entity.setTransitionPreparedAt(domain.getTransitionPreparedAt());
         entity.setTransitionEvidenceSetId(domain.getTransitionEvidenceSetId());
+        entity.setTransitionProtocol(domain.getTransitionProtocol());
         entity.setName(domain.getName());
         return entity;
     }
@@ -153,10 +155,8 @@ final class ClosingEntityMapper {
         domain.setLockType(entity.getLockType());
         domain.setLockedBy(entity.getLockedBy());
         domain.setLockedAt(entity.getLockedAt());
-        domain.setActive(entity.isActive());
-        domain.setActiveFiscalPeriodId(entity.getActiveFiscalPeriodId());
-        domain.setUnlockedBy(entity.getUnlockedBy());
-        domain.setUnlockedAt(entity.getUnlockedAt());
+        domain.restoreLifecycle(entity.isActive(), entity.getActiveFiscalPeriodId(),
+                entity.getUnlockedBy(), entity.getUnlockedAt());
         domain.setReason(entity.getReason());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());

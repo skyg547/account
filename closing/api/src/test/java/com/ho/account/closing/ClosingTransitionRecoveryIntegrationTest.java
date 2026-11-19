@@ -12,6 +12,7 @@ import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePor
 import com.ho.account.closing.application.port.out.ClosingTaskPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingGatePersistencePort;
 import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort;
+import com.ho.account.closing.application.port.out.ClosingAuditLogPersistencePort;
 import com.ho.account.closing.application.service.ClosingTransitionPendingException;
 import com.ho.account.closing.application.service.ClosingTransitionTransactions;
 import com.ho.account.closing.application.service.FinalCloseEvidenceValidationException;
@@ -24,6 +25,9 @@ import com.ho.account.closing.domain.ClosingTask;
 import com.ho.account.closing.domain.ClosingTask.ClosingTaskStatus;
 import com.ho.account.closing.domain.ReopenApproval;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
+import com.ho.account.contracts.masterdata.FiscalPeriodClosingStatus;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionCommand;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionReceipt;
 import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogRepository;
 import com.ho.account.closing.infrastructure.persistence.ClosingAuditLogEntity;
 import com.ho.account.closing.web.ClosingController;
@@ -48,6 +52,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -55,6 +60,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static com.ho.account.closing.ClosingAggregateConcurrencyIntegrationTest.newGate;
@@ -62,6 +68,10 @@ import static com.ho.account.closing.ClosingAggregateConcurrencyIntegrationTest.
 import static com.ho.account.closing.ClosingAggregateConcurrencyIntegrationTest.outcome;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -83,9 +93,10 @@ class ClosingTransitionRecoveryIntegrationTest {
     @Autowired ClosingUseCase closing;
     @Autowired ClosingTransitionRecoveryUseCase recovery;
     @Autowired ClosingAdmissionQuery admission;
-    @Autowired ClosingCalendarPersistencePort calendars;
-    @Autowired ClosingTaskPersistencePort tasks;
-    @Autowired ClosingGatePersistencePort gates;
+    @SpyBean ClosingCalendarPersistencePort calendars;
+    @SpyBean ClosingTaskPersistencePort tasks;
+    @SpyBean ClosingGatePersistencePort gates;
+    @SpyBean ClosingAuditLogPersistencePort auditWrites;
     @Autowired ReopenApprovalPersistencePort approvals;
     @Autowired ClosingAuditLogRepository audits;
     @Autowired ControlledMaster master;
@@ -94,10 +105,355 @@ class ClosingTransitionRecoveryIntegrationTest {
     @Autowired ClosingTransitionTransactions transactions;
     @Autowired FinalCloseEvidenceUseCase finalCloseEvidence;
     @Autowired AdjustableClock evidenceClock;
+    @Autowired JdbcTemplate closingJdbc;
 
     @org.junit.jupiter.api.BeforeEach
     void resetEvidenceClock() {
         evidenceClock.useSystemTime();
+    }
+
+    enum LocalAuthorizationFailure { TASK_SAVE, GATE_SAVE, AUDIT_SAVE, CALENDAR_SAVE, COMMIT }
+
+    enum LocalCloseFinalizationFailure { AUDIT_SAVE, CALENDAR_SAVE, COMMIT }
+
+    enum ReadyToConfirmFailure { CALENDAR_SAVE, COMMIT }
+
+    enum ConfirmedLocalClearFailure { AUDIT_SAVE, CALENDAR_SAVE, COMMIT }
+
+    @ParameterizedTest
+    @EnumSource(ConfirmedLocalClearFailure.class)
+    void failedLocalClearAfterMasterConfirmRetainsAuthorizedReceiptAndRecovers(
+            ConfirmedLocalClearFailure fault) {
+        Fixture fixture = closedFixture("2063", String.format(java.util.Locale.ROOT, "%02d", 7 + fault.ordinal()));
+        ClosingCalendar prepared = transactions.prepareDecision(
+                fixture.approvalId(), ReopenApprovalStatus.APPROVED, "approver").calendar();
+        int writesBefore = master.writes.get();
+        RuntimeException failure = new IllegalStateException("Synthetic CONFIRMED clear " + fault);
+        if (fault == ConfirmedLocalClearFailure.AUDIT_SAVE) {
+            doThrow(failure).when(auditWrites).save(argThat(audit ->
+                    audit.getActionType() == ActionType.PERIOD_TRANSITION_RECOVERED));
+        } else if (fault == ConfirmedLocalClearFailure.CALENDAR_SAVE) {
+            doThrow(failure).when(calendars).save(argThat(calendar ->
+                    calendar.getStatus() == ClosingCalendarStatus.OPEN && calendar.getTransitionId() == null));
+        } else {
+            doAnswer(invocation -> {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void beforeCommit(boolean readOnly) { throw failure; }
+                        });
+                return invocation.callRealMethod();
+            }).when(calendars).save(argThat(calendar ->
+                    calendar.getStatus() == ClosingCalendarStatus.OPEN && calendar.getTransitionId() == null));
+        }
+
+        assertThatThrownBy(() -> recovery.recoverTransition(
+                fixture.calendarId(), prepared.getTransitionId(), false, "recovery-operator"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar pending = assertPendingReopen(fixture, "OPEN");
+        String operationId = pending.getTransitionId();
+        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.READY_TO_CONFIRM);
+        assertThat(master.findTransitionReceipt(operationId)).get()
+                .extracting(FiscalPeriodTransitionReceipt::phase)
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CONFIRMED);
+        assertThat(terminalAudits(fixture.calendarId())).hasSize(1);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+        reset(auditWrites, calendars);
+
+        recovery.recoverTransition(fixture.calendarId(), operationId, false, "recovery-operator");
+        assertRecoveredReopen(fixture, operationId);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+        assertThat(terminalAudits(fixture.calendarId())).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(ReadyToConfirmFailure.class)
+    void failedLocalReadyMarkerKeepsMasterAdmissionClosedUntilSameOperationRecovers(ReadyToConfirmFailure fault) {
+        Fixture fixture = closedFixture("2063", String.format(java.util.Locale.ROOT, "%02d", 4 + fault.ordinal()));
+        int writesBefore = master.writes.get();
+        RuntimeException failure = new IllegalStateException("Synthetic READY_TO_CONFIRM " + fault);
+        if (fault == ReadyToConfirmFailure.CALENDAR_SAVE) {
+            doThrow(failure).when(calendars).save(argThat(calendar ->
+                    calendar.getTransitionStage() == TransitionStage.READY_TO_CONFIRM));
+        } else {
+            doAnswer(invocation -> {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void beforeCommit(boolean readOnly) { throw failure; }
+                        });
+                return invocation.callRealMethod();
+            }).when(calendars).save(argThat(calendar ->
+                    calendar.getTransitionStage() == TransitionStage.READY_TO_CONFIRM));
+        }
+
+        assertThatThrownBy(() -> approve(fixture)).isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar pending = assertPendingReopen(fixture, "CLOSED");
+        String operationId = pending.getTransitionId();
+        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.AUTHORIZED);
+        assertThat(terminalAudits(fixture.calendarId())).hasSize(1);
+        assertThat(master.findTransitionReceipt(operationId)).get()
+                .extracting(FiscalPeriodTransitionReceipt::phase)
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.APPLIED);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+        reset(calendars);
+
+        recovery.recoverTransition(fixture.calendarId(), operationId, false, "recovery-operator");
+        assertRecoveredReopen(fixture, operationId);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+        assertThat(master.findTransitionReceipt(operationId)).get()
+                .extracting(FiscalPeriodTransitionReceipt::phase)
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CONFIRMED);
+    }
+
+    @Test
+    void lostConfirmResponseLeavesDurableReadyMarkerAndRecoversWithoutSecondApply() {
+        Fixture fixture = closedFixture("2063", "06");
+        ClosingCalendar prepared = transactions.prepareDecision(
+                fixture.approvalId(), ReopenApprovalStatus.APPROVED, "approver").calendar();
+        master.loseNextConfirmResponse(prepared.getTransitionId());
+        int writesBefore = master.writes.get();
+
+        assertThatThrownBy(() -> recovery.recoverTransition(
+                fixture.calendarId(), prepared.getTransitionId(), false, "recovery-operator"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar pending = assertPendingReopen(fixture, "OPEN");
+        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.READY_TO_CONFIRM);
+        assertThat(master.findTransitionReceipt(prepared.getTransitionId())).get()
+                .extracting(FiscalPeriodTransitionReceipt::phase)
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CONFIRMED);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+
+        recovery.recoverTransition(fixture.calendarId(), prepared.getTransitionId(), false, "recovery-operator");
+        assertRecoveredReopen(fixture, prepared.getTransitionId());
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(LocalCloseFinalizationFailure.class)
+    void localCloseFinalizationRollbackRecoversSameAppliedMasterReceipt(LocalCloseFinalizationFailure fault) {
+        ClosingCalendar prepared = prepareCloseWithObservation("2063",
+                String.format(java.util.Locale.ROOT, "%02d", 1 + fault.ordinal()),
+                Instant.now().truncatedTo(ChronoUnit.MICROS));
+        String operationId = prepared.getTransitionId();
+        int writesBefore = master.writes.get();
+        int attemptsBefore = master.attempts.get();
+        RuntimeException failure = new IllegalStateException("Synthetic " + fault + " local close rollback");
+        switch (fault) {
+            case AUDIT_SAVE -> doThrow(failure).when(auditWrites).save(argThat(audit ->
+                    audit.getActionType() == ActionType.CALENDAR_CLOSED));
+            case CALENDAR_SAVE -> doThrow(failure).when(calendars).save(argThat(calendar ->
+                    calendar.getStatus() == ClosingCalendarStatus.CLOSED && calendar.getTransitionId() == null));
+            case COMMIT -> doAnswer(invocation -> {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void beforeCommit(boolean readOnly) { throw failure; }
+                        });
+                return invocation.callRealMethod();
+            }).when(auditWrites).save(argThat(audit -> audit.getActionType() == ActionType.CALENDAR_CLOSED));
+        }
+
+        assertThatThrownBy(() -> recovery.recoverTransition(prepared.getId(), operationId, false, "operator"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar pending = calendars.findById(prepared.getId()).orElseThrow();
+        assertThat(pending.getStatus()).isEqualTo(ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.DISPATCHED);
+        assertThat(pending.getTransitionId()).isEqualTo(operationId);
+        assertThat(master.findFiscalPeriodById(prepared.getTransitionFiscalPeriodId()).orElseThrow().closingStatus())
+                .isEqualTo("CLOSED");
+        assertThat(master.findTransitionReceipt(operationId)).get()
+                .extracting(FiscalPeriodTransitionReceipt::phase)
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.APPLIED);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+        assertThat(calendarAudits(prepared.getId()).stream()
+                .filter(a -> a.getActionType() == ActionType.CALENDAR_CLOSED)).isEmpty();
+
+        reset(auditWrites, calendars);
+        recovery.recoverTransition(prepared.getId(), operationId, false, "operator");
+        ClosingCalendar recovered = calendars.findById(prepared.getId()).orElseThrow();
+        assertThat(recovered.getStatus()).isEqualTo(ClosingCalendarStatus.CLOSED);
+        assertThat(recovered.getTransitionId()).isNull();
+        assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 1);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
+        assertThat(calendarAudits(prepared.getId()).stream()
+                .filter(a -> a.getActionType() == ActionType.CALENDAR_CLOSED)).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(LocalAuthorizationFailure.class)
+    void failedLocalReopenAuthorizationCannotExposeMasterOpenAndRecoveryUsesSameOperation(
+            LocalAuthorizationFailure fault) {
+        Fixture fixture = closedFixture("2062", String.format(java.util.Locale.ROOT, "%02d", fault.ordinal() + 1));
+        ClosingCalendar original = calendars.findById(fixture.calendarId()).orElseThrow();
+        tasks.save(newTask(original, true));
+        gates.save(newGate(original));
+        int remoteWrites = master.writes.get();
+        RuntimeException failure = new IllegalStateException("Synthetic " + fault + " rollback");
+        switch (fault) {
+            case TASK_SAVE -> doThrow(failure).when(tasks).save(argThat(task -> task.getCycleNumber() == 2));
+            case GATE_SAVE -> doThrow(failure).when(gates).save(argThat(gate -> gate.getCycleNumber() == 2));
+            case AUDIT_SAVE -> doThrow(failure).when(auditWrites).save(argThat(audit ->
+                    audit.getActionType() == ActionType.REOPEN_APPROVED));
+            case CALENDAR_SAVE -> doThrow(failure).when(calendars).save(argThat(calendar ->
+                    calendar.getStatus() == ClosingCalendarStatus.OPEN && calendar.getTransitionId() != null));
+            case COMMIT -> doAnswer(invocation -> {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void beforeCommit(boolean readOnly) { throw failure; }
+                        });
+                return invocation.callRealMethod();
+            }).when(auditWrites).save(argThat(audit -> audit.getActionType() == ActionType.REOPEN_APPROVED));
+        }
+
+        assertThatThrownBy(() -> approve(fixture)).isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar pending = assertPendingReopen(fixture, "CLOSED");
+        String operationId = pending.getTransitionId();
+        assertThat(master.writes.get()).isEqualTo(remoteWrites);
+        assertThat(master.findTransitionReceipt(operationId)).get().satisfies(receipt -> {
+            assertThat(receipt.phase()).isEqualTo(FiscalPeriodTransitionReceipt.Phase.PREPARED);
+            assertThat(receipt.targetStatus()).isEqualTo(FiscalPeriodClosingStatus.OPEN);
+        });
+        assertThat(terminalAudits(fixture.calendarId())).isEmpty();
+        assertThat(tasks.findByClosingCalendar(pending)).hasSize(1);
+        assertThat(gates.findByClosingCalendar(pending)).hasSize(1);
+
+        reset(tasks, gates, auditWrites, calendars);
+        recovery.recoverTransition(fixture.calendarId(), operationId, false, "recovery-operator");
+        assertRecoveredReopen(fixture, operationId);
+        assertThat(master.writes.get()).isEqualTo(remoteWrites + 1);
+    }
+
+    @Test
+    void preparedMasterOperationCannotBeReusedForDifferentTransitionPayload() {
+        Fixture fixture = closedFixture("2062", "06");
+        ClosingCalendar prepared = transactions.prepareDecision(
+                fixture.approvalId(), ReopenApprovalStatus.APPROVED, "approver").calendar();
+        int writesBefore = master.writes.get();
+        FiscalPeriodTransitionCommand original = new FiscalPeriodTransitionCommand(prepared.getTransitionId(),
+                fixture.periodId(), FiscalPeriodClosingStatus.CLOSED, FiscalPeriodClosingStatus.OPEN, "approver");
+        FiscalPeriodTransitionReceipt receipt = master.prepareClosingTransition(original);
+        assertThat(master.prepareClosingTransition(original)).isEqualTo(receipt);
+        assertThatThrownBy(() -> master.prepareClosingTransition(new FiscalPeriodTransitionCommand(
+                original.operationId(), original.fiscalPeriodId(), original.expectedStatus(),
+                original.targetStatus(), "different-actor"))).isInstanceOf(IllegalStateException.class);
+        assertThat(master.findFiscalPeriodById(fixture.periodId()).orElseThrow().closingStatus()).isEqualTo("CLOSED");
+        assertThat(master.writes.get()).isEqualTo(writesBefore);
+    }
+
+    @Test
+    void legacyDispatchedReopenWithoutProviderReceiptCannotBeAttributedToRecovery() {
+        Fixture fixture = closedFixture("2062", "07");
+        ClosingCalendar prepared = transactions.prepareDecision(
+                fixture.approvalId(), ReopenApprovalStatus.APPROVED, "approver").calendar();
+        transactions.markDispatched(fixture.calendarId(), prepared.getTransitionId());
+        closingJdbc.update("update closing_calendars set transition_protocol=null where id=?", fixture.calendarId());
+        int remoteWrites = master.writes.get();
+
+        assertThatThrownBy(() -> recovery.recoverTransition(
+                fixture.calendarId(), prepared.getTransitionId(), false, "recovery-operator"))
+                .isInstanceOf(ClosingTransitionPendingException.class)
+                .hasRootCauseMessage("Legacy fiscal transition has no operation receipt provenance; operator preflight is required.");
+
+        ClosingCalendar pending = assertPendingReopen(fixture, "CLOSED");
+        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.DISPATCHED);
+        assertThat(master.findTransitionReceipt(prepared.getTransitionId())).isEmpty();
+        assertThat(master.writes.get()).isEqualTo(remoteWrites);
+        assertThat(terminalAudits(fixture.calendarId())).isEmpty();
+    }
+
+    @Test
+    void expiredDispatchedCloseCanCancelItsPreparedMasterReceiptAndReprepareFreshEvidence() {
+        Instant observedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        ClosingCalendar original = prepareCloseWithObservation("2062", "08", observedAt);
+        String operationId = original.getTransitionId();
+        transactions.markDispatched(original.getId(), operationId);
+        transactions.prepareRemote(original.getId(), operationId);
+        int writesBefore = master.writes.get();
+        evidenceClock.set(observedAt.plus(Duration.ofHours(25)));
+
+        ClosingCalendar cancelled = recovery.cancelDispatchedClose(
+                original.getId(), operationId, "expired evidence", "recovery-operator");
+
+        assertThat(cancelled.getTransitionId()).isNull();
+        assertThat(cancelled.getStatus()).isEqualTo(ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(master.findTransitionReceipt(operationId)).get()
+                .extracting(FiscalPeriodTransitionReceipt::phase)
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CANCELLED);
+        assertThat(master.findFiscalPeriodById(original.getTransitionFiscalPeriodId()).orElseThrow().closingStatus())
+                .isEqualTo("OPEN");
+        assertThat(master.writes.get()).isEqualTo(writesBefore);
+        var period = master.findFiscalPeriodById(original.getTransitionFiscalPeriodId()).orElseThrow();
+        FinalCloseEvidenceFixtures.recordValid(finalCloseEvidence, cancelled, period.id(), period.endDate(),
+                evidenceClock.instant());
+        ClosingCalendar renewed = transactions.prepareClose(cancelled.getId(), "closer");
+        assertThat(renewed.getTransitionId()).isNotEqualTo(operationId);
+        assertThat(renewed.getTransitionEvidenceSetId()).isNotEqualTo(original.getTransitionEvidenceSetId());
+        assertThat(master.findTransitionReceipt(operationId)).get()
+                .extracting(FiscalPeriodTransitionReceipt::phase)
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CANCELLED);
+    }
+
+    @Test
+    void lostDeleteResponseAndLocalCommitRollbackRetainFenceUntilMatchingCancelledReceiptIsReconciled() {
+        for (int index = 0; index < 2; index++) {
+            ClosingCalendar prepared = prepareCloseWithObservation("2062", String.format("%02d", 9 + index),
+                    Instant.now().truncatedTo(ChronoUnit.MICROS));
+            String operationId = prepared.getTransitionId();
+            transactions.markDispatched(prepared.getId(), operationId);
+            transactions.prepareRemote(prepared.getId(), operationId);
+            if (index == 0) {
+                master.loseNextCancelResponse(operationId);
+            } else {
+                RuntimeException commitFailure = new IllegalStateException("Synthetic local cancellation commit rollback");
+                doAnswer(invocation -> {
+                    org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                            new org.springframework.transaction.support.TransactionSynchronization() {
+                                @Override public void beforeCommit(boolean readOnly) { throw commitFailure; }
+                            });
+                    return invocation.callRealMethod();
+                }).when(auditWrites).save(argThat(audit ->
+                        audit.getActionType() == ActionType.PERIOD_TRANSITION_CANCELLED));
+            }
+            assertThatThrownBy(() -> recovery.cancelDispatchedClose(
+                    prepared.getId(), operationId, "restart", "recovery-operator"))
+                    .isInstanceOf(RuntimeException.class);
+            assertThat(calendars.findById(prepared.getId()).orElseThrow().getTransitionId()).isEqualTo(operationId);
+            assertThat(master.findTransitionReceipt(operationId)).get()
+                    .extracting(FiscalPeriodTransitionReceipt::phase)
+                    .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CANCELLED);
+            assertThat(master.findFiscalPeriodById(prepared.getTransitionFiscalPeriodId()).orElseThrow().closingStatus())
+                    .isEqualTo("OPEN");
+            reset(auditWrites);
+            recovery.cancelDispatchedClose(prepared.getId(), operationId, "restart", "recovery-operator");
+            assertThat(calendars.findById(prepared.getId()).orElseThrow().getTransitionId()).isNull();
+        }
+    }
+
+    @Test
+    void dispatchedCloseCancellationRejectsAppliedOrMismatchedReceipts() {
+        ClosingCalendar applied = prepareCloseWithObservation("2062", "11",
+                Instant.now().truncatedTo(ChronoUnit.MICROS));
+        transactions.markDispatched(applied.getId(), applied.getTransitionId());
+        master.prepareClosingTransition(new FiscalPeriodTransitionCommand(applied.getTransitionId(),
+                applied.getTransitionFiscalPeriodId(), FiscalPeriodClosingStatus.OPEN,
+                FiscalPeriodClosingStatus.CLOSED, "closer"));
+        master.applyClosingTransition(applied.getTransitionId());
+        assertThatThrownBy(() -> recovery.cancelDispatchedClose(
+                applied.getId(), applied.getTransitionId(), "too late", "operator"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Applied");
+        assertThat(calendars.findById(applied.getId()).orElseThrow().getTransitionId())
+                .isEqualTo(applied.getTransitionId());
+
+        ClosingCalendar mismatched = prepareCloseWithObservation("2062", "12",
+                Instant.now().truncatedTo(ChronoUnit.MICROS));
+        transactions.markDispatched(mismatched.getId(), mismatched.getTransitionId());
+        transactions.prepareRemote(mismatched.getId(), mismatched.getTransitionId());
+        master.replaceReceipt(new FiscalPeriodTransitionReceipt(mismatched.getTransitionId(),
+                mismatched.getTransitionFiscalPeriodId(), FiscalPeriodClosingStatus.OPEN,
+                FiscalPeriodClosingStatus.CLOSED, "different-actor", FiscalPeriodTransitionReceipt.Phase.PREPARED));
+        assertThatThrownBy(() -> recovery.cancelDispatchedClose(
+                mismatched.getId(), mismatched.getTransitionId(), "wrong receipt", "operator"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("receipt");
+        assertThat(calendars.findById(mismatched.getId()).orElseThrow().getTransitionId())
+                .isEqualTo(mismatched.getTransitionId());
     }
 
     @Test
@@ -292,8 +648,7 @@ class ClosingTransitionRecoveryIntegrationTest {
         assertThat(calendarAudits(prepared.getId()).stream()
                 .filter(a -> a.getActionType() == ActionType.PERIOD_TRANSITION_RECOVERED)).singleElement().satisfies(audit -> {
                     assertThat(audit.getActionUser()).isEqualTo("prepared-recovery-operator");
-                    assertThat(audit.getActionReason()).contains("prepared operation resumed before dispatch")
-                            .doesNotContain("termination confirmed");
+                    assertThat(audit.getActionReason()).contains("provider receipt reconciled");
                 });
         assertThatThrownBy(() -> recovery.recoverTransition(prepared.getId(), prepared.getTransitionId(), false, "duplicate"))
                 .isInstanceOf(IllegalStateException.class);
@@ -328,7 +683,7 @@ class ClosingTransitionRecoveryIntegrationTest {
             assertThat(calendarAudits(fixture.calendarId()).stream()
                     .filter(a -> a.getActionType() == ActionType.PERIOD_TRANSITION_RECOVERED)).singleElement()
                     .satisfies(audit -> assertThat(audit.getActionReason())
-                            .contains("prepared operation resumed before dispatch").doesNotContain("termination confirmed"));
+                            .contains("provider receipt reconciled"));
         } finally {
             put.release();
             workers.shutdownNow();
@@ -350,7 +705,7 @@ class ClosingTransitionRecoveryIntegrationTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("PERIOD_TRANSITION_RECOVERY_REQUIRED"));
 
-        ClosingCalendar pending = assertPendingReopen(fixture, "OPEN");
+        ClosingCalendar pending = assertPendingReopen(fixture, "CLOSED");
         http.perform(put("/api/closing/reopen-approvals/{id}/status", fixture.approvalId())
                         .header("X-Auth-User", "rejector")
                         .header("X-Auth-Roles", "CLOSING_MANAGER")
@@ -380,15 +735,13 @@ class ClosingTransitionRecoveryIntegrationTest {
 
         assertThatThrownBy(() -> approve(fixture)).isInstanceOf(ClosingTransitionPendingException.class);
 
-        ClosingCalendar pending = assertPendingReopen(fixture, "OPEN");
+        ClosingCalendar pending = assertPendingReopen(fixture, "CLOSED");
         String operationId = pending.getTransitionId();
         assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
-        assertThat(terminalAudits(fixture.calendarId())).isEmpty();
-        assertThatThrownBy(() -> recovery.recoverTransition(fixture.calendarId(), operationId, false, "recovery-operator"))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("terminated");
+        assertThat(terminalAudits(fixture.calendarId())).hasSize(1);
         assertFencedMutations(fixture);
 
-        recovery.recoverTransition(fixture.calendarId(), operationId, true, "recovery-operator");
+        recovery.recoverTransition(fixture.calendarId(), operationId, false, "recovery-operator");
 
         assertRecoveredReopen(fixture, operationId);
         ClosingCalendar activeCalendar = calendars.findById(fixture.calendarId()).orElseThrow();
@@ -423,7 +776,7 @@ class ClosingTransitionRecoveryIntegrationTest {
     }
 
     @Test
-    void unresolvedDispatchedRequestRemainsFencedAndRecoveryNeverReplaysSourceState() {
+    void failedApplyBeforeRemoteWriteRetriesOnlyItsPreparedOperation() {
         Fixture fixture = closedFixture("2053", "01");
         int attemptsBefore = master.attempts.get();
         int writesBefore = master.writes.get();
@@ -431,19 +784,17 @@ class ClosingTransitionRecoveryIntegrationTest {
         assertThatThrownBy(() -> approve(fixture)).isInstanceOf(ClosingTransitionPendingException.class);
         ClosingCalendar pending = assertPendingReopen(fixture, "CLOSED");
 
-        for (int retry = 0; retry < 2; retry++) {
-            assertThatThrownBy(() -> recovery.recoverTransition(
-                    fixture.calendarId(), pending.getTransitionId(), true, "recovery-operator"))
-                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("must be OPEN");
-        }
-
         assertPendingReopen(fixture, "CLOSED");
         assertFencedMutations(fixture);
         assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 1);
         assertThat(master.writes.get()).isEqualTo(writesBefore);
-        assertThat(terminalAudits(fixture.calendarId())).isEmpty();
+        assertThat(terminalAudits(fixture.calendarId())).hasSize(1);
         assertThat(calendarAudits(fixture.calendarId()).stream()
                 .filter(a -> a.getActionType() == ActionType.PERIOD_TRANSITION_RECOVERED)).isEmpty();
+        recovery.recoverTransition(fixture.calendarId(), pending.getTransitionId(), false, "recovery-operator");
+        assertRecoveredReopen(fixture, pending.getTransitionId());
+        assertThat(master.attempts.get()).isEqualTo(attemptsBefore + 2);
+        assertThat(master.writes.get()).isEqualTo(writesBefore + 1);
     }
 
     @Test
@@ -496,7 +847,7 @@ class ClosingTransitionRecoveryIntegrationTest {
                     .isInstanceOf(java.util.concurrent.TimeoutException.class);
             firstRead.release();
             assertThat(first.get(10, TimeUnit.SECONDS)).isNull();
-            assertThat(second.get(10, TimeUnit.SECONDS)).isInstanceOf(IllegalStateException.class);
+            assertThat(second.get(10, TimeUnit.SECONDS)).isInstanceOf(ClosingTransitionPendingException.class);
             assertRecoveredReopen(fixture, operationId);
             assertThat(master.attempts.get()).isEqualTo(attemptsAfterOriginal);
         } finally {
@@ -515,9 +866,10 @@ class ClosingTransitionRecoveryIntegrationTest {
         master.wrongReadIdentityPeriod = fixture.periodId();
         try {
             assertThatThrownBy(() -> recovery.recoverTransition(fixture.calendarId(), operationId, true, "recovery-operator"))
-                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("another fiscal period");
+                    .isInstanceOf(ClosingTransitionPendingException.class)
+                    .hasRootCauseMessage("Master returned another fiscal period; transition remains fenced.");
             assertThat(calendars.findById(fixture.calendarId()).orElseThrow().getTransitionId()).isEqualTo(operationId);
-            assertThat(terminalAudits(fixture.calendarId())).isEmpty();
+            assertThat(terminalAudits(fixture.calendarId())).hasSize(1);
         } finally {
             master.wrongReadIdentityPeriod = 0;
         }
@@ -694,9 +1046,13 @@ class ClosingTransitionRecoveryIntegrationTest {
 
     private ClosingCalendar assertPendingReopen(Fixture fixture, String masterStatus) {
         ClosingCalendar pending = calendars.findById(fixture.calendarId()).orElseThrow();
-        assertThat(pending.getStatus()).isEqualTo(ClosingCalendarStatus.CLOSED);
+        boolean authorized = pending.getTransitionStage() == TransitionStage.AUTHORIZED
+                || pending.getTransitionStage() == TransitionStage.READY_TO_CONFIRM;
+        assertThat(pending.getStatus()).isEqualTo(authorized
+                ? ClosingCalendarStatus.OPEN : ClosingCalendarStatus.CLOSED);
         assertThat(pending.getTransitionId()).isNotBlank();
-        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.DISPATCHED);
+        assertThat(pending.getTransitionStage()).isIn(
+                TransitionStage.DISPATCHED, TransitionStage.AUTHORIZED, TransitionStage.READY_TO_CONFIRM);
         assertThat(pending.getTransitionTarget()).isEqualTo("OPEN");
         assertThat(pending.getTransitionApprovalId()).isEqualTo(fixture.approvalId());
         assertThat(pending.getTransitionActor()).isEqualTo("approver");

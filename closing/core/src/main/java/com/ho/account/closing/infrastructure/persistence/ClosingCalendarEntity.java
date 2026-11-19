@@ -84,6 +84,9 @@ public class ClosingCalendarEntity {
     @Column(length = 100)
     private String transitionEvidenceSetId;
 
+    @Column(name = "transition_protocol", length = 20)
+    private String transitionProtocol;
+
     @Transient
     private String name;
 

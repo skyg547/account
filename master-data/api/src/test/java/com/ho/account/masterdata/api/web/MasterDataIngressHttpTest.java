@@ -389,7 +389,7 @@ class MasterDataIngressHttpTest {
                                 List.of("ROLE_ACCOUNTING_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"closingStatus\":\"OPEN\"}"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isGone());
         for (String assertion : List.of(
                 serviceTokenWithTarget(1L, "CLOSED", "POST", STATUS_PATH),
                 serviceTokenWithTarget(1L, "CLOSED", "PUT", "/api/internal/fiscal-periods/2/closing-status"),
@@ -407,8 +407,8 @@ class MasterDataIngressHttpTest {
                         .header("X-Service-Assertion", serviceToken("master-data-internal", List.of("ROLE_ACCOUNTING_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"closingStatus\":\"CLOSED\",\"auditUser\":\"mallory\"}"))
-                .andExpect(status().isOk());
-        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "closing:alice");
+                .andExpect(status().isGone());
+        verifyNoInteractions(fiscalPeriodControlPort);
     }
 
     @Test
@@ -422,8 +422,8 @@ class MasterDataIngressHttpTest {
                                 List.of("ROLE_ACCOUNTING_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"closingStatus\":\"CLOSED\"}"))
-                .andExpect(status().isOk());
-        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "closing:alice");
+                .andExpect(status().isGone());
+        verifyNoInteractions(fiscalPeriodControlPort);
     }
 
     @Test

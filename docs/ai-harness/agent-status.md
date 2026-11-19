@@ -1,3 +1,24 @@
+## 2026-11-20 — GH-773 CI fixture correction
+
+- Published PR954 head81bf510e passed Closing/contract tests, but Master API168 tests had35 failures/14 existing skips:19 concrete-coordinator lookup failures and16 ingress404s. Actual HTML showed new fixture BootstrapConfiguration hijacking neighboring tests, and a JDK transaction proxy incompatible with concrete coordinator lookup.
+- Two test files only: explicit lite fixture no longer advertises an application root; independent Closing fixture is TestConfiguration with class transaction proxies. Assertions,19 fault cases, test counts and production behavior unchanged. Independent /root/review773_revision found no delta issue; diff check PASS. New-head CI is required; the earlier failed run is not acceptance evidence. No local dependency downloads/runtime bypass.
+
+## 2026-11-19 — GH-773 rejected PR942 remediation / verification-blocked draft
+
+- Trace: [Issue773](https://github.com/skyg547/account/issues/773), replacement for closed [PR942](https://github.com/skyg547/account/pull/942); `agent/773-transition-revision`, external `C:/tmp/account-work-773-revision`, base main `ed539846`, rejected head `3153e898`. Parent publishes new Draft after checkpoint; current user authorizes implementation/publication/review/merge after actual gates.
+- Scope: Master Data/Closing and minimal explicitly authorized FiscalPeriodTransitionCommand +focused contract test, plus four parent records. Receipt entity Persistable lifecycle forces INSERT; immutable command/time mapping and unique23505 conversion without aborted-Tx requery preserve other-period winning receipt. Actual barrier RED12/1fail→GREEN demonstrates overwrite remediation. ID grammar includes@ and rejects reserved whole dot/dot-dot while retaining ordinary dotted IDs.
+- Fresh independent `/root/review773_revision` also required rich domain/application boundaries and a real committed-provider recovery fixture. Pure FiscalPeriodTransition owns lifecycle; application service coordinates through receipt port; JPA adapter maps/INSERTs/translates SQL errors; explicit API/Batch wiring updated. Service tests mock ports for order/fences/terminal retries/actor/failure propagation.
+- Actual38PASS (contract4/domain4/receiptJPA18/periodJPA12), then service19PASS from separate run=57 distinct passing tests, failure/error/skip0. Core production compiled. API/Closing attempted run stopped at closing:core:compileJava on uncached jjwt-api0.11.5; HTTP fixtures and affected API/client/migration/bootJar remain uncompiled/unexecuted. No dependency download or PostgreSQL runtime.
+
+```powershell
+.\gradlew.bat :master-data:core:test --tests '*FiscalPeriodTransitionServiceTest' --offline --no-daemon --console=plain --max-workers=1
+.\gradlew.bat :contracts:test :master-data:core:test :master-data:api:test :master-data:api:bootJar :closing:core:test :closing:api:test :closing:batch:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=1
+```
+
+- Authored actual two-H2/JPA contexts with signed Closing client→MockMvc provider,19 recovery cases: committed prepare/apply/confirm ACK losses; individual local approval/calendar/intent/dispatch/task/gate/audit save and phase commit failures. Before identity creation rollback leaves no receipt; later recovery retains original identity and provider fence. These are static-reviewed, NOT executed. Close/cancel real-HTTP ACK loss and PostgreSQL concurrency remain residual gaps.
+- Final independent static review no unresolved P0–P3; Q1–Q3/intent comments PASS, actual Q4 FAIL until full execution/build/migrations. Changed-file whitespace/markers PASS; full main README conflict tracked #947. Current-head CI, latest-main admission integration and real independent approval/trust policy remain required; no Ready/merge claim.
+- Unapplied authorized reopen SQL V58→V59 retains blob c9e79dc6082a5a89ac1d3b0db5fd5a9d881ec23c, reserving admission V58 for PR940. Rollback reviewed code revert and forward schema correction preserving approval/receipt/audit history. Parent alone Git/GitHub/records; no operating DB/deployment/cleanup/policy bypass, primary dirty84 untouched.
+
 ## 2026-10-20 — GH-924 actor/audit evidence, Draft PR #937
 
 - [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b2912554`; [Draft PR #937](https://github.com/skyg547/account/pull/937), `Refs #924`. Only `master-data/**`, `auth/**` and the four user-named harness/history records changed.
