@@ -1,3 +1,16 @@
+## 2026-11-19 — GH-946 Master Data migration-engine acceptance
+
+- Trace: [Issue946](https://github.com/skyg547/account/issues/946), `agent/946-ci-migration`, external `C:/tmp/account-work-946-ci-migration`, base `origin/main@ed539846`. Parent publishes Draft after checkpoint and owns four shared records/Git/GitHub. Primary dirty84 preserved.
+- Scope / change: Three unsupported H2 Master full-history cases move to four mandatory actual embedded PostgreSQL cases: fresh install/Batch+repeat, schema precision/FK/index/unique, V5→latest, and Product overlap/negative-price constraints. Actual packaged SQL and MigrationExecutor are uncapped; no production SQL/packaging/conditional skips changed. README explains engine/runtime boundary.
+- Actual evidence: Executed baseline RED47tests/3fail at PostgreSQL-only V9, error/skip0, preserved automation XML/log. New compileTestJava+bootJar --offline --continue exit1/9s: zonky2.1.0 uncached; production bootJar executed successfully, new tests not compiled/executed, PG not started. Fresh /root/review_ci_fixes no P0–P3 static findings, Q1–Q3 static PASS, Q4 actual FAIL. No dependency/runtime approval reply.
+- Remaining gate: Must execute all four replacement cases with no skips and full suite after approved dependencies/disposable PG, re-review and pass current CI. Existing RED is not a result for modified suite. Full tracked baseline README markers separately tracked #947. Draft only; no Ready/merge.
+- Rollback: reviewed scoped code/docs revert; forward correction for schema if ever applied, preserve all business/audit history. No operating DB/secrets/URLs/deployment/resource deletion or policy bypass.
+
+```powershell
+.\gradlew.bat :migration-runner:test :migration-runner:bootJar --offline --no-daemon --console=plain --max-workers=1
+```
+
+
 ## 2026-11-19 — GH-945 Reporting migration ownership in persistence tests
 
 - Trace: [Issue #945](https://github.com/skyg547/account/issues/945), `agent/945-ci-reporting`, `C:/tmp/account-work-945-ci-reporting`, base `origin/main@ed539846`; parent publishes Draft PR after checkpoint. Scope: Reporting core build/test plus four parent-owned records. Production SQL/runtime untouched.

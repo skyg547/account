@@ -74,7 +74,7 @@ class MigrationExecutorH2Test {
     }
 
     @ParameterizedTest
-    @MethodSource("postgresqlCompatibleContexts")
+    @MethodSource("h2CompatibleContexts")
     void correctedMigrationsAndBatchMetadataMigrateAndValidateOnH2(
             String contextSlug,
             String expectedBusinessTable) throws Exception {
@@ -932,92 +932,6 @@ class MigrationExecutorH2Test {
     }
 
     @Test
-    void masterDataBaselineContainsEveryJpaOwnedTableAndConstraint() throws Exception {
-        String url = "jdbc:h2:mem:master-data-parity"
-                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
-        MigrationConfiguration configuration = new MigrationConfiguration(url, "sa", "", "master_data");
-
-        new MigrationExecutor().execute(
-                MigrationContext.require("master-data"),
-                MigrationAction.MIGRATE,
-                configuration);
-
-        try (Connection connection = DriverManager.getConnection(url, "sa", "");
-             Statement statement = connection.createStatement()) {
-            assertThat(Stream.of(
-                            "account_subjects", "business_partners", "business_partner_accounts",
-                            "currencies", "departments", "exchange_rates", "fiscal_periods",
-                            "master_data_change_requests", "products", "tax_profiles")
-                    .allMatch(table -> {
-                        try {
-                            return tableExists(statement, table);
-                        } catch (Exception exception) {
-                            throw new IllegalStateException(exception);
-                        }
-                    }))
-                    .isTrue();
-            assertNumericColumn(connection, "exchange_rates", "rate", 19, 8);
-            assertNumericColumn(connection, "products", "price", 19, 4);
-            assertNumericColumn(connection, "tax_profiles", "tax_rate", 7, 4);
-            assertThat(hasForeignKey(
-                    connection, "account_subjects", "parent_id", "account_subjects", "id")).isTrue();
-            assertThat(hasForeignKey(
-                    connection, "departments", "parent_id", "departments", "id")).isTrue();
-            assertThat(hasForeignKey(
-                    connection,
-                    "business_partner_accounts",
-                    "business_partner_id",
-                    "business_partners",
-                    "id")).isTrue();
-            assertThat(indexColumns(connection, "account_subjects", "idx_account_code_valid"))
-                    .containsExactly("code", "valid_from", "valid_to");
-            assertThat(indexColumns(connection, "business_partners", "idx_bp_code_valid"))
-                    .containsExactly("business_partner_code", "valid_from", "valid_to");
-            assertThat(hasUniqueIndexOnColumns(
-                    connection,
-                    "exchange_rates",
-                    List.of("from_currency_code", "to_currency_code", "effective_date"))).isTrue();
-            assertThat(hasUniqueIndexOnColumns(
-                    connection, "fiscal_periods", List.of("fiscal_year", "fiscal_period"))).isTrue();
-            assertThat(hasUniqueIndexOnColumns(
-                    connection, "master_data_change_requests", List.of("source_reference"))).isTrue();
-        }
-    }
-
-    @Test
-    void masterDataPublishedHistoryUpgradesForwardFromV5ToV6() throws Exception {
-        String url = "jdbc:h2:mem:master-data-v5-upgrade"
-                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
-        Flyway.configure()
-                .dataSource(url, "sa", "")
-                .locations("classpath:db/contexts/master-data")
-                .target("5")
-                .load()
-                .migrate();
-
-        MigrationConfiguration configuration = new MigrationConfiguration(url, "sa", "", "master_data");
-        MigrationExecutor executor = new MigrationExecutor();
-        assertThat(executor.execute(
-                MigrationContext.require("master-data"), MigrationAction.MIGRATE, configuration))
-                .isGreaterThanOrEqualTo(1);
-        assertThat(executor.execute(
-                MigrationContext.require("master-data"), MigrationAction.VALIDATE, configuration)).isZero();
-        try (Connection connection = DriverManager.getConnection(url, "sa", "");
-             Statement statement = connection.createStatement()) {
-            assertThat(tableExists(statement, "account_subjects")).isTrue();
-            assertThat(tableExists(statement, "master_data_change_requests")).isTrue();
-            assertThat(tableExists(statement, "batch_job_instance")).isTrue();
-            try (ResultSet resultSet = statement.executeQuery("""
-                    SELECT COUNT(*) FROM flyway_schema_history
-                    WHERE version = '6' AND success = TRUE
-                    """)) {
-                resultSet.next();
-                assertThat(resultSet.getInt(1)).isOne();
-            }
-        }
-    }
-
-    @Test
     void closingBaselineContainsEveryJpaOwnedTableAndRelationship() throws Exception {
         String url = "jdbc:h2:mem:closing-parity"
                 + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
@@ -1274,7 +1188,7 @@ class MigrationExecutorH2Test {
                 .hasMessageContaining("refusing automatic baseline");
     }
 
-    private static Stream<Arguments> postgresqlCompatibleContexts() {
+    private static Stream<Arguments> h2CompatibleContexts() {
         return Stream.of(
                 Arguments.of("asset-lease", "fixed_assets"),
                 Arguments.of("auth", "auth_users"),
@@ -1285,7 +1199,7 @@ class MigrationExecutorH2Test {
                 Arguments.of("internal-audit", "rcm_process"),
                 Arguments.of("journal-ledger", "journal_entries"),
                 Arguments.of("loan", "loans"),
-                Arguments.of("master-data", "account_subjects"),
+                // Master full-history parity/upgrade run on actual PostgreSQL in its dedicated test.
                 Arguments.of("payable", "payables"),
                 Arguments.of("receivable", "receivables"),
                 Arguments.of("reconciliation", "reconciliation_runs"),
