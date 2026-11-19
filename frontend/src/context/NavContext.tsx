@@ -28,6 +28,17 @@ export type UserRole =
   | 'AUDITOR'
   | 'USER';
 
+// UI labels stay stable; Auth compares the requested code with the actor's exact canonical roles.
+const AUTH_ROLE_CODES: Record<UserRole, `ROLE_${UserRole}`> = {
+  SYSTEM_ADMIN: 'ROLE_SYSTEM_ADMIN',
+  ACCOUNTING_ADMIN: 'ROLE_ACCOUNTING_ADMIN',
+  RISK_MANAGER: 'ROLE_RISK_MANAGER',
+  RISK_ANALYST: 'ROLE_RISK_ANALYST',
+  MASTER_MANAGER: 'ROLE_MASTER_MANAGER',
+  AUDITOR: 'ROLE_AUDITOR',
+  USER: 'ROLE_USER',
+};
+
 export interface Authorization {
   id: number;
   roleCode: string;
@@ -59,11 +70,11 @@ type AuthorizationSnapshot = {
   connected: boolean;
 };
 
-function isAuthorizationList(value: unknown, role: UserRole): value is Authorization[] {
+function isAuthorizationList(value: unknown, roleCode: string): value is Authorization[] {
   return Array.isArray(value) && value.every(item =>
     item !== null && typeof item === 'object' &&
     Number.isSafeInteger(item.id) && item.id > 0 &&
-    item.roleCode === role &&
+    item.roleCode === roleCode &&
     typeof item.functionCode === 'string' && item.functionCode.length > 0 &&
     ['READ', 'WRITE', 'EXECUTE'].includes(item.accessType)
   );
@@ -111,14 +122,15 @@ export function NavProvider({ children }: { children: ReactNode }) {
       setAuthorizationSnapshot({ role: userRole, pathname, status: 'loading', authorizations: [], connected: false });
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       try {
-        const res = await fetch(`/api/audit/roles/${encodeURIComponent(userRole)}/authorizations`, {
+        const roleCode = AUTH_ROLE_CODES[userRole];
+        const res = await fetch(`/api/audit/roles/${encodeURIComponent(roleCode)}/authorizations`, {
           signal: controller.signal,
           credentials: 'same-origin',
           cache: 'no-store',
         });
         if (!res.ok) throw new Error('Menu authorization request failed');
         const data: unknown = await res.json();
-        if (!isAuthorizationList(data, userRole)) throw new Error('Invalid menu authorization response');
+        if (!isAuthorizationList(data, roleCode)) throw new Error('Invalid menu authorization response');
         // A menu link requires READ; a WRITE/EXECUTE record alone must not expose it.
         if (!cancelled) setAuthorizationSnapshot({ role: userRole, pathname, status: 'success', authorizations: data.filter(auth => auth.accessType === 'READ'), connected: true });
       } catch {

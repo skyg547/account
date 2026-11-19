@@ -78,6 +78,8 @@ HTTP 거절·서버 장애·통신 실패·잘못된 JSON·ID 누락 또는 잘�
 
 `NavProvider`는 현재 UI 역할의 `GET /api/audit/roles/{roleCode}/authorizations`를 동일 출처 BFF로 요청하고 권한 목록과 조회 상태를 별도로 보관합니다. 브라우저는 공개 governance 주소나 JWT를 사용하지 않고, BFF가 HttpOnly 세션을 Gateway 요청에 연결합니다. 역할 선택은 아직 로그인 사용자 역할과 결합되지 않았으므로 서버 권한의 증거로 사용하지 않습니다.
 
+UI 역할명은 `USER`, `ACCOUNTING_ADMIN` 등을 유지하며 `NavContext`의 명시적 매핑으로 Auth의 `ROLE_USER`, `ROLE_ACCOUNTING_ADMIN` 등에 연결합니다. 요청 경로와 응답의 `roleCode` 검증에 같은 매핑을 사용합니다. Auth는 일반 사용자의 현재 역할과 요청 역할 코드를 정확히 비교하므로, 표시용 이름을 그대로 보내면 403입니다. 다른 UI 역할을 선택해도 서버가 그 역할을 부여하지 않습니다.
+
 | 입력/상태 | Sidebar 결과 |
 | --- | --- |
 | 초기 조회, 역할 변경 또는 화면 경로 변경 중 (`loading`) | 이전 조회의 grant를 지우고 권한 대상 메뉴를 숨깁니다. 확인 중 안내를 표시합니다. |
@@ -87,7 +89,7 @@ HTTP 거절·서버 장애·통신 실패·잘못된 JSON·ID 누락 또는 잘�
 | `/login` 화면 | 이전 grant를 즉시 버리고 권한 조회를 하지 않습니다. 로그인 후 다른 화면으로 이동하면 동일한 UI 역할의 권한을 다시 조회합니다. |
 | `SYSTEM_ADMIN` | 기존 UI 규칙에 따라 권한 조회 없이 모든 메뉴를 표시합니다. 실제 서버 접근 허용을 뜻하지 않습니다. |
 
-예를 들어 `ACCOUNTING_ADMIN`이 `[{"id":1,"roleCode":"ACCOUNTING_ADMIN","functionCode":"MENU:/ledger/entry","accessType":"READ"}]`을 받으면 전표 입력 링크만 표시됩니다. 같은 역할이 이후 정상 `[]`을 받으면 그 링크는 사라집니다. 응답의 각 항목은 역할 코드와 필수 필드가 올바른지 검사하며, 다른 역할의 응답이나 불완전한 항목은 조회 실패로 처리합니다. 역할·화면 경로 변경이나 조회 실패 시 이전 grant도 재사용하지 않습니다. 같은 화면에 머무는 동안 다른 탭에서 쿠키가 바뀌거나 세션이 만료된 사실은 다음 경로 이동 전까지 감지하지 못합니다. 이때도 실제 서버 요청은 BFF와 Gateway의 인증 검사를 받아야 합니다.
+예를 들어 UI 역할 `ACCOUNTING_ADMIN`은 `/api/audit/roles/ROLE_ACCOUNTING_ADMIN/authorizations`를 요청하고 `[{"id":1,"roleCode":"ROLE_ACCOUNTING_ADMIN","functionCode":"MENU:/ledger/entry","accessType":"READ"}]`을 받으면 전표 입력 링크만 표시됩니다. 같은 역할이 이후 정상 `[]`을 받으면 그 링크는 사라집니다. 응답의 각 항목은 역할 코드와 필수 필드가 올바른지 검사하며, 접두사 없는 `ACCOUNTING_ADMIN`, 다른 역할의 응답이나 불완전한 항목은 조회 실패로 처리합니다. 역할·화면 경로 변경이나 조회 실패 시 이전 grant도 재사용하지 않습니다. 같은 화면에 머무는 동안 다른 탭에서 쿠키가 바뀌거나 세션이 만료된 사실은 다음 경로 이동 전까지 감지하지 못합니다. 이때도 실제 서버 요청은 BFF와 Gateway의 인증 검사를 받아야 합니다.
 
 기본 대시보드 `/`와 브랜드 링크, Footer의 시스템 설정 `/system/users`는 Sidebar 권한 대상 메뉴 필터와 별개인 공통 이동 경로입니다. 상단 카테고리 이동과 로그인/로그아웃 UI도 이 목록 필터 밖입니다. 특히 Footer 링크 노출은 `/system/users` 데이터 접근 허용을 뜻하지 않습니다. 이 로직은 프런트 메뉴 노출만 결정하며 서버 접근통제나 실제 로그인 역할 바인딩을 대신하지 않습니다.
 
@@ -95,25 +97,29 @@ HTTP 거절·서버 장애·통신 실패·잘못된 JSON·ID 누락 또는 잘�
 
 검증 전제는 Node 20/NPM 10과 이미 설치된 `frontend` 의존성입니다. `frontend` 디렉터리에서 `node --test tests/menu-authorizations.test.mjs`, `npx --no-install tsc --noEmit`, `npm run lint -- --quiet`를 실행합니다. Node 테스트는 Provider·Sidebar와 메뉴 화면의 정상/빈 목록/오류/역할 변경/쓰기 후 재조회 흐름을 합성 응답으로 검사합니다. `npm run test:auth-bff`는 세션 쿠키와 프록시의 인증·동일 출처 계약을 별도로 확인합니다. 이 검증은 실제 Gateway route, 실행 서비스 매핑, DB 반영이나 로그인 역할 결합을 입증하지 않습니다.
 
+실제 연결 검증은 [체인 실행 안내](../../gateway/docs/governance-chain-acceptance.md)의 전제 조건을 갖춘 뒤 저장소 루트에서 `node gateway/tests/governance-chain-acceptance.mjs`로 실행합니다. 서로 다른 maker/checker가 `SYSTEM_ROLE` 생성과 `AUTHORIZATION` 메뉴 READ 부여·회수를 승인하고, 일반 `ROLE_USER` 세션으로 승인 전 빈 목록 → 승인 후 권한 한 건 → 회수 대기 중 권한 유지 → 회수 승인 후 정상 빈 목록을 실제 BFF/Gateway/Auth HTTP로 확인합니다. 양수 승인 ID 네 개, pending 재조회, 자기 승인 403, 반복 승인 409와 종료 후 H2의 정확한 승인 기록·역할 카탈로그·권한 회수 결과를 검사합니다. 기존 `AUTH_USER_ROLE` 변경과 역할 버전 검증도 포함합니다. Node 20 또는 lockfile과 일치하는 의존성이 없으면 실행 게이트는 미검증이며 설치 승인 전에는 다운로드하지 않습니다. 이 HTTP 하네스는 브라우저 렌더링·PostgreSQL 검증을 대신하지 않습니다.
+
 ## 6. 메뉴 권한 연결 계약과 남은 실행 게이트 (#811)
 
-현재 저장소의 확정된 경계는 브라우저 → 동일 출처 `/api` BFF → Gateway → 실행 서비스입니다. BFF는 HttpOnly 세션 쿠키를 읽고 Gateway 요청의 Bearer 헤더를 서버에서 구성합니다. 브라우저가 제출한 신원 헤더는 전달하지 않으며 상태 변경 요청은 동일 출처 조건을 검사합니다. `/api/auth/session`은 현재 인증 여부만 반환합니다. 따라서 `NavContext`의 UI 역할 선택과 `SYSTEM_ADMIN` 표시 규칙은 로그인 사용자의 실제 역할을 증명하지 않습니다. 메뉴 표시나 관리 화면의 버튼은 서버 접근 권한이 아닙니다.
+현재 통합된 경계는 브라우저 → 동일 출처 `/api` BFF → Gateway → Auth입니다. BFF는 HttpOnly 세션 쿠키를 읽고 Gateway 요청의 Bearer 헤더를 서버에서 구성합니다. 브라우저가 제출한 신원 헤더는 전달하지 않으며 상태 변경 요청은 동일 출처 조건을 검사합니다. `/api/auth/session`은 현재 인증 여부만 반환합니다. 따라서 `NavContext`의 UI 역할 선택과 `SYSTEM_ADMIN` 표시 규칙은 로그인 사용자의 실제 역할을 증명하지 않습니다. 메뉴 표시나 관리 화면의 버튼은 서버 접근 권한이 아닙니다.
 
 | 계층 | 현재 근거와 책임 | 연결 완료 조건 |
 | --- | --- | --- |
-| Inbound API / 실행 서비스 | `shared-kernel`의 `AuditController`에 `/api/audit/roles`와 역할별 권한 조회·변경 매핑이 있지만 라이브러리 자체는 실행 호스트가 아닙니다. `internal-audit:api`의 명시적 스캔은 이 웹 패키지를 포함하지 않습니다. #838의 사용자 댓글은 Auth 호스팅을 승인했으며 해당 구현은 별도 진행 중입니다. | 선택된 실행 호스트에서 필요한 Controller, use case, 영속성 어댑터·테이블이 **명시적으로** 조립되고 실제 매핑·인증 테스트가 통과해야 합니다. 다른 서비스에서 `com.ho.account.shared` 전체 스캔으로 우연히 노출시키지 않습니다(#496). |
-| Core / persistence | 공유 커널에 `AuthorizationUseCase`, 역할·권한 persistence port/adapter와 repository가 존재합니다. | 권한 변경 시 서버가 인증된 actor, 대상 역할, 승인·감사 기록과 트랜잭션을 검증하고 실행 호스트의 스키마와 연결해야 합니다. 기존 권한 데이터 저장소와 역할 식별자 계약은 아키텍처·보안 책임자가 확정해야 합니다. |
-| Gateway | 패키지 설정과 Config Server mirror 모두 `/api/v1/internalaudit/**`는 있지만 `/api/audit/**` route가 없습니다. 별도 #838이 Gateway/Auth/shared-kernel/config-repo 범위를 소유합니다. | 두 설정의 전용 route 대상과 인증 정책이 일치하고, 누락 route는 404, 미인증은 401, 권한 부족은 403으로 구분되는 통합 테스트가 필요합니다. route만 추가해서 완료로 판단하지 않습니다. |
-| BFF / Frontend | 메뉴 화면과 Sidebar는 동일 출처 BFF를 통해 읽고 쓰며, 2xx와 올바른 응답만 성공으로 표시합니다. | 로그인 사용자에게 허용된 역할을 신뢰할 수 있는 서버 계약으로 바인딩해야 합니다. 현재 세션의 인증 여부만으로 역할 또는 쓰기 권한을 추론하지 않습니다. 실패·누락·부분 조회에서는 Mock이나 로컬 저장 결과를 권한으로 표시하지 않습니다. |
+| Inbound API / 실행 서비스 | Auth의 `GovernanceController`가 `/api/audit` 아래 역할·권한·승인·감사 API를 소유합니다. `GovernancePersistenceConfiguration`은 필요한 공유 엔티티·repository·adapter만 명시적으로 조립하며 legacy `AuditController` 전체 스캔에 의존하지 않습니다. | 현재 소스로 만든 Auth bootJar에서 매핑·인증·영속성 연결을 실제 Gateway/BFF 체인으로 검증해야 합니다. |
+| Core / persistence | Auth의 `GovernanceService`가 현재 인증 주체와 역할을 검증하고 승인 결정·권한 적용·감사 저장을 같은 트랜잭션에서 처리합니다. `V77__auth_governance.sql`이 Auth의 역할 카탈로그·권한·승인·감사 테이블을 소유합니다. | 실제 체인에서 서로 다른 maker/checker의 승인 기록과 메뉴 READ 부여·회수 결과를 확인하고, 종료 후 H2에서 다시 읽어야 합니다. H2 결과는 PostgreSQL 검증을 대신하지 않습니다. |
+| Gateway | `gateway/src/main/resources/application.yml`과 `config-repo/gateway-service.yml` 모두 `audit-governance-api`의 `/api/audit/**`를 `lb://auth-service`로 전달합니다. `/api/v1/internalaudit/**`는 기존 `lb://internal-audit-service`를 유지합니다. 두 설정의 경로·대상은 정책 테스트 대상입니다. | Gateway 라우팅의 `lb://`는 서비스 디스커버리와 LoadBalancer가 해석합니다. 현재 역할 버전 검증은 별도 `@LoadBalanced WebClient`의 `http://auth-service`를 사용합니다. 합성 SimpleDiscovery로 연결한 실제 패키지에서 미인증 401, 금지 403, 승인·권한 조회를 끝까지 확인해야 합니다. |
+| BFF / Frontend | 메뉴 화면과 Sidebar는 동일 출처 BFF를 통해 조회합니다. Sidebar의 UI 역할은 명시적 `ROLE_` 매핑을 거치며, 관리 화면은 서버 역할 코드를 사용해 부여·회수를 요청합니다. 올바른 조회 응답과 쓰기 후 재조회로 상태를 표시합니다. | UI 역할 선택은 아직 로그인 역할에 바인딩되지 않았습니다. Auth가 현재 역할의 조회 범위와 관리자 쓰기 자격을 강제하며, 실패·누락·부분 조회는 빈 오류 상태로 처리합니다. 실제 체인 검증과 별도로 프런트 회귀 검증을 통과해야 합니다. |
 
-**정책 결정 대기:** 아키텍처 책임자는 Auth가 최종 governance 실행 owner인지, `/api/audit/**`를 유지할지, 기존 역할·권한 데이터가 어느 DB와 스키마에 있는지 확정해야 합니다. 보안 책임자는 로그인 JWT 역할과 조회 대상 역할의 관계, 조회 허용 범위, 권한 부여·회수의 쓰기 자격, 회수 `202 Accepted`의 승인 대기·감사 표시를 결정해야 합니다. 정책이 정해지기 전에는 프런트 UI 선택 역할이나 `SYSTEM_ADMIN` 버튼 상태를 서버 권한으로 취급하지 않습니다. #838이 진행 중이어도 이 결정과 검증이 완료되었다는 뜻은 아닙니다.
+현재 구현에서 일반 사용자는 Auth가 확인한 자신의 정확한 역할 코드로만 메뉴 권한을 조회할 수 있고, 역할 목록·역할 생성·메뉴 권한 부여·회수·승인 결정은 현재 `ROLE_SYSTEM_ADMIN` 주체가 수행합니다. 역할 생성과 부여·회수 API는 실제 양수 ID를 가진 `PENDING` 승인 기록을 `202 Accepted`로 반환합니다. 접수 직후에는 권한이 적용되지 않으며 요청자와 다른 관리자가 승인해야 합니다. 승인 결과는 재조회로 확인합니다. 일반 사용자의 자기 역할 변경 요청을 허용하는 `AUTH_USER_ROLE` 승인 경로는 메뉴 권한을 직접 변경할 자격과 구분합니다.
 
 ### 분리 작업과 검증 범위
 
-| 작업 / 의존성 | 정확한 변경 범위 또는 보류 사유 | 필수 검증 |
+| 작업 / 의존성 | 현재 통합 상태 | 남은 검증 |
 | --- | --- | --- |
-| #811 프런트 안전 연동 (이번 Draft) | Production/test/기능 문서는 `frontend/src/context/NavContext.tsx`, `frontend/src/app/system/menus/page.tsx`, `frontend/tests/menu-authorizations.test.mjs`, `frontend/docs/master-system-spec.md`, `frontend/README.md`의 5파일입니다. 별도 모듈 로컬 인계 기록 3파일을 포함한 PR 변경은 총 8파일입니다. Gateway·실행 호스트가 준비되기 전에도 실패를 정직하게 표시합니다. | 정상 목록·빈 목록, 401/403/404, 통신 실패·잘못된 JSON·부분 조회, 오래된 응답, POST/DELETE 실패와 재조회 결과, Mock 저장 금지. Node 테스트·TypeScript·lint; `:frontend:test`는 Gradle 프로젝트 존재 여부부터 확인합니다. |
-| #838 실행 호스트·Gateway 후속 (별도 작업) | #838이 이미 OPEN/진행 중이며 `gateway/**`, `config-repo/**`, `auth/**`, `shared-kernel/**`를 승인받았습니다. 원래 #811의 자식별 5파일 제한을 넘는 실제 범위이므로 담당 Integrator가 runtime 조립·스키마·보안 정책·Gateway mirror를 충돌 없는 5파일 이하 작업으로 재분할해 정확한 allowlist를 확정해야 합니다. 여기서는 해당 파일을 수정하거나 중복 Issue를 만들지 않습니다. | 합성 DB에서 실제 runtime mapping과 use case/영속성 기동, Gateway 두 설정의 대상·인증 일치, 미인증 401·금지 403·누락 404, 읽기/쓰기 감사·승인 및 회귀 테스트. |
-| 최종 연결 검수 (#811과 #838 이후) | 담당자와 allowlist는 두 작업의 계약이 정해진 뒤 확정합니다. 아직 ready 후보가 아닙니다. | local 합성 서버/DB에서 runtime mappings → Gateway → BFF/Frontend의 인증된 조회와 쓰기, 비인가와 실패 상태를 실제 HTTP로 확인합니다. 정적 route 검사나 프런트 단위 테스트만으로 기능 완료를 판정하지 않습니다. |
+| #811 프런트 안전 연동 | 실패·정상 빈 목록·오래된 응답·쓰기 후 재조회를 처리하는 변경이 통합됐고, #955에서 UI 역할과 Auth의 canonical 역할 코드를 정합화했습니다. | Node 20과 lockfile에 맞는 의존성으로 메뉴 테스트·TypeScript·lint·BFF 회귀 검증을 실행합니다. canonical URL/응답 일치와 접두사 누락·다른 역할 응답 거부도 확인합니다. |
+| #838 Auth 실행 호스트·Gateway | 명시적 Auth runtime 조립, 승인·권한 영속성, Gateway mirror와 보안 정책 구현이 통합됐습니다. 구성 PR의 CI 성공 근거는 실제 패키지 체인 성공과 구분합니다. | 현재 통합 소스의 Auth/Gateway 테스트와 bootJar를 준비하고 실제 BFF→Gateway→Auth HTTP 검증에 사용해야 합니다. |
+| #955 최종 연결 검수 | `governance-chain-acceptance.mjs`와 `GovernanceChainSupport.java`가 메뉴 역할 생성·READ 부여·회수 및 사용자 역할 변경의 네 승인 기록을 검증하도록 확장됐습니다. | Node 20·정확한 의존성·현재 bootJar로 확장 하네스를 실행해야 합니다. 이 실행이 끝나기 전에는 #811/#838의 최종 연결 수용 조건을 완료로 처리하지 않습니다. |
 
-초보자 확인 순서: 프런트 단위 테스트에서 오류 시 표가 저장 성공을 표시하지 않는지 본 다음, #838이 실행 호스트와 두 Gateway 설정을 검증한 뒤 로그인한 합성 사용자로 읽기와 쓰기를 끝까지 확인합니다. 테스트용 계정·DB만 사용하며 운영 URL, 계정정보, 토큰을 기록하지 않습니다. 이번 문서·프런트 변경의 롤백은 해당 PR 커밋 revert이며, 기존 권한 데이터는 변경하지 않습니다.
+현재 로컬 검증 환경은 Node 24이며 이 worktree에 프런트 의존성이 없어 메뉴 테스트가 `react` 로드 단계에서 실패했습니다. Node 20·정확한 의존성·현재 bootJar 준비와 확장된 실제 체인 실행은 남은 게이트입니다. 구성 PR의 CI 성공이나 JavaScript 구문 검사만으로 이 실행을 대신하지 않습니다.
+
+초보자 확인 순서: §5의 프런트 회귀 명령을 실행한 뒤 [실제 체인 안내](../../gateway/docs/governance-chain-acceptance.md)에 따라 현재 Auth/Gateway 패키지를 준비하고 합성 사용자로 읽기·승인·쓰기를 끝까지 확인합니다. 테스트용 계정·DB만 사용하며 운영 URL, 계정정보, 토큰을 기록하지 않습니다. 이번 문서·프런트 변경의 롤백은 해당 변경의 검토된 revert이며, Auth 스키마와 승인·감사 이력은 삭제하지 않습니다.

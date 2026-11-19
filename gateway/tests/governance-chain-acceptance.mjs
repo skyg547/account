@@ -199,39 +199,109 @@ async function run() {
   const maker = await login('chain-maker');
   const checker = await login('chain-checker');
   const target = await login('chain-target');
+  assert.deepEqual(target.session.roles, ['ROLE_USER']);
+  const receipts = new Set();
+  async function pendingReceipt(response, status, masterType, masterKey, requestType) {
+    assert.equal(response.status, status);
+    const receipt = await response.json();
+    assert.ok(Number.isSafeInteger(receipt.id) && receipt.id > 0, 'persisted positive receipt required');
+    assert.ok(!receipts.has(receipt.id), 'each change must have a distinct persisted receipt');
+    receipts.add(receipt.id);
+    assert.equal(receipt.masterType, masterType);
+    assert.equal(receipt.masterKey, masterKey);
+    assert.equal(receipt.requestType, requestType);
+    assert.equal(receipt.requestUser, 'chain-maker');
+    assert.equal(receipt.status, 'PENDING');
+    const pending = await request('/api/audit/approvals/pending', { cookie: checker.cookie });
+    assert.equal(pending.status, 200);
+    const persisted = (await pending.json()).filter(row => row.id === receipt.id);
+    assert.equal(persisted.length, 1);
+    // Compare the receipt contract; database timestamp precision may differ from the first HTTP response.
+    for (const field of ['masterType', 'masterKey', 'requestType', 'payload', 'requestUser', 'status']) {
+      assert.equal(persisted[0][field], receipt[field]);
+    }
+    return receipt;
+  }
+  async function approveReceipt(receipt) {
+    const decisionPath = `/api/audit/approvals/${receipt.id}/approve`;
+    const body = { approverUser: 'forged-approver', remarks: 'Synthetic acceptance' };
+    assert.equal((await request(decisionPath, { cookie: maker.cookie, body })).status, 403);
+    const decision = await request(decisionPath, { cookie: checker.cookie, body });
+    assert.equal(decision.status, 200);
+    const approved = await decision.json();
+    assert.equal(approved.id, receipt.id);
+    assert.equal(approved.masterType, receipt.masterType);
+    assert.equal(approved.masterKey, receipt.masterKey);
+    assert.equal(approved.requestType, receipt.requestType);
+    assert.equal(approved.requestUser, 'chain-maker');
+    assert.equal(approved.approverUser, 'chain-checker');
+    assert.equal(approved.status, 'APPROVED');
+    assert.equal((await request(decisionPath, { cookie: checker.cookie, body })).status, 409);
+    const pending = await request('/api/audit/approvals/pending', { cookie: checker.cookie });
+    assert.equal(pending.status, 200);
+    assert.ok(!(await pending.json()).some(row => row.id === receipt.id));
+  }
+  async function targetGrants() {
+    const response = await request(path, { cookie: target.cookie });
+    assert.equal(response.status, 200);
+    return response.json();
+  }
   stage = 'current role permission boundary';
-  const grants = await request(path, { cookie: target.cookie });
-  assert.equal(grants.status, 200);
-  assert.deepEqual(await grants.json(), []);
+  assert.deepEqual(await targetGrants(), []);
+  assert.equal((await request('/api/audit/roles/USER/authorizations', { cookie: target.cookie })).status, 403);
   assert.equal((await request('/api/audit/roles/ROLE_SYSTEM_ADMIN/authorizations', { cookie: target.cookie })).status, 403);
   assert.equal((await request('/api/audit/approvals/requests', { cookie: target.cookie, body: {
     masterType: 'AUTH_USER_ROLE', masterKey: 'chain-maker', requestType: 'UPDATE',
     payload: JSON.stringify({ username: 'chain-maker', role: 'AUDITOR' }), requestUser: 'chain-maker',
   } })).status, 403);
+
+  // Exercise the menu endpoints themselves: receipt acceptance must not be confused with applied grants.
+  stage = 'menu role creation and approval';
+  const roleReceipt = await pendingReceipt(await request('/api/audit/roles', {
+    cookie: maker.cookie, body: { roleCode: 'ROLE_USER', roleName: 'Synthetic user', description: 'Owned acceptance fixture' },
+  }), 202, 'SYSTEM_ROLE', 'ROLE_USER', 'CREATE');
+  assert.equal((await request('/api/audit/roles/ROLE_USER', { cookie: maker.cookie })).status, 404);
+  await approveReceipt(roleReceipt);
+  const role = await request('/api/audit/roles/ROLE_USER', { cookie: maker.cookie });
+  assert.equal(role.status, 200);
+  assert.equal((await role.json()).roleCode, 'ROLE_USER');
+  assert.deepEqual(await targetGrants(), []);
+
+  stage = 'menu READ grant pending and approved';
+  const menuKey = 'ROLE_USER:MENU:/ledger/entry:READ';
+  const grantBody = { functionCode: 'MENU:/ledger/entry', accessType: 'READ', dataScope: 'GLOBAL' };
+  assert.equal((await request(path, { cookie: target.cookie, body: grantBody })).status, 403);
+  const grantReceipt = await pendingReceipt(await request(path, { cookie: maker.cookie, body: grantBody }),
+    202, 'AUTHORIZATION', menuKey, 'CREATE');
+  assert.deepEqual(await targetGrants(), []);
+  await approveReceipt(grantReceipt);
+  const menuGrants = await targetGrants();
+  assert.equal(menuGrants.length, 1);
+  const menuGrant = menuGrants[0];
+  assert.ok(Number.isSafeInteger(menuGrant.id) && menuGrant.id > 0);
+  assert.equal(menuGrant.roleCode, 'ROLE_USER');
+  assert.equal(menuGrant.functionCode, grantBody.functionCode);
+  assert.equal(menuGrant.accessType, 'READ');
+  assert.equal(menuGrant.dataScope, 'GLOBAL');
+
+  stage = 'menu READ revoke pending and authoritative empty';
+  const revokePath = `/api/audit/authorizations/${menuGrant.id}`;
+  assert.equal((await request(revokePath, { cookie: target.cookie, method: 'DELETE' })).status, 403);
+  const revokeReceipt = await pendingReceipt(await request(revokePath, { cookie: maker.cookie, method: 'DELETE' }),
+    202, 'AUTHORIZATION', menuKey, 'DELETE');
+  assert.deepEqual(await targetGrants(), menuGrants);
+  await approveReceipt(revokeReceipt);
+  assert.deepEqual(await targetGrants(), []);
+
   stage = 'frontend approval request';
   const approval = await request('/api/audit/approvals/requests', { cookie: maker.cookie, body: {
     masterType: 'AUTH_USER_ROLE', masterKey: 'chain-target', requestType: 'UPDATE',
     payload: JSON.stringify({ username: 'chain-target', userId: '3', role: 'AUDITOR' }),
     requestUser: 'frontend-admin', effectiveDate: new Date().toISOString().slice(0, 10), requestedVersion: 1,
   } });
-  assert.equal(approval.status, 200);
-  const receipt = await approval.json();
-  assert.ok(Number.isSafeInteger(receipt.id) && receipt.id > 0, 'persisted positive receipt required');
-  assert.equal(receipt.requestUser, 'chain-maker');
-  assert.equal(receipt.status, 'PENDING');
-  const pending = await request('/api/audit/approvals/pending', { cookie: checker.cookie });
-  assert.equal(pending.status, 200);
-  assert.ok((await pending.json()).some((row) => row.id === receipt.id && row.requestUser === 'chain-maker'));
+  const receipt = await pendingReceipt(approval, 200, 'AUTH_USER_ROLE', 'chain-target', 'UPDATE');
   stage = 'separation of duties';
-  const decisionPath = `/api/audit/approvals/${receipt.id}/approve`;
-  const body = { approverUser: 'forged-approver', remarks: 'Synthetic acceptance' };
-  assert.equal((await request(decisionPath, { cookie: maker.cookie, body })).status, 403);
-  const decision = await request(decisionPath, { cookie: checker.cookie, body });
-  assert.equal(decision.status, 200);
-  const approved = await decision.json();
-  assert.equal(approved.approverUser, 'chain-checker');
-  assert.equal(approved.status, 'APPROVED');
-  assert.equal((await request(decisionPath, { cookie: checker.cookie, body })).status, 409);
+  await approveReceipt(receipt);
   stage = 'current Auth state after approval';
   const updated = await login('chain-target');
   assert.deepEqual(updated.session.roles, ['ROLE_AUDITOR']);
@@ -243,8 +313,9 @@ async function run() {
   await stop(gateway);
   await stop(auth);
   await javaHelper('verify', { CHAIN_DB_PASSWORD: databasePassword, CHAIN_JDBC_URL: jdbcUrl,
-    CHAIN_APPROVAL_ID: String(receipt.id) });
-  console.log('PASS: real BFF → Gateway → Auth; denial, current roles, receipt, SOD, persisted H2 effect. PostgreSQL not exercised.');
+    CHAIN_APPROVAL_ID: String(receipt.id), CHAIN_ROLE_APPROVAL_ID: String(roleReceipt.id),
+    CHAIN_GRANT_APPROVAL_ID: String(grantReceipt.id), CHAIN_REVOKE_APPROVAL_ID: String(revokeReceipt.id) });
+  console.log('PASS: real BFF → Gateway → Auth; menu READ grant/revoke, authoritative empty, four receipts, SOD, persisted H2 effects. PostgreSQL not exercised.');
 }
 
 try { await run(); }

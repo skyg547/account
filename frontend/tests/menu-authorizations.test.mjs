@@ -141,7 +141,7 @@ test('2xx [] is connected but protected Sidebar menus remain hidden, including s
 
 test('individual grant and explicit MENU:* show business items; SYSTEM_ADMIN bypass remains', async () => {
   for (const code of ['MENU:/ledger/entry', 'MENU:*']) {
-    const harness = createProviderHarness(async () => response([grant('ACCOUNTING_ADMIN', code)]));
+    const harness = createProviderHarness(async () => response([grant('ROLE_ACCOUNTING_ADMIN', code)]));
     try {
       harness.render();
       harness.runEffects();
@@ -204,15 +204,66 @@ test('provider uses same-origin BFF credentials and no-store without a public AP
     await settle();
     assert.equal(harness.render().authorizationStatus, 'success');
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].url, '/api/audit/roles/ACCOUNTING_ADMIN/authorizations');
+    assert.equal(calls[0].url, '/api/audit/roles/ROLE_ACCOUNTING_ADMIN/authorizations');
     assert.equal(calls[0].options.credentials, 'same-origin');
     assert.equal(calls[0].options.cache, 'no-store');
   } finally { harness.cleanup(); }
 });
 
+test('UI roles request canonical Auth codes and accept only their canonical READ grants', async () => {
+  const roles = [
+    ['ACCOUNTING_ADMIN', 'ROLE_ACCOUNTING_ADMIN'], ['RISK_MANAGER', 'ROLE_RISK_MANAGER'],
+    ['RISK_ANALYST', 'ROLE_RISK_ANALYST'], ['MASTER_MANAGER', 'ROLE_MASTER_MANAGER'],
+    ['AUDITOR', 'ROLE_AUDITOR'], ['USER', 'ROLE_USER'],
+  ];
+  for (const [uiRole, roleCode] of roles) {
+    const calls = [];
+    const harness = createProviderHarness(async url => {
+      calls.push(url);
+      return response([grant(roleCode, 'MENU:/ledger/entry')]);
+    });
+    try {
+      harness.render().setUserRole(uiRole);
+      harness.render();
+      harness.runEffects();
+      await settle();
+      const nav = harness.render();
+      assert.equal(nav.userRole, uiRole);
+      assert.deepEqual(calls, [`/api/audit/roles/${roleCode}/authorizations`]);
+      assert.equal(nav.authorizationStatus, 'success');
+      assert.deepEqual(nav.userAuthorizations, [grant(roleCode, 'MENU:/ledger/entry')]);
+      assert.match(renderSidebar(nav), /href="\/ledger\/entry"/);
+    } finally { harness.cleanup(); }
+  }
+});
+
+test('unprefixed and wrong canonical response roles fail closed, including mixed lists', async () => {
+  for (const [uiRole, canonicalRole, wrongRole] of [
+    ['ACCOUNTING_ADMIN', 'ROLE_ACCOUNTING_ADMIN', 'ROLE_USER'],
+    ['USER', 'ROLE_USER', 'ROLE_ACCOUNTING_ADMIN'],
+  ]) {
+    for (const invalidRole of [uiRole, wrongRole]) {
+      const harness = createProviderHarness(async () => response([
+        grant(canonicalRole, 'MENU:/ledger/entry'), grant(invalidRole, 'MENU:*'),
+      ]));
+      try {
+        harness.render().setUserRole(uiRole);
+        harness.render();
+        harness.runEffects();
+        await settle();
+        const nav = harness.render();
+        assert.equal(nav.authorizationStatus, 'unavailable');
+        assert.equal(nav.isGovernanceConnected, false);
+        assert.deepEqual(nav.userAuthorizations, []);
+        assert.doesNotMatch(renderSidebar(nav), /href="\/ledger\/entry"/);
+      } finally { harness.cleanup(); }
+    }
+  }
+});
+
 test('a WRITE-only menu grant does not expose a Sidebar item', async () => {
   const harness = createProviderHarness(async () => response([
-    { id: 1, roleCode: 'ACCOUNTING_ADMIN', functionCode: 'MENU:*', accessType: 'WRITE' },
+    { id: 1, roleCode: 'ROLE_ACCOUNTING_ADMIN', functionCode: 'MENU:*', accessType: 'WRITE' },
   ]));
   try {
     harness.render();
@@ -228,7 +279,7 @@ test('a WRITE-only menu grant does not expose a Sidebar item', async () => {
 test('role transitions hide stale grants immediately and ignore late earlier responses', async () => {
   let finishOldRequest;
   const harness = createProviderHarness((url) => {
-    if (url.includes('/ACCOUNTING_ADMIN/')) return new Promise(resolve => { finishOldRequest = resolve; });
+    if (url.includes('/ROLE_ACCOUNTING_ADMIN/')) return new Promise(resolve => { finishOldRequest = resolve; });
     return Promise.resolve(response([]));
   });
   try {
@@ -239,7 +290,7 @@ test('role transitions hide stale grants immediately and ignore late earlier res
     assert.equal(nav.authorizationStatus, 'loading');
     assert.deepEqual(nav.userAuthorizations, []);
     harness.runEffects();
-    finishOldRequest(response([grant('ACCOUNTING_ADMIN', 'MENU:*')]));
+    finishOldRequest(response([grant('ROLE_ACCOUNTING_ADMIN', 'MENU:*')]));
     await settle();
     nav = harness.render();
     assert.equal(nav.userRole, 'USER');
@@ -251,8 +302,8 @@ test('role transitions hide stale grants immediately and ignore late earlier res
 
 test('a successful grant can be replaced by [] and then a failed role request clears grants', async () => {
   const harness = createProviderHarness(url => {
-    if (url.includes('/ACCOUNTING_ADMIN/')) return Promise.resolve(response([grant('ACCOUNTING_ADMIN', 'MENU:*')]));
-    if (url.includes('/USER/')) return Promise.resolve(response([]));
+    if (url.includes('/ROLE_ACCOUNTING_ADMIN/')) return Promise.resolve(response([grant('ROLE_ACCOUNTING_ADMIN', 'MENU:*')]));
+    if (url.includes('/ROLE_USER/')) return Promise.resolve(response([]));
     return Promise.resolve(response([], false));
   });
   try {
@@ -283,9 +334,9 @@ test('a successful grant can be replaced by [] and then a failed role request cl
 test('a later successful [] revokes the same role\'s previous menu grant', async () => {
   let accountingRequests = 0;
   const harness = createProviderHarness(url => {
-    if (url.includes('/ACCOUNTING_ADMIN/')) {
+    if (url.includes('/ROLE_ACCOUNTING_ADMIN/')) {
       accountingRequests++;
-      return Promise.resolve(response(accountingRequests === 1 ? [grant('ACCOUNTING_ADMIN', 'MENU:*')] : []));
+      return Promise.resolve(response(accountingRequests === 1 ? [grant('ROLE_ACCOUNTING_ADMIN', 'MENU:*')] : []));
     }
     return Promise.resolve(response([]));
   });
@@ -316,7 +367,7 @@ test('a later successful [] revokes the same role\'s previous menu grant', async
 test('login route clears grants immediately and returning to the app refetches the same role', async () => {
   let requests = 0;
   const harness = createProviderHarness(async () => response(++requests === 1
-    ? [grant('ACCOUNTING_ADMIN', 'MENU:*')]
+    ? [grant('ROLE_ACCOUNTING_ADMIN', 'MENU:*')]
     : []));
   try {
     harness.setPathname('/login');
@@ -357,7 +408,7 @@ test('login route clears grants immediately and returning to the app refetches t
 test('app route navigation hides stale grants and a later 401 leaves menus unavailable', async () => {
   let requests = 0;
   const harness = createProviderHarness(async () => ++requests === 1
-    ? response([grant('ACCOUNTING_ADMIN', 'MENU:*')])
+    ? response([grant('ROLE_ACCOUNTING_ADMIN', 'MENU:*')])
     : response([], false));
   try {
     harness.render();
@@ -387,7 +438,7 @@ test('late pre-logout response cannot restore grants on the login route', async 
     let nav = harness.render();
     assert.equal(nav.authorizationStatus, 'unavailable');
     harness.runEffects();
-    finishRead(response([grant('ACCOUNTING_ADMIN', 'MENU:*')]));
+    finishRead(response([grant('ROLE_ACCOUNTING_ADMIN', 'MENU:*')]));
     await settle();
     nav = harness.render();
     assert.deepEqual(nav.userAuthorizations, []);

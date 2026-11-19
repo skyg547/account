@@ -3,6 +3,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Driver;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Properties;
 import java.util.zip.ZipFile;
 
@@ -39,10 +40,16 @@ class GovernanceChainSupport {
             credentials.setProperty("user", "chain");
             credentials.setProperty("password", System.getenv("CHAIN_DB_PASSWORD"));
             try (var connection = driver.connect(System.getenv("CHAIN_JDBC_URL"), credentials)) {
+                // Exact receipt IDs from HTTP plus the total count detect both missing and unauthorized writes.
+                var receipts = Map.of(
+                        receiptId("CHAIN_APPROVAL_ID"), new String[] { "AUTH_USER_ROLE", "chain-target", "UPDATE" },
+                        receiptId("CHAIN_ROLE_APPROVAL_ID"), new String[] { "SYSTEM_ROLE", "ROLE_USER", "CREATE" },
+                        receiptId("CHAIN_GRANT_APPROVAL_ID"), new String[] { "AUTHORIZATION", "ROLE_USER:MENU:/ledger/entry:READ", "CREATE" },
+                        receiptId("CHAIN_REVOKE_APPROVAL_ID"), new String[] { "AUTHORIZATION", "ROLE_USER:MENU:/ledger/entry:READ", "DELETE" });
                 try (var query = connection.createStatement();
                         var result = query.executeQuery("SELECT COUNT(*) FROM master_approval")) {
-                    if (!result.next() || result.getLong(1) != 1) {
-                        throw new IllegalStateException("Denied request created an approval record");
+                    if (!result.next() || result.getLong(1) != 4) {
+                        throw new IllegalStateException("Expected exactly four owned approval records");
                     }
                 }
                 try (var query = connection.prepareStatement(
@@ -64,18 +71,46 @@ class GovernanceChainSupport {
                     }
                 }
                 try (var query = connection.prepareStatement(
-                        "SELECT request_user, approver_user, status FROM master_approval WHERE id = ?")) {
-                    query.setLong(1, Long.parseLong(System.getenv("CHAIN_APPROVAL_ID")));
-                    try (var result = query.executeQuery()) {
-                        if (!result.next() || !"chain-maker".equals(result.getString(1))
-                                || !"chain-checker".equals(result.getString(2))
-                                || !"APPROVED".equals(result.getString(3)) || result.next()) {
-                            throw new IllegalStateException("Persisted approval identity/status mismatch");
+                        "SELECT request_user, approver_user, status, master_type, master_key, request_type FROM master_approval WHERE id = ?")) {
+                    for (var receipt : receipts.entrySet()) {
+                        query.setLong(1, receipt.getKey());
+                        try (var result = query.executeQuery()) {
+                            if (!result.next() || !"chain-maker".equals(result.getString(1))
+                                    || !"chain-checker".equals(result.getString(2))
+                                    || !"APPROVED".equals(result.getString(3))
+                                    || !receipt.getValue()[0].equals(result.getString(4))
+                                    || !receipt.getValue()[1].equals(result.getString(5))
+                                    || !receipt.getValue()[2].equals(result.getString(6)) || result.next()) {
+                                throw new IllegalStateException("Persisted approval identity/type/status mismatch");
+                            }
                         }
                     }
                 }
+                try (var query = connection.prepareStatement(
+                        "SELECT role_name, audit_user FROM system_role WHERE role_code = ?")) {
+                    query.setString(1, "ROLE_USER");
+                    try (var result = query.executeQuery()) {
+                        if (!result.next() || !"Synthetic user".equals(result.getString(1))
+                                || !"chain-checker".equals(result.getString(2))
+                                || result.next()) {
+                            throw new IllegalStateException("Approved menu role catalog entry missing");
+                        }
+                    }
+                }
+                try (var query = connection.createStatement();
+                        var result = query.executeQuery("SELECT COUNT(*) FROM audit_authorizations")) {
+                    if (!result.next() || result.getLong(1) != 0) {
+                        throw new IllegalStateException("Approved menu READ revoke was not persisted");
+                    }
+                }
             }
-            System.out.println("persisted approval and role effect verified");
+            System.out.println("four persisted approvals, menu revoke and user role effect verified");
         }
+    }
+
+    private static long receiptId(String variable) {
+        long id = Long.parseLong(System.getenv(variable));
+        if (id <= 0) throw new IllegalArgumentException("Positive persisted receipt ID required");
+        return id;
     }
 }
