@@ -24,5 +24,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation(project(':journal-ledger:core')) {
+        exclude group: 'org.springframework.cloud', module: 'spring-cloud-starter-netflix-eureka-client'
+    }
     testRuntimeOnly 'com.h2database:h2'
 }

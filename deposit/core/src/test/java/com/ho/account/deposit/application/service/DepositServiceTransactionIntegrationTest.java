@@ -115,6 +115,7 @@ class DepositServiceTransactionIntegrationTest {
             assertThat(row.getIdempotencyKey()).isEqualTo("DEPOSIT_TRANSACTION:" + row.getLineageSourceId());
             JournalOutboxEvent event = outbox.findJournalEventById(row.getEventId()).orElseThrow();
             assertThat(event.getCommand().lineageSourceId()).isEqualTo(row.getLineageSourceId());
+            assertThat(event.getCommand().operationKey()).isEqualTo(row.getIdempotencyKey());
             assertThat(event.getCommand().lines()).hasSize(2);
             assertThat(event.getCommand().lines().get(0).amount())
                     .isEqualByComparingTo(event.getCommand().lines().get(1).amount());

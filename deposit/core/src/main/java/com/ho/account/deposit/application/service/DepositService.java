@@ -207,6 +207,8 @@ public class DepositService implements DepositUseCase {
         String debitAccount = deposit ? accounts.cashAccountCode() : accounts.depositLiabilityAccountCode();
         String creditAccount = deposit ? accounts.depositLiabilityAccountCode() : accounts.cashAccountCode();
         LocalDate accountingDate = LocalDate.now();
+        // Reuse the durable outbox identity on every relay attempt of this balance operation.
+        String operationKey = "DEPOSIT_TRANSACTION:" + transactionId;
         JournalEntryCommand command = new JournalEntryCommand(
                 accountingDate,
                 accountingDate,
@@ -218,6 +220,8 @@ public class DepositService implements DepositUseCase {
                 resolveActor(account),
                 "DEPOSIT_TRANSACTION",
                 transactionId,
+                null,
+                operationKey,
                 List.of(
                         new JournalLineCommand("DEBIT", debitAccount, amount, amount, null,
                                 account.getCustomerCode(), transactionType),
@@ -227,7 +231,7 @@ public class DepositService implements DepositUseCase {
         // The scheduler relays this PENDING event only after the account and outbox commit together.
         outboxPort.saveJournalEvent(JournalOutboxEvent.createPending(
                 "DEPOSIT", "DEPOSIT_TRANSACTION", transactionId, command,
-                "DEPOSIT_TRANSACTION:" + transactionId));
+                operationKey));
     }
 
     /**
@@ -272,6 +276,8 @@ public class DepositService implements DepositUseCase {
                 depositAccountMappingPort.resolveInitialDepositAccounts(account);
         requireAccounts(accounts.requiredAccountCodes());
 
+        // Account opening has one initial-deposit event; retries replay its saved outbox key.
+        String operationKey = "DEPOSIT_ACCOUNT:" + account.getAccountNumber();
         JournalEntryCommand command = new JournalEntryCommand(
                 account.getOpenedAt(),
                 account.getOpenedAt(),
@@ -283,6 +289,8 @@ public class DepositService implements DepositUseCase {
                 resolveActor(account),
                 "DEPOSIT_ACCOUNT",
                 account.getAccountNumber(),
+                null,
+                operationKey,
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.cashAccountCode(), amount, amount, null,
                                 account.getCustomerCode(), "Initial cash deposit"),
@@ -295,7 +303,7 @@ public class DepositService implements DepositUseCase {
                 "DEPOSIT_ACCOUNT",
                 account.getAccountNumber(),
                 command,
-                "DEPOSIT_ACCOUNT:" + account.getAccountNumber()
+                operationKey
         );
         outboxPort.saveJournalEvent(outboxEvent);
 

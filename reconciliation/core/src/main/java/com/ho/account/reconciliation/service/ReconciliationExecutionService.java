@@ -245,8 +245,7 @@ public class ReconciliationExecutionService {
                                     reconciliationUnit.getName() + " reconciliation difference adjustment (" + defaultReason.getName() + ")",
                                     accountCodes,
                                     "SYSTEM",
-                                    run,
-                                    diff
+                                    run
                             );
                             diff.attachAdjustmentJournalEntry(adjustmentEntryId);
                             hasExistingAdjustmentForPeriod = true;
@@ -439,13 +438,14 @@ public class ReconciliationExecutionService {
     private Long createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
                                               ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes,
                                               String createdBy,
-                                              ReconciliationRun run,
-                                              ReconciliationDifference difference) {
+                                              ReconciliationRun run) {
         ReconciliationUnit unit = run.getReconciliationUnit();
         JsonNode root = parseCriteriaJson(unit);
         String currencyCode = readText(root, "adjustmentCurrencyCode");
         currencyCode = (currencyCode != null && !currencyCode.isBlank()) ? currencyCode : "KRW";
-        String sourceDocumentId = adjustmentPolicy.buildAdjustmentSourceDocumentId(run, difference, accountingDate, amount, accountCodes);
+        // The policy permits one adjustment per unit/date. Failed runs allocate new run/difference IDs,
+        // so receipt identity must survive those retries; changed amounts/accounts still conflict.
+        String sourceDocumentId = adjustmentPolicy.buildLogicalPeriodKey(unit.getId(), accountingDate);
 
         JournalEntryCommand command = new JournalEntryCommand(
                 accountingDate,
@@ -458,6 +458,8 @@ public class ReconciliationExecutionService {
                 createdBy,
                 "RECONCILIATION",
                 sourceDocumentId,
+                null,
+                "RECONCILIATION:ADJUSTMENT:v1",
                 List.of(
                         new JournalLineCommand("DEBIT", accountCodes.debitAccountCode(), amount, amount, null, null, description + " (debit)"),
                         new JournalLineCommand("CREDIT", accountCodes.creditAccountCode(), amount, amount, null, null, description + " (credit)")

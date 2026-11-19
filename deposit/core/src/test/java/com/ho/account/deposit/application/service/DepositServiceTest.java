@@ -96,6 +96,7 @@ class DepositServiceTest {
         assertThat(journalCommand.currencyCode()).isEqualTo("KRW");
         assertThat(journalCommand.createdBy()).isEqualTo("SYSTEM");
         assertThat(journalCommand.lineageSourceId()).isEqualTo(accountNumber);
+        assertThat(journalCommand.operationKey()).isEqualTo("DEPOSIT_ACCOUNT:" + accountNumber);
         assertThat(journalCommand.lines()).extracting("accountCode")
                 .containsExactly("CASH-001", "DEP-201");
     }
@@ -165,6 +166,7 @@ class DepositServiceTest {
             assertThat(event.getLineageSourceType()).isEqualTo("DEPOSIT_TRANSACTION");
             assertThat(event.getIdempotencyKey()).isEqualTo("DEPOSIT_TRANSACTION:" + event.getLineageSourceId());
             assertThat(event.getCommand().lineageSourceId()).isEqualTo(event.getLineageSourceId());
+            assertThat(event.getCommand().operationKey()).isEqualTo(event.getIdempotencyKey());
             assertThat(event.getCommand().lines()).hasSize(2);
             assertThat(event.getCommand().lines().get(0).amount())
                     .isEqualByComparingTo(event.getCommand().lines().get(1).amount());

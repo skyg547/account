@@ -84,6 +84,20 @@ class DepositTransactionalOutboxAdapterTest {
     }
 
     @Test
+    void legacyPayloadWithoutUsablePersistedKeyFailsInsteadOfInventingIdentity() throws Exception {
+        DepositOutboxEntity entity = new DepositOutboxEntity();
+        entity.setEventId("LEGACY-MISSING-KEY");
+        entity.setPayload(objectMapper.writeValueAsString(createSampleCommand("DEP-LEGACY", BigDecimal.TEN)));
+        when(repository.findByEventId(entity.getEventId())).thenReturn(Optional.of(entity));
+        for (String invalidKey : java.util.Arrays.asList(null, " ", "X".repeat(101))) {
+            entity.setIdempotencyKey(invalidKey);
+            assertThatThrownBy(() -> adapter.findJournalEventById(entity.getEventId()))
+                    .isInstanceOf(RuntimeException.class);
+        }
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("동일한 idempotencyKey를 갖는 이벤트 저장 시 중복 insert 없이 기존 이벤트를 반환한다 (Idempotency Guard)")
     void saveJournalEventDeduplicatesByIdempotencyKey() throws Exception {
         JournalEntryCommand command = createSampleCommand("DEP-2002", new BigDecimal("100000.00"));

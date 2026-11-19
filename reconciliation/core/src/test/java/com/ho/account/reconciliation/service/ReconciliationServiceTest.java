@@ -210,7 +210,8 @@ class ReconciliationServiceTest {
         assertThat(command.slipDate()).isEqualTo(reconciliationDate);
         assertThat(command.currencyCode()).isEqualTo("KRW");
         assertThat(command.lineageSourceType()).isEqualTo("RECONCILIATION");
-        assertThat(command.lineageSourceId()).isEqualTo("RECON_ADJ-RUN-900-DIFF-901-DR-131000-CR-211000");
+        assertThat(command.lineageSourceId()).isEqualTo("UNIT-10-DATE-2026-05-11");
+        assertThat(command.operationKey()).isEqualTo("RECONCILIATION:ADJUSTMENT:v1");
         assertThat(command.lines()).hasSize(2);
         assertThat(command.lines()).anySatisfy(line -> {
             assertThat(line.drcrType()).isEqualTo("DEBIT");
