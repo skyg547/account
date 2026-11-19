@@ -1,3 +1,9 @@
+## 2026-11-19 — GH-945 Reporting fixture ready for Draft publication
+
+- [Issue945](https://github.com/skyg547/account/issues/945), `agent/945-ci-reporting`, `C:/tmp/account-work-945-ci-reporting`, base `ed539846`. Two Reporting core build/test files +four parent records; Draft publication after checkpoint.
+- RED6/6fail→GREEN7; full core105/API10/Batch6=121PASS0failure/error/skip,2bootJars PASS. Fresh `/root/review_ci_fixes` no P0–P3, Q1–Q4 PASS. Actual copied production SQL hashes4/4 match.
+- Parent next: current-head CI +real approval/trust policy. H2 is not PostgreSQL deployment proof. Rollback reviewed test/build revert; no production SQL changes or resource deletion.
+
 ## 2026-10-20 — GH-924 actor/audit evidence, Draft PR #937
 
 - [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b2912554`; [Draft PR #937](https://github.com/skyg547/account/pull/937), `Refs #924`. Only `master-data/**`, `auth/**` and the four user-named harness/history records changed.

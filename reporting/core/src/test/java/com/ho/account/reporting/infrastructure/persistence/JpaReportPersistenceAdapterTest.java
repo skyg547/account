@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -24,9 +25,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
 
-@DataJpaTest
+// Validate the actual Reporting migrations without discovering other modules' database dialects.
+@DataJpaTest(properties = {
+        "spring.flyway.locations=classpath:db/reporting-test-migration",
+        "spring.jpa.hibernate.ddl-auto=validate"
+})
 @ContextConfiguration(classes = JpaReportPersistenceAdapterTest.JpaTestConfiguration.class)
 class JpaReportPersistenceAdapterTest {
+
+    @Autowired
+    private Flyway flyway;
 
     @Autowired
     private JpaReportLineMappingAdapter lineMappingAdapter;
@@ -48,6 +56,13 @@ class JpaReportPersistenceAdapterTest {
 
     @Autowired
     private JpaRegulatoryFilingAdapter regulatoryFilingAdapter;
+
+    @Test
+    void flyway_appliesExactlyReportingOwnedMigrations() {
+        assertThat(flyway.info().applied())
+                .extracting(migration -> migration.getVersion().getVersion())
+                .containsExactly("60", "61", "62", "63");
+    }
 
     @Test
     void loadMappings_groupsEffectiveAccountRowsByReportLine() {
