@@ -44,6 +44,15 @@ class ReceivablePostgresqlSchemaContextTest {
                 WHERE version = '1' AND success = TRUE
                 """, Integer.class)).isOne();
         assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM flyway_schema_history
+                WHERE version = '2' AND success = TRUE
+                """, Integer.class)).isOne();
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.table_constraints
+                WHERE table_name = 'collection_allocations'
+                  AND constraint_name = 'uk_collection_allocation_operation'
+                """, Integer.class)).isOne();
+        assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'public'
                   AND table_name IN ('sales_invoices', 'receivables', 'collections',

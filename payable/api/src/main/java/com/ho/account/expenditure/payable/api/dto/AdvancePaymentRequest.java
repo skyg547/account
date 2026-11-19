@@ -27,8 +27,14 @@ public class AdvancePaymentRequest {
 
     private String description;
 
+    @NotBlank(message = "선급금 업무 operationId는 필수입니다.")
+    private String operationId;
+
+    public String getOperationId() { return operationId; }
+    public void setOperationId(String operationId) { this.operationId = operationId; }
+
     public AdvancePaymentCommand toCommand() {
-        return new AdvancePaymentCommand(vendorCode, paymentDate, amount, description);
+        return new AdvancePaymentCommand(vendorCode, paymentDate, amount, description, operationId);
     }
 
     public String getVendorCode() { return vendorCode; }

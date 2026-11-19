@@ -37,6 +37,12 @@ public class CollectionPersistenceAdapter implements CollectionPersistencePort {
     }
 
     @Override
+    public Optional<Collection> findByIdForUpdate(Long id) {
+        return collectionRepository.findByIdForUpdate(id)
+                .map(collectionMapper::toDomain);
+    }
+
+    @Override
     public Optional<Collection> findByReferenceNo(String referenceNo) {
         if (referenceNo == null || referenceNo.isBlank()) {
             return Optional.empty();

@@ -4,7 +4,11 @@ import com.ho.account.receivable.domain.ReceivableStatus;
 import com.ho.account.receivable.infrastructure.persistence.entity.ReceivableJpaEntity;
 import com.ho.account.receivable.infrastructure.persistence.entity.SalesInvoiceJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,6 +17,9 @@ import java.util.Optional;
 
 @Repository
 public interface ReceivableRepository extends JpaRepository<ReceivableJpaEntity, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from ReceivableJpaEntity r where r.id = :id")
+    Optional<ReceivableJpaEntity> findByIdForUpdate(@Param("id") Long id);
     Optional<ReceivableJpaEntity> findBySalesInvoice(SalesInvoiceJpaEntity salesInvoice);
     List<ReceivableJpaEntity> findByCustomerCodeAndStatus(String customerCode, ReceivableStatus status);
     List<ReceivableJpaEntity> findByDueDateBeforeAndStatusNot(LocalDate dueDate, ReceivableStatus status);

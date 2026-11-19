@@ -2,7 +2,8 @@
 
 ## 실행 프로파일 계약
 
-- 기본 `local` 프로파일은 H2 PostgreSQL mode, 전용 Flyway V1, Hibernate `validate`를 사용한다.
+- 기본 `local` 프로파일은 H2 PostgreSQL mode, 전용 Flyway V1/V2/V3, Hibernate `validate`를 사용한다.
+- 새 원천 생성에는 V3 `receivable_source_creations`와 stripe 잠금 테이블이 필요하다. 원장 V21 및 새 digest 보존 계약을 먼저 배포하고, 과거 미완료 작업을 대사한 뒤 새 writer를 시작한다. 상세 순서는 [처리 흐름](process-flow.md)을 따른다.
 - `dev`/`prod`는 PostgreSQL 전용이며 런타임 Flyway/DDL/SQL init/Batch metadata init을 금지한다. 배포 전에 `migration-runner --context=receivable`을 실행한다.
 - `prod`는 `sslmode=verify-full`을 강제하고 DB 비밀번호는 환경 변수로만 주입한다.
 - 실제 PostgreSQL 검증은 승인 환경에서 별도로 필요하다. Master Data/Journal/수납 원격 어댑터는 Issue #264에서 구현하므로 그 전까지 완전한 dev/prod 업무 플로우는 준비되지 않았다.

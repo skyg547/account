@@ -35,6 +35,9 @@ dependencies {
     testImplementation project(':tax')
     testImplementation project(':payable')
     testImplementation project(':receivable')
+    testImplementation project(':receivable:core')
+    testImplementation project(':payable:core')
+    testImplementation 'com.h2database:h2'
 }
 
 bootRun {

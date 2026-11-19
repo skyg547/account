@@ -24,6 +24,11 @@ public class SalesInvoicePersistenceAdapter implements SalesInvoicePersistencePo
     }
 
     @Override
+    public Optional<SalesInvoice> findByInvoiceNo(String invoiceNo) {
+        return salesInvoiceRepository.findByInvoiceNo(invoiceNo).map(salesInvoiceMapper::toDomain);
+    }
+
+    @Override
     public SalesInvoice save(SalesInvoice invoice) {
         SalesInvoiceJpaEntity entity = salesInvoiceMapper.toEntity(invoice);
         SalesInvoiceJpaEntity savedEntity = salesInvoiceRepository.save(entity);

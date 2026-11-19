@@ -3,6 +3,7 @@ package com.ho.account.journalledger.infrastructure.adapter;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
@@ -20,6 +21,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -40,8 +42,9 @@ class JournalPostingAdapterTest {
 
     @Test
     void createDraftEntryMapsCommandFieldsAndBaseAmount() {
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
+        when(journalUseCase.createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(1);
             entry.setId(77L);
             entry.setSlipNo("JE-20260511-0001");
             entry.initializeDraft();
@@ -59,6 +62,8 @@ class JournalPostingAdapterTest {
                 "tester",
                 "RECONCILIATION",
                 "RECON_ADJ-1",
+                null,
+                "RECON-ADJ-1:MAIN:v1",
                 List.of(
                         new JournalLineCommand("DEBIT", "131000", new BigDecimal("50.00"), new BigDecimal("50.00"), null, null, "debit"),
                         new JournalLineCommand("CREDIT", "211000", new BigDecimal("50.00"), new BigDecimal("50.00"), null, null, "credit")
@@ -72,7 +77,11 @@ class JournalPostingAdapterTest {
         assertThat(result.status()).isEqualTo("DRAFT");
 
         ArgumentCaptor<JournalEntry> entryCaptor = ArgumentCaptor.forClass(JournalEntry.class);
-        verify(journalUseCase).createJournalEntry(entryCaptor.capture());
+        ArgumentCaptor<JournalCreationIdentity> identityCaptor =
+                ArgumentCaptor.forClass(JournalCreationIdentity.class);
+        verify(journalUseCase).createJournalEntry(identityCaptor.capture(), entryCaptor.capture());
+        assertThat(identityCaptor.getValue()).isEqualTo(
+                new JournalCreationIdentity("RECONCILIATION", "RECON_ADJ-1", "RECON-ADJ-1:MAIN:v1"));
         JournalEntry entry = entryCaptor.getValue();
 
         assertThat(entry.getSlipDate()).isEqualTo(LocalDate.of(2026, 5, 12));
@@ -101,8 +110,9 @@ class JournalPostingAdapterTest {
 
     @Test
     void preservesValidForeignRateAndConvertedBaseAmounts() {
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
+        when(journalUseCase.createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(1);
             entry.validateInvariants();
             entry.setId(78L);
             entry.setSlipNo("JE-20260511-0002");
@@ -115,7 +125,7 @@ class JournalPostingAdapterTest {
 
         assertThat(result.journalEntryId()).isEqualTo(78L);
         ArgumentCaptor<JournalEntry> entryCaptor = ArgumentCaptor.forClass(JournalEntry.class);
-        verify(journalUseCase).createJournalEntry(entryCaptor.capture());
+        verify(journalUseCase).createJournalEntry(any(JournalCreationIdentity.class), entryCaptor.capture());
         JournalEntry entry = entryCaptor.getValue();
         assertThat(entry.getCurrencyCode()).isEqualTo("USD");
         assertThat(entry.getExchangeRate()).isEqualByComparingTo("1300");
@@ -131,13 +141,15 @@ class JournalPostingAdapterTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("baseAmount");
 
-        verify(journalUseCase, never()).createJournalEntry(any());
+        verify(journalUseCase, never()).createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class));
     }
 
     @Test
     void acceptsOmittedRateAndBaseAmountForUnambiguousKrwContract() {
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
+        when(journalUseCase.createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(1);
             entry.validateInvariants();
             entry.setId(79L);
             entry.setSlipNo("JE-20260511-0003");
@@ -149,7 +161,7 @@ class JournalPostingAdapterTest {
 
         assertThat(result.journalEntryId()).isEqualTo(79L);
         ArgumentCaptor<JournalEntry> entryCaptor = ArgumentCaptor.forClass(JournalEntry.class);
-        verify(journalUseCase).createJournalEntry(entryCaptor.capture());
+        verify(journalUseCase).createJournalEntry(any(JournalCreationIdentity.class), entryCaptor.capture());
         JournalEntry entry = entryCaptor.getValue();
         assertThat(entry.getCurrencyCode()).isEqualTo("KRW");
         assertThat(entry.getExchangeRate()).isEqualByComparingTo("1");
@@ -166,7 +178,8 @@ class JournalPostingAdapterTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("1");
 
-        verify(journalUseCase, never()).createJournalEntry(any());
+        verify(journalUseCase, never()).createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class));
     }
 
     @Test
@@ -221,9 +234,56 @@ class JournalPostingAdapterTest {
         verify(journalUseCase, never()).postJournalEntry(any(), any());
     }
 
+    @Test
+    void explicitOperationKeyIsIndependentOfSlipNoWithinLineage() {
+        JournalEntryCommand command = new JournalEntryCommand(
+                LocalDate.of(2026, 5, 12), LocalDate.of(2026, 5, 11),
+                "separate tax journal", "NORMAL", "KRW", BigDecimal.ONE,
+                "contract-maker", "payload-auditor", "PAYABLE", "INV-765", " TAX-765 ", "INV-765:TAX:v1",
+                List.of(
+                        new JournalLineCommand("DEBIT", "11000", new BigDecimal("100.00"),
+                                new BigDecimal("100.00"), null, null, "debit"),
+                        new JournalLineCommand("CREDIT", "21000", new BigDecimal("100.00"),
+                                new BigDecimal("100.00"), null, null, "credit")));
+        when(journalUseCase.createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(1);
+            entry.setId(765L);
+            entry.initializeDraft();
+            return entry;
+        });
+
+        adapter.createDraftEntry(command);
+
+        ArgumentCaptor<JournalEntry> entryCaptor = ArgumentCaptor.forClass(JournalEntry.class);
+        verify(journalUseCase).createJournalEntry(
+                eq(new JournalCreationIdentity("PAYABLE", "INV-765", "INV-765:TAX:v1")),
+                entryCaptor.capture());
+        assertThat(entryCaptor.getValue().getSlipNo()).isEqualTo("TAX-765");
+        assertThat(entryCaptor.getValue().getLineageSourceType()).isEqualTo("PAYABLE");
+        assertThat(entryCaptor.getValue().getLineageSourceId()).isEqualTo("INV-765");
+    }
+
+    @Test
+    void missingOperationKeyFailsBeforeAnyJournalWriteEvenWhenSlipNoIsPresent() {
+        JournalEntryCommand command = new JournalEntryCommand(
+                LocalDate.of(2026, 5, 12), LocalDate.of(2026, 5, 11),
+                "legacy", "NORMAL", "KRW", BigDecimal.ONE,
+                "maker", "maker", "PAYABLE", "INV-765", "SLIP-765",
+                List.of(new JournalLineCommand("DEBIT", "11000", BigDecimal.ONE,
+                        BigDecimal.ONE, null, null, "debit")));
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("operationKey");
+        verify(journalUseCase, never()).createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class));
+    }
+
     private void validateAggregateAtUseCaseBoundary() {
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
+        when(journalUseCase.createJournalEntry(
+                any(JournalCreationIdentity.class), any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(1);
             entry.validateInvariants();
             return entry;
         });
@@ -250,6 +310,8 @@ class JournalPostingAdapterTest {
                 "payload-auditor",
                 "CONTRACT_TEST",
                 "FX-763",
+                null,
+                "FX-763:MAIN:v1",
                 List.of(
                         new JournalLineCommand("DEBIT", "11000", new BigDecimal("100.00"),
                                 baseAmount, null, null, "debit"),
