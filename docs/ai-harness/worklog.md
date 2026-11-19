@@ -1,3 +1,23 @@
+## 2026-11-19 — GH-945 Reporting migration ownership in persistence tests
+
+- Trace: [Issue #945](https://github.com/skyg547/account/issues/945), `agent/945-ci-reporting`, `C:/tmp/account-work-945-ci-reporting`, base `origin/main@ed539846`; parent publishes Draft PR after checkpoint. Scope: Reporting core build/test plus four parent-owned records. Production SQL/runtime untouched.
+- `processTestResources` copies the actual owned V60–V63 to an isolated test-only location. Flyway remains enabled, Hibernate validates the migrated schema, all six existing cases remain, and a seventh asserts exact applied versions. Copied SQL SHA256 matches its source4/4; Master Data PostgreSQL SQL from a dependency is no longer discovered by this Reporting-only H2 fixture.
+- Actual focused RED6/6fail→GREEN7/7. Full offline run below executed core105/API10/Batch6=121PASS,22 suites, failure/error/skip0, both bootJars. Reporting aggregate itself prints NO-SOURCE but real child tasks executed in the same log. Evidence: account automation `20261119-ci-reporting-{red,green,full}.log` and module XML.
+
+```powershell
+.\gradlew.bat :reporting:test :reporting:api:bootJar :reporting:batch:bootJar --offline --no-daemon --console=plain --max-workers=1
+```
+
+| Gate | Verdict | Evidence / remaining boundary |
+| --- | --- | --- |
+| Q1 clean code | PASS | Owned SQL resource copy; exact migration assertions; no test skips |
+| Q2 flow / intent | PASS | Build43/test28 explain dependency discovery and schema validation |
+| Q3 relevant guidance | PASS | Test-only isolation leaves documented runtime/commands accurate |
+| Q4 actual verification | PASS | RED/GREEN +121 full tests and2 bootJars, independently checked |
+
+- Fresh independent Astra Reviewer `/root/review_ci_fixes`, separate from spec/writer, found no P0–P3 and confirmed all quality gates PASS. Parent alone changes records/Git/GitHub. Changed-file whitespace/marker gates PASS; full tracked scan found pre-existing main Closing README markers, tracked by Issue947 and blocking merge until integrated. Node harness quality32/32 PASS. Python validator remains unexecuted: default Python absent and bundled Python lacks PyYAML; no install performed. No conflict resolution performed.
+- Rollback reviewed build/test revert, preserve production SQL/history. H2/packaging do not prove PostgreSQL deployment. Next owner parent: publish, inspect exact-head CI and obtain actual independent approval/trust policy; no same-account substitution, policy bypass or cleanup.
+
 ## 2026-10-20 — GH-924 authenticated actors and durable audit evidence
 
 - Trace: [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; [Draft PR #937](https://github.com/skyg547/account/pull/937) uses `Refs #924`. Allowlist: `master-data/**`, `auth/**`, and only the four specifically requested harness/history records. No shared contract, gateway, or other module source changed.

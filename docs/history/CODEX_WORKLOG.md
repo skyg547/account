@@ -1,3 +1,9 @@
+## 2026-11-19 — GH-945 existing Reporting CI fixture repair
+
+- User authorized open/rejected implementation through PR/review/merge. `agent/945-ci-reporting`, `C:/tmp/account-work-945-ci-reporting`, base `ed539846`; [Issue945](https://github.com/skyg547/account/issues/945). Writer owns Reporting build/test; parent owns four records and Git/GitHub. Draft publication after checkpoint.
+- Existing RED6/6fail at dependency MasterV9 PostgreSQL SQL→owned production migration copy→GREEN7; full core105/API10/Batch6=121PASS0failure/error/skip,2bootJars PASS. Fresh Astra `/root/review_ci_fixes` confirmed actual logs/XML/SQL byte identity, no P0–P3 and Q1–Q4 PASS.
+- No production SQL/runtime change, skips or deployment proof. Rollback reviewed build/test revert. Current published-head CI and real independent approval/trust policy remain gates; no bypass/deployment/cleanup.
+
 ## 2026-10-20 — GH-924 master-data/Auth actor and audit evidence
 
 - `$account-issue-loop`, `$account-hexagonal-change`, `$account-module-parallel` and `$account-review-handoff` governed Issue #924 on `agent/924-actor-audit` in `/tmp/account-924-actor-audit`, base `origin/main@b2912554`. Parallel writers owned disjoint `master-data/**` and `auth/**`; independent read-only reviewers checked both. Parent alone updated the four requested shared records and Git/GitHub state.
