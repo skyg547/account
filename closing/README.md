@@ -13,9 +13,9 @@
 불명확하면 영속 전이 기록을 유지하고 자동 재전송하지 않습니다.
 [월말 동시 결정과 복구](docs/process-flow.md#월말-동시-결정과-복구-gh-774)를 참고하세요.
 
-기간 잠금과 재오픈 요청 생성도 같은 캘린더 잠금으로 직렬화하며, V54의 기간별 고유 키가
+기간 잠금과 재오픈 요청 생성도 같은 캘린더 잠금으로 직렬화하며, V56의 기간별 고유 키가
 활성 잠금과 대기 중인 승인 요청을 각각 하나로 제한합니다. 잠금 해제와 승인 결정은 이력 행을
-보존합니다. 기존 중복이 있으면 V54 적용을 중단하고 [대사 절차](docs/schema.md#기간-잠금과-재오픈-고유성-gh-887)를
+보존합니다. 기존 중복이 있으면 V56 적용을 중단하고 [대사 절차](docs/schema.md#기간-잠금과-재오픈-고유성-gh-887)를
 따르세요.
 
 연차 손익 대체 API는 연도만 받고, 이익잉여금 목적지는 배포 검토를 거친
@@ -210,6 +210,6 @@ ECL 충당 Job 예시:
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.
 - Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49 baseline부터 V58까지 순서대로 적용합니다. V50은 EOD/BOD, V51은 인덱스, V52는 월말 전이, V53은 최종 마감 증빙, V54는 재오픈 회차, V55는 실행 키·전표 manifest, V56은 활성 잠금·대기 요청 고유 키, V57은 ECL 스냅샷, V58은 Journal checkpoint·fence와 해제 대기 상태를 추가합니다. 기존 legacy DB는 runner가 V49 전체 컬럼 타입·길이·nullability·identity·PK/FK/기간 unique를 확인한 뒤 baseline하고 후속 migration을 forward 적용합니다. 새 writer 기동 전에 Closing V58과 Journal V20을 migrate/validate하고 오래된 writer를 배출해야 합니다. Journal의 기존 마감 이력 대사·인증 절차도 [Journal admission 배포 조건](docs/local-run.md#journal-기간-봉인-gh-762)에 따라 완료해야 합니다.
-- ECL 스냅샷 라인리지에는 Closing Flyway V57이 필요합니다. 기존 ECL 전표에는 자동 역채움을 하지 않습니다.
+- ECL 스냅샷 라인리지에는 Closing Flyway V57이 필요합니다. 새 코드 기동 전에 적용하고 기존 ECL 전표에는 자동 역채움을 하지 않습니다.
 - 재오픈이 확정되면 이전 완료/통과 행을 보존한 채 새 회차의 `PENDING` 체크리스트를 만듭니다. 이미 재오픈된 legacy 캘린더는 과거 증빙을 차단하고 운영자가 새 정의를 등록해야 합니다. V58 이전 CLOSED 캘린더에 원래 Journal fence 명령이 없으면 자동 재오픈도 실패하며 별도 대사가 필요합니다. [재오픈 회차 흐름](docs/process-flow.md#재오픈-후-새-마감-회차-gh-885)을 참고하세요.
 - Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.
