@@ -2,8 +2,11 @@ package com.ho.account.gateway.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.URI;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.springframework.cloud.client.DefaultServiceInstance;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerUriTools;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -11,6 +14,35 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 class AuthTokenVersionValidatorTest {
+
+    @Test
+    void defaultWebClientUrlRetainsHttpWhenDiscoveryInstanceHasNoExplicitScheme() {
+        DefaultServiceInstance instance = new DefaultServiceInstance(
+                "synthetic-auth", "auth-service", "127.0.0.1", 18084, false);
+        assertThat(instance.getScheme()).isNull();
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(request -> {
+            // SimpleDiscovery's default instance supplies host/port only. A route-only lb scheme
+            // would survive URI reconstruction and reach the HTTP client as an unsupported protocol.
+            assertThat(request.url()).isEqualTo(URI.create(
+                    "http://auth-service/api/auth/validate-token-version"));
+            assertThat(LoadBalancerUriTools.reconstructURI(instance, request.url()))
+                    .isEqualTo(URI.create("http://127.0.0.1:18084/api/auth/validate-token-version"));
+            return jsonResponse("{\"valid\":true}");
+        });
+
+        assertThat(new AuthTokenVersionValidator(builder, properties()).validate("chain-user", 1).block())
+                .isEqualTo(TokenVersionValidationResult.VALID);
+    }
+
+    @Test
+    void defaultWebClientUrlRetainsSecureDiscoveryUpgrade() {
+        DefaultServiceInstance instance = new DefaultServiceInstance(
+                "synthetic-auth", "auth-service", "127.0.0.1", 18443, true);
+        URI request = URI.create(properties().getBaseUrl() + "/api/auth/validate-token-version");
+
+        assertThat(LoadBalancerUriTools.reconstructURI(instance, request))
+                .isEqualTo(URI.create("https://127.0.0.1:18443/api/auth/validate-token-version"));
+    }
 
     @Test
     void validate_returnsValidAndCachesOnlyValidResponse() {

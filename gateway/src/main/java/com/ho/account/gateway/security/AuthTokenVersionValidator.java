@@ -21,7 +21,7 @@ import reactor.core.publisher.Mono;
  * MSA 환경에서 대상 서버가 재시작하거나 IP가 바뀔 때 매번 설정을 재배포해야 하고 트래픽 부하분산이 불가능합니다.</p>
  *
  * <p>2. 서비스 디스커버리와 Spring Cloud LoadBalancer 연동:
- * Spring Cloud LoadBalancer와 Eureka 서비스 디스커버리를 결합하여 `lb://auth-service` 형식을 사용할 경우,
+ * Spring Cloud LoadBalancer와 서비스 디스커버리를 결합하여 `http://auth-service` 형식을 사용할 경우,
  * Gateway는 Eureka Registry에서 등록된 auth-service 인스턴스 리스트(IP:Port)를 동적으로 조회합니다.
  * {@link LoadBalanced} WebClient는 가용 인스턴스들에 요청 트래픽을 부하 분산(Round-Robin 등)하여
  * 고가용성(HA)과 무중단 배포 및 유연한 확장성을 제공합니다.</p>

@@ -23,7 +23,6 @@ interface AuthUserJpaRepository extends JpaRepository<AuthUserJpaEntity, String>
     List<AuthUserJpaEntity> findByUsernameIn(List<String> usernames);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = "roleAssignments")
     @Query("select user from AuthUserJpaEntity user where user.username = :username")
     Optional<AuthUserJpaEntity> findByUsernameForRoleAssignmentUpdate(@Param("username") String username);
 }

@@ -20,7 +20,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * <p>2. 클라이언트 측 로드밸런싱 (Client-Side Load Balancing):</p>
  * <ul>
  *   <li>{@link LoadBalanced} 어노테이션이 지정된 {@link WebClient.Builder}는 Spring Cloud LoadBalancer 필터를 체이닝합니다.</li>
- *   <li>'lb://auth-service/api/...'와 같은 논리적 서비스 URL이 요청되면, Discovery Client를 통해 등록된
+ *   <li>'http://auth-service/api/...'와 같은 논리적 서비스 URL이 요청되면, Discovery Client를 통해 등록된
  *       'auth-service'의 활성 인스턴스 목록(IP:Port)을 실시간으로 가져옵니다.</li>
  *   <li>라운드로빈(Round-Robin) 등의 알고리즘을 사용해 여러 인스턴스로 요청 트래픽을 부하 분산하고, 실제 주소로 URL을 변환(Resolve)하여 호출합니다.</li>
  * </ul>

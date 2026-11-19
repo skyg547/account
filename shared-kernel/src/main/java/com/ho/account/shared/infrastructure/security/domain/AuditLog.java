@@ -27,7 +27,7 @@ public class AuditLog {
     @Column(name = "EVENT_DATE_TIME", nullable = false)
     private LocalDateTime eventDateTime;
 
-    @Column(name = "USER_ID", nullable = false, length = 50)
+    @Column(name = "USER_ID", nullable = false, length = 80)
     private String userId;
 
     @Column(name = "TARGET_ENTITY", nullable = false, length = 100)
@@ -36,10 +36,10 @@ public class AuditLog {
     @Column(name = "TARGET_ID", nullable = false, length = 100)
     private String targetId;
 
-    @Column(name = "BEFORE_DATA", columnDefinition = "CLOB")
+    @Column(name = "BEFORE_DATA", columnDefinition = "text")
     private String beforeData;
 
-    @Column(name = "AFTER_DATA", columnDefinition = "CLOB")
+    @Column(name = "AFTER_DATA", columnDefinition = "text")
     private String afterData;
 
     @Column(name = "STATUS", length = 20)
@@ -57,7 +57,7 @@ public class AuditLog {
     @Column(name = "UPDATE_DATE", nullable = false)
     private LocalDateTime updateDate;
 
-    @Column(name = "AUDIT_USER", nullable = false, length = 50)
+    @Column(name = "AUDIT_USER", nullable = false, length = 80)
     private String auditUser;
 
     @PrePersist
