@@ -2,6 +2,8 @@ package com.ho.account.expenditure.application.service;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.SourceRequestFingerprint;
+import com.ho.account.expenditure.application.port.out.SourceCreationPersistencePort;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
@@ -43,6 +45,7 @@ public class PaymentService implements PaymentUseCase {
     private final PayableAccountMappingPort payableAccountMappingPort;
     private final PaymentExecutionPort paymentExecutionPort;
     private final AccountingPeriodStatusPort accountingPeriodStatusPort;
+    private final SourceCreationPersistencePort sourceCreationPersistencePort;
 
     public PaymentService(PaymentPersistencePort paymentPersistencePort,
                           PayablePersistencePort payablePersistencePort,
@@ -53,7 +56,8 @@ public class PaymentService implements PaymentUseCase {
                           JournalPostingPort journalPostingPort,
                           PayableAccountMappingPort payableAccountMappingPort,
                           PaymentExecutionPort paymentExecutionPort,
-                          AccountingPeriodStatusPort accountingPeriodStatusPort) {
+                          AccountingPeriodStatusPort accountingPeriodStatusPort,
+                          SourceCreationPersistencePort sourceCreationPersistencePort) {
         this.paymentPersistencePort = paymentPersistencePort;
         this.payablePersistencePort = payablePersistencePort;
         this.paymentRunPersistencePort = paymentRunPersistencePort;
@@ -64,6 +68,7 @@ public class PaymentService implements PaymentUseCase {
         this.payableAccountMappingPort = payableAccountMappingPort;
         this.paymentExecutionPort = paymentExecutionPort;
         this.accountingPeriodStatusPort = accountingPeriodStatusPort;
+        this.sourceCreationPersistencePort = sourceCreationPersistencePort;
     }
 
     @Override
@@ -232,6 +237,19 @@ public class PaymentService implements PaymentUseCase {
 
     @Override
     public AdvancePayment recordAdvancePayment(AdvancePaymentCommand command) {
+        // The caller's immutable business key survives source rollback; generated advance IDs do not.
+        // A committed source receipt is a fast path only after the complete request has been compared.
+        String fingerprint = SourceRequestFingerprint.calculate("ADVANCE_PAYMENT_V1", command.operationId(),
+                command.vendorCode(), command.paymentDate(), command.amount(), command.description());
+        sourceCreationPersistencePort.acquireLock("ADVANCE_PAYMENT_REF", command.operationId());
+        var previous = sourceCreationPersistencePort.find("ADVANCE_PAYMENT_REF", command.operationId());
+        if (previous.isPresent()) {
+            if (!fingerprint.equals(previous.get().requestFingerprint())) {
+                throw new PayableOperationConflictException("Advance operationId conflicts with its original request");
+            }
+            return advancePaymentPersistencePort.findById(previous.get().sourceId())
+                    .orElseThrow(() -> new IllegalStateException("Advance receipt references a missing source"));
+        }
         validateAccountingPeriodOpen(command.paymentDate());
 
         AdvancePayment advancePayment = toAdvancePayment(command);
@@ -240,7 +258,8 @@ public class PaymentService implements PaymentUseCase {
 
         AdvancePayment savedAdvancePayment = advancePaymentPersistencePort.save(advancePayment);
 
-        postAdvanceJournal(savedAdvancePayment);
+        postAdvanceJournal(savedAdvancePayment, command.operationId(), fingerprint);
+        sourceCreationPersistencePort.save("ADVANCE_PAYMENT_REF", command.operationId(), fingerprint, savedAdvancePayment.getId());
 
         return savedAdvancePayment;
     }
@@ -333,7 +352,7 @@ public class PaymentService implements PaymentUseCase {
         journalPostingPort.createDraftEntry(command);
     }
 
-    private void postAdvanceJournal(AdvancePayment advance) {
+    private void postAdvanceJournal(AdvancePayment advance, String operationId, String fingerprint) {
         PayableAccountMappingPort.AdvancePaymentAccounts accounts =
                 payableAccountMappingPort.resolveAdvancePaymentAccounts(advance);
         requireAccounts(accounts.requiredAccountCodes());
@@ -344,8 +363,8 @@ public class PaymentService implements PaymentUseCase {
                 "Advance: " + advance.getVendorCode() + " - " + advance.getAmount(),
                 "ADVANCE_PAYMENT",
                 null, null, "SYSTEM", "SYSTEM",
-                "ADVANCE_PAYMENT", advance.getId().toString(),
-                null, "ADVANCE_PAYMENT:" + advance.getId(),
+                "ADVANCE_PAYMENT_REF", operationId,
+                null, "ADVANCE_RECOGNITION", fingerprint,
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.advanceAccountCode(), advance.getAmount(), null, null,
                                 advance.getVendorCode(), "Advance recognized"),
@@ -358,6 +377,7 @@ public class PaymentService implements PaymentUseCase {
 
     private JournalPostingResult postOffsetJournal(Payable payable, AdvancePayment advance,
                                                    BigDecimal amount, String operationId, LocalDate accountingDate) {
+        // Scope identity to payable/operation. The advance is content, so changing it cannot rekey a retry.
         PayableAccountMappingPort.AdvanceOffsetAccounts accounts =
                 payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable);
         requireAccounts(accounts.requiredAccountCodes());
@@ -365,11 +385,13 @@ public class PaymentService implements PaymentUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 accountingDate, accountingDate,
                 // Display names can change after a remote success; the source vendor code keeps retry fingerprints stable.
-                "Offset: " + payable.getVendorCode() + " - " + amount,
+                "Offset: " + payable.getVendorCode() + " - " + amount.setScale(2, java.math.RoundingMode.UNNECESSARY).toPlainString(),
                 "AP_ADVANCE_OFFSET",
                 null, null, "SYSTEM", "SYSTEM",
-                "PAYABLE_OFFSET", payable.getId() + ":" + advance.getId(),
+                "PAYABLE_OFFSET", payable.getId().toString(),
                 null, "AP_ADVANCE_OFFSET:" + payable.getId() + ":" + operationId,
+                SourceRequestFingerprint.calculate("PAYABLE_OFFSET_V1", payable.getId(), advance.getId(),
+                        amount, operationId, accountingDate),
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), amount, null, null,
                                 payable.getVendorCode(), "AP Offset"),

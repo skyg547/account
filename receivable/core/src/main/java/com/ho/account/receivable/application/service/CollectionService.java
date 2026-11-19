@@ -2,6 +2,8 @@ package com.ho.account.receivable.application.service;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.SourceRequestFingerprint;
+import com.ho.account.receivable.application.port.out.SourceCreationPersistencePort;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
@@ -26,6 +28,8 @@ import java.util.Optional;
 @Transactional
 public class CollectionService implements CollectionUseCase {
 
+    private static final String AUTO_REMAINDER_OPERATION = "AUTO_REMAINDER_V1";
+
     private final CollectionPersistencePort collectionPersistencePort;
     private final ReceivablePersistencePort receivablePersistencePort;
     private final SalesInvoicePersistencePort salesInvoicePersistencePort;
@@ -35,6 +39,7 @@ public class CollectionService implements CollectionUseCase {
     private final CollectionMatchingPolicyPort collectionMatchingPolicyPort;
     private final CollectionAllocationPersistencePort collectionAllocationPersistencePort;
     private final AccountingPeriodStatusPort accountingPeriodStatusPort;
+    private final SourceCreationPersistencePort sourceCreationPersistencePort;
 
     public CollectionService(CollectionPersistencePort collectionPersistencePort,
                              ReceivablePersistencePort receivablePersistencePort,
@@ -44,7 +49,8 @@ public class CollectionService implements CollectionUseCase {
                              ReceivableAccountMappingPort receivableAccountMappingPort,
                              CollectionMatchingPolicyPort collectionMatchingPolicyPort,
                              CollectionAllocationPersistencePort collectionAllocationPersistencePort,
-                             AccountingPeriodStatusPort accountingPeriodStatusPort) {
+                             AccountingPeriodStatusPort accountingPeriodStatusPort,
+                             SourceCreationPersistencePort sourceCreationPersistencePort) {
         this.collectionPersistencePort = collectionPersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
@@ -54,16 +60,26 @@ public class CollectionService implements CollectionUseCase {
         this.collectionMatchingPolicyPort = collectionMatchingPolicyPort;
         this.collectionAllocationPersistencePort = collectionAllocationPersistencePort;
         this.accountingPeriodStatusPort = accountingPeriodStatusPort;
+        this.sourceCreationPersistencePort = sourceCreationPersistencePort;
     }
 
     @Override
     public Collection receivePayment(CollectionCommand command) {
-        // 멱등성 가드: 동일 referenceNo를 가진 수납 요청 재시도 시 중복 생성 및 중복 분개 방지
-        if (command.referenceNo() != null && !command.referenceNo().isBlank()) {
-            Optional<Collection> existing = collectionPersistencePort.findByReferenceNo(command.referenceNo());
-            if (existing.isPresent()) {
-                return existing.get();
+        // Database IDs can be reallocated after a remote commit/local rollback. The bank's immutable
+        // request key survives that boundary; the local receipt only records successful local completion.
+        String fingerprint = SourceRequestFingerprint.calculate("COLLECTION_V1", command.collectionDate(),
+                command.customerCode(), command.amount(), command.bankAccount(), command.virtualAccount(), command.referenceNo());
+        sourceCreationPersistencePort.acquireLock("COLLECTION_REF", command.referenceNo());
+        var previous = sourceCreationPersistencePort.find("COLLECTION_REF", command.referenceNo());
+        if (previous.isPresent()) {
+            if (!fingerprint.equals(previous.get().requestFingerprint())) {
+                throw new ReceivableOperationConflictException("Collection reference conflicts with its original request");
             }
+            return collectionPersistencePort.findById(previous.get().sourceId())
+                    .orElseThrow(() -> new IllegalStateException("Collection receipt references a missing source"));
+        }
+        if (collectionPersistencePort.findByReferenceNo(command.referenceNo()).isPresent()) {
+            throw new ReceivableOperationConflictException("Legacy collection requires reconciliation before retry");
         }
 
         validateAccountingPeriodOpen(command.collectionDate());
@@ -79,7 +95,8 @@ public class CollectionService implements CollectionUseCase {
         Collection savedCollection = collectionPersistencePort.save(collection);
 
         // 1. 수납 인식 전표 발행 (Cash -> AR Clearing)
-        postCollectionRecognitionJournal(savedCollection, customer);
+        postCollectionRecognitionJournal(savedCollection, customer, fingerprint);
+        sourceCreationPersistencePort.save("COLLECTION_REF", command.referenceNo(), fingerprint, savedCollection.getId());
 
         return savedCollection;
     }
@@ -104,8 +121,9 @@ public class CollectionService implements CollectionUseCase {
         if (match != null) {
             Receivable lockedMatch = receivablePersistencePort.findByIdForUpdate(match.getId())
                     .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + match.getId()));
-            // Auto matching consumes the full remainder once for this collection/receivable pair.
-            processMatch(collection, lockedMatch, collection.getUnallocatedAmount(), "AUTO:" + match.getId());
+            // Automatic matching consumes this collection's entire remainder once. Candidate drift after
+            // remote commit/local rollback must conflict under the same operation, never allocate a new key.
+            processMatch(collection, lockedMatch, collection.getUnallocatedAmount(), AUTO_REMAINDER_OPERATION);
         } else {
             collection.markAsUnmatched();
             collectionPersistencePort.save(collection);
@@ -200,7 +218,7 @@ public class CollectionService implements CollectionUseCase {
                 .orElseThrow(() -> new IllegalArgumentException("Customer info missing: " + customerCode));
     }
 
-    private void postCollectionRecognitionJournal(Collection collection, BusinessPartnerRef customer) {
+    private void postCollectionRecognitionJournal(Collection collection, BusinessPartnerRef customer, String fingerprint) {
         ReceivableAccountMappingPort.CollectionRecognitionAccounts accounts =
                 receivableAccountMappingPort.resolveCollectionRecognitionAccounts(collection);
         requireAccounts(accounts.requiredAccountCodes());
@@ -211,8 +229,8 @@ public class CollectionService implements CollectionUseCase {
                 "Collection: " + collection.getCustomerCode() + " - " + collection.getAmount(),
                 "COLLECTION_RECOGNITION",
                 null, null, "SYSTEM", "SYSTEM",
-                "COLLECTION", collection.getId().toString(),
-                null, "PRIMARY",
+                "COLLECTION_REF", collection.getReferenceNo(),
+                null, "COLLECTION_RECOGNITION", fingerprint,
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.cashAccountCode(), collection.getAmount(), null, null,
                                 customer.code(), "Cash/Bank Increase"),
@@ -225,6 +243,7 @@ public class CollectionService implements CollectionUseCase {
 
     private void postMatchJournal(Collection collection, Receivable receivable, BigDecimal amount,
                                   BusinessPartnerRef customer, String operationId) {
+        // A changed target must conflict even if the prior allocation rolled back and financial lines match.
         ReceivableAccountMappingPort.CollectionMatchAccounts accounts =
                 receivableAccountMappingPort.resolveCollectionMatchAccounts(collection, receivable);
         requireAccounts(accounts.requiredAccountCodes());
@@ -232,11 +251,12 @@ public class CollectionService implements CollectionUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 collection.getCollectionDate(),
                 collection.getCollectionDate(),
-                "Match: " + collection.getCustomerCode() + " - " + amount,
+                "Match: " + collection.getCustomerCode() + " - " + amount.setScale(2, java.math.RoundingMode.UNNECESSARY).toPlainString(),
                 "AR_CLEARING",
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION_MATCH", collection.getId().toString(),
-                null, operationId,
+                null, operationId, SourceRequestFingerprint.calculate("COLLECTION_MATCH_V1",
+                        collection.getId(), receivable.getId(), amount, operationId),
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.arClearingAccountCode(), amount, null, null,
                                 customer.code(), "AR Clearing decrease"),

@@ -111,7 +111,7 @@ class JournalCreationConcurrencyIntegrationTest {
             Future<Attempt> second = executor.submit(() -> createInNewTransaction(identity, equivalentRetry));
 
             assertThatThrownBy(() -> second.get(300, TimeUnit.MILLISECONDS))
-                    .as("the loser must wait on the V20 stripe until the winner transaction commits")
+                    .as("the loser must wait on the V21 stripe until the winner transaction commits")
                     .isInstanceOf(TimeoutException.class);
             gate.release.countDown();
 

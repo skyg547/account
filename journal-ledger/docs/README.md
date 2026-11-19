@@ -6,9 +6,9 @@
 
 1. [beginner-guide.md](./beginner-guide.md): 초보자 개념, 코드 탐색, DDD/헥사고날 구조
 2. [process-flow.md](./process-flow.md): 전표 생성 멱등성, 승인·전기·미결 업무와 데이터 흐름
-3. [schema.md](./schema.md): 핵심 테이블 관계, V20 생성 작업 registry와 소유권
+3. [schema.md](./schema.md): 핵심 테이블 관계, V21 생성 작업 registry와 소유권
 4. [ledger-carry-forward.md](./ledger-carry-forward.md): 원장 잔액 이월 상세
-5. [posting-concurrency.md](./posting-concurrency.md): 동시 생성·전기, 역분개, 잔액 잠금, 재시도, V13/V14/V15/V17/V18/V19/V20 배포·롤백과 검증
+5. [posting-concurrency.md](./posting-concurrency.md): 동시 생성·전기, 역분개, 잔액 잠금, 재시도, V13/V14/V15/V17/V18/V19/V21 배포·롤백과 검증
 6. [layer-guide.md](./layer-guide.md): application/domain/adapter 계층과 출력 포트 경계
 
 루트 `README.md`에는 모듈 개요와 빠른 실행 정보만 두고, 상세 설명은 위 문서에서 통합 관리합니다.
@@ -85,8 +85,8 @@ journal-ledger:
 루트 [docs/guides/local-development.md](../../docs/guides/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
 
 API local과 Batch local은 서로 다른 H2 메모리 DB를 사용하지만 둘 다 module-owned Flyway
-V1~V20을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블,
-V17 역분개 operation 관계, V18 event quarantine, V19 전표번호 sequence, V20 생성 작업 registry도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
+V1~V21을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블,
+V17 역분개 operation 관계, V18 event quarantine, V19 전표번호 sequence, V21 생성 작업 registry도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
 승인된 별도 migration-runner가 먼저 적용한 스키마를 validate합니다.
 
 ```powershell

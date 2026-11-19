@@ -57,7 +57,7 @@ V19를 적용하고 새 버전만 시작해야 합니다. 이전 버전이 계�
 
 ### 전표 생성 operation identity
 
-V20의 `journal_creation_operations`는 lineage 전체를 유일하게 만들지 않습니다. 대신
+V21의 `journal_creation_operations`는 lineage 전체를 유일하게 만들지 않습니다. 대신
 `(source_type, source_id, operation_key)`에 UNIQUE를 적용하여 한 원천 안에서 각 생성 작업을
 따로 식별합니다. `journal_entry_id`도 UNIQUE/FK이므로 하나의 완료 operation은 정확히 하나의
 전표를 가리키며, 같은 전표를 서로 다른 생성 identity의 결과로 등록할 수 없습니다.
@@ -80,7 +80,7 @@ stripe는 성능을 위한 identity 해시 분할이고 업무 소유권 데이�
 
 V17의 `journal_reversal_operations`는 이 registry와 목적과 수명주기가 다릅니다. 관리형 역분개는
 원본 전표 ID와 `PENDING/POSTED/CANCELLED` 상태로 재생성 권리를 관리하고, 일반 생성의
-`PRIMARY` operation이나 V20 registry를 역분개 소유권으로 사용하지 않습니다.
+`PRIMARY` operation이나 V21 registry를 역분개 소유권으로 사용하지 않습니다.
 
 V16은 `journal_entries.approved_by`를 추가합니다. 새 전표는 `created_by`(maker),
 `approved_by`(checker), `audit_user`(마지막 상태 처리자)를 분리하므로 전기 후 `audit_user`가 poster로
@@ -382,16 +382,16 @@ operation을 무시하므로 역분개 생성·승인·전기 writer를 복구 �
 잔여 위험은 JPA 콜백과 포트를 우회하는 직접 SQL writer, 운영 PostgreSQL에서 미검증한
 lock wait/분산 장애/부하, backfill 전에 조정해야 하는 기존 중복·손상 lineage입니다.
 
-## 전표 생성 operation registry (V20)
+## 전표 생성 operation registry (V21)
 
-`V20__journal_creation_operations.sql`은 `journal_creation_operation_locks` 256행과
+`V21__journal_creation_operations.sql`은 `journal_creation_operation_locks` 256행과
 `journal_creation_operations`를 새로 만듭니다. identity 컬럼 길이는 source type 50,
 source ID와 operation key 각각 100입니다. 애플리케이션 identity는 값을 trim한 뒤 blank를 거부합니다. fingerprint version은
 양수, digest는 64자리 lowercase hexadecimal이라는 CHECK를 적용합니다.
 
 이 migration은 기존 `journal_entries`를 읽어 registry를 backfill하지 않습니다. 과거 lineage에는
 신뢰할 operation key와 canonical fingerprint가 없으므로 임의의 `PRIMARY`를 만들면 서로 다른
-합법적 전표를 한 작업으로 잘못 합칠 수 있기 때문입니다. V20 배포 뒤 새 코드가 처리한 생성만
+합법적 전표를 한 작업으로 잘못 합칠 수 있기 때문입니다. V21 배포 뒤 새 코드가 처리한 생성만
 registry 보호를 받습니다. 이 배포 절차는 기존 전표를 operation에 연결하거나 lineage 중 하나를
 승자로 고르지 않으며, 필요하면 별도 승인된 대사와 forward remediation으로 다룹니다.
 
@@ -399,7 +399,7 @@ runtime role은 lock 테이블의 `SELECT/UPDATE`, registry의 `SELECT/INSERT`, 
 사용하는 데 필요한 최소 권한이 있어야 합니다. registry는 완료 receipt이므로 runtime의
 `UPDATE/DELETE` 대상이 아닙니다. migration/DDL 권한은 계속 별도 release role만 가집니다.
 적용 뒤에는 lock ID가 정확히 0~255인지, UNIQUE/FK/CHECK와 Hibernate validate가 모두 맞는지
-확인합니다. 배포·롤백과 writer fencing은 [동시성 문서](posting-concurrency.md#v20-전표-생성-멱등성-업그레이드와-롤백)를 따릅니다.
+확인합니다. 배포·롤백과 writer fencing은 [동시성 문서](posting-concurrency.md#v21-전표-생성-멱등성-업그레이드와-롤백)를 따릅니다.
 
 ## Kafka 이벤트 격리 (V18)
 

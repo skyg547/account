@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.SourceRequestFingerprint;
+import com.ho.account.receivable.application.port.out.SourceCreationPersistencePort;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
@@ -55,6 +57,9 @@ class SalesServiceTest {
     @Mock
     private AccountingPeriodStatusPort accountingPeriodStatusPort;
 
+    @Mock
+    private SourceCreationPersistencePort sourceCreationPersistencePort;
+
     private SalesService service;
 
     @BeforeEach
@@ -65,7 +70,7 @@ class SalesServiceTest {
                 masterDataQueryPort,
                 journalPostingPort,
                 receivableAccountMappingPort,
-                accountingPeriodStatusPort);
+                accountingPeriodStatusPort, sourceCreationPersistencePort);
     }
 
     @Test
@@ -98,7 +103,7 @@ class SalesServiceTest {
                 .containsExactly("AR-001", "REV-001", "VAT-001");
         assertThat(commandCaptor.getValue().createdBy()).isEqualTo("sales-user");
         assertThat(commandCaptor.getValue().auditUser()).isEqualTo("sales-user");
-        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("PRIMARY");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("SALES_RECOGNITION");
     }
 
     @Test

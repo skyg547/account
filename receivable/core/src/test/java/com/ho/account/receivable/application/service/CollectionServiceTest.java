@@ -12,6 +12,8 @@ import static org.mockito.Mockito.when;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.SourceRequestFingerprint;
+import com.ho.account.receivable.application.port.out.SourceCreationPersistencePort;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
@@ -68,6 +70,9 @@ class CollectionServiceTest {
     @Mock
     private AccountingPeriodStatusPort accountingPeriodStatusPort;
 
+    @Mock
+    private SourceCreationPersistencePort sourceCreationPersistencePort;
+
     private CollectionService service;
 
     @BeforeEach
@@ -81,7 +86,7 @@ class CollectionServiceTest {
                 receivableAccountMappingPort,
                 collectionMatchingPolicyPort,
                 collectionAllocationPersistencePort,
-                accountingPeriodStatusPort);
+                accountingPeriodStatusPort, sourceCreationPersistencePort);
     }
 
     @Test
@@ -109,7 +114,7 @@ class CollectionServiceTest {
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("CASH-001", "CLR-001");
-        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("PRIMARY");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("COLLECTION_RECOGNITION");
     }
 
     @Test
@@ -125,8 +130,10 @@ class CollectionServiceTest {
                 "VA-001",
                 "REF-DUPLICATE-001");
 
-        when(collectionPersistencePort.findByReferenceNo("REF-DUPLICATE-001"))
-                .thenReturn(Optional.of(existingCollection));
+        when(sourceCreationPersistencePort.find("COLLECTION_REF", "REF-DUPLICATE-001"))
+                .thenReturn(Optional.of(new SourceCreationPersistencePort.Receipt(
+                        collectionFingerprint(duplicateCommand), existingCollection.getId())));
+        when(collectionPersistencePort.findById(existingCollection.getId())).thenReturn(Optional.of(existingCollection));
 
         Collection result = service.receivePayment(duplicateCommand);
 
@@ -150,9 +157,11 @@ class CollectionServiceTest {
         Collection savedCollection = collection();
         savedCollection.setReferenceNo("REF-IDEMPOTENT-002");
 
-        when(collectionPersistencePort.findByReferenceNo("REF-IDEMPOTENT-002"))
+        when(sourceCreationPersistencePort.find("COLLECTION_REF", "REF-IDEMPOTENT-002"))
                 .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(savedCollection));
+                .thenReturn(Optional.of(new SourceCreationPersistencePort.Receipt(
+                        collectionFingerprint(command), savedCollection.getId())));
+        when(collectionPersistencePort.findById(savedCollection.getId())).thenReturn(Optional.of(savedCollection));
         when(accountingPeriodStatusPort.isClosed(command.collectionDate())).thenReturn(false);
         when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer()));
         when(collectionPersistencePort.save(any(Collection.class))).thenReturn(savedCollection);
@@ -393,7 +402,7 @@ class CollectionServiceTest {
         ArgumentCaptor<JournalEntryCommand> journalCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort, times(2)).createDraftEntry(journalCaptor.capture());
         assertThat(journalCaptor.getAllValues()).extracting(JournalEntryCommand::operationKey)
-                .containsExactly("AUTO:30", "AUTO:30");
+                .containsExactly("AUTO_REMAINDER_V1", "AUTO_REMAINDER_V1");
     }
 
     @Test
@@ -595,6 +604,11 @@ class CollectionServiceTest {
                 .hasMessageContaining("차변 합계(500.00)와 대변 합계(450.00)가 일치하지 않습니다");
     }
 
+    private static String collectionFingerprint(CollectionCommand command) {
+        return SourceRequestFingerprint.calculate("COLLECTION_V1", command.collectionDate(), command.customerCode(),
+                command.amount(), command.bankAccount(), command.virtualAccount(), command.referenceNo());
+    }
+
     private CollectionCommand collectionCommand() {
         return new CollectionCommand(
                 LocalDate.of(2026, 5, 29),
@@ -602,7 +616,7 @@ class CollectionServiceTest {
                 new BigDecimal("100.00"),
                 null,
                 null,
-                null);
+                "REF-001");
     }
 
     private Collection collection() {

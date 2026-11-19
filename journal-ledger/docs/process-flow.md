@@ -79,14 +79,14 @@ receipt를 만들지 않아 나중에 규칙 보정 뒤 다시 처리할 수 있
 라인 설명 수식이 비어 있을 때도 이 전표 설명을 사용합니다. 규칙 표시명 등 규칙 정의만 바뀌어도
 완료된 이벤트 요청의 기존 전표는 다시 생성하지 않습니다. 반면 같은 키로 이벤트 payload의 금액·
 명시적 설명 등이 바뀌면 충돌로 거부합니다.
-같은 identity와 같은 fingerprint면 V20 registry가 가리키는 기존 전표를 반환합니다. identity는
+같은 identity와 같은 fingerprint면 V21 registry가 가리키는 기존 전표를 반환합니다. identity는
 같지만 fingerprint가 다르면 원 요청이 바뀐 것이므로 기존 전표를 반환하지
 않고 명시적인 생성 충돌로 실패합니다. 오류 응답과 로그에는 fingerprint나 원 요청 내용을
 노출하지 않습니다. HTTP는 이를 `409 Conflict`로 매핑하고, contract는 예외를
 호출자에게 전달하며, Kafka는 listener 실패를 다시 던져 배포된 retry/DLQ 정책이 처리하게 합니다.
 충돌은 기존 전표와 registry를 변경하지 않습니다.
 Kafka 미매칭은 별도 V18 quarantine에 broker 좌표와 원본 payload를 보존합니다. 관리자 replay도
-보존된 업무 키·lineage·회계일로 V20 생성 유스케이스를 호출하고 전표와 quarantine 상태를 한
+보존된 업무 키·lineage·회계일로 V21 생성 유스케이스를 호출하고 전표와 quarantine 상태를 한
 트랜잭션에 commit합니다. 서로 다른 transport의 maker principal이 달라지면 감사 내용이 다르므로
 같은 operation key라도 fingerprint 충돌로 거부합니다. 수동·contract version 1과 이벤트
 HTTP·Kafka version 2는 비교 대상이 다른 요청 표현이므로, 동일한 source에서 이 경로들이
@@ -96,16 +96,16 @@ DB stripe 잠금은 아직 registry 행이 없는 첫 요청끼리도 같은 ide
 잠금을 잡은 뒤 registry를 다시 조회하고, 첫 요청만 검증·전표 저장·registry 연결을 하나의
 트랜잭션에서 commit합니다. 검증, 전표 저장 또는 registry 저장이 실패하면 전부 rollback되므로
 완료되지 않은 receipt가 남지 않습니다. 호출자는 모호한 실패 뒤 동일한 세 키와 payload로 전체
-명령을 재시도할 수 있습니다. V20 UNIQUE는 애플리케이션 잠금의 마지막 방어선이며, 제약 경쟁도
+명령을 재시도할 수 있습니다. V21 UNIQUE는 애플리케이션 잠금의 마지막 방어선이며, 제약 경쟁도
 성공한 기존 결과를 새 트랜잭션에서 다시 확인해야 하지 무조건 성공으로 간주하지 않습니다.
 
 관리형 역분개는 V17의 `journal_reversal_operations`와 원본 전표 잠금으로 소유권을 정하며 이 일반
 생성 registry의 `PRIMARY`를 재사용하지 않습니다. 원본당 단일 역분개, 취소 후 재생성, 전기 경쟁
 규칙은 아래 [원본당 단일 역분개 작업](#원본당-단일-역분개-작업)의 독립 계약을 유지합니다.
 identity 없는 core 호환 생성 메서드는 production wiring에서 생성 전에 거부합니다. 테스트용
-embedded 호환 구성에는 V20 receipt가 없으므로 외부 재시도 경로가 사용하면 안 됩니다.
+embedded 호환 구성에는 V21 receipt가 없으므로 외부 재시도 경로가 사용하면 안 됩니다.
 이 문서의 멱등 보장은 위 표의 identity-aware 경로에 한정됩니다.
-V20 이전 전표는 registry에 자동 연결되지 않습니다. 배포 전 처리됐지만 응답이 유실된 이벤트를
+V21 이전 전표는 registry에 자동 연결되지 않습니다. 배포 전 처리됐지만 응답이 유실된 이벤트를
 새 코드에 그대로 다시 보내면 기존 전표를 찾지 못해 중복 생성할 수 있으므로, cutover 전에 모든
 writer와 입력을 fence하고 대기 중인 outbox/Kafka/클라이언트 재시도를 기존 전표와 대사해야 합니다.
 
@@ -417,8 +417,8 @@ Kafka payload의 `accountingDate`는 필수 ISO 날짜 문자열(`YYYY-MM-DD`)�
 않고 하나의 조건부 aggregate SQL로 읽어 READ_COMMITTED에서도 같은 statement snapshot을 봅니다.
 
 V18 quarantine은 Kafka broker record의 미매칭 완전성을 관리합니다. 일반 전표 생성의
-HTTP/contract/manual/Kafka 재시도는 위 V20 operation key와 versioned fingerprint로
-별도 보호합니다. replay가 나중에 전표를 만들 때도 같은 V20 업무 identity를 사용합니다.
+HTTP/contract/manual/Kafka 재시도는 위 V21 operation key와 versioned fingerprint로
+별도 보호합니다. replay가 나중에 전표를 만들 때도 같은 V21 업무 identity를 사용합니다.
 lineage 전체에 UNIQUE를 추가하지 않으며 null slip 번호에서 작업 키를 추측하지 않습니다.
 
 룰 평가·검증·DB 예외처럼 quarantine 정상 처리가 아닌 실패는 설정된 `DefaultErrorHandler`가
@@ -646,7 +646,7 @@ GL/SL 대사를 거친 재집계 계획이 필요합니다.
 
 ## 재시도와 정합성 주의사항
 
-- 같은 생성 identity의 동등 요청은 V20 receipt가 가리키는 기존 전표를 반환합니다. 내용이 다르면 기존 결과를 성공으로 오인하지 않고 충돌하며, 실패한 트랜잭션은 버리고 같은 identity·payload로 전체 명령을 재시도합니다.
+- 같은 생성 identity의 동등 요청은 V21 receipt가 가리키는 기존 전표를 반환합니다. 내용이 다르면 기존 결과를 성공으로 오인하지 않고 충돌하며, 실패한 트랜잭션은 버리고 같은 identity·payload로 전체 명령을 재시도합니다.
 - 동일 반제 참조번호는 다시 적용하지 않습니다.
 - 같은 전표의 동시 요청은 DB 헤더 잠금으로 직렬화합니다. 커밋 후 재요청은 최신 `POSTED` 상태를 읽고 승인 상태 검증으로 거부하므로 추가 GL/SL·잔액 효과가 없습니다. 상세 동작과 검증은 [동시 전기 제어](posting-concurrency.md)를 참고합니다.
 - 서로 다른 전표도 계정·통화별 공통 잠금을 먼저 확보하여 GL/SL의 최신 금액에 누적합니다. 신규 잔액과 NULL SL 차원도 포함합니다. 데드락 실패는 호출자의 전체 트랜잭션을 롤백한 뒤 새 트랜잭션으로 재시도합니다.
@@ -667,3 +667,11 @@ HTTP 수동·룰 이벤트·외부 posting 생성은 채번 저장소 오류나 
 `journal_entries.slip_no`의 UNIQUE 제약은 최종 중복 방어선입니다.
 새 자동 형식과 같은 수동 지정 번호는 사전에 거부합니다. 과거 4자리 번호와 다른 수동
 번호는 기존 UNIQUE 제약을 따르며, 원천 이벤트 멱등성 정책은 변경되지 않습니다.
+
+## 원천 요청 fingerprint와 rollback 경계
+
+HTTP `/api/v1/journals/posting`의 sourceRequestFingerprint는 계약 adapter → createJournalEntry(identity, entry, digest) → JournalCreationFingerprint로 전달한다. source의 정규화 입력 전체 digest를 전표 재무/감사 내용과 함께 저장한 receipt fingerprint에 결합한다. 같은 source/op에서 매칭 대상처럼 전표 라인에 나타나지 않는 업무 필드가 바뀌면 409다. REST 및 Spring event의 신뢰된 maker 교체는 작성자/감사자만 덮어쓰고 sourceRequestFingerprint를 보존한다. digest는 registry key가 아니다. 기존 digest 없는 v1 요청의 hash와 일반 다중 operation/reversal 동작은 유지한다.
+
+소스 DB와 원장은 분산 트랜잭션이 아니다. producer가 원격 호출 전부터 보유한 불변 업무 키를 사용해야 한다. Receivable은 invoiceNo/referenceNo, Payable의 신규 선급금은 필수 operationId를 사용한다. 소스 ID는 rollback 후 재할당될 수 있으므로 생성 identity로 사용하지 않는다. producer 재시도가 끝날 때까지 원장만 존재할 수 있고, 이 구간의 대사/업무 완료 통제가 필요하다.
+
+아직 적용되지 않은 생성 registry migration 파일을 V21로 배정해 별도 admission migration V20과 번호를 분리했다. 적용된 DB 이력의 파일을 바꾸거나 repair한 작업이 아니다. 기존 V20 creation을 적용한 환경이 있다면 자동 적용하지 말고 별도 승인된 migration 전환이 필요하다.

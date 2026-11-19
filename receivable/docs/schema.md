@@ -120,3 +120,9 @@ erDiagram
 ## PostgreSQL 기준선
 
 전용 Flyway V1은 6개 소유 테이블을 생성한다. `numeric(19,2)` 금액, 인보이스 합계, 인보이스당 채권 1개, 고객 귀속 복합 FK, 상태-잔액/매칭 금액, 배분 라인리지 및 배치 조회 인덱스를 강제한다. V2는 기존 배분에 `LEGACY:<id>`를 채운 뒤 `operation_id` 필수값과 유일 제약을 추가한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.
+
+## 원천 생성 receipt (V3)
+
+`receivable_source_creation_locks`는 0~63의 미리 생성된 잠금 행을 가진다. `(source_type, business_key)`의 Java 문자열 hash로 stripe를 고르며 금액/digest는 잠금 키가 아니다. 첫 요청도 원격 응답과 로컬 commit까지 잠금을 유지하므로 같은 요청은 한 소스만 만든다. 서로 다른 키의 stripe 충돌은 처리량만 줄이며 identity를 합치지 않는다.
+
+`receivable_source_creations`의 PK는 `(source_type VARCHAR(50), business_key VARCHAR(100))`이고 `request_fingerprint VARCHAR(64)`, `source_id BIGINT`가 완료된 요청을 연결한다. source_type은 `SALES_INVOICE_REF`/`COLLECTION_REF`; source_id는 서로 다른 테이블을 참조하므로 polymorphic FK 대신 유스케이스가 소스 존재와 같은 트랜잭션 커밋을 보장한다. 조회 누락은 실패한다. receipt는 runtime UPDATE/DELETE 대상이 아니다. 요청 수에 비례하여 증가하며 보존/archival은 별도 승인 정책이 필요하다.

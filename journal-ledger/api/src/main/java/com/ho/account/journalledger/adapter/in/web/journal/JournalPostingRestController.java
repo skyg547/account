@@ -77,9 +77,11 @@ public class JournalPostingRestController {
     }
 
     private JournalEntryCommand withTrustedMaker(JournalEntryCommand command, String maker) {
+        // Replace only actor claims; dropping the source digest would erase target/due-date conflict checks.
         return new JournalEntryCommand(
                 command.slipDate(), command.accountingDate(), command.description(), command.entryType(),
                 command.currencyCode(), command.exchangeRate(), maker, maker, command.lineageSourceType(),
-                command.lineageSourceId(), command.slipNo(), command.operationKey(), command.lines());
+                command.lineageSourceId(), command.slipNo(), command.operationKey(),
+                command.sourceRequestFingerprint(), command.lines());
     }
 }

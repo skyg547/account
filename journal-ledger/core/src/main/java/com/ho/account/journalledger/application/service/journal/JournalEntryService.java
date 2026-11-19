@@ -227,6 +227,13 @@ public class JournalEntryService implements JournalUseCase {
     public JournalEntry createJournalEntry(
             JournalCreationIdentity identity,
             JournalEntry journalEntry) {
+        return createJournalEntry(identity, journalEntry, null);
+    }
+
+    @Override
+    @Transactional
+    public JournalEntry createJournalEntry(JournalCreationIdentity identity, JournalEntry journalEntry,
+            String sourceRequestFingerprint) {
         if (identity == null) {
             throw new IllegalArgumentException("journal creation identity must not be null");
         }
@@ -239,7 +246,7 @@ public class JournalEntryService implements JournalUseCase {
         assertIdentityMatchesLineage(identity, journalEntry);
         Optional<JournalCreationOperation> existingOperation =
                 journalCreationOperationPersistencePort.findByIdentity(identity);
-        String fingerprint = JournalCreationFingerprint.calculate(journalEntry);
+        String fingerprint = JournalCreationFingerprint.calculate(journalEntry, sourceRequestFingerprint);
         if (existingOperation.isPresent()) {
             return resolveExistingCreation(existingOperation.get(), JournalCreationFingerprint.CURRENT_VERSION, fingerprint);
         }

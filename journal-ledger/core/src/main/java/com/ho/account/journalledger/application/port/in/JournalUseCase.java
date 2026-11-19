@@ -70,6 +70,10 @@ public interface JournalUseCase {
      */
     JournalEntry createJournalEntry(JournalCreationIdentity identity, JournalEntry journalEntry);
 
+    /** Binds source fields (for example allocation target) that are absent from financial lines. */
+    JournalEntry createJournalEntry(JournalCreationIdentity identity, JournalEntry journalEntry,
+            String sourceRequestFingerprint);
+
     /**
      * 이벤트 데이터로부터 자동 전표를 생성합니다.
      *

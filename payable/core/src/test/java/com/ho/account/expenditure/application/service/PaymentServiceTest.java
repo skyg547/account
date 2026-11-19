@@ -2,6 +2,8 @@ package com.ho.account.expenditure.application.service;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.SourceRequestFingerprint;
+import com.ho.account.expenditure.application.port.out.SourceCreationPersistencePort;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
@@ -79,6 +81,9 @@ class PaymentServiceTest {
     @Mock
     private AccountingPeriodStatusPort accountingPeriodStatusPort;
 
+    @Mock
+    private SourceCreationPersistencePort sourceCreationPersistencePort;
+
     private PaymentService service;
 
     @BeforeEach
@@ -93,7 +98,7 @@ class PaymentServiceTest {
                 journalPostingPort,
                 payableAccountMappingPort,
                 paymentExecutionPort,
-                accountingPeriodStatusPort);
+                accountingPeriodStatusPort, sourceCreationPersistencePort);
     }
 
     @Test
@@ -171,14 +176,14 @@ class PaymentServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(30L, "SLIP-3", "DRAFT"));
 
-        service.recordAdvancePayment(new AdvancePaymentCommand("V001", LocalDate.of(2026, 5, 29), new BigDecimal("200.00"), null));
+        service.recordAdvancePayment(new AdvancePaymentCommand("V001", LocalDate.of(2026, 5, 29), new BigDecimal("200.00"), null, "advance-request-1"));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("ADV-003", "CASH-003");
-        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("ADVANCE_PAYMENT:200");
+        assertThat(commandCaptor.getValue().operationKey()).isEqualTo("ADVANCE_RECOGNITION");
         assertThat(commandCaptor.getValue().description()).isEqualTo("Advance: V001 - 200.00");
     }
 
@@ -221,7 +226,7 @@ class PaymentServiceTest {
                 .containsExactly(new BigDecimal("100.00"), new BigDecimal("100.00"));
         assertThat(commandCaptor.getValue().lines()).extracting("businessPartnerCode")
                 .containsExactly("V001", "V001");
-        assertThat(commandCaptor.getValue().lineageSourceId()).isEqualTo("100:200");
+        assertThat(commandCaptor.getValue().lineageSourceId()).isEqualTo("100");
         assertThat(commandCaptor.getValue().operationKey()).isEqualTo("AP_ADVANCE_OFFSET:100:offset-1");
         assertThat(commandCaptor.getValue().description()).isEqualTo("Offset: V001 - 100.00");
         verify(offsetOperationPersistencePort).save(new PayableOffsetOperation(
@@ -349,7 +354,7 @@ class PaymentServiceTest {
         assertThat(journalCommands.getAllValues()).extracting(JournalEntryCommand::operationKey)
                 .containsExactly("AP_ADVANCE_OFFSET:100:offset-1", "AP_ADVANCE_OFFSET:100:offset-2");
         assertThat(journalCommands.getAllValues()).extracting(JournalEntryCommand::lineageSourceId)
-                .containsExactly("100:200", "100:200");
+                .containsExactly("100", "100");
         assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("350.00");
         assertThat(advance.getOutstandingAmount()).isEqualByComparingTo("50.00");
         assertThat(committed).hasSize(2);
@@ -481,7 +486,7 @@ class PaymentServiceTest {
         when(accountingPeriodStatusPort.isClosed(closedDate)).thenReturn(true);
 
         assertThatThrownBy(() -> service.recordAdvancePayment(
-                new AdvancePaymentCommand("V001", closedDate, new BigDecimal("200.00"), null)))
+                new AdvancePaymentCommand("V001", closedDate, new BigDecimal("200.00"), null, "advance-request-1")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("이미 마감된 기간입니다");
     }

@@ -38,7 +38,7 @@ application 계층은 유즈케이스 흐름을 조정합니다.
 - `UnsettledService`는 미결 반제 유즈케이스를 조정하고 `UnsettledItem` 도메인 메서드가 상태 전이를 처리하게 합니다.
 - `JournalEntryService`는 수동·contract·자동 전표를 같은 검증 파이프라인으로 보내며, `PostingService`는 전기 전에 같은 환산 불변식을 가진 `GeneralLedger` 스냅샷을 만듭니다.
 - `JournalEntryService`의 생성 경계는 `(sourceType, sourceId, operationKey)`와 versioned fingerprint를 사용해 첫 생성과 동등 재시도를 구분합니다. 생성 작업 잠금·registry는 `JournalCreationOperationPersistencePort` 뒤에 두고, 전표와 registry를 한 트랜잭션으로 묶습니다.
-- identity가 없는 호환 `createJournalEntry(JournalEntry)`는 production wiring에서 거부합니다. 테스트용 embedded 호환 구성만 V20 receipt 없이 실행되므로 외부 재시도 경로가 사용하면 안 됩니다. HTTP·메시지·contract는 반드시 `JournalCreationIdentity`를 받는 overload를 사용하며, 관리형 역분개는 V17 전용 유즈케이스를 사용합니다.
+- identity가 없는 호환 `createJournalEntry(JournalEntry)`는 production wiring에서 거부합니다. 테스트용 embedded 호환 구성만 V21 receipt 없이 실행되므로 외부 재시도 경로가 사용하면 안 됩니다. HTTP·메시지·contract는 반드시 `JournalCreationIdentity`를 받는 overload를 사용하며, 관리형 역분개는 V17 전용 유즈케이스를 사용합니다.
 
 ## domain 계층
 
@@ -95,7 +95,7 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 | 기능 | 출력 포트 | 기본 어댑터 | 대량 어댑터 |
 | --- | --- | --- | --- |
 | 전표 저장 | `JournalPersistencePort` | JPA | 별도 필요 시 추가 |
-| 전표 생성 멱등성 | `JournalCreationOperationPersistencePort` | DB stripe lock + V20 registry | - |
+| 전표 생성 멱등성 | `JournalCreationOperationPersistencePort` | DB stripe lock + V21 registry | - |
 | 자동분개 규칙 조회 | `JournalRuleQueryPort` | JPA | - |
 | GL/SL 엔트리 저장 | `LedgerEntryPersistencePort.save(GeneralLedger)` | Aggregate → JPA entity mapping 후 `saveAll` | 같은 Aggregate를 JDBC batch insert |
 | GL/SL 잔액 저장 | `LedgerBalancePersistencePort` | JPA `saveAll` | JDBC upsert/update+insert |

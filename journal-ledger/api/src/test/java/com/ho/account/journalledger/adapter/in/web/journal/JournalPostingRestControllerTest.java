@@ -74,6 +74,7 @@ class JournalPostingRestControllerTest {
                 "INV-100",
                 null,
                 "INV-100:MAIN:v1",
+                "b".repeat(64),
                 List.of(debit, credit)
         );
 
@@ -100,6 +101,7 @@ class JournalPostingRestControllerTest {
             assertThat(trusted.auditUser()).isEqualTo("trusted-maker");
             assertThat(trusted.lineageSourceId()).isEqualTo(command.lineageSourceId());
             assertThat(trusted.operationKey()).isEqualTo(command.operationKey());
+            assertThat(trusted.sourceRequestFingerprint()).isEqualTo(command.sourceRequestFingerprint());
         });
     }
 

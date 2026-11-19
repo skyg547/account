@@ -19,6 +19,22 @@ import org.springframework.http.ResponseEntity;
 class CollectionControllerTest {
 
     @Test
+    void receiptWithoutStableBankReferenceFailsBeforeCallingCore() throws Exception {
+        CollectionUseCase useCase = org.mockito.Mockito.mock(CollectionUseCase.class);
+        var validator = new org.springframework.validation.beanvalidation.LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        try {
+            org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(new CollectionController(useCase))
+                    .setValidator(validator).build()
+                    .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/collections")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("{\"collectionDate\":\"2026-09-25\",\"customerCode\":\"C1\",\"amount\":100.00}"))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest());
+            org.mockito.Mockito.verifyNoInteractions(useCase);
+        } finally { validator.close(); }
+    }
+
+    @Test
     void receivePayment_acceptsRequestDtoAndReturnsResponseDto() {
         CapturingCollectionUseCase useCase = new CapturingCollectionUseCase();
         CollectionController controller = new CollectionController(useCase);

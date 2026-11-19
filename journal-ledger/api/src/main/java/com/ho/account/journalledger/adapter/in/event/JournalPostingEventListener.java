@@ -61,11 +61,12 @@ public class JournalPostingEventListener {
     }
 
     private JournalEntryCommand withTrustedMaker(JournalEntryCommand command) {
-        // An in-process event has no Gateway-authenticated headers, so its payload cannot establish identity.
+        // An in-process event cannot establish maker identity. Preserve business content binding while
+        // replacing actor claims, otherwise a changed source target could reuse an earlier journal.
         return new JournalEntryCommand(
                 command.slipDate(), command.accountingDate(), command.description(), command.entryType(),
                 command.currencyCode(), command.exchangeRate(), SPRING_EVENT_MAKER, SPRING_EVENT_MAKER,
                 command.lineageSourceType(), command.lineageSourceId(), command.slipNo(),
-                command.operationKey(), command.lines());
+                command.operationKey(), command.sourceRequestFingerprint(), command.lines());
     }
 }

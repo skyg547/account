@@ -29,7 +29,7 @@ final class JournalCreationOperationWriteLock {
         int lockId = stableStripe(requiredIdentity);
         Integer acquiredLockId = repository.lockOperationStripe(lockId)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Journal creation lock stripe is missing; apply migration V20"));
+                        "Journal creation lock stripe is missing; apply migration V21"));
         if (acquiredLockId != lockId) {
             throw new IllegalStateException("Unexpected journal creation lock stripe: " + acquiredLockId);
         }

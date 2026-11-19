@@ -2,6 +2,8 @@ package com.ho.account.receivable.application.service;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.SourceRequestFingerprint;
+import com.ho.account.receivable.application.port.out.SourceCreationPersistencePort;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
@@ -42,23 +44,43 @@ public class SalesService implements SalesUseCase {
     private final JournalPostingPort journalPostingPort;
     private final ReceivableAccountMappingPort receivableAccountMappingPort;
     private final AccountingPeriodStatusPort accountingPeriodStatusPort;
+    private final SourceCreationPersistencePort sourceCreationPersistencePort;
 
     public SalesService(SalesInvoicePersistencePort salesInvoicePersistencePort,
                         ReceivablePersistencePort receivablePersistencePort,
                         MasterDataQueryPort masterDataQueryPort,
                         JournalPostingPort journalPostingPort,
                         ReceivableAccountMappingPort receivableAccountMappingPort,
-                        AccountingPeriodStatusPort accountingPeriodStatusPort) {
+                        AccountingPeriodStatusPort accountingPeriodStatusPort,
+                        SourceCreationPersistencePort sourceCreationPersistencePort) {
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
         this.receivableAccountMappingPort = receivableAccountMappingPort;
         this.accountingPeriodStatusPort = accountingPeriodStatusPort;
+        this.sourceCreationPersistencePort = sourceCreationPersistencePort;
     }
 
     @Override
     public SalesInvoice createSalesInvoice(SalesInvoiceCommand command) {
+        // The invoice number is supplied before any transaction; generated invoice IDs are not retry keys.
+        // Bind due date and description too, since equal journal lines do not imply equal source requests.
+        String fingerprint = SourceRequestFingerprint.calculate("SALES_INVOICE_V1", command.invoiceNo(),
+                command.customerCode(), command.issueDate(), command.dueDate(), command.totalAmount(),
+                command.taxAmount(), command.netAmount(), command.createdBy(), command.description());
+        sourceCreationPersistencePort.acquireLock("SALES_INVOICE_REF", command.invoiceNo());
+        var previous = sourceCreationPersistencePort.find("SALES_INVOICE_REF", command.invoiceNo());
+        if (previous.isPresent()) {
+            if (!fingerprint.equals(previous.get().requestFingerprint())) {
+                throw new ReceivableOperationConflictException("Invoice number conflicts with its original request");
+            }
+            return findInvoiceById(previous.get().sourceId());
+        }
+        // Legacy rows have no trustworthy creation receipt; reconciliation must establish their original request.
+        if (salesInvoicePersistencePort.findByInvoiceNo(command.invoiceNo()).isPresent()) {
+            throw new ReceivableOperationConflictException("Legacy invoice requires reconciliation before retry");
+        }
         validateAccountingPeriodOpen(command.issueDate());
 
         SalesInvoice invoice = toInvoice(command);
@@ -80,7 +102,8 @@ public class SalesService implements SalesUseCase {
         receivablePersistencePort.save(receivable);
 
         // 3. 매출 인식 전표 발행
-        postSalesJournal(savedInvoice, customer);
+        postSalesJournal(savedInvoice, customer, fingerprint);
+        sourceCreationPersistencePort.save("SALES_INVOICE_REF", command.invoiceNo(), fingerprint, savedInvoice.getId());
 
         return savedInvoice;
     }
@@ -143,7 +166,7 @@ public class SalesService implements SalesUseCase {
                 .orElseThrow(() -> new IllegalArgumentException("Customer info missing in master data: " + customerCode));
     }
 
-    private void postSalesJournal(SalesInvoice invoice, BusinessPartnerRef customer) {
+    private void postSalesJournal(SalesInvoice invoice, BusinessPartnerRef customer, String fingerprint) {
         ReceivableAccountMappingPort.SalesRecognitionAccounts accounts =
                 receivableAccountMappingPort.resolveSalesRecognitionAccounts(invoice);
         requireAccounts(accounts.requiredAccountCodes());
@@ -154,8 +177,8 @@ public class SalesService implements SalesUseCase {
                 "Sales: " + invoice.getInvoiceNo() + " - " + invoice.getCustomerCode(),
                 "SALES_RECOGNITION",
                 null, null, invoice.getCreatedBy(), invoice.getCreatedBy(),
-                "SALES_INVOICE", invoice.getId().toString(),
-                null, "PRIMARY",
+                "SALES_INVOICE_REF", invoice.getInvoiceNo(),
+                null, "SALES_RECOGNITION", fingerprint,
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsReceivableAccountCode(), invoice.getTotalAmount(), null, null,
                                 customer.code(), "Accounts Receivable"),

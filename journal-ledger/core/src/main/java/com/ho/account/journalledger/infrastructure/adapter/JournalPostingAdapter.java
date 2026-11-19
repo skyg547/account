@@ -131,7 +131,9 @@ public class JournalPostingAdapter implements JournalPostingPort {
         }).collect(Collectors.toList()));
 
         // Lock/compare/save/link is owned by the application use case, not this transport adapter.
-        JournalEntry savedEntry = journalUseCase.createJournalEntry(identity, entry);
+        JournalEntry savedEntry = command.sourceRequestFingerprint() == null
+                ? journalUseCase.createJournalEntry(identity, entry)
+                : journalUseCase.createJournalEntry(identity, entry, command.sourceRequestFingerprint());
 
         return new JournalPostingResult(
                 savedEntry.getId(),

@@ -27,9 +27,13 @@ public record JournalEntryCommand(
         String lineageSourceId,
         String slipNo,
         String operationKey,
+        String sourceRequestFingerprint,
         List<JournalLineCommand> lines) {
 
     public JournalEntryCommand {
+        if (sourceRequestFingerprint != null && !sourceRequestFingerprint.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("sourceRequestFingerprint must be a lowercase SHA-256 digest");
+        }
         Objects.requireNonNull(slipDate, "slipDate must not be null");
         Objects.requireNonNull(accountingDate, "accountingDate must not be null");
         lines = List.copyOf(Objects.requireNonNull(lines, "lines must not be null"));
@@ -55,6 +59,15 @@ public record JournalEntryCommand(
                 throw new IllegalArgumentException("operationKey must not exceed 100 characters");
             }
         }
+    }
+
+    /** Compatibility for callers whose complete business request is already represented by journal fields. */
+    public JournalEntryCommand(LocalDate slipDate, LocalDate accountingDate, String description,
+            String entryType, String currencyCode, BigDecimal exchangeRate, String createdBy,
+            String auditUser, String lineageSourceType, String lineageSourceId, String slipNo,
+            String operationKey, List<JournalLineCommand> lines) {
+        this(slipDate, accountingDate, description, entryType, currencyCode, exchangeRate, createdBy,
+                auditUser, lineageSourceType, lineageSourceId, slipNo, operationKey, null, lines);
     }
 
     /**

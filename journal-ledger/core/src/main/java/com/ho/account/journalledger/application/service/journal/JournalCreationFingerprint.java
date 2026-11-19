@@ -37,6 +37,13 @@ public final class JournalCreationFingerprint {
      * while retaining duplicate lines because the list itself is never converted to a set.</p>
      */
     public static String calculate(JournalEntry entry) {
+        return calculate(entry, null);
+    }
+
+    public static String calculate(JournalEntry entry, String sourceRequestFingerprint) {
+        if (sourceRequestFingerprint != null && !sourceRequestFingerprint.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("Invalid source request fingerprint");
+        }
         if (entry == null) {
             throw new IllegalArgumentException("journalEntry must not be null");
         }
@@ -65,6 +72,11 @@ public final class JournalCreationFingerprint {
                 canonical.writeInt(lineEncodings.size());
                 for (byte[] lineEncoding : lineEncodings) {
                     writeBytes(canonical, lineEncoding);
+                }
+                // Preserve existing v1 receipts when absent; presence is explicitly domain-separated.
+                if (sourceRequestFingerprint != null) {
+                    writeText(canonical, "source-request-v1");
+                    writeText(canonical, sourceRequestFingerprint);
                 }
             }
             return HexFormat.of().formatHex(sha256(canonicalBytes.toByteArray()));

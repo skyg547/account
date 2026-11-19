@@ -4,7 +4,7 @@
 두 요청이 겹쳐도 경제적 효과는 한 번이어야 합니다. 처리자를 생략한 canonical `system` 요청과
 명시 처리자 요청, JPA와 `jdbc-bulk` 모드 모두 같은 `PostingService`를 통과합니다.
 
-전표 생성도 응답 유실과 at-least-once 전달을 견뎌야 합니다. V20은
+전표 생성도 응답 유실과 at-least-once 전달을 견뎌야 합니다. V21은
 `(sourceType, sourceId, operationKey)`를 256개 고정 stripe 중 하나에 매핑해 첫 요청부터
 직렬화합니다. 수동·contract 명령은 생성 전표의 version 1 fingerprint, 이벤트 HTTP·Kafka는
 회계일과 trusted maker를 포함한 원 이벤트의 version 2 fingerprint로 비교합니다. 같은 identity와
@@ -292,9 +292,9 @@ V17은 인식 가능한 기존 역분개를 backfill하며 부정합을 임의�
 참고합니다. 직접 SQL writer, 운영 PostgreSQL lock wait/부하, 분산 장애, 기존 부정합의
 자동 복구는 이 변경의 검증 범위 밖입니다.
 
-## V20 전표 생성 멱등성 업그레이드와 롤백
+## V21 전표 생성 멱등성 업그레이드와 롤백
 
-V20은 기존 전표를 변경하지 않고 256개 `journal_creation_operation_locks` 행과 빈
+V21은 기존 전표를 변경하지 않고 256개 `journal_creation_operation_locks` 행과 빈
 `journal_creation_operations` registry를 만듭니다. 기존 lineage는 operation key나 canonical
 fingerprint가 없으므로 backfill하지 않습니다. 따라서 배포 경계를 기준으로 새 코드가 처리한
 생성부터 보호되며, 과거 전표를 임의의 `PRIMARY`에 연결하거나 자동 승자를 고르지 않습니다.
@@ -311,7 +311,7 @@ outbox/Kafka 기록·클라이언트 재시도 대기열을 기존 전표와 대
    예전 `JournalEntryCommand` 생성자를 사용하여 `operationKey`가 비어 있습니다. 이 생산자들을
    별도 승인 변경으로 안정적인 업무 사건/버전 키에 이주시켜야 합니다. 단순히 `slipNo`를
    복사하거나 전 writer에 `PRIMARY`를 일괄 지정하면 한 원천의 합법적 여러 전표가 충돌합니다.
-2. 별도 release role로 V20을 migrate/validate합니다. transactional migration이 실패하면 원인을
+2. 별도 release role로 V21을 migrate/validate합니다. transactional migration이 실패하면 원인을
    고친 뒤 처음부터 재시도하고, 적용 파일을 수정하거나 Flyway `repair`로 덮지 않습니다.
 3. 아래 쿼리 결과가 `256, 0, 255`인지 확인하고, operation identity/journal FK/UNIQUE와 fingerprint
    CHECK를 migration metadata 및 Hibernate validate로 확인합니다.
@@ -324,16 +324,16 @@ FROM journal_creation_operation_locks;
 4. runtime role에는 lock 테이블 `SELECT/UPDATE`, operation registry `SELECT/INSERT`, PostgreSQL
    identity sequence 사용에 필요한 최소 권한만 부여합니다. runtime DDL 및 registry
    `UPDATE/DELETE`는 허용하지 않습니다.
-5. API·consumer·내장 contract writer를 모두 같은 V20 인식 코드로 교체하고 위 생산자들의
+5. API·consumer·내장 contract writer를 모두 같은 V21 인식 코드로 교체하고 위 생산자들의
    operation key 공급과 cutover 이전 in-flight 이벤트 대사를 확인한 뒤 Hibernate schema
    validate와 권한 점검을 통과해야 fence를 엽니다.
    같은 키의 동등 재시도, 다른 fingerprint의
    HTTP `409`/contract·Kafka 실패, 같은 lineage의 서로 다른 operation key를 폐기 가능한 데이터로
    확인합니다.
 
-코드 롤백도 먼저 모든 생성 writer를 fence한 상태에서 수행합니다. 성공한 V20 migration,
+코드 롤백도 먼저 모든 생성 writer를 fence한 상태에서 수행합니다. 성공한 V21 migration,
 256개 lock 행, operation registry와 FK/UNIQUE receipt는 삭제·수정·`repair`하지 않고 보존합니다.
-V20 이전 코드는 registry를 읽거나 쓰지 않으므로 애플리케이션을 되돌렸다는 이유만으로 생성
+V21 이전 코드는 registry를 읽거나 쓰지 않으므로 애플리케이션을 되돌렸다는 이유만으로 생성
 트래픽을 재개하면 안 됩니다. 수정 버전 또는 승인된 forward migration으로 보호를 회복하고,
 롤백 창에 생성이 있었다면 전표·lineage·registry를 대사해 누락을 승인된 절차로 해결할 때까지
 writer fence를 유지합니다. 자동 backfill은 롤백 복구 수단이 아닙니다.
@@ -341,7 +341,7 @@ writer fence를 유지합니다. 자동 backfill은 롤백 복구 수단이 아�
 이 제어는 같은 DB를 사용하는 writer를 보호합니다. DB를 공유하지 않는 분산 중복, 직접 SQL,
 운영 lock timeout/부하, 프로세스 강제 종료, DLQ 설정 자체와 과거 중복 lineage 복구는 별도
 운영 검증 대상입니다. V17 관리형 역분개는 계속 원본 전표 잠금과
-`journal_reversal_operations`를 사용하며 V20의 `PRIMARY` receipt로 대체하지 않습니다.
+`journal_reversal_operations`를 사용하며 V21의 `PRIMARY` receipt로 대체하지 않습니다.
 
 ## V13 업그레이드
 
@@ -378,7 +378,7 @@ H2는 일부 DDL이 남을 수 있으므로 테스트용 DB를 새로 만들어 
 ```
 
 Issue #765 검증에는 최소한 versioned fingerprint 정규화, 같은 identity의 순차·동시 동등 재시도,
-다른 fingerprint 충돌, 서로 다른 operation key, 생성/registry rollback, V20 clean migration과
+다른 fingerprint 충돌, 서로 다른 operation key, 생성/registry rollback, V21 clean migration과
 HTTP·contract·Kafka 매핑을 포함해야 합니다. 다음은 집중 실행 형태이며 실제 클래스명과 결과는
 Issue/PR 검증 기록을 기준으로 확인합니다.
 

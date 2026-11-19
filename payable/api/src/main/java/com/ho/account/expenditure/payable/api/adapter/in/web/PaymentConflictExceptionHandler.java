@@ -8,6 +8,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(assignableTypes = PaymentController.class)
 public class PaymentConflictExceptionHandler {
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ConflictResponse> handleInvalidCommand(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().body(new ConflictResponse("INVALID_REQUEST", exception.getMessage()));
+    }
+
     @ExceptionHandler(PayableOperationConflictException.class)
     public ResponseEntity<ConflictResponse> handleConflict(PayableOperationConflictException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

@@ -22,6 +22,31 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 class PaymentControllerOffsetIdentityTest {
 
     @Test
+    void advanceWithoutBusinessOperationIdFailsBeforeSourceMutation() throws Exception {
+        PaymentUseCase useCase = mock(PaymentUseCase.class);
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        try {
+            MockMvcBuilders.standaloneSetup(new PaymentController(useCase)).setValidator(validator).build()
+                    .perform(post("/api/payments/advance").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"vendorCode\":\"V001\",\"paymentDate\":\"2026-09-25\",\"amount\":100.00}"))
+                    .andExpect(status().isBadRequest());
+            verifyNoInteractions(useCase);
+        } finally { validator.close(); }
+    }
+
+    @Test
+    void advanceBusinessKeyIsCanonicalAndPrecisionIsExact() {
+        var request = new com.ho.account.expenditure.payable.api.dto.AdvancePaymentRequest();
+        request.setVendorCode("V001");
+        request.setPaymentDate(LocalDate.of(2026, 9, 25));
+        request.setAmount(new BigDecimal("100.000"));
+        request.setOperationId(" contract-deposit-765 ");
+        assertThat(request.toCommand().operationId()).isEqualTo("contract-deposit-765");
+        assertThat(request.toCommand().amount()).isEqualTo(new BigDecimal("100.00"));
+    }
+
+    @Test
     void offsetRequestWithoutOperationIdIsRejectedBeforeApplyingBalances() throws Exception {
         PaymentUseCase useCase = mock(PaymentUseCase.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();

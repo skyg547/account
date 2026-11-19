@@ -153,3 +153,7 @@ erDiagram
 ## PostgreSQL 기준선
 
 전용 Flyway V1은 5개 소유 테이블을 생성하고 V2는 상계 작업 이력 테이블과 채무·선급금 조회 인덱스를 추가한다. `numeric(19,2)` 금액, 인보이스 합계, 상태-잔액, 원천 인보이스 복합 FK와 공급업체 일치, 지급 라인리지 및 배치 조회 인덱스를 강제한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.
+
+## 선급금 생성 receipt (V3)
+
+`payable_source_creation_locks`는 64개 stripe(0~63), `payable_source_creations`는 `(source_type, business_key)` PK와 전체 입력 digest, 커밋된 `source_id`를 저장한다. 현재 type은 `ADVANCE_PAYMENT_REF`, business_key는 필수 operationId다. source와 receipt는 같은 트랜잭션에서 커밋되며 remote identity는 receipt 존재 여부에 의존하지 않는다. source_id 누락은 오류다. runtime은 lock SELECT/UPDATE와 receipt SELECT/INSERT가 필요하고 receipt UPDATE/DELETE는 정상 경로에 없다. 원격 호출 동안 stripe 잠금을 유지하므로 처리량·네트워크 timeout과 연결 풀 크기를 배포 전에 확인한다.

@@ -45,7 +45,7 @@ sequenceDiagram
     participant DB as Persistence Adapter
 
     App->>Service: 전표 생성 요청 (JournalEntry)
-    Service->>DB: 생성 identity stripe 잠금 / V20 registry 조회
+    Service->>DB: 생성 identity stripe 잠금 / V21 registry 조회
     Note over Service, DB: 같은 fingerprint면 기존 전표 반환<br/>다르면 충돌로 거부
     Service->>Engine: validate(entry) 호출
     Note over Engine: 1. 차대일치 확인<br/>2. 마감 여부 확인(Closing 연동)<br/>3. 계정 유효성 확인(Master 연동)
@@ -126,7 +126,7 @@ erDiagram
 - 전표 헤더의 `currencyCode`와 `exchangeRate`가 현재 계약에서 환산 근거입니다. `currencyCode`의 `null`/공백은 호환성을 위해 KRW로 취급하고, KRW는 환율 생략 또는 1만 허용합니다. 외화는 명시적인 양수 환율과 라인별 `baseAmount`가 필요합니다. 수동 HTTP는 통화와 무관하게 `baseAmount`가 필수입니다. Contract는 null/공백/KRW와 환율 생략 또는 1인 동일단위 입력에 한해서만 누락된 `baseAmount`를 `amount`로 채우며, 외화 누락이나 공급값 불일치는 저장 전에 거부합니다. 자동분개 이벤트는 거래통화 키(`transactionCurrencyCode`, `currencyCode`, `currency`)와 거래통화→기준통화 환율 키(`transactionToBaseRate`, `exchangeRate`, `fxRate`)만 사용하고, 여러 별칭이 함께 있으면 정규화 후 모두 같아야 합니다. 상세 반올림과 잔여 배분은 [업무 흐름 문서](docs/process-flow.md#거래통화에서-기준통화krw로-환산)를 확인하세요.
 - **GL/SL 잔액 조회:** 외부 모듈은 `LedgerQueryPort`를 통해 journal-ledger 엔티티 구조를 모르고도 잔액을 조회할 수 있습니다.
 - **잔액 차원 구분:** 전기와 기간 조회는 같은 계정·통화·거래처·부서 값을 각각 비교합니다. SL의 `null`, 빈 코드, 문자 그대로의 `NULL`, `|`를 포함한 코드는 별개이며, 자세한 예와 회귀 명령은 [업무 흐름의 차원 키 설명](docs/process-flow.md#glsl-잔액-차원-키)을 확인하세요.
-- Kafka 자동분개는 원천 payload의 ISO `accountingDate`를 필수로 요구합니다. 누락·무효 날짜는 전표 생성과 quarantine 저장 전에 실패하며, 소비 시각의 날짜로 대체하지 않습니다. 적용 규칙이 없으면 V18 quarantine에 topic/partition/offset, payload와 최초 회계일을 영속 보존하고 replay도 같은 회계일을 사용합니다. accounting admin은 payload/key를 노출하지 않는 completeness API로 pending age/count와 broker 좌표를 확인하고, 규칙 보정 뒤 행 잠금 기반 replay를 실행합니다. 다른 처리 예외는 기본 2회 재시도 후 같은 partition의 `<topic>.DLT`로 보내며 DLT 발행 실패는 fail-closed합니다. 마감 원천 이벤트, 인증된 별도 조정 전표 흐름, V18 quarantine과 V20 일반 생성 멱등성의 관계는 [업무 흐름 문서](docs/process-flow.md#kafka-미매칭-격리와-재생)를 확인하세요.
+- Kafka 자동분개는 원천 payload의 ISO `accountingDate`를 필수로 요구합니다. 누락·무효 날짜는 전표 생성과 quarantine 저장 전에 실패하며, 소비 시각의 날짜로 대체하지 않습니다. 적용 규칙이 없으면 V18 quarantine에 topic/partition/offset, payload와 최초 회계일을 영속 보존하고 replay도 같은 회계일을 사용합니다. accounting admin은 payload/key를 노출하지 않는 completeness API로 pending age/count와 broker 좌표를 확인하고, 규칙 보정 뒤 행 잠금 기반 replay를 실행합니다. 다른 처리 예외는 기본 2회 재시도 후 같은 partition의 `<topic>.DLT`로 보내며 DLT 발행 실패는 fail-closed합니다. 마감 원천 이벤트, 인증된 별도 조정 전표 흐름, V18 quarantine과 V21 일반 생성 멱등성의 관계는 [업무 흐름 문서](docs/process-flow.md#kafka-미매칭-격리와-재생)를 확인하세요.
 - 전표 HTTP API는 도메인 엔티티를 직접 노출하지 않고 전용 요청/응답 DTO를 사용합니다. 쓰기 명령은 Gateway가 JWT에서 다시 만든 `X-Auth-User`와 `X-Auth-Roles`만 사용하며, maker 작성/승인요청 → 별도 approver 승인 → poster 전기 순서를 강제합니다. 역할과 오류는 [업무 흐름 문서](docs/process-flow.md#maker-checker-승인과-http-권한)를 확인하세요.
 - 전표 생성의 멱등 identity는 lineage 두 값과 명시적인 `operationKey`의 조합입니다. 수동 HTTP는 필수 `Idempotency-Key`, 이벤트 HTTP는 이 헤더 또는 payload의 `journalOperationKey`/`operationKey`를 사용하며 헤더가 우선합니다. Kafka는 payload의 두 키 중 하나, contract는 전표 번호 `slipNo`와 별개의 `operationKey`를 사용합니다. 키가 없으면 생성 전에 거부합니다. 같은 키·같은 fingerprint는 기존 결과, 같은 키·다른 fingerprint는 HTTP `409 Conflict` 또는 호출 경로의 명시적 실패입니다. 자세한 재시도·배포 조건은 [업무 흐름](docs/process-flow.md#전표-생성-멱등성)과 [동시성 문서](docs/posting-concurrency.md)를 확인하세요.
 - 공개 `POST /api/journals`의 `entryType`에 caller가 `REVERSAL`을 지정하면 HTTP `400`을 반환합니다. 주변 공백이나 대소문자를 바꾸어도 같게 거부됩니다. 역분개는 원본 잠금과 operation 저장을 함께 수행하는 관리형 `reverseJournalEntry` 유스케이스로만 생성합니다.
@@ -183,7 +183,7 @@ KRW로 고정되어 있고 환율 공급자·환율 출처·적용일 필드는 
 fail-closed하므로 승인된 정정 절차가 필요합니다.
 
 프로파일을 생략하면 API와 Batch 모두 `local`이 선택되어 각자의 전용 H2 PostgreSQL mode DB에
-모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17/V18/V19/V20을 적용하고 Hibernate가 스키마를 검증합니다.
+모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17/V18/V19/V21을 적용하고 Hibernate가 스키마를 검증합니다.
 `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
 애플리케이션 Flyway와 SQL/Batch 자동 초기화를 끕니다. 배포 전 migration은 별도
 `migration-runner`만 수행합니다. Journal의 Master Data 조회는 local에서 명시적인 local

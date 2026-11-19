@@ -42,6 +42,7 @@ class JournalPostingEventListenerTest {
                 "LOAN-999",
                 null,
                 "LOAN-999:MAIN:v1",
+                "a".repeat(64),
                 List.of(debit, credit)
         );
 
@@ -62,6 +63,7 @@ class JournalPostingEventListenerTest {
         assertThat(trustedCommand.auditUser()).isEqualTo("service:journal-spring-event-maker");
         assertThat(trustedCommand.lineageSourceId()).isEqualTo(command.lineageSourceId());
         assertThat(trustedCommand.operationKey()).isEqualTo(command.operationKey());
+        assertThat(trustedCommand.sourceRequestFingerprint()).isEqualTo(command.sourceRequestFingerprint());
         assertThat(trustedCommand.lines()).isEqualTo(command.lines());
     }
 

@@ -11,6 +11,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes = {CollectionController.class, SalesController.class})
 public class ReceivableOperationConflictHandler {
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidCommand(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().body(
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage()));
+    }
+
     @ExceptionHandler(ReceivableOperationConflictException.class)
     public ResponseEntity<ProblemDetail> handle(ReceivableOperationConflictException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
