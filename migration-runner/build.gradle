@@ -10,6 +10,8 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // Full Master Data history uses PostgreSQL exclusion constraints from V9 onward.
+    testImplementation 'io.zonky.test:embedded-postgres:2.1.0'
     testImplementation(project(':internal-audit:core')) {
         transitive = false
     }
