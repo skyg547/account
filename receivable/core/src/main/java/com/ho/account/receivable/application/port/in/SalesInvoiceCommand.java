@@ -24,12 +24,16 @@ public record SalesInvoiceCommand(
 ) {
     public SalesInvoiceCommand {
         invoiceNo = requireText(invoiceNo, "invoiceNo");
+        if (invoiceNo.length() > 50) throw new IllegalArgumentException("invoiceNo exceeds 50 characters");
         customerCode = requireText(customerCode, "customerCode");
         issueDate = Objects.requireNonNull(issueDate, "issueDate is required");
         dueDate = Objects.requireNonNull(dueDate, "dueDate is required");
         totalAmount = requirePositive(totalAmount, "totalAmount");
+        totalAmount = exactAmount(totalAmount);
         taxAmount = requireZeroOrPositive(taxAmount, "taxAmount");
+        taxAmount = exactAmount(taxAmount);
         netAmount = requirePositive(netAmount, "netAmount");
+        netAmount = exactAmount(netAmount);
         createdBy = requireText(createdBy, "createdBy");
         if (dueDate.isBefore(issueDate)) {
             throw new IllegalArgumentException("dueDate cannot be before issueDate");
@@ -63,5 +67,14 @@ public record SalesInvoiceCommand(
             throw new IllegalArgumentException(fieldName + " must be zero or positive");
         }
         return value;
+    }
+    private static BigDecimal exactAmount(BigDecimal value) {
+        try {
+            BigDecimal normalized = value.setScale(2, java.math.RoundingMode.UNNECESSARY);
+            if (normalized.precision() > 19) throw new IllegalArgumentException("Amount exceeds NUMERIC(19,2)");
+            return normalized;
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Amount must be exactly representable at scale 2", exception);
+        }
     }
 }

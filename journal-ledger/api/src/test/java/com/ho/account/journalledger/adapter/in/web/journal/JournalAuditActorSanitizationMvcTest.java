@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -43,9 +44,10 @@ class JournalAuditActorSanitizationMvcTest {
         JournalUseCase journalUseCase = mock(JournalUseCase.class);
         JournalPostingPort journalPostingPort = mock(JournalPostingPort.class);
 
-        when(journalUseCase.createJournalEntryFromEvent(anyMap(), eq(ACCOUNTING_DATE)))
+        when(journalUseCase.createJournalEntryFromEvent(
+                any(JournalCreationIdentity.class), anyMap(), eq(ACCOUNTING_DATE)))
                 .thenAnswer(invocation -> {
-                    receivedEvent.set(new HashMap<>(invocation.getArgument(0)));
+                    receivedEvent.set(new HashMap<>(invocation.getArgument(1)));
                     return Optional.empty();
                 });
         when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
@@ -107,7 +109,7 @@ class JournalAuditActorSanitizationMvcTest {
 
     private static String eventBody(String createdBy, String auditUser) {
         return """
-                {"eventData":{"ruleCode":"AUDIT_ACTOR_RULE","amount":100.00,
+                {"eventData":{"ruleCode":"AUDIT_ACTOR_RULE","eventId":"ACTOR-757","journalOperationKey":"MAIN:v1","amount":100.00,
                   "createdBy":"%s","auditUser":"%s"}}
                 """.formatted(createdBy, auditUser);
     }

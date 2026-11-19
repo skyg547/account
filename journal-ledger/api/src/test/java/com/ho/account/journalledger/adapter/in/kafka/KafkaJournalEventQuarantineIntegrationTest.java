@@ -48,6 +48,7 @@ class KafkaJournalEventQuarantineIntegrationTest {
                 "amount", "100.00",
                 "lineageSourceType", "KAFKA_GL18",
                 "lineageSourceId", sourceId,
+                "journalOperationKey", sourceId + ":MAIN:v1",
                 "createdBy", "service:journal-kafka-maker",
                 "auditUser", "service:journal-kafka-maker");
 

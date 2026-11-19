@@ -12,7 +12,7 @@ public interface PayablePersistencePort {
     Optional<Payable> findById(Long id);
     /**
      * 상계할 채무 한 건을 호출자의 트랜잭션이 끝날 때까지 잠가 최신 잔액을 읽습니다.
-     * 같은 채무 행을 갱신하는 지급 claim과 상계를 직렬화합니다.
+     * 같은 채무 행을 갱신하는 지급 claim과 상계를 직렬화하고, 재시도는 커밋된 작업 이력을 읽습니다.
      */
     Optional<Payable> findByIdForUpdate(Long id);
     /**

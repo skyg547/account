@@ -46,12 +46,18 @@ class KafkaTransactionListenerCompletenessTest {
 
         for (String sourceDate : new String[] {"2026-01-31", "2026-12-31", "2027-01-01"}) {
             listener.listenTransactionEvent(
-                    Map.of("accountingDate", sourceDate), "transaction-events", 0, 772L);
+                    Map.of("accountingDate", sourceDate, "ruleCode", "SOURCE_EVENT",
+                            "eventId", "EVENT-772", "journalOperationKey", "EVENT-772:v1"),
+                    "transaction-events", 0, 772L);
             verify(useCase).process(
                     new KafkaJournalEventUseCase.BrokerRecord("transaction-events", 0, 772L),
                     Map.of("accountingDate", sourceDate,
                             "createdBy", "service:journal-kafka-maker",
-                            "auditUser", "service:journal-kafka-maker"),
+                            "auditUser", "service:journal-kafka-maker",
+                            "ruleCode", "SOURCE_EVENT", "eventId", "EVENT-772",
+                            "operationKey", "EVENT-772:v1",
+                            "journalOperationKey", "EVENT-772:v1",
+                            "lineageSourceType", "SOURCE_EVENT", "lineageSourceId", "EVENT-772"),
                     LocalDate.parse(sourceDate));
         }
     }
@@ -68,7 +74,8 @@ class KafkaTransactionListenerCompletenessTest {
         KafkaTransactionListener listener = new KafkaTransactionListener(useCase);
 
         listener.listenTransactionEvent(
-                Map.of("ruleCode", "NO_RULE", "accountingDate", "2026-09-28"),
+                Map.of("ruleCode", "NO_RULE", "eventId", "EVENT-769",
+                        "journalOperationKey", "EVENT-769:v1", "accountingDate", "2026-09-28"),
                 "transaction-events",
                 3,
                 769L);
@@ -92,7 +99,8 @@ class KafkaTransactionListenerCompletenessTest {
         KafkaTransactionListener listener = new KafkaTransactionListener(useCase);
 
         assertThatThrownBy(() -> listener.listenTransactionEvent(
-                        Map.of("accountingDate", "2026-09-28"),
+                        Map.of("accountingDate", "2026-09-28", "ruleCode", "SOURCE_EVENT",
+                                "eventId", "EVENT-770", "journalOperationKey", "EVENT-770:v1"),
                         "transaction-events",
                         0,
                         770L))

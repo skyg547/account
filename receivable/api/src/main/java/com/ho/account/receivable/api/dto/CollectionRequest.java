@@ -27,6 +27,7 @@ public class CollectionRequest {
 
     private String bankAccount;
     private String virtualAccount;
+    @NotBlank(message = "수납 업무 참조번호는 필수입니다.")
     private String referenceNo;
 
     public CollectionCommand toCommand() {

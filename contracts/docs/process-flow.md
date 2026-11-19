@@ -21,11 +21,12 @@ flowchart LR
 
 1. 호출 서비스가 업무 엔티티의 승인/상태를 확인합니다.
 2. `JournalLineCommand`를 생성하면서 차대 코드, 계정 코드, 금액 필수 형식을 검증합니다.
-3. `JournalEntryCommand`가 일자와 비어 있지 않은 라인 목록을 확인하고 List를 불변 복사합니다.
-4. `JournalPostingPort.createDraftEntry()`를 호출합니다.
-5. journal-ledger Adapter가 계약을 도메인 전표로 변환합니다.
-6. journal-ledger가 차변/대변 합계, 회계기간, 계정 사용 가능 여부를 검증합니다.
-7. 저장 결과를 `JournalPostingResult`로 반환합니다.
+3. 호출 서비스가 같은 업무 사건/버전에서 안정적인 `operationKey`를 정합니다. `slipNo`는 전표 번호로만 사용합니다.
+4. `JournalEntryCommand`가 일자, 비어 있지 않은 라인 목록, 제공된 키의 길이와 공백을 확인하고 List를 불변 복사합니다.
+5. `JournalPostingPort.createDraftEntry()`를 호출합니다.
+6. journal-ledger Adapter가 계약을 도메인 전표로 변환합니다.
+7. journal-ledger가 차변/대변 합계, 회계기간, 계정 사용 가능 여부를 검증하고 동일 생성 작업의 재시도를 처리합니다.
+8. 저장 결과를 `JournalPostingResult`로 반환합니다. 같은 키로 다른 재무 내용을 보내면 제공자가 충돌 오류를 돌려줍니다.
 
 계약 검증과 도메인 검증을 분리하는 이유는 “필드가 없음”과 “업무상 전기 불가”를 서로 다른
 책임으로 처리하기 위해서입니다.

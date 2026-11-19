@@ -3,6 +3,7 @@ package com.ho.account.receivable.infrastructure.adapter;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.receivable.application.service.ReceivableOperationConflictException;
 import java.time.Duration;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * HTTP REST outbound adapter for Journal Ledger posting in receivable module.
@@ -86,6 +88,12 @@ public class HttpReceivableJournalAdapter implements JournalPostingPort {
                 throw new IllegalStateException("Journal ledger posting returned null result");
             }
             return result;
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 409) {
+                throw new ReceivableOperationConflictException(
+                        "Journal operation key conflicts with different financial content", e);
+            }
+            throw new IllegalStateException("Journal ledger posting failed", e);
         } catch (RestClientException e) {
             throw new IllegalStateException("Journal ledger posting failed", e);
         }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.ho.account.receivable.application.port.in.ManualMatchingCommand;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 /** 수동 수납 매칭 HTTP 요청 DTO입니다. */
@@ -20,8 +22,12 @@ public class ManualMatchingRequest {
     @JsonAlias("amount")
     private BigDecimal matchingAmount;
 
+    @NotBlank(message = "매칭 작업 ID는 필수입니다.")
+    @Size(max = 90, message = "매칭 작업 ID는 90자를 넘을 수 없습니다.")
+    private String operationId;
+
     public ManualMatchingCommand toCommand() {
-        return new ManualMatchingCommand(collectionId, receivableId, matchingAmount);
+        return new ManualMatchingCommand(collectionId, receivableId, matchingAmount, operationId);
     }
 
     public Long getCollectionId() { return collectionId; }
@@ -32,4 +38,7 @@ public class ManualMatchingRequest {
 
     public BigDecimal getMatchingAmount() { return matchingAmount; }
     public void setMatchingAmount(BigDecimal matchingAmount) { this.matchingAmount = matchingAmount; }
+
+    public String getOperationId() { return operationId; }
+    public void setOperationId(String operationId) { this.operationId = operationId; }
 }
