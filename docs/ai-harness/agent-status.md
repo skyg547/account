@@ -1,3 +1,16 @@
+## 2026-11-19 — GH-947 Closing baseline README conflict / migration inventory
+
+- Trace: [Issue947](https://github.com/skyg547/account/issues/947), `agent/947-closing-doc-marker`, external `C:/tmp/account-work-947-closing-doc-marker`, base `origin/main@ed539846`. Parent publishes Draft after checkpoint and owns four shared records/Git/GitHub. Primary dirty84 preserved.
+- Scope / change: Resolved real main README conflict into one V49–V57 inventory. Preserved full legacy V49 verification, reopen-cycle guidance, V57 ECL forward-only/no-backfill warning. Corrected nearby period-lock uniqueness V56 and manifest V55 from actual owned SQL. Substantive allowlist Closing README and directly linked schema/process-flow guides: only proven migration-reference corrections, preserving valid V54 reopen-cycle references. No production/test/SQL edits.
+- Actual evidence: Actual diff --check and FULL tracked Java/SQL/Markdown/Gradle/YAML conflict-marker scan PASS (no matches). Node harness quality32/32 PASS. Java tests N/A for documentation-only change. Python harness validator unexecuted because bundled Python lacks PyYAML; no install. Independent review pending at this checkpoint.
+- Remaining gate: Independent review and exact published-head harness/current CI + real trust/independent approval remain required. No source runtime claims, deployment or cleanup. Documentation-only reviewed revert is rollback.
+- Rollback: reviewed scoped code/docs revert; forward correction for schema if ever applied, preserve all business/audit history. No operating DB/secrets/URLs/deployment/resource deletion or policy bypass.
+
+```powershell
+node --test tools/ci/harness-quality-contract.test.cjs
+```
+
+
 ## 2026-10-20 — GH-924 actor/audit evidence, Draft PR #937
 
 - [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b2912554`; [Draft PR #937](https://github.com/skyg547/account/pull/937), `Refs #924`. Only `master-data/**`, `auth/**` and the four user-named harness/history records changed.
