@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 /**
  * [상단 6대 메가 비즈니스 그룹 정의]
@@ -50,10 +51,9 @@ interface NavContextType {
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
 
-const GOVERNANCE_API_BASE_URL = process.env.NEXT_PUBLIC_GOVERNANCE_API_URL || '';
-
 type AuthorizationSnapshot = {
   role: UserRole;
+  pathname: string;
   status: AuthorizationStatus;
   authorizations: Authorization[];
   connected: boolean;
@@ -62,32 +62,35 @@ type AuthorizationSnapshot = {
 function isAuthorizationList(value: unknown, role: UserRole): value is Authorization[] {
   return Array.isArray(value) && value.every(item =>
     item !== null && typeof item === 'object' &&
-    typeof item.id === 'number' &&
+    Number.isSafeInteger(item.id) && item.id > 0 &&
     item.roleCode === role &&
     typeof item.functionCode === 'string' && item.functionCode.length > 0 &&
-    typeof item.accessType === 'string' && item.accessType.length > 0
+    ['READ', 'WRITE', 'EXECUTE'].includes(item.accessType)
   );
 }
 
 export function NavProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isLoginRoute = pathname === '/login';
   const [activeCategory, setActiveCategory] = useState<NavCategory>('DASHBOARD');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [userRole, setCurrentUserRole] = useState<UserRole>('ACCOUNTING_ADMIN');
   const [authorizationSnapshot, setAuthorizationSnapshot] = useState<AuthorizationSnapshot>({
-    role: 'ACCOUNTING_ADMIN', status: 'loading', authorizations: [], connected: false,
+    role: 'ACCOUNTING_ADMIN', pathname, status: 'loading', authorizations: [], connected: false,
   });
 
   const setUserRole = (role: UserRole) => {
     if (role === userRole) return;
     // Clear grants in the same update as the role change, before the next effect starts.
-    setAuthorizationSnapshot({ role, status: 'loading', authorizations: [], connected: false });
+    setAuthorizationSnapshot({ role, pathname, status: isLoginRoute ? 'unavailable' : 'loading', authorizations: [], connected: false });
     setCurrentUserRole(role);
   };
 
   // A response for an older role must never become the current role's menu grants.
-  const currentSnapshot = authorizationSnapshot.role === userRole
+  // Path changes invalidate grants during render, before the effect can refetch or clear them.
+  const currentSnapshot = !isLoginRoute && authorizationSnapshot.role === userRole && authorizationSnapshot.pathname === pathname
     ? authorizationSnapshot
-    : { role: userRole, status: 'loading' as const, authorizations: [], connected: false };
+    : { role: userRole, pathname, status: isLoginRoute ? 'unavailable' as const : 'loading' as const, authorizations: [], connected: false };
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
@@ -96,28 +99,30 @@ export function NavProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const controller = new AbortController();
     const fetchAuthorizations = async () => {
+      if (isLoginRoute) {
+        setAuthorizationSnapshot({ role: userRole, pathname, status: 'unavailable', authorizations: [], connected: false });
+        return;
+      }
       if (userRole === 'SYSTEM_ADMIN') {
-        setAuthorizationSnapshot({ role: userRole, status: 'success', authorizations: [], connected: false });
+        setAuthorizationSnapshot({ role: userRole, pathname, status: 'success', authorizations: [], connected: false });
         return;
       }
 
-      if (!GOVERNANCE_API_BASE_URL) {
-        setAuthorizationSnapshot({ role: userRole, status: 'unavailable', authorizations: [], connected: false });
-        return;
-      }
-
-      setAuthorizationSnapshot({ role: userRole, status: 'loading', authorizations: [], connected: false });
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      setAuthorizationSnapshot({ role: userRole, pathname, status: 'loading', authorizations: [], connected: false });
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       try {
-        const res = await fetch(`${GOVERNANCE_API_BASE_URL}/api/audit/roles/${userRole}/authorizations`, {
-          signal: controller.signal
+        const res = await fetch(`/api/audit/roles/${encodeURIComponent(userRole)}/authorizations`, {
+          signal: controller.signal,
+          credentials: 'same-origin',
+          cache: 'no-store',
         });
         if (!res.ok) throw new Error('Menu authorization request failed');
         const data: unknown = await res.json();
         if (!isAuthorizationList(data, userRole)) throw new Error('Invalid menu authorization response');
-        if (!cancelled) setAuthorizationSnapshot({ role: userRole, status: 'success', authorizations: data, connected: true });
+        // A menu link requires READ; a WRITE/EXECUTE record alone must not expose it.
+        if (!cancelled) setAuthorizationSnapshot({ role: userRole, pathname, status: 'success', authorizations: data.filter(auth => auth.accessType === 'READ'), connected: true });
       } catch {
-        if (!cancelled) setAuthorizationSnapshot({ role: userRole, status: 'unavailable', authorizations: [], connected: false });
+        if (!cancelled) setAuthorizationSnapshot({ role: userRole, pathname, status: 'unavailable', authorizations: [], connected: false });
       } finally {
         clearTimeout(timeoutId);
       }
@@ -128,7 +133,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       controller.abort();
     };
-  }, [userRole]);
+  }, [userRole, pathname, isLoginRoute]);
 
   return (
     <NavContext.Provider value={{
