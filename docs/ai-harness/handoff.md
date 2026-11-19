@@ -1,3 +1,9 @@
+## 2026-11-19 — GH-944 Loan fixture handoff
+
+- [Issue944](https://github.com/skyg547/account/issues/944), `agent/944-ci-loan`, `C:/tmp/account-work-944-ci-loan`, base `origin/main@ed539846`; Draft PR publication after checkpoint. Independent slip allocator and exact negative exception/call assertions repair the existing CI fixture without production changes.
+- Focused RED3/1fail→GREEN3; actual explicit core/API/Batch tests259PASS0skip +both bootJars. Fresh read-only `/root/review_ci_fixes` confirmed no findings and Q1–Q4 PASS; see worklog command/evidence.
+- Parent owns publication/current-head CI and approved merge gate. Trust policy/formal independent approval remains unsatisfied; no bypass. Fixture cannot establish DB atomicity; rollback reviewed test-only revert, preserve data/resources.
+
 ## 2026-10-20 — GH-924 audit evidence Draft PR #937 handoff
 
 - [Issue #924](https://github.com/skyg547/account/issues/924), branch `agent/924-actor-audit`, worktree `/tmp/account-924-actor-audit`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; [Draft PR #937](https://github.com/skyg547/account/pull/937), `Refs #924`. Scope is `master-data/**`, `auth/**` and four explicitly requested harness/history records only.
