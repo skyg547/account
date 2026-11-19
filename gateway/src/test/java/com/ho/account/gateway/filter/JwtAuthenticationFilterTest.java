@@ -82,6 +82,24 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void auditGovernanceRequestCannotReachAuthWithoutVerifiedBearer() {
+        AtomicBoolean chained = new AtomicBoolean();
+        MockServerWebExchange exchange = exchange(MockServerHttpRequest.post("/api/audit/approvals/requests")
+                .header(JwtAuthenticationFilter.AUTH_USER_HEADER, "forged-admin")
+                .header(JwtAuthenticationFilter.AUTH_ROLES_HEADER, "SYSTEM_ADMIN"));
+
+        StepVerifier.create(filterThatMustNotVerify().filter(exchange, ignored -> {
+            chained.set(true);
+            return Mono.empty();
+        })).verifyComplete();
+
+        assertThat(chained).isFalse();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(exchange.getResponse().getHeaders().getFirst(JwtAuthenticationFilter.AUTH_ERROR_HEADER))
+                .isEqualTo("BEARER_TOKEN_REQUIRED");
+    }
+
+    @Test
     void validTokenReplacesEveryClientIdentityHeaderWithVerifiedSnapshot() {
         AuthenticatedPrincipal principal = new AuthenticatedPrincipal(
                 "admin",

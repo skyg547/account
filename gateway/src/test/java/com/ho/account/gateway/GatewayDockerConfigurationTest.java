@@ -24,7 +24,7 @@ class GatewayDockerConfigurationTest {
         assertThat(build).doesNotContainKey("args");
         assertThat(asList(gateway.get("ports"))).contains("8000:8000");
         assertThat(asList(gateway.get("environment")))
-                .contains("AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=lb://auth-service");
+                .contains("AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth-service");
     }
 
     @Test

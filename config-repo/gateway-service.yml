@@ -57,6 +57,12 @@ spring:
             - Path=/api/admin/**
 
         # JwtAuthenticationFilter 전역 필터가 모든 /api/**를 먼저 검증한 뒤 아래 라우트로 보냅니다.
+        # 공유 거버넌스의 실행 호스트는 Auth입니다. 내부감사 업무 API와 별도 경로입니다.
+        - id: audit-governance-api
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/audit/**
+
         # Master Data Service 라우팅
         - id: master-data-api
           uri: lb://master-data
@@ -321,3 +327,8 @@ logging:
 gateway:
   bff:
     shared-secret: ${BFF_GATEWAY_SHARED_SECRET:}
+
+auth:
+  token-version-validation:
+    # 패키지 설정과 동일한 WebClient 주소입니다. Gateway route의 lb:// URI는 그대로 유지합니다.
+    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:http://auth-service}

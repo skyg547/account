@@ -8,6 +8,7 @@
 2. [process-flow.md](./process-flow.md) - 로그인부터 보호 API, 권한 변경, 장애까지의 데이터 흐름.
 3. [local-run.md](./local-run.md) - IntelliJ, Gradle, Docker 실행과 확인/종료 방법.
 4. [../README.md](../README.md) - 모듈 전체 요약과 설정표.
+5. [governance-chain-acceptance.md](./governance-chain-acceptance.md) - 합성 계정으로 실제 BFF/Gateway/Auth와 승인 영속성을 검증하는 실행 절차.
 
 ## 현재 실행 전제
 

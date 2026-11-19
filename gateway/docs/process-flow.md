@@ -53,7 +53,7 @@ bucket으로 제한됩니다. 위조·만료·잘못된 경로는 직접 연결 
 6. Spring Cloud Gateway route
    - RequestRateLimiter는 JWT 필터가 기록한 내부 principal attribute로 사용자별 bucket 선택
    - 설정에 명시된 route allowlist와 일치하는 외부 경로만 선택
-   - 관리자 사용자(`/api/admin/**`)는 Auth, FX(`/api/fx/**`)는 Journal Ledger, 채권 조회(`/api/receivable/**`)는 Receivable, 지점간 금융(`/api/finance/banking/**`)은 Reconciliation route를 선택
+   - 관리자 사용자(`/api/admin/**`)와 거버넌스(`/api/audit/**`)는 Auth, FX(`/api/fx/**`)는 Journal Ledger, 채권 조회(`/api/receivable/**`)는 Receivable, 지점간 금융(`/api/finance/banking/**`)은 Reconciliation route를 선택
    - 그 밖의 기준정보, 전표/원장, 결산, 예산, 내부감사, 입금, 채권, 채무, 세무, 대사, 자산/리스, 보고서, 지출결의, 마트, ECL 경로도 분리된 서비스의 전용 route를 선택
    - Eureka에서 선택된 route의 대상 인스턴스(`lb://...`) 확인
    - Discovery locator는 비활성화되어 `/{serviceId}/**` 형태의 자동 경로는 생성되지 않음
@@ -63,6 +63,26 @@ bucket으로 제한됩니다. 위조·만료·잘못된 경로는 직접 연결 
 뒤쪽 서비스는 Gateway가 만든 헤더를 인증 컨텍스트로 사용할 수 있지만, 서비스가 Gateway를 우회해 직접 노출되지 않도록 네트워크 정책을 함께 적용해야 합니다.
 
 ## 3. 역할 변경 뒤 기존 JWT
+
+프런트엔드 역할 변경 요청은 다음 경로를 따릅니다.
+
+```text
+Frontend adminService: AUTH_USER_ROLE / UPDATE 요청
+  -> BFF /api/audit/approvals/requests: HttpOnly 세션을 Bearer로 변환
+  -> Gateway: JWT + 현재 roleVersion + RequestRateLimiter
+  -> audit-governance-api: lb://auth-service (경로를 그대로 전달)
+  -> Auth: JWT 재검증, 현재 사용자/역할 범위 확인
+  -> Auth GovernanceService: 검증된 요청자로 PENDING 승인 기록 저장
+  -> 양수 id와 실제 상태를 응답
+  -> 서로 다른 SYSTEM_ADMIN 승인자: SOD 확인 후 Auth 역할과 roleVersion 변경
+```
+
+본문의 `requestUser`/`approverUser`나 클라이언트 신원 헤더는 승인 주체의 근거가 아닙니다.
+Auth가 확인한 사용자로 저장하며 같은 요청자의 자기 승인은 거부됩니다.
+`/api/v1/internalaudit/**`는 내부감사 업무 전용으로 별도 유지합니다.
+거버넌스 라우트에는 가상의 승인 응답을 만들 fallback이 없습니다. Auth 오류는 실제 오류로
+돌아오며 프런트엔드는 영속화된 승인 id를 확인할 수 없으면 성공으로 처리하지 않습니다.
+실제 HTTP와 DB 검증 범위는 [체인 검증 가이드](./governance-chain-acceptance.md)를 따릅니다.
 
 ```text
 Governance 승인

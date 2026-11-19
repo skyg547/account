@@ -11,6 +11,7 @@ dependencyManagement {
 }
 dependencies {
     implementation project(':auth:core')
+    implementation project(':shared-kernel')
     
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
@@ -35,4 +36,3 @@ dependencies {
 }
 jar { enabled = false }
 bootJar { enabled = true }
-

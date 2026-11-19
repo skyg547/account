@@ -72,6 +72,36 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     @Test
+    void governanceRoutesReachAuthInBothConfigurationsWithoutExposingInternalAuth() {
+        for (Properties properties : new Properties[] {
+                loadGatewayProperties(), loadExternalGatewayProperties() }) {
+            assertRouteUri(properties, "audit-governance-api", "lb://auth-service");
+            int auditIndex = routeIndex(properties, "audit-governance-api");
+            String prefix = "spring.cloud.gateway.routes[" + auditIndex + "]";
+            assertThat(selectProperties(properties, key -> key.startsWith(prefix + ".")))
+                    .containsExactlyInAnyOrderEntriesOf(Map.of(
+                            prefix + ".id", "audit-governance-api",
+                            prefix + ".uri", "lb://auth-service",
+                            prefix + ".predicates[0]", "Path=/api/audit/**"));
+            // No route-local rewrite, filter override or fallback may bypass the real Auth receipt.
+            assertThat(properties.values()).doesNotContain(
+                    "Path=/api/auth/**", "Path=/api/auth/internal/**",
+                    "Path=/api/auth/validate-token-version", "Path=/api/internal/**");
+            assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
+                    .isEqualTo("false");
+            assertThat(properties.getProperty("spring.cloud.gateway.default-filters[0].name"))
+                    .isEqualTo("RequestRateLimiter");
+            assertThat(properties.getProperty("auth.token-version-validation.base-url"))
+                    .isEqualTo("${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:http://auth-service}");
+            assertRouteUri(properties, "internal-audit-api", "lb://internal-audit-service");
+            int internalIndex = routeIndex(properties, "internal-audit-api");
+            assertThat(properties.getProperty(
+                    "spring.cloud.gateway.routes[" + internalIndex + "].predicates[0]"))
+                    .isEqualTo("Path=/api/v1/internalaudit/**");
+        }
+    }
+
+    @Test
     void journalLedgerPathsIncludeFxDashboardRoute() {
         Properties properties = loadGatewayProperties();
         int routeIndex = routeIndex(properties, "journal-ledger-api");
@@ -490,6 +520,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("eureka.client.fetch-registry"))
                 .isEqualTo("true");
         assertRouteUri(properties, "auth-login-api", "lb://auth-service");
+        assertRouteUri(properties, "audit-governance-api", "lb://auth-service");
         assertRouteUri(properties, "master-data-api", "lb://master-data");
         assertRouteUri(properties, "journal-ledger-api", "lb://journal-ledger");
         assertRouteUri(properties, "closing-api", "lb://closing-service");

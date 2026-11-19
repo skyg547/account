@@ -1,3 +1,9 @@
+## 2026-11-19 — GH-838 implementation draft / verification blocked
+
+- [Issue838](https://github.com/skyg547/account/issues/838), branch `agent/838-governance-runtime`, external `C:/tmp/account-work-838-runtime`, base `ed539846`; Draft publication follows checkpoint. Auth/shared and Gateway/config writers had disjoint scope; parent owns four records/Git/GitHub.
+- Secure verified-actor governance host, V77, atomic approval/role/audit effects, mirrored audit route and actual chain harness authored. Fresh Astra `/root/review838_runtime` rechecked concurrency/boundary repairs: no unresolved P0–P3 static finding; Q1–Q3 static PASS, Q4 actual FAIL.
+- Auth/Gateway compile stopped on offline dependencies; no tests/JAR/actual chain/PG PASS. Dependency/Node20/PG authorization pending. See worklog commands and precise limitations. Next owner parent: unblock environment, execute, re-review exact head/current CI and satisfy real trust/independent approval; no Ready/merge yet. Rollback reviewed code/forward-schema correction preserving history; no deployment or resource deletion.
+
 ## 2026-10-20 — GH-924 master-data/Auth actor and audit evidence
 
 - `$account-issue-loop`, `$account-hexagonal-change`, `$account-module-parallel` and `$account-review-handoff` governed Issue #924 on `agent/924-actor-audit` in `/tmp/account-924-actor-audit`, base `origin/main@b2912554`. Parallel writers owned disjoint `master-data/**` and `auth/**`; independent read-only reviewers checked both. Parent alone updated the four requested shared records and Git/GitHub state.

@@ -67,6 +67,8 @@ class AuthMemoryModeStartupTest {
                 .noneMatch(handler -> handler.getBeanType().equals(PersonalAccessTokenController.class));
         mockMvc.perform(get("/api/auth/pat")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/auth/admin/pat")).andExpect(status().isNotFound());
+        assertThat(context.getBeansOfType(com.ho.account.auth.api.web.GovernanceController.class)).isEmpty();
+        mockMvc.perform(get("/api/audit/roles")).andExpect(status().isNotFound());
     }
 
     private static String randomSecret() {

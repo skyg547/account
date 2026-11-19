@@ -55,3 +55,6 @@ DNA 비유는 “모든 기술 라이브러리를 이곳에 넣는다”는 뜻�
 
 문서는 [docs/README.md](./docs/README.md)부터 읽습니다. 과거 Docker 뼈대는
 [docs/archive/legacy-runtime-skeleton](./docs/archive/legacy-runtime-skeleton/README.md)에 보존했습니다.
+## Governance hosting boundary
+
+Auth JPA mode explicitly hosts the four governance domain/repository/adapter mappings through its own verified-identity controller and transactional service. The shared legacy `AuditController` and `RequestAuditActorAdapter` are not the hosted Auth ingress. The shared persistence ports provide explicit pessimistic decision lookups for approvals and role grants; callers must hold a transaction for those lookups. Shared actor columns support 80-character Auth identities and text fields use portable TEXT. See `auth/docs/process-flow.md` for the verified actor, SOD, receipt and local transaction contract.
