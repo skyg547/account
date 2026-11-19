@@ -27,6 +27,8 @@ public interface LeaseContractRepository extends JpaRepository<LeaseContract, Lo
     @Query("select c from LeaseContract c where c.id = :id")
     Optional<LeaseContract> findByIdForUpdate(@Param("id") Long id);
 
+    Optional<LeaseContract> findByContractNo(String contractNo);
+
     List<LeaseContract> findByStatus(String status);
     List<LeaseContract> findByStatusAndEndDateBefore(String status, LocalDate date);
 

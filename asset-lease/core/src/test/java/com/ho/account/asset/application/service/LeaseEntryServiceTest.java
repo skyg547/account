@@ -4,6 +4,8 @@ import com.ho.account.asset.application.port.out.AssetEventPort;
 import com.ho.account.asset.application.port.out.LeaseAccountMappingPort;
 import com.ho.account.asset.application.port.out.LeasePersistencePort;
 import com.ho.account.asset.domain.LeaseContract;
+import com.ho.account.asset.domain.LeaseRemeasurementConflictException;
+import com.ho.account.asset.domain.LeaseRemeasurementReceipt;
 import com.ho.account.asset.domain.LeaseLiability;
 import com.ho.account.asset.domain.LeasePaymentSchedule;
 import com.ho.account.asset.domain.RightOfUseAsset;
@@ -117,7 +119,7 @@ class LeaseEntryServiceTest {
                         null,
                         LocalDate.of(2025, 12, 31),
                         null,
-                        "lease-user"));
+                        "lease-user", "RM-1"));
 
         assertEquals("lease start date must be on or before end date", exception.getMessage());
         assertNull(eventPort.eventData);
@@ -324,7 +326,7 @@ class LeaseEntryServiceTest {
         List<BigDecimal> paidBalances = paid.stream().map(LeasePaymentSchedule::getRemainingLeaseLiability).toList();
 
         scenario.service.remeasureLease(1L, LocalDate.of(2026, 6, 1),
-                new BigDecimal("2400.00"), null, null, "lease-user");
+                new BigDecimal("2400.00"), null, null, "lease-user", "RM-1");
 
         BigDecimal expectedPv = LeaseContract.calculatePresentValue(new BigDecimal("2400.00"), 7,
                 new BigDecimal("6.0"));
@@ -378,7 +380,7 @@ class LeaseEntryServiceTest {
         LocalDate extension = LocalDate.of(2027, 3, 31);
 
         scenario.service.remeasureLease(1L, LocalDate.of(2026, 6, 1),
-                null, extension, null, "lease-user");
+                null, extension, null, "lease-user", "RM-1");
         BigDecimal firstLiability = scenario.persistence.liability.getCurrentValue();
         BigDecimal firstBookValue = scenario.persistence.rouAsset.getCurrentBookValue();
         assertEquals(15, scenario.persistence.schedules.size());
@@ -386,7 +388,7 @@ class LeaseEntryServiceTest {
         assertEquals(10, scenario.persistence.schedules.stream().filter(s -> "SCHEDULED".equals(s.getStatus())).count());
 
         scenario.service.remeasureLease(1L, LocalDate.of(2026, 6, 1),
-                null, extension, null, "lease-user");
+                null, extension, null, "lease-user", "RM-1");
         assertEquals(15, scenario.persistence.schedules.size());
         assertThat(scenario.persistence.liability.getCurrentValue()).isEqualByComparingTo(firstLiability);
         assertThat(scenario.persistence.rouAsset.getCurrentBookValue()).isEqualByComparingTo(firstBookValue);
@@ -396,7 +398,7 @@ class LeaseEntryServiceTest {
     void shorteningCancelsOnlyFutureInstallmentsBeyondNewEndDate() {
         LeaseScenario scenario = registeredScenarioAfterMay();
         scenario.service.remeasureLease(1L, LocalDate.of(2026, 6, 1),
-                null, LocalDate.of(2026, 9, 15), new BigDecimal("3.0"), "lease-user");
+                null, LocalDate.of(2026, 9, 15), new BigDecimal("3.0"), "lease-user", "RM-1");
 
         assertEquals(5, scenario.persistence.schedules.stream().filter(s -> "PAID".equals(s.getStatus())).count());
         assertEquals(4, scenario.persistence.schedules.stream().filter(s -> "SCHEDULED".equals(s.getStatus())).count());
@@ -467,7 +469,7 @@ class LeaseEntryServiceTest {
         int eventCount = scenario.event.events.size();
 
         assertThrows(IllegalArgumentException.class, () -> scenario.service.remeasureLease(1L,
-                LocalDate.of(2026, 5, 1), new BigDecimal("2400.00"), null, null, "lease-user"));
+                LocalDate.of(2026, 5, 1), new BigDecimal("2400.00"), null, null, "lease-user", "RM-1"));
 
         assertThat(scenario.persistence.liability.getCurrentValue()).isEqualByComparingTo(liability);
         assertThat(scenario.persistence.rouAsset.getCurrentBookValue()).isEqualByComparingTo(bookValue);
@@ -476,10 +478,44 @@ class LeaseEntryServiceTest {
         assertEquals(eventCount, scenario.event.events.size());
     }
 
+    @Test
+    void remeasurementReplayRetainsOriginalPayloadAndDistinctEventsOnSameDateRemainIndependent() {
+        LeaseScenario scenario = registeredScenarioAfterMay();
+        LocalDate date = LocalDate.of(2026, 6, 1);
+        scenario.service.remeasureLease(1L, date, new BigDecimal("2400.00"), null, null, "lease-user", "CHANGE-1");
+        Map<String, Object> first = new java.util.HashMap<>(scenario.event.eventData);
+        BigDecimal firstBalance = scenario.persistence.liability.getCurrentValue();
+        scenario.service.remeasureLease(1L, date, new BigDecimal("2400.0"), null, null, "lease-user", "CHANGE-1");
+        assertThat(scenario.event.eventData).isEqualTo(first);
+        assertThat(scenario.persistence.liability.getCurrentValue()).isEqualByComparingTo(firstBalance);
+        assertThrows(LeaseRemeasurementConflictException.class, () -> scenario.service.remeasureLease(
+                1L, date, new BigDecimal("2500.00"), null, null, "lease-user", "CHANGE-1"));
+        assertThat(scenario.persistence.liability.getCurrentValue()).isEqualByComparingTo(firstBalance);
+        scenario.service.remeasureLease(1L, date, new BigDecimal("2500.00"), null, null, "lease-user", "CHANGE-2");
+        assertThat(scenario.event.eventData.get("journalOperationKey")).isNotEqualTo(first.get("journalOperationKey"));
+        // Even after a later event, replay restores the original event rather than the latest balance.
+        scenario.service.remeasureLease(1L, date, new BigDecimal("2400.00"), null, null, "lease-user", "CHANGE-1");
+        assertThat(scenario.event.eventData).isEqualTo(first);
+    }
+
+    @Test
+    void missingOperationIdFailsBeforeReadingOrWritingSource() {
+        LeasePersistencePort port = org.mockito.Mockito.mock(LeasePersistencePort.class);
+        AssetEventPort events = org.mockito.Mockito.mock(AssetEventPort.class);
+        LeaseEntryService service = new LeaseEntryService(port, events,
+                new RecordingLeasePaymentResolutionPort(), new StaticLeaseAccountMappingPort());
+        for (String id : java.util.Arrays.asList(null, "", " ", "x".repeat(81), "has space")) {
+            assertThrows(IllegalArgumentException.class, () -> service.remeasureLease(1L,
+                    LocalDate.of(2026, 1, 1), BigDecimal.TEN, null, null, "actor", id));
+        }
+        org.mockito.Mockito.verifyNoInteractions(port, events);
+    }
+
     @Nested
     @SpringBootTest(classes = LeaseTransactionTestApp.class, properties = {
             "spring.datasource.url=jdbc:h2:mem:lease861;DB_CLOSE_DELAY=-1",
             "spring.jpa.hibernate.ddl-auto=create-drop",
+            "spring.flyway.enabled=false",
             "spring.cloud.vault.enabled=false",
             "spring.cloud.config.enabled=false",
             "spring.cloud.discovery.enabled=false"
@@ -506,7 +542,7 @@ class LeaseEntryServiceTest {
                     .map(LeasePaymentSchedule::getRemainingLeaseLiability).toList();
 
             service.remeasureLease(id, LocalDate.of(2026, 6, 1), new BigDecimal("2400.00"),
-                    LocalDate.of(2027, 3, 31), null, "lease-user");
+                    LocalDate.of(2027, 3, 31), null, "lease-user", "RM-1");
             entityManager.clear();
 
             LeaseContract after = persistence.findContractById(id).orElseThrow();
@@ -523,6 +559,14 @@ class LeaseEntryServiceTest {
                             new BigDecimal("2400.00"), 10, new BigDecimal("6.0")));
             assertThat(schedules.get(14).getRemainingLeaseLiability()).isEqualByComparingTo("0.00");
             assertThat(eventPort.eventData.get("adjustmentAmount")).isInstanceOf(BigDecimal.class);
+            Map<String, Object> originalEvent = new java.util.HashMap<>(eventPort.eventData);
+            service.remeasureLease(id, LocalDate.of(2026, 6, 1), new BigDecimal("2400.0"),
+                    LocalDate.of(2027, 3, 31), null, "lease-user", "RM-1");
+            assertThat(eventPort.eventData).isEqualTo(originalEvent);
+            assertThat(persistence.findRemeasurementReceipt(contract.getContractNo(), "RM-1")).isPresent();
+            assertThrows(LeaseRemeasurementConflictException.class, () -> service.remeasureLease(id,
+                    LocalDate.of(2026, 6, 1), new BigDecimal("2500.00"),
+                    LocalDate.of(2027, 3, 31), null, "lease-user", "RM-1"));
         }
 
         @Test
@@ -539,7 +583,7 @@ class LeaseEntryServiceTest {
             ExecutorService executor = Executors.newFixedThreadPool(2);
             try {
                 Runnable remeasure = () -> service.remeasureLease(id, LocalDate.of(2026, 6, 1),
-                        new BigDecimal("2400.00"), LocalDate.of(2027, 3, 31), null, "lease-user");
+                        new BigDecimal("2400.00"), LocalDate.of(2027, 3, 31), null, "lease-user", "RM-1");
                 Future<?> first = executor.submit(remeasure);
                 assertTrue(eventPort.firstRemeasurementEntered.await(10, TimeUnit.SECONDS));
                 CountDownLatch secondStarted = new CountDownLatch(1);
@@ -582,7 +626,7 @@ class LeaseEntryServiceTest {
 
             assertThrows(IllegalStateException.class, () -> service.remeasureLease(id,
                     LocalDate.of(2026, 6, 1), new BigDecimal("2400.00"),
-                    LocalDate.of(2027, 3, 31), null, "lease-user"));
+                    LocalDate.of(2027, 3, 31), null, "lease-user", "RM-1"));
 
             entityManager.clear();
             LeaseContract after = persistence.findContractById(id).orElseThrow();
@@ -592,16 +636,21 @@ class LeaseEntryServiceTest {
                     .isEqualByComparingTo(liabilityBefore);
             assertThat(persistence.findROUAssetByContract(after).orElseThrow().getCurrentBookValue())
                     .isEqualByComparingTo(bookBefore);
+            assertThat(persistence.findRemeasurementReceipt(contract.getContractNo(), "RM-1")).isEmpty();
+            eventPort.failOnRemeasurement = false;
+            service.remeasureLease(id, LocalDate.of(2026, 6, 1), new BigDecimal("2400.00"),
+                    LocalDate.of(2027, 3, 31), null, "lease-user", "RM-1");
+            assertThat(persistence.findRemeasurementReceipt(contract.getContractNo(), "RM-1")).isPresent();
             List<LeasePaymentSchedule> schedules = persistence.findSchedulesByContract(after);
-            assertEquals(12, schedules.size());
+            assertEquals(15, schedules.size());
             assertEquals(5, schedules.stream().filter(s -> "PAID".equals(s.getStatus())).count());
-            assertEquals(7, schedules.stream().filter(s -> "SCHEDULED".equals(s.getStatus())).count());
+            assertEquals(10, schedules.stream().filter(s -> "SCHEDULED".equals(s.getStatus())).count());
         }
     }
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @EntityScan(basePackageClasses = LeaseContract.class)
+    @EntityScan(basePackages = {"com.ho.account.asset.domain", "com.ho.account.asset.infrastructure.persistence.entity"})
     @EnableJpaRepositories(basePackageClasses = LeaseContractRepository.class)
     @Import({LeaseEntryService.class, LeasePersistenceAdapter.class})
     static class LeaseTransactionTestApp {
@@ -727,6 +776,23 @@ class LeaseEntryServiceTest {
     }
 
     private static class FakeLeasePersistencePort implements LeasePersistencePort {
+        private final Map<String, LeaseRemeasurementReceipt> receipts = new java.util.HashMap<>();
+
+        @Override
+        public Optional<LeaseContract> findContractByNumber(String number) {
+            return activeContracts.stream().filter(c -> number.equals(c.getContractNo())).findFirst();
+        }
+
+        @Override
+        public Optional<LeaseRemeasurementReceipt> findRemeasurementReceipt(String number, String operation) {
+            return Optional.ofNullable(receipts.get(number + "/" + operation));
+        }
+
+        @Override
+        public void saveRemeasurementReceipt(LeaseRemeasurementReceipt receipt) {
+            receipts.put(receipt.getContractNo() + "/" + receipt.getOperationId(), receipt);
+        }
+
 
         private final List<LeaseContract> activeContracts;
         private final List<LeasePaymentSchedule> schedules;

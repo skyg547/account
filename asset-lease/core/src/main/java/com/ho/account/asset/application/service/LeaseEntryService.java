@@ -5,6 +5,7 @@ import com.ho.account.asset.application.port.out.AssetEventPort;
 import com.ho.account.asset.application.port.out.LeaseAccountMappingPort;
 import com.ho.account.asset.application.port.out.LeasePersistencePort;
 import com.ho.account.asset.domain.LeaseContract;
+import com.ho.account.asset.domain.LeaseRemeasurementReceipt;
 import com.ho.account.asset.domain.LeaseLiability;
 import com.ho.account.asset.domain.LeasePaymentSchedule;
 import com.ho.account.asset.domain.RightOfUseAsset;
@@ -48,6 +49,7 @@ public class LeaseEntryService implements LeaseUseCase {
     @Override
     @Transactional
     public LeaseContract registerLeaseContract(LeaseContract contract, String actor) {
+        AssetJournalIdentity.requireSourceCode(contract.getContractNo());
         contract.validateForRegistration();
         if (contract.isIfrs16Applicable() && !contract.isShortTermLease() && !contract.isLowValueLease()) {
             contract.updatePresentValueAndValidate();
@@ -89,7 +91,9 @@ public class LeaseEntryService implements LeaseUseCase {
 
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "IFRS16_INITIAL_RECOGNITION");
-        event.put("contractId", contract.getId());
+        AssetJournalIdentity.lease(event, contract.getContractNo(), "INITIAL_RECOGNITION:v1");
+        // A rolled-back insert may retry with a new DB ID; the journal payload stays business-key based.
+        event.put("contractNo", contract.getContractNo());
         event.put("rouAmount", contract.getInitialRightOfUseAssetValue());
         event.put("liabilityAmount", contract.getInitialLeaseLiabilityValue());
         event.put("accountingDate", contract.getStartDate().toString());
@@ -131,13 +135,23 @@ public class LeaseEntryService implements LeaseUseCase {
 
     @Override
     @Transactional
-    public LeaseContract remeasureLease(Long contractId, LocalDate remeasureDate, BigDecimal newPayment, LocalDate newEndDate, BigDecimal newRate, String actor) {
+    public LeaseContract remeasureLease(Long contractId, LocalDate remeasureDate, BigDecimal newPayment, LocalDate newEndDate, BigDecimal newRate, String actor, String operationId) {
         String auditActor = requireActor(actor);
+        String stableOperationId = AssetJournalIdentity.requireOperationId(operationId);
         if (remeasureDate == null) {
             throw new IllegalArgumentException("remeasurement date is required");
         }
         LeaseContract contract = persistencePort.findContractByIdForUpdate(contractId)
                 .orElseThrow(() -> new IllegalArgumentException("Contract not found: " + contractId));
+        String fingerprint = LeaseRemeasurementFingerprint.calculate(remeasureDate, newPayment, newEndDate, newRate, auditActor);
+        // Replay under the contract lock: recomputing from updated balances changes the original delta.
+        Optional<LeaseRemeasurementReceipt> previous = persistencePort.findRemeasurementReceipt(contract.getContractNo(), stableOperationId);
+        if (previous.isPresent()) {
+            LeaseRemeasurementReceipt receipt = previous.get();
+            receipt.requireMatchingRequest(fingerprint);
+            eventPort.sendAssetEvent(TOPIC, remeasurementEvent(receipt));
+            return contract;
+        }
         if (!"ACTIVE".equals(contract.getStatus()) || !isCapitalizedIfrs16Lease(contract)) {
             throw new IllegalStateException("only active capitalized IFRS 16 leases can be remeasured");
         }
@@ -210,19 +224,30 @@ public class LeaseEntryService implements LeaseUseCase {
         persistencePort.saveROUAsset(rouAsset);
         persistencePort.savePaymentSchedules(changedSchedules);
 
+        LeaseRemeasurementReceipt receipt = new LeaseRemeasurementReceipt(updated.getContractNo(), stableOperationId,
+                fingerprint, updated.getId(), remeasureDate, remeasurement.adjustmentAmount(), oldLiability,
+                remeasurement.presentValue(), updated.getDepartmentCode(), auditActor);
+        persistencePort.saveRemeasurementReceipt(receipt);
+        eventPort.sendAssetEvent(TOPIC, remeasurementEvent(receipt));
+        return updated;
+    }
+
+    private Map<String, Object> remeasurementEvent(LeaseRemeasurementReceipt receipt) {
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "IFRS16_REMEASUREMENT");
-        event.put("contractId", updated.getId());
-        event.put("accountingDate", remeasureDate.toString());
-        event.put("remeasureDate", remeasureDate.toString());
-        event.put("adjustmentAmount", remeasurement.adjustmentAmount());
-        event.put("oldLiabilityAmount", oldLiability);
-        event.put("newLiabilityAmount", remeasurement.presentValue());
-        event.put("deptCode", updated.getDepartmentCode());
-        event.put("actor", auditActor);
-        eventPort.sendAssetEvent(TOPIC, event);
-
-        return updated;
+        AssetJournalIdentity.lease(event, receipt.getContractNo(), "REMEASUREMENT:v1:" + receipt.getOperationId());
+        event.put("contractId", receipt.getContractId());
+        // Bind the raw caller request even if Kafka commits before this source transaction rolls back.
+        event.put("sourceRequestFingerprintVersion", receipt.getFingerprintVersion());
+        event.put("sourceRequestFingerprint", receipt.getRequestFingerprint());
+        event.put("accountingDate", receipt.getRemeasureDate().toString());
+        event.put("remeasureDate", receipt.getRemeasureDate().toString());
+        event.put("adjustmentAmount", receipt.getAdjustmentAmount());
+        event.put("oldLiabilityAmount", receipt.getOldLiabilityAmount());
+        event.put("newLiabilityAmount", receipt.getNewLiabilityAmount());
+        event.put("deptCode", receipt.getDepartmentCode());
+        event.put("actor", receipt.getActor());
+        return event;
     }
 
     private List<LeasePaymentSchedule> repriceFutureSchedules(
@@ -314,6 +339,7 @@ public class LeaseEntryService implements LeaseUseCase {
 
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "IFRS16_MONTHLY_PROCESS");
+        AssetJournalIdentity.lease(event, lockedContract.getContractNo(), "MONTHLY_PROCESS:v1:" + YearMonth.from(schedule.getPaymentDate()));
         event.put("contractId", contractId);
         event.put("depreciationAmount", depreciationAmount);
         event.put("interestAmount", schedule.getInterestPortion());

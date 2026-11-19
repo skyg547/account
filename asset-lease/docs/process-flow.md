@@ -90,7 +90,7 @@ flowchart TD
 
 ### 리스 재측정
 
-`remeasurementDate`는 아직 처리하지 않은 첫 지급 회차의 날짜다. 서비스는 이전에 지급 예정이었던 회차가 `PAID`인지(과거 단축으로 취소된 회차는 `CANCELLED` 유지), 기준일 이후에 이미 `PAID`인 회차가 없는지 확인한다. 미처리 과거 회차나 계약 기간 밖 기준일은 거절한다. 같은 기준일 재시도는 기존 회차를 재사용해 미래 회차를 중복 생성하지 않는다.
+`remeasurementDate`는 아직 처리하지 않은 첫 지급 회차의 날짜다. 서비스는 이전에 지급 예정이었던 회차가 `PAID`인지(과거 단축으로 취소된 회차는 `CANCELLED` 유지), 기준일 이후에 이미 `PAID`인 회차가 없는지 확인한다. 미처리 과거 회차나 계약 기간 밖 기준일은 거절한다. 같은 업무 변경의 재시도는 동일한 `operationId`를 전달한다. 계약 잠금 안에서 원 요청의 nullable 입력·실행자 fingerprint를 비교하여 같은 요청이면 저장된 원래 이벤트를 다시 보내고, 내용이 다르면 HTTP 409로 거절한다. 동일 기준일의 별도 변경은 새로운 `operationId`를 사용한다.
 
 유효한 요청은 새 월 리스료·할인율·종료일로 **남은 회차만** 현재가치(PV)를 다시 계산한다. 새 PV와 현재 리스부채의 차액을 부채 및 사용권자산 장부가액에 반영하고, 남은 기간의 월 상각 기준액을 다시 정한다. 이미 `PAID`인 회차와 최초 인식가액·누적 상각액은 과거 기록으로 보존한다. 이후 `SCHEDULED` 회차의 지급액·이자·원금·잔여 부채를 다시 쓰고, 단축으로 사라진 회차는 `CANCELLED`, 연장으로 생긴 회차는 새 행으로 저장한다. 이 변경은 서비스의 DB 트랜잭션 안에서 수행된다.
 
@@ -110,3 +110,27 @@ IFRS 16 자본화 리스는 지급결의 차변을 이자비용과 리스부채�
 - Expenditure Resolution: `LeasePaymentResolutionPort`로 리스료 지급결의를 생성한다.
 - Journal Ledger: 현재 직접 `JournalPostingPort` 호출은 없고, 이벤트 또는 지급결의 후속 흐름을 통해 전표화하는 구조다.
 - Source Document: `AssetSourceDocumentProvider`가 `FIXED_ASSET`, `IFRS16_LEASE` 원천 문서를 제공한다.
+
+
+## Journal 생성 식별자와 재시도 (GH-955)
+
+모든 여섯 `transaction-events` producer는 `lineageSourceType`, `lineageSourceId`, `journalOperationKey`를 명시한다. 수신부는 이 세 값으로 영속 Journal receipt를 조회하고, 원 이벤트 전체 fingerprint가 같은 재전달만 기존 전표로 돌려준다. 금액/날짜 등 내용이 바뀐 같은 키는 충돌이다.
+
+| 이벤트 | lineage type / source ID | operation key |
+| --- | --- | --- |
+| ASSET_ACQUISITION | FIXED_ASSET_CODE / assetCode | ACQUISITION:v1 |
+| ASSET_DEPRECIATION | FIXED_ASSET_CODE / assetCode | DEPRECIATION:v1:YYYY-MM |
+| ASSET_DISPOSAL | FIXED_ASSET_CODE / assetCode | DISPOSAL:v1 |
+| IFRS16_INITIAL_RECOGNITION | IFRS16_LEASE_CONTRACT_NO / contractNo | INITIAL_RECOGNITION:v1 |
+| IFRS16_MONTHLY_PROCESS | IFRS16_LEASE_CONTRACT_NO / contractNo | MONTHLY_PROCESS:v1:YYYY-MM |
+| IFRS16_REMEASUREMENT | IFRS16_LEASE_CONTRACT_NO / contractNo | REMEASUREMENT:v1:operationId |
+
+자산 코드/계약 번호는 공백 없는 양끝, 1~100자 업무 식별자다. 기존 숫자 PK lineage인 `FIXED_ASSET`/`IFRS16_LEASE` 조회는 유지하고, 새 source type은 코드/계약 번호로 조회한다. 숫자로만 된 업무 코드도 기존 PK와 혼동되지 않는다. 월별 키의 월은 회계 처리한 회차를 나타내며 이벤트의 실제 `accountingDate`는 기존 처리일을 유지한다. 이미 처리한 월은 기존 도메인/PAID 가드가 추가 발행을 막고, Kafka 재전달은 원 payload로 수신한다.
+
+최초 인식 이벤트의 기존 DB 생성 `contractId`는 `contractNo`로 교체한다. 원천 등록이 rollback되어 새 DB ID로 재등록해도 동일 계약의 회계 payload를 유지하기 위해서다. 저장소에는 이 최초 인식 타입의 DB ID 의존 분개 규칙이 없지만, 외부에서 설정한 규칙/소비자가 `contractId`를 참조하면 배포 전에 `contractNo` 또는 명시적 lineage로 변경해야 한다. `rouAmount`, `liabilityAmount`, `accountingDate`, `deptCode`, `actor`는 유지한다. 월별/재측정의 기존 계약 ID와 금융 필드도 유지한다.
+
+재측정 `operationId`는 호출자가 업무 변경 접수 시 한 번 정하고 모든 재시도에 유지한다. 날짜/금액에서 만들거나 매 재시도마다 새로 생성하지 않는다. 원 nullable 입력을 fingerprint v1로 저장하여 생략한 값이 재시도 시 최신 계약 값으로 재해석되지 않게 한다. `lease_remeasurement_receipts`에는 원 조정 전후 금액·일자·부서·실행자를 저장한다. 이벤트에도 `sourceRequestFingerprintVersion`/`sourceRequestFingerprint`를 실어, Journal이 먼저 commit되고 원천이 rollback된 뒤 nullable 입력만 바뀐 요청도 충돌로 식별한다. 계약 행 잠금과 같은 DB 트랜잭션에서 저장되며, 다른 변경 이후의 재시도도 최초 이벤트를 복원한다. HTTP 응답 계약은 현재 상태 조회 결과이며 과거 계약 snapshot을 뜻하지 않는다.
+
+직접 Kafka 발행과 원천 DB commit의 이중 쓰기는 여전히 원자적이지 않다. 이 receipt는 outbox나 자동 전달 재처리기가 아니다. 발행 후 원천 rollback, 비동기 발행 실패, 이미 처리한 월의 미전달에는 운영상 대사/복구가 필요하다. 원천 상태가 중간에 달라져 payload 내용도 바뀐 경우 Journal은 같은 키로 새 전표를 만들지 않고 충돌을 반환한다. 비동기 수신에서 이 충돌을 확인하기 전에 새 원천 상태가 이미 commit될 수 있으므로, 이 검사만으로 분산 원자성이나 원천 자동 rollback을 보장하지 않는다.
+
+검증: `AssetJournalProducerPersistenceTest`는 실제 두 producer, JSON 왕복, 실제 JournalRuleEngine과 JPA Journal/creation receipt를 H2에서 연결한다. 여섯 타입의 최초 생성/동일 재전달/변경 충돌, 다른 월, 같은 날짜의 서로 다른 재측정, 최초 원천 rollback 후 다른 DB ID로 등록하는 경우를 검증한다. 규칙 저장 포트의 합성 규칙 fixture와 분리된 producer/consumer 호출을 사용하므로 실제 Kafka broker, PostgreSQL, 운영 분개 설정, 분산 장애 전달 보장은 검증하지 않는다.

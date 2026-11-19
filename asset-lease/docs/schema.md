@@ -139,3 +139,10 @@ erDiagram
 - 자산 변경은 `AssetHistory`에 감사 이력을 남긴다.
 - 리스 지급 스케줄은 이자, 원금, 잔여 리스부채를 회차별로 보관한다.
 - 리스 회계 계정 코드는 `LeaseAccountMappingPort` 뒤로 분리되어 설정/정책 어댑터에서 가져온다.
+
+
+## V21 재측정 원천 영수증 (GH-955)
+
+두 dialect 경로의 `V21__lease_remeasurement_receipts.sql`은 새 `lease_remeasurement_receipts` 테이블을 만든다. 게시된 V20은 수정하지 않는다. `(contract_no, operation_id)` unique와 계약 FK, fingerprint version 1 CHECK로 원천 업무 변경을 보존한다. 원 요청 hash와 원 금융 이벤트 금액·일자·부서·actor를 같은 계약 잠금 트랜잭션에 기록한다. 도메인 receipt는 순수 Java이며 JPA entity와 변환은 infrastructure에서 담당한다. API/Batch entity scan은 새 infrastructure entity를 포함한다.
+
+배포는 해당 서비스의 migration context에서 V21 적용 후 새 writer를 실행한다. 이전 writer는 operationId/receipt를 만들지 않으므로 재측정 트래픽을 중지하고 교체한다. H2 테스트는 PostgreSQL dialect baseline+V21과 Journal 전용 migrations를 검증한다. 실제 PostgreSQL 배포 검증은 별도 게이트다. 롤백은 검토된 코드 revert 또는 forward correction이며 금융 receipt/기존 전표/이력 테이블을 삭제하지 않는다. 이 테이블은 전송 outbox가 아니다.

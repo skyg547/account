@@ -2,10 +2,20 @@ package com.ho.account.asset.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class LeaseRemeasurementRequest {
+
+    @NotBlank
+    @Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9._:-]{0,79}")
+    private String operationId;
+
+    public String getOperationId() { return operationId; }
+    public void setOperationId(String operationId) { this.operationId = operationId; }
+
 
     @NotNull
     private Long contractId;

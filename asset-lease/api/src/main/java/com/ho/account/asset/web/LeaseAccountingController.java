@@ -1,6 +1,7 @@
 package com.ho.account.asset.web;
 
 import com.ho.account.asset.application.port.in.LeaseUseCase;
+import com.ho.account.asset.domain.LeaseRemeasurementConflictException;
 import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.asset.dto.LeaseContractRequest;
 import com.ho.account.asset.dto.LeaseRemeasurementRequest;
@@ -87,9 +88,11 @@ public class LeaseAccountingController {
                     request.getNewMonthlyPayment(),
                     request.getNewEndDate(),
                     request.getNewDiscountRate(),
-                    actor
+                    actor, request.getOperationId()
             );
             return ResponseEntity.ok(updatedContract);
+        } catch (LeaseRemeasurementConflictException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         } catch (Exception e) {

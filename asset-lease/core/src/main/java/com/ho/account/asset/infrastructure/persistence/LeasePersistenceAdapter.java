@@ -2,6 +2,9 @@ package com.ho.account.asset.infrastructure.persistence;
 
 import com.ho.account.asset.application.port.out.LeasePersistencePort;
 import com.ho.account.asset.domain.LeaseContract;
+import com.ho.account.asset.domain.LeaseRemeasurementReceipt;
+import com.ho.account.asset.infrastructure.persistence.entity.LeaseRemeasurementReceiptEntity;
+import com.ho.account.asset.infrastructure.persistence.repository.LeaseRemeasurementReceiptRepository;
 import com.ho.account.asset.domain.LeaseLiability;
 import com.ho.account.asset.domain.LeasePaymentSchedule;
 import com.ho.account.asset.domain.RightOfUseAsset;
@@ -29,6 +32,23 @@ public class LeasePersistenceAdapter implements LeasePersistencePort {
 
 
     private final LeaseContractRepository leaseContractRepository;
+    private final LeaseRemeasurementReceiptRepository receiptRepository;
+
+    @Override
+    public Optional<LeaseContract> findContractByNumber(String contractNo) {
+        return leaseContractRepository.findByContractNo(contractNo);
+    }
+
+    @Override
+    public Optional<LeaseRemeasurementReceipt> findRemeasurementReceipt(String contractNo, String operationId) {
+        return receiptRepository.findByContractNoAndOperationId(contractNo, operationId).map(LeaseRemeasurementReceiptEntity::toDomain);
+    }
+
+    @Override
+    public void saveRemeasurementReceipt(LeaseRemeasurementReceipt receipt) {
+        receiptRepository.saveAndFlush(new LeaseRemeasurementReceiptEntity(receipt));
+    }
+
     private final RightOfUseAssetRepository rightOfUseAssetRepository;
     private final LeaseLiabilityRepository leaseLiabilityRepository;
     private final LeasePaymentScheduleRepository leasePaymentScheduleRepository;
