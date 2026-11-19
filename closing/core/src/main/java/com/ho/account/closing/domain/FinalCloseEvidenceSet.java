@@ -1,5 +1,6 @@
 package com.ho.account.closing.domain;
 
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -23,7 +24,16 @@ public record FinalCloseEvidenceSet(
         Instant observedAt,
         String submittedBy,
         String contentDigest,
-        List<FinalCloseEvidenceControl> controls) {
+        List<FinalCloseEvidenceControl> controls,
+        JournalPeriodCheckpoint journalCheckpoint) {
+
+    /** Legacy hydration preserves missing tokens; the final-close gate rejects these rows. */
+    public FinalCloseEvidenceSet(String evidenceSetId, Long calendarId, Long fiscalPeriodId,
+            String fiscalYear, String fiscalPeriod, LocalDate ledgerCutoff, Instant observedAt,
+            String submittedBy, String contentDigest, List<FinalCloseEvidenceControl> controls) {
+        this(evidenceSetId, calendarId, fiscalPeriodId, fiscalYear, fiscalPeriod, ledgerCutoff,
+                observedAt, submittedBy, contentDigest, controls, null);
+    }
 
     private static final Comparator<FinalCloseEvidenceControl> CONTROL_ORDER =
             Comparator.comparing(FinalCloseEvidenceControl::type)

@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @ActiveProfiles("local")
 @SpringBootTest(
-        classes = ClosingApplication.class,
+        classes = {ClosingApplication.class, ClosingAdmissionPersistenceIntegrationTest.FenceFixture.class},
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "spring.cloud.config.enabled=false",
@@ -59,6 +59,13 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "spring.flyway.enabled=false"
         })
 class ClosingAdmissionPersistenceIntegrationTest {
+
+    @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods = false)
+    static class FenceFixture {
+        @org.springframework.context.annotation.Bean
+        ControlledJournalPeriodFence admissionJournalFence() { return new ControlledJournalPeriodFence(); }
+    }
+
 
     @Autowired
     private TestRestTemplate http;

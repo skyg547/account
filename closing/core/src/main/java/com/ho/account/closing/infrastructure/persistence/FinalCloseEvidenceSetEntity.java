@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
+import com.ho.account.contracts.journal.JournalPeriodScope;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -49,6 +51,13 @@ class FinalCloseEvidenceSetEntity {
     @Column(name = "content_digest", nullable = false, length = 64, updatable = false)
     private String contentDigest;
 
+    @Column(name = "journal_revision", updatable = false)
+    private Long journalRevision;
+    @Column(name = "journal_start_date", updatable = false)
+    private LocalDate journalStartDate;
+    @Column(name = "journal_end_date", updatable = false)
+    private LocalDate journalEndDate;
+
     protected FinalCloseEvidenceSetEntity() {
     }
 
@@ -62,6 +71,11 @@ class FinalCloseEvidenceSetEntity {
         this.observedAt = evidenceSet.observedAt();
         this.submittedBy = evidenceSet.submittedBy();
         this.contentDigest = evidenceSet.contentDigest();
+        if (evidenceSet.journalCheckpoint() != null) {
+            this.journalRevision = evidenceSet.journalCheckpoint().revision();
+            this.journalStartDate = evidenceSet.journalCheckpoint().scope().startDate();
+            this.journalEndDate = evidenceSet.journalCheckpoint().scope().endDate();
+        }
     }
 
     Long getId() {
@@ -87,6 +101,7 @@ class FinalCloseEvidenceSetEntity {
                 observedAt,
                 submittedBy,
                 contentDigest,
-                controls);
+                controls, journalRevision == null ? null : new JournalPeriodCheckpoint(
+                        new JournalPeriodScope(fiscalPeriodId, journalStartDate, journalEndDate), journalRevision));
     }
 }

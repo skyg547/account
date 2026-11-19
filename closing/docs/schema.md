@@ -247,7 +247,7 @@ V57은 확정 ECL 원천의 run/model/기준일/법인, 합산 목표·노출·S
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를 추가합니다. 새 writer를 시작하기 전에 V56까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를, V57은 ECL 스냅샷을, V58은 Journal checkpoint·fence와 해제 대기 상태를 추가합니다. 새 writer를 시작하기 전에 Closing V58과 Journal V20을 migrate/validate하고 기존 Journal 이력을 대사·인증하며 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
 - V56부터 `period_locks` unlock은 행을 비활성화하고 해제자·시각을 보존합니다. 별도 `unlock_reason` 컬럼은 아직 없으며 기존 해제 감사 로그의 사유가 남습니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
@@ -278,3 +278,23 @@ SELECT fiscal_period_id, adjustment_type, journal_entry_id, approved_by, approve
 FROM closing_adjustments
 ORDER BY approved_at DESC;
 ```
+
+
+## Journal checkpoint와 영속 봉인 명령 (GH-762)
+
+V58은 `final_close_evidence_sets`에 nullable `journal_revision`, `journal_start_date`,
+`journal_end_date`를 추가합니다. 기간 ID는 기존 `fiscal_period_id`를 사용합니다. 세 컬럼은 모두
+null인 과거 행 또는 전부 채운 유효 범위여야 합니다. 과거 행은 조회·감사 용도로만 유지되며
+새 마감에 사용할 수 없습니다. 신규 토큰은 V2 digest에 포함되어 저장 후 변경을 감지합니다.
+
+`closing_calendars.journal_fence_*`는 operation ID·기간 ID·시작/종료일·revision·actor의 정확한
+명령을 저장합니다. CLOSED 후에도 남기고 재개방이 완료된 뒤 같은 명령을 release합니다.
+`transition_stage`는 30자로 늘고 `CANCEL_RELEASE_PENDING`, `RELEASE_PENDING`을 허용합니다.
+CHECK는 전이·상태·명령의 완전성을 보존합니다. 전역 revision/봉인/tombstone 테이블은 Journal
+소유 V20이며 Closing migration이 다른 서비스 스키마를 수정하지 않습니다.
+
+배포는 기존 writer와 금액 쓰기를 drain한 후 각 소유 migration을 적용하고, 토큰 없는 증빙을
+다시 수집해야 합니다. 과거 CLOSED 행의 봉인 명령은 자동 추정하지 않습니다. 이 행은 재개방 시
+거부되므로 담당자의 승인된 원장/기간 대사와 forward correction이 필요합니다. 기존 증빙·감사·
+명령/tombstone을 지우거나 revision을 되돌리는 down migration은 지원하지 않습니다. 코드 롤백도
+구버전 writer가 새 fence를 우회하지 않도록 쓰기를 중단한 상태에서 검토해야 합니다.

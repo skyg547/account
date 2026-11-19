@@ -151,3 +151,13 @@ IntelliJ에서는 `Journal Ledger API bootRun`, `Journal Ledger API JDBC Bulk` �
 및 `./gradlew :journal-ledger:test`로 실행합니다. 전자는 5,000건 저장, 동시 채번,
 범위 소진과 DB 오류를 확인합니다. H2 PostgreSQL mode 결과는 실제 PostgreSQL의
 운영 부하 측정이나 원천 이벤트 중복 방지 검증을 대신하지 않습니다.
+
+## 마감 직전 장부가 바뀌면 어떻게 하나요?
+
+마감 담당자는 먼저 Journal의 revision 번호를 받고(checkpoint), 그 뒤 새 원천 데이터로
+검증합니다. 검증이 끝난 뒤 같은 번호로 fence를 요청합니다. 그 사이 전표가 하나라도
+커밋되었다면 번호가 달라져 마감을 진행하지 않고 새 데이터로 다시 검증합니다. fence가 먼저
+확정되면 해당 기간이나 그 이전 날짜의 새 금액 쓰기는 중단됩니다. 전표 메서드가 끝나도
+외부 트랜잭션이 아직 커밋되지 않았다면 fence가 기다리므로 “검증에는 없던 마지막 전표”가
+끼어들 수 없습니다. 장애 후 재시도는 같은 operationId와 전체 명령을 유지해야 합니다.
+자세한 잠금·내부 인증·배포 순서와 실행 명령은 [동시성 안내](posting-concurrency.md#마감-검증과-금액-쓰기의-원자적-경계-v20)를 참고합니다.

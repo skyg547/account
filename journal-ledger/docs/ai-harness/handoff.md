@@ -1,3 +1,38 @@
+# GH-762 handoff
+
+## 2026-10-23 — Existing Draft handoff revalidated
+
+- Resumed the already published `agent/762-period-admission` / `/tmp/account-762-period-admission` at `5549a258f9ad9b1b528457ee723a2fc7970fc343`; [Draft PR #940](https://github.com/skyg547/account/pull/940) is OPEN/DRAFT. The implementation remains `709811a9`; no production/test source changed in this follow-up.
+- Re-executed the literal `./gradlew :journal-ledger:test :closing:test :contracts:test`: exit 0, 21 seconds, all 54 tasks UP-TO-DATE. This checks Gradle's unchanged inputs and reuses prior execution evidence; it is not a fresh test execution. Current and preserved final XML agree: 1,256 discovered, 1,255 passed, failures/errors 0, optional PostgreSQL skip 1. Preserved PostgreSQL evidence contains 22 passes (Journal18 + Closing protocol3 + annual MVCC1), no skips; the actual JVM-restart PASS log remains available.
+- Scope, whitespace, exact changed-file conflict-marker and unmerged-index checks PASS for all 91 files. Shared harness/history remains untouched. The fresh `/tmp/account-762-atomic-period-gate` / `agent/762-atomic-period-gate` created before discovering the prior publication is clean and unused; it is retained, not a second implementation or PR.
+- [Module CI run 39890072461](https://github.com/skyg547/account/actions/runs/39890072461) on published head `5549a258`: Journal, Closing and Contracts PASS. Overall module validation FAIL: Loan has 1/246 failure (`LoanJournalPostingFlowTest`, `SlipNumberAllocationException` at line 149); migration-runner has 3/140 failures in Master Data H2/Flyway cases; Reporting has 6/104 failures from a JPA context Flyway/H2 initialization failure. These are observed failures, not proven baseline defects: this follow-up did not reproduce them on the base. Their modules are outside the explicit write allowlist, so no edits were made there. Human review must resolve their ownership and verification before Ready/merge.
+- Harness Validation and merge-guard regression PASS. [Guard run 39890155625](https://github.com/skyg547/account/actions/runs/39890155625) fails only `DRAFT_NOT_MERGE_READY` and `TRUST_POLICY_UNCONFIGURED`; the intended Draft and repository trust-policy gates remain.
+- Independent follow-up `/root/verify_762_handoff` (GPT-6 Astra xhigh, read-only) found no additional P0–P3 protocol defects and confirmed Q1–Q4 PASS from exact diff, preserved XML, audited RED and JVM-restart evidence. This does not clear the failed cross-module CI jobs. Issue #762 is synchronized to `status:needs-review`; the existing PR body now records these observed failures and authority separation.
+- Next owner: human reviewer for the three failed cross-module CI jobs, repository trust policy and deployment gates already described above. Ready, merge, Issue close and resource cleanup have not been performed. The parent will synchronize the existing PR body and this record-only commit; checks for a new head must be assessed separately.
+
+Implementation and verified independent review are complete. [Draft PR #940](https://github.com/skyg547/account/pull/940) is open with `Refs #762`.
+
+- Issue: [#762](https://github.com/skyg547/account/issues/762).
+- Branch/worktree: `agent/762-period-admission`, `/tmp/account-762-period-admission`; fetched base `ed539846a92f46e09896d0a56ab808a4f94cacc7` remains current.
+- Allowed scope: `journal-ledger/**`, `closing/**`, `contracts/**`. Shared harness/history and original checkout are untouched. Parent records cross-module work in this module-local harness under the user's explicit scope restriction.
+- Behavior: Journal writers hold the shared DB gate through commit. Final-close evidence carries an immutable checkpoint and CAS fences the accepted snapshot. Persistent command receipts/tombstones survive timeout and restart; cancellation and reopen retain release intent before remote action.
+- Verification: literal three-module command PASS; **1,255 PASS, 1 optional PG skip, 0 failures/errors**. Separate real PostgreSQL22 PASS covers that skip. Actual Journal JVM ACK→kill→restart/replay/release proof PASS. Four API/Batch bootJARs and byte-identical packaged V20/V58 PASS. Independent reviews report no remaining P0–P3 and Q1–Q4 PASS.
+- Baseline blockers repaired within scope: Closing port/hydration/composition gaps and stale financial test fixtures; existing financial/lineage/locking controls preserved. Inherited README merge markers were reconciled to actual V49–V58 guidance; exact-file marker scan is clean.
+- Before deployment: stop old monetary writers, apply migrations, reconcile/install all historical CLOSED/PERMANENTLY_CLOSED fence coverage, use fresh primary snapshots after checkpoint and keep Master period definitions frozen during pending transitions. One authoritative Journal DB and READ_COMMITTED monetary transactions are required. Global serialization, TLS/service identity and production load need deployment review.
+- Rollback: quiesce monetary writers and close transitions; use reviewed code revert or forward schema correction while preserving revision, command and release history. Gate removal reopens GL07, so unprotected traffic must not resume.
+- Authority separation: requested `gpt-6-astra`/`xhigh` module writers implement; independent reviewers remain read-only; parent alone owns records/commit/push/Draft PR. Human reviewer owns later Ready, merge, Issue close, deployment and resource deletion.
+- Retained evidence: `/tmp/account-762-evidence/`, task PostgreSQL container `account-762-period-admission-pg`, and `/tmp/account-762-audited-proof` at `a97d10ab`. Runtime smoke child JVMs exited. Historical RED is a synthetic-outbound probe; current real protocol tests and actual JVM durability proof have separate documented scopes.
+
+[Detailed commands, test counts and limitations](../issue-762/verification.md) · [Q1–Q4 and work log](worklog.md).
+
+- Publication: reviewed implementation commit `709811a9ae59ce3fcee06d7785d1e011fa71f514` was pushed to the dedicated branch; Draft #940 is OPEN/DRAFT/MERGEABLE with verification and authority separation in its body and `agent:codex` ownership. The GitHub connector could read but returned403 on PR creation; the existing authenticated GitHub CLI completed the authorized publication.
+- Remote CI: Actions started for the implementation head; final record-commit checks are tracked on the PR and remain a separate review gate. Local verification is complete; no remote CI PASS is inferred from queued/running checks. This publication update changes only module-local records.
+- Resources/next owner: task-only PostgreSQL container `account-762-period-admission-pg` is stopped and retained; runtime JVMs exited; both worktrees remain. Human reviewer owns CI disposition, historical fence/bootstrap and load/TLS deployment review, then later Ready/merge/Issue-close gates.
+
+---
+
+다음은 보존된 이전 작업 기록이며 현재 GH-762 상태가 아닙니다.
+
 # GH-894 handoff
 
 Issue [#894](https://github.com/skyg547/account/issues/894) is `status:blocked` on the Loan integration regression. Its module-scoped implementation is on `agent/894-domain-persistence-boundary` in `/tmp/account-894-domain-persistence-boundary`, based on `origin/main@9348966a`. [Draft PR #909](https://github.com/skyg547/account/pull/909) is open with `Refs #894`. Other modules and shared harness/history were not edited.

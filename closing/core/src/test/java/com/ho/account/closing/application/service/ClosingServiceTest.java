@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -65,6 +67,8 @@ public class ClosingServiceTest {
     private FinancialClosingCalculation financialClosingCalculation;
     @Mock
     private JournalQueryPort journalQueryPort;
+    @Mock
+    private JournalPeriodFencePort journalPeriodFencePort;
     @Spy
     private ClosingAccountingProperties closingAccountingProperties = new ClosingAccountingProperties();
 
@@ -74,6 +78,7 @@ public class ClosingServiceTest {
     private FinalCloseEvidenceService finalCloseEvidenceService;
     private ClosingService closingService;
     private ClosingAdmissionService closingAdmissionService;
+    private ClosingPeriodTransitionService transitions;
 
     private FiscalPeriodRef openPeriod;
     private FiscalPeriodRef closedPeriod;
@@ -86,8 +91,13 @@ public class ClosingServiceTest {
                 closingCalendarPersistencePort, reopenApprovalPersistencePort, closingAuditLogPersistencePort,
                 fiscalPeriodControlPort, finalCloseEvidenceService,
                 closingTaskPersistencePort, closingGatePersistencePort);
-        ClosingPeriodTransitionService transitions = new ClosingPeriodTransitionService(transactions,
-                closingCalendarPersistencePort);
+        transitions = new ClosingPeriodTransitionService(transactions,
+                closingCalendarPersistencePort, journalPeriodFencePort);
+        // This fixture models only exact remote receipts; database drain/commit behavior is covered separately.
+        lenient().when(journalPeriodFencePort.fence(any())).thenAnswer(call ->
+                new JournalPeriodFenceResult(call.getArgument(0), JournalPeriodFenceResult.State.ACTIVE));
+        lenient().when(journalPeriodFencePort.release(any())).thenAnswer(call ->
+                new JournalPeriodFenceResult(call.getArgument(0), JournalPeriodFenceResult.State.RELEASED));
         lenient().when(aggregates.lockCalendar(any(Long.class))).thenAnswer(call ->
                 closingCalendarPersistencePort.findById(call.getArgument(0)));
         lenient().when(aggregates.lockCalendar(any(String.class), any(String.class))).thenAnswer(call ->
@@ -637,7 +647,292 @@ public class ClosingServiceTest {
         assertThat(result.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
         assertThat(result.getClosedBy()).isEqualTo("ADMIN");
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
-        verify(finalCloseEvidenceService).requireBoundForFinalClose(calendar, openPeriod, bound.evidenceSetId());
+        verify(finalCloseEvidenceService, times(2))
+                .requireBoundForFinalClose(calendar, openPeriod, bound.evidenceSetId());
+        JournalPeriodFenceCommand command = result.getJournalFenceCommand();
+        assertThat(command.checkpoint()).isEqualTo(bound.journalCheckpoint());
+        assertThat(command.actor()).isEqualTo("ADMIN");
+        var ordered = inOrder(journalPeriodFencePort, fiscalPeriodControlPort);
+        ordered.verify(journalPeriodFencePort).fence(command);
+        ordered.verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
+        verify(journalPeriodFencePort, never()).release(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"CLOSED,start", "CLOSED,end", "OPEN,start", "OPEN,end"})
+    void changedMasterPeriodRangeKeepsCloseOrReopenDispatched(String target, String changedBoundary) {
+        ClosingCalendar calendar;
+        FiscalPeriodRef period;
+        Runnable transition;
+        if ("CLOSED".equals(target)) {
+            calendar = givenReadyClose();
+            period = openPeriod;
+            transition = () -> closingService.determineClosingStatus(10L, "ADMIN");
+        } else {
+            calendar = openCalendar();
+            calendar.setFiscalPeriod("02");
+            calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+            period = closedPeriod;
+            calendar.restoreJournalFenceCommand(new JournalPeriodFenceCommand("original-close",
+                    new JournalPeriodCheckpoint(new JournalPeriodScope(period.id(), period.startDate(), period.endDate()), 0),
+                    "CLOSER"));
+            ReopenApproval approval = new ReopenApproval();
+            approval.assignFiscalPeriod(period.id(), period.fiscalYear(), period.fiscalPeriod());
+            approval.request("REQUESTER", "approved correction");
+            when(reopenApprovalPersistencePort.findById(20L)).thenReturn(Optional.of(approval));
+            when(fiscalPeriodControlPort.findFiscalPeriodById(period.id())).thenReturn(Optional.of(period));
+            when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "02"))
+                    .thenReturn(Optional.of(calendar));
+            when(closingCalendarPersistencePort.findById(10L)).thenReturn(Optional.of(calendar));
+            when(closingCalendarPersistencePort.save(calendar)).thenReturn(calendar);
+            transition = () -> closingService.updateReopenApprovalStatus(
+                    20L, ReopenApproval.ReopenApprovalStatus.APPROVED, "ADMIN");
+        }
+        ClosingCalendar.ClosingCalendarStatus originalStatus = calendar.getStatus();
+        LocalDate returnedStart = "start".equals(changedBoundary) ? period.startDate().plusDays(1) : period.startDate();
+        LocalDate returnedEnd = "end".equals(changedBoundary) ? period.endDate().minusDays(1) : period.endDate();
+        // A matching ID and target status do not prove the response covers the dates frozen by Journal.
+        when(fiscalPeriodControlPort.updateClosingStatus(period.id(), target, "ADMIN"))
+                .thenReturn(new FiscalPeriodRef(period.id(), period.fiscalYear(), period.fiscalPeriod(),
+                        returnedStart, returnedEnd, target));
+
+        assertThatThrownBy(transition::run)
+                .isInstanceOf(ClosingTransitionPendingException.class)
+                .hasRootCauseMessage("Master period range changed; transition remains fenced");
+
+        assertThat(calendar.getStatus()).isEqualTo(originalStatus);
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.DISPATCHED);
+        assertThat(calendar.getTransitionId()).isNotBlank();
+        assertThat(calendar.getJournalFenceCommand().checkpoint().scope())
+                .isEqualTo(new JournalPeriodScope(period.id(), period.startDate(), period.endDate()));
+        assertThat(calendar.getCycleNumber()).isEqualTo(1);
+        assertThat(calendar.getClosedAt()).isNull();
+        assertThat(calendar.getReopenedAt()).isNull();
+        verify(fiscalPeriodControlPort).updateClosingStatus(period.id(), target, "ADMIN");
+        verify(journalPeriodFencePort, never()).release(any());
+        verify(closingTaskPersistencePort, never()).save(any());
+        verify(closingGatePersistencePort, never()).save(any());
+        ArgumentCaptor<ClosingAuditLog> audits = ArgumentCaptor.forClass(ClosingAuditLog.class);
+        verify(closingAuditLogPersistencePort, atLeastOnce()).save(audits.capture());
+        assertThat(audits.getAllValues()).extracting(ClosingAuditLog::getActionType)
+                .doesNotContain(ClosingAuditLog.ActionType.CALENDAR_CLOSED, ClosingAuditLog.ActionType.REOPEN_APPROVED);
+    }
+
+    @Test
+    void failedJournalFenceResumesOnlyTheOriginalCommandBeforeMasterClose() {
+        ClosingCalendar calendar = givenReadyClose();
+        IllegalStateException unavailable = new IllegalStateException("Journal receipt unavailable");
+        doThrow(unavailable).when(journalPeriodFencePort).fence(any());
+
+        assertThatThrownBy(() -> closingService.determineClosingStatus(10L, "ADMIN"))
+                .isInstanceOf(ClosingTransitionPendingException.class).hasCause(unavailable);
+        String operationId = calendar.getTransitionId();
+        JournalPeriodFenceCommand originalCommand = calendar.getJournalFenceCommand();
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.PREPARED);
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(calendar.getClosedAt()).isNull();
+        verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
+
+        // A lost receipt may hide an already-active fence; recovery must retain its immutable identity.
+        doAnswer(call -> {
+            assertThat(call.<JournalPeriodFenceCommand>getArgument(0)).isEqualTo(originalCommand);
+            assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.PREPARED);
+            return new JournalPeriodFenceResult(originalCommand, JournalPeriodFenceResult.State.ACTIVE);
+        }).when(journalPeriodFencePort).fence(any());
+        when(fiscalPeriodControlPort.updateClosingStatus(1L, "CLOSED", "ADMIN")).thenAnswer(call -> {
+            assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.DISPATCHED);
+            return new FiscalPeriodRef(1L, "2026", "01", openPeriod.startDate(), openPeriod.endDate(), "CLOSED");
+        });
+
+        ClosingCalendar recovered = transitions.recoverTransition(10L, operationId, false, "RECOVERER");
+
+        assertThat(recovered.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        assertThat(recovered.getTransitionId()).isNull();
+        assertThat(recovered.getJournalFenceCommand()).isEqualTo(originalCommand);
+        assertThat(recovered.getClosedBy()).isEqualTo("ADMIN");
+        verify(journalPeriodFencePort, times(2)).fence(originalCommand);
+        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
+        verify(journalPeriodFencePort, never()).release(any());
+        verify(finalCloseEvidenceService).requireForFinalClose(calendar, openPeriod);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "actor", "revision", "state"})
+    void nonmatchingJournalFenceReceiptCannotDispatchMasterClose(String mismatch) {
+        ClosingCalendar calendar = givenReadyClose();
+        doAnswer(call -> {
+            JournalPeriodFenceCommand command = call.getArgument(0);
+            return switch (mismatch) {
+                case "missing" -> null;
+                case "actor" -> new JournalPeriodFenceResult(new JournalPeriodFenceCommand(
+                        command.operationId(), command.checkpoint(), "OTHER"), JournalPeriodFenceResult.State.ACTIVE);
+                case "revision" -> new JournalPeriodFenceResult(new JournalPeriodFenceCommand(
+                        command.operationId(), new JournalPeriodCheckpoint(command.checkpoint().scope(), 1),
+                        command.actor()), JournalPeriodFenceResult.State.ACTIVE);
+                default -> new JournalPeriodFenceResult(command, JournalPeriodFenceResult.State.RELEASED);
+            };
+        }).when(journalPeriodFencePort).fence(any());
+
+        assertThatThrownBy(() -> closingService.determineClosingStatus(10L, "ADMIN"))
+                .isInstanceOf(ClosingTransitionPendingException.class)
+                .hasRootCauseMessage("Journal returned a mismatched fence acknowledgement");
+
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.PREPARED);
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(calendar.getJournalFenceCommand().actor()).isEqualTo("ADMIN");
+        assertThat(calendar.getJournalFenceCommand().checkpoint().revision()).isZero();
+        verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
+        verify(journalPeriodFencePort, never()).release(any());
+    }
+
+    @Test
+    void cancellationReleaseFailureRetainsIntentAndRecoveryNeverCallsMaster() {
+        ClosingCalendar calendar = givenReadyClose();
+        doThrow(new IllegalStateException("receipt lost")).when(journalPeriodFencePort).fence(any());
+        assertThatThrownBy(() -> closingService.determineClosingStatus(10L, "ADMIN"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        String operationId = calendar.getTransitionId();
+        JournalPeriodFenceCommand command = calendar.getJournalFenceCommand();
+        when(journalPeriodFencePort.release(command)).thenThrow(new IllegalStateException("release unavailable"));
+
+        assertThatThrownBy(() -> transitions.cancelPreparedClose(10L, operationId, "refresh evidence", "OPERATOR"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+
+        assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.CANCEL_RELEASE_PENDING);
+        assertThat(calendar.getTransitionEvidenceSetId()).isEqualTo("ready-close");
+        assertThat(calendar.getJournalFenceCommand()).isEqualTo(command);
+        assertThatThrownBy(calendar::requireChecklistMutable).isInstanceOf(IllegalStateException.class);
+        doReturn(new JournalPeriodFenceResult(command, JournalPeriodFenceResult.State.RELEASED))
+                .when(journalPeriodFencePort).release(command);
+
+        transitions.recoverTransition(10L, operationId, false, "RECOVERER");
+
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(calendar.getTransitionId()).isNull();
+        assertThat(calendar.getJournalFenceCommand()).isNull();
+        calendar.requireChecklistMutable();
+        verify(journalPeriodFencePort).fence(command);
+        verify(journalPeriodFencePort, times(2)).release(command);
+        verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
+    }
+
+    @Test
+    void reopenReleaseFailureKeepsAdmissionBlockedAndRetryDoesNotRepeatTheDecision() {
+        ClosingCalendar calendar = openCalendar();
+        calendar.setFiscalPeriod("02");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        JournalPeriodFenceCommand originalClose = new JournalPeriodFenceCommand("original-close",
+                new JournalPeriodCheckpoint(new JournalPeriodScope(2L, closedPeriod.startDate(), closedPeriod.endDate()), 0),
+                "CLOSER");
+        calendar.restoreJournalFenceCommand(originalClose);
+        ReopenApproval approval = new ReopenApproval();
+        approval.setId(20L);
+        approval.assignFiscalPeriod(2L, "2026", "02");
+        approval.request("REQUESTER", "approved correction");
+        AtomicReference<FiscalPeriodRef> master = new AtomicReference<>(closedPeriod);
+        when(fiscalPeriodControlPort.findFiscalPeriodById(2L)).thenAnswer(call -> Optional.of(master.get()));
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "02")).thenAnswer(call -> Optional.of(master.get()));
+        when(closingCalendarPersistencePort.findById(10L)).thenReturn(Optional.of(calendar));
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "02"))
+                .thenReturn(Optional.of(calendar));
+        when(closingCalendarPersistencePort.save(calendar)).thenReturn(calendar);
+        when(reopenApprovalPersistencePort.findById(20L)).thenReturn(Optional.of(approval));
+        ClosingTask task = new ClosingTask();
+        task.setMandatory(true);
+        task.setStatus(ClosingTask.ClosingTaskStatus.COMPLETED);
+        ClosingGate gate = new ClosingGate();
+        gate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
+        when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(task));
+        when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
+        when(fiscalPeriodControlPort.updateClosingStatus(2L, "OPEN", "APPROVER")).thenAnswer(call -> {
+            FiscalPeriodRef opened = new FiscalPeriodRef(2L, "2026", "02", closedPeriod.startDate(),
+                    closedPeriod.endDate(), "OPEN");
+            master.set(opened);
+            return opened;
+        });
+        when(journalPeriodFencePort.release(originalClose)).thenAnswer(call -> {
+            // A release may only follow the local OPEN/checklist commit; admission still sees the pending intent.
+            assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.OPEN);
+            assertThat(calendar.getTransitionStage()).isEqualTo(ClosingCalendar.TransitionStage.RELEASE_PENDING);
+            verify(closingTaskPersistencePort).save(any());
+            verify(closingGatePersistencePort).save(any());
+            throw new IllegalStateException("release receipt lost");
+        });
+
+        assertThatThrownBy(() -> closingService.updateReopenApprovalStatus(
+                20L, ReopenApproval.ReopenApprovalStatus.APPROVED, "APPROVER"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+
+        String reopenOperation = calendar.getTransitionId();
+        assertThat(reopenOperation).isNotEqualTo(originalClose.operationId());
+        assertThat(calendar.getJournalFenceCommand()).isEqualTo(originalClose);
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+        assertThat(approval.getStatus()).isEqualTo(ReopenApproval.ReopenApprovalStatus.APPROVED);
+        assertThat(closingAdmissionService.isClosed(LocalDate.of(2026, 2, 15))).isTrue();
+        doReturn(new JournalPeriodFenceResult(originalClose, JournalPeriodFenceResult.State.RELEASED))
+                .when(journalPeriodFencePort).release(originalClose);
+
+        transitions.recoverTransition(10L, reopenOperation, false, "RECOVERER");
+
+        assertThat(calendar.getTransitionId()).isNull();
+        assertThat(calendar.getJournalFenceCommand()).isNull();
+        assertThat(calendar.getCycleNumber()).isEqualTo(2);
+        assertThat(closingAdmissionService.isClosed(LocalDate.of(2026, 2, 15))).isFalse();
+        verify(journalPeriodFencePort, times(2)).release(originalClose);
+        verify(journalPeriodFencePort, never()).fence(any());
+        verify(fiscalPeriodControlPort).updateClosingStatus(2L, "OPEN", "APPROVER");
+        verify(reopenApprovalPersistencePort).save(approval);
+        verify(closingTaskPersistencePort).save(any());
+        verify(closingGatePersistencePort).save(any());
+    }
+
+    @Test
+    void legacyClosedCalendarWithoutFenceRejectsReopenBeforeChangingApproval() {
+        ClosingCalendar calendar = openCalendar();
+        calendar.setFiscalPeriod("02");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        ReopenApproval approval = new ReopenApproval();
+        approval.assignFiscalPeriod(2L, "2026", "02");
+        approval.request("REQUESTER", "approved correction");
+        when(reopenApprovalPersistencePort.findById(20L)).thenReturn(Optional.of(approval));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(2L)).thenReturn(Optional.of(closedPeriod));
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "02"))
+                .thenReturn(Optional.of(calendar));
+
+        assertThatThrownBy(() -> closingService.updateReopenApprovalStatus(
+                20L, ReopenApproval.ReopenApprovalStatus.APPROVED, "APPROVER"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("no durable Journal fence");
+
+        assertThat(approval.getStatus()).isEqualTo(ReopenApproval.ReopenApprovalStatus.PENDING);
+        assertThat(approval.getApprovedBy()).isNull();
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
+        assertThat(calendar.getTransitionId()).isNull();
+        verify(reopenApprovalPersistencePort, never()).save(any());
+        verify(closingCalendarPersistencePort, never()).save(any());
+        verify(closingAuditLogPersistencePort, never()).save(any());
+        verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
+        verifyNoInteractions(journalPeriodFencePort);
+    }
+
+    private ClosingCalendar givenReadyClose() {
+        ClosingCalendar calendar = openCalendar();
+        calendar.start("ADMIN");
+        ClosingTask task = new ClosingTask();
+        task.setMandatory(true);
+        task.setStatus(ClosingTask.ClosingTaskStatus.COMPLETED);
+        ClosingGate gate = new ClosingGate();
+        gate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
+        when(closingCalendarPersistencePort.findById(10L)).thenReturn(Optional.of(calendar));
+        when(closingCalendarPersistencePort.save(calendar)).thenReturn(calendar);
+        when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(task));
+        when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        FinalCloseEvidenceSet evidence = validEvidence("ready-close", calendar, openPeriod);
+        when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod)).thenReturn(evidence);
+        when(finalCloseEvidenceService.requireBoundForFinalClose(calendar, openPeriod, evidence.evidenceSetId()))
+                .thenReturn(evidence);
+        return calendar;
     }
 
     @Test
@@ -672,7 +967,8 @@ public class ClosingServiceTest {
     private FinalCloseEvidenceSet validEvidence(String id, ClosingCalendar calendar, FiscalPeriodRef period) {
         return new FinalCloseEvidenceSet(id, calendar.getId(), period.id(), period.fiscalYear(), period.fiscalPeriod(),
                 period.endDate(), java.time.Instant.parse("2026-02-01T00:00:00Z"), "provider",
-                "a".repeat(64), List.of());
+                "a".repeat(64), List.of(), new JournalPeriodCheckpoint(
+                        new JournalPeriodScope(period.id(), period.startDate(), period.endDate()), 0));
     }
 
     @Test
@@ -777,8 +1073,10 @@ public class ClosingServiceTest {
         gate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
         when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(task));
         when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
-        when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod))
-                .thenReturn(validEvidence("admission-close", calendar, openPeriod));
+        FinalCloseEvidenceSet evidence = validEvidence("admission-close", calendar, openPeriod);
+        when(finalCloseEvidenceService.requireForFinalClose(calendar, openPeriod)).thenReturn(evidence);
+        when(finalCloseEvidenceService.requireBoundForFinalClose(calendar, openPeriod, evidence.evidenceSetId()))
+                .thenReturn(evidence);
         when(reopenApprovalPersistencePort.saveAndFlush(any())).thenAnswer(invocation -> {
             ReopenApproval approval = invocation.getArgument(0);
             approval.setId(20L);

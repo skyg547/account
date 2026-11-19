@@ -17,6 +17,15 @@ import java.util.List;
 final class FinalCloseEvidenceFixtures {
     private FinalCloseEvidenceFixtures() { }
 
+    static com.ho.account.contracts.journal.JournalPeriodFenceCommand closedFence(
+            long periodId, String year, String month) {
+        LocalDate start = LocalDate.of(Integer.parseInt(year), Integer.parseInt(month), 1);
+        return new com.ho.account.contracts.journal.JournalPeriodFenceCommand(java.util.UUID.randomUUID().toString(),
+                new com.ho.account.contracts.journal.JournalPeriodCheckpoint(
+                        new com.ho.account.contracts.journal.JournalPeriodScope(periodId, start,
+                                start.withDayOfMonth(start.lengthOfMonth())), 0), "original-closer");
+    }
+
     static String recordValid(FinalCloseEvidenceUseCase useCase, ClosingCalendar calendar,
             Long fiscalPeriodId, LocalDate cutoff) {
         return recordValid(useCase, calendar, fiscalPeriodId, cutoff, Instant.now());
@@ -38,11 +47,12 @@ final class FinalCloseEvidenceFixtures {
                         Outcome.PASS, 0, List.of(new FinalCloseEvidenceTotal(
                                 "1000", "KRW", matchedTotal, matchedTotal))))
                 .toList();
+        var checkpoint = useCase.checkpoint(calendar.getId());
         Submission seed = new Submission(id, calendar.getId(), fiscalPeriodId, calendar.getFiscalYear(),
-                calendar.getFiscalPeriod(), cutoff, observedAt, "0".repeat(64), controls);
+                calendar.getFiscalPeriod(), cutoff, observedAt, "0".repeat(64), controls, checkpoint);
         Submission signed = new Submission(id, calendar.getId(), fiscalPeriodId, calendar.getFiscalYear(),
                 calendar.getFiscalPeriod(), cutoff, observedAt,
-                FinalCloseEvidenceService.computeContentDigest(seed, "test-provider"), controls);
+                FinalCloseEvidenceService.computeContentDigest(seed, "test-provider"), controls, checkpoint);
         useCase.record(calendar.getId(), signed, "test-provider");
         return id;
     }

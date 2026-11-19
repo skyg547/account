@@ -36,6 +36,23 @@
 정상잔액 방향은 `DEBIT/CREDIT`만 허용합니다. 기존 4개 인자 생성자는 호환상 `DEBIT`를
 사용하지만 부채/자본/수익 계정 오류를 막기 위해 제거 TODO가 있습니다.
 
+## Journal 기간 admission 계약 (GH-762)
+
+- `JournalPeriodScope`: Master의 양수 `fiscalPeriodId`와 포함 범위 `startDate`, `endDate`.
+- `JournalPeriodCheckpoint`: scope와 음이 아닌 Journal DB 전체 `revision`.
+- `JournalPeriodFenceCommand`: 변경하지 않는 `operationId`, checkpoint, 감사 actor.
+- `JournalPeriodFenceResult`: 전체 command와 `ACTIVE` 또는 `RELEASED` 상태.
+- `JournalPeriodFencePort`: `checkpoint`, `fence`, `release`. DB와 HTTP 타입은 노출하지 않습니다.
+
+revision은 거래 건수가 아닙니다. 금액 변경 및 게이트 해제가 같은 DB 트랜잭션에서 증가시키는
+단조 버전이며, 서로 무관한 기간의 변경도 오래된 증빙을 보수적으로 무효화할 수 있습니다.
+이 계약은 하나의 authoritative Journal DB를 전제로 합니다. 다중 원장 DB/tenant 간 토큰 공유는
+지원하지 않습니다. consumer는 응답의 전체 command와 예상 state를 비교해야 합니다.
+
+operation ID는 1–100자, actor는 1–50자이며 양끝 공백을 거절합니다. 동일 ID로 다른 payload를
+보내면 충돌입니다. `release`가 먼저 도착해도 영속 tombstone을 남기므로 늦은 `fence`가 이를
+되살릴 수 없습니다. tombstone은 지연 요청과 재시작에 대한 안전장치이므로 자동 만료하지 않습니다.
+
 ## 조회 결과 계약
 
 `JournalSummary`, `JournalDetailSummary`, `LedgerBalanceSummary`는 기존 projection/직렬화

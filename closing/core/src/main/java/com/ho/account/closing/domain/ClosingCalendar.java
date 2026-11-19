@@ -1,5 +1,6 @@
 package com.ho.account.closing.domain;
 
+import com.ho.account.contracts.journal.JournalPeriodFenceCommand;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
@@ -64,13 +65,56 @@ public class ClosingCalendar {
 
     private String transitionEvidenceSetId;
 
+    // Retained after CLOSED so reopening releases only the fence from that exact close cycle.
+    private JournalPeriodFenceCommand journalFenceCommand;
+
+    public JournalPeriodFenceCommand getJournalFenceCommand() { return journalFenceCommand; }
+    public void restoreJournalFenceCommand(JournalPeriodFenceCommand command) { journalFenceCommand = command; }
+
+    public void bindJournalFence(JournalPeriodFenceCommand command) {
+        requireTransition(command.operationId());
+        if (transitionStage != TransitionStage.PREPARED || !"CLOSED".equals(transitionTarget)
+                || !transitionActor.equals(command.actor())
+                || !transitionFiscalPeriodId.equals(command.checkpoint().scope().fiscalPeriodId())) {
+            throw new IllegalStateException("Journal fence must match the prepared close operation");
+        }
+        if (journalFenceCommand != null && !journalFenceCommand.equals(command)) {
+            throw new IllegalStateException("Prepared Journal fence command is immutable");
+        }
+        journalFenceCommand = command;
+    }
+
+    public void requireJournalFence() {
+        if (journalFenceCommand == null) {
+            throw new IllegalStateException("Legacy calendar has no durable Journal fence; reconcile before reopening");
+        }
+    }
+
+    public void prepareCancellation(String operationId) {
+        requireTransition(operationId);
+        if (transitionStage != TransitionStage.PREPARED || !"CLOSED".equals(transitionTarget)) {
+            throw new IllegalStateException("Only a PREPARED final-close transition can be cancelled.");
+        }
+        requireJournalFence();
+        transitionStage = TransitionStage.CANCEL_RELEASE_PENDING;
+    }
+
+    public void finishJournalRelease(String operationId) {
+        requireTransition(operationId);
+        if (transitionStage != TransitionStage.RELEASE_PENDING) {
+            throw new IllegalStateException("Journal release is not pending");
+        }
+        journalFenceCommand = null;
+        clearTransition();
+    }
+
     private String name;
 
     public enum ClosingCalendarStatus {
         OPEN, IN_PROGRESS, CLOSED, PERMANENTLY_CLOSED
     }
 
-    public enum TransitionStage { PREPARED, DISPATCHED }
+    public enum TransitionStage { PREPARED, DISPATCHED, CANCEL_RELEASE_PENDING, RELEASE_PENDING }
 
     public String getTransitionId() { return transitionId; }
     public String getTransitionTarget() { return transitionTarget; }
@@ -168,10 +212,11 @@ public class ClosingCalendar {
         requireTransition(operationId);
         requireActor(actor);
         if (status != ClosingCalendarStatus.IN_PROGRESS
-                || transitionStage != TransitionStage.PREPARED
+                || transitionStage != TransitionStage.CANCEL_RELEASE_PENDING
                 || !"CLOSED".equals(transitionTarget)) {
-            throw new IllegalStateException("Only a PREPARED final-close transition can be cancelled.");
+            throw new IllegalStateException("Journal cancellation release must be pending.");
         }
+        journalFenceCommand = null;
         transitionId = null;
         transitionTarget = null;
         transitionStage = null;
@@ -190,10 +235,19 @@ public class ClosingCalendar {
             throw new IllegalStateException("Fiscal period transition has not been dispatched.");
         }
         if ("OPEN".equals(transitionTarget)) {
+            requireJournalFence();
             reopen(transitionActor);
+            // OPEN/new checklist commits before the coordinator releases Journal admission.
+            transitionStage = TransitionStage.RELEASE_PENDING;
+            return;
         } else {
+            requireJournalFence();
             close(transitionActor);
         }
+        clearTransition();
+    }
+
+    private void clearTransition() {
         transitionId = null;
         transitionTarget = null;
         transitionStage = null;
@@ -327,6 +381,10 @@ public class ClosingCalendar {
     public int getCycleNumber() {
         return cycleNumber;
     }
+
+    public void setCycleNumber(int value) { cycleNumber = value; }
+
+    public void setLastSourceChangedAt(LocalDateTime value) { lastSourceChangedAt = value; }
 
     public LocalDateTime getLastSourceChangedAt() {
         return lastSourceChangedAt;

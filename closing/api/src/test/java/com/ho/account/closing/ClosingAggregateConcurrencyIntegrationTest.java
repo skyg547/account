@@ -505,6 +505,7 @@ class ClosingAggregateConcurrencyIntegrationTest {
         calendar.setFiscalPeriod(period);
         calendar.setStatus(ClosingCalendarStatus.CLOSED);
         calendar.setAuditUser("synthetic-fixture");
+        calendar.restoreJournalFenceCommand(FinalCloseEvidenceFixtures.closedFence(periodId, year, period));
         calendar = calendars.save(calendar);
         ReopenApproval approval = closing.requestPeriodReopen(periodId, "requester", "synthetic correction");
         return new Fixture(periodId, calendar.getId(), approval.getId());
@@ -541,6 +542,7 @@ class ClosingAggregateConcurrencyIntegrationTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class Configuration {
+        @Bean ControlledJournalPeriodFence controlledJournalFence() { return new ControlledJournalPeriodFence(); }
         @Bean @Primary ControlledMaster controlledMaster() { return new ControlledMaster(); }
         @Bean @Primary JournalQueryPort controlledJournalQuery() { return mock(JournalQueryPort.class); }
     }

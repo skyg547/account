@@ -35,6 +35,7 @@ import com.ho.account.closing.infrastructure.persistence.JpaFinalCloseEvidencePe
                 "spring.flyway.locations=classpath:db/closing-migration", "spring.flyway.table=flyway_schema_history_closing"})
 class FinalCloseEvidencePersistenceIntegrationTest {
     @Autowired FinalCloseEvidencePersistencePort persistence;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @Test
     void appendReloadsDeterministicOrderAndExactDecimalScale() {
@@ -42,6 +43,7 @@ class FinalCloseEvidencePersistenceIntegrationTest {
 
         FinalCloseEvidenceSet reloaded = persistence.append(input);
 
+        assertThat(reloaded.journalCheckpoint()).isEqualTo(input.journalCheckpoint());
         assertThat(reloaded.controls()).extracting(FinalCloseEvidenceControl::type)
                 .containsExactly(Type.AP_SUBLEDGER, Type.AR_SUBLEDGER);
         assertThat(reloaded.controls().get(0).totals()).extracting(FinalCloseEvidenceTotal::accountCode)
@@ -83,6 +85,22 @@ class FinalCloseEvidencePersistenceIntegrationTest {
         assertThat(persistence.findByEvidenceSetId("no-such-bound-id")).isEmpty();
     }
 
+    @Test
+    void migrationRejectsCancellationWithoutCommandAndRetainsLegacyPreparedRows() {
+        jdbc.update("""
+                INSERT INTO closing_calendars(fiscal_year,fiscal_period,status,is_current_period,
+                    transition_id,transition_target,transition_stage,transition_fiscal_period_id,
+                    transition_actor,transition_prepared_at)
+                VALUES ('2081','01','IN_PROGRESS',false,'legacy-prepared','CLOSED','PREPARED',20,'closer',CURRENT_TIMESTAMP)
+                """);
+        assertThatThrownBy(() -> jdbc.update("""
+                UPDATE closing_calendars SET transition_stage='CANCEL_RELEASE_PENDING'
+                WHERE transition_id='legacy-prepared'
+                """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(jdbc.queryForObject("SELECT transition_stage FROM closing_calendars WHERE transition_id='legacy-prepared'",
+                String.class)).isEqualTo("PREPARED");
+    }
+
     private FinalCloseEvidenceSet evidence(String id, Instant observedAt, String digest) {
         List<FinalCloseEvidenceTotal> totals = List.of(
                 new FinalCloseEvidenceTotal("2000", "USD", new BigDecimal("123456789.123456789012345678"),
@@ -92,7 +110,9 @@ class FinalCloseEvidencePersistenceIntegrationTest {
         return new FinalCloseEvidenceSet(id, 10L, 20L, "2026", "01", LocalDate.of(2026, 1, 31), observedAt,
                 "provider", digest, List.of(
                         new FinalCloseEvidenceControl(Type.AR_SUBLEDGER, "receivable", "run-2", Outcome.PASS, 0, totals),
-                        new FinalCloseEvidenceControl(Type.AP_SUBLEDGER, "payable", "run-1", Outcome.PASS, 0, totals)));
+                        new FinalCloseEvidenceControl(Type.AP_SUBLEDGER, "payable", "run-1", Outcome.PASS, 0, totals)), new com.ho.account.contracts.journal.JournalPeriodCheckpoint(
+                                new com.ho.account.contracts.journal.JournalPeriodScope(20L,
+                                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)), 23));
     }
 
     @Configuration(proxyBeanMethods = false)

@@ -10,6 +10,12 @@ import com.ho.account.closing.domain.FinalCloseEvidencePolicy;
 import com.ho.account.closing.domain.FinalCloseEvidenceSet;
 import com.ho.account.closing.domain.FinalCloseEvidenceTotal;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
+import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
+import com.ho.account.contracts.journal.JournalPeriodFencePort;
+import com.ho.account.contracts.journal.JournalPeriodScope;
+import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
+import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -34,16 +40,56 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
     private final FinalCloseEvidencePersistencePort evidence;
     private final FinalCloseEvidenceProperties properties;
     private final Clock clock;
+    private final JournalPeriodFencePort journal;
+    private final FiscalPeriodControlPort master;
+    private final ClosingCalendarPersistencePort calendars;
 
+    @Autowired
     public FinalCloseEvidenceService(
             ClosingAggregatePersistencePort aggregates,
             FinalCloseEvidencePersistencePort evidence,
             FinalCloseEvidenceProperties properties,
-            @Qualifier("finalCloseEvidenceClock") Clock clock) {
+            @Qualifier("finalCloseEvidenceClock") Clock clock,
+            @Qualifier("closingJournalPeriodFence") JournalPeriodFencePort journal, FiscalPeriodControlPort master,
+            ClosingCalendarPersistencePort calendars) {
         this.aggregates = Objects.requireNonNull(aggregates, "aggregates must not be null");
         this.evidence = Objects.requireNonNull(evidence, "evidence must not be null");
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null").withZone(ZoneOffset.UTC);
+        this.journal = journal;
+        this.master = master;
+        this.calendars = calendars;
+    }
+
+    /** Legacy manual wiring stays fail-closed until the Journal and Master ports are supplied. */
+    public FinalCloseEvidenceService(ClosingAggregatePersistencePort aggregates,
+            FinalCloseEvidencePersistencePort evidence, FinalCloseEvidenceProperties properties, Clock clock) {
+        this(aggregates, evidence, properties, clock, null, null, null);
+    }
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NEVER)
+    public JournalPeriodCheckpoint checkpoint(Long calendarId) {
+        requireJournalPorts();
+        ClosingCalendar calendar = calendars.findById(calendarId)
+                .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found"));
+        calendar.requireNoTransition();
+        if (calendar.getStatus() != ClosingCalendarStatus.IN_PROGRESS) {
+            throw rejected("calendar must be IN_PROGRESS before collecting evidence");
+        }
+        FiscalPeriodRef period = master.findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod())
+                .orElseThrow(() -> rejected("authoritative fiscal period is unavailable"));
+        if (!Objects.equals(calendar.getFiscalYear(), period.fiscalYear())
+                || !Objects.equals(calendar.getFiscalPeriod(), period.fiscalPeriod())
+                || !"OPEN".equals(period.closingStatus())) {
+            throw rejected("authoritative fiscal period does not match the OPEN calendar period");
+        }
+        JournalPeriodScope scope = new JournalPeriodScope(period.id(), period.startDate(), period.endDate());
+        JournalPeriodCheckpoint checkpoint = journal.checkpoint(scope);
+        if (checkpoint == null || !scope.equals(checkpoint.scope())) {
+            throw rejected("Journal returned a different checkpoint scope");
+        }
+        return checkpoint;
     }
 
     @Override
@@ -51,6 +97,21 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
     public FinalCloseEvidenceSet record(Long calendarId, Submission submission, String trustedSubmittedBy) {
         Objects.requireNonNull(submission, "submission must not be null");
         String actor = requireText(trustedSubmittedBy, "trustedSubmittedBy");
+        // Drain before acquiring the calendar lock: Journal admission can itself read Closing.
+        // A later posting is still caught by the exact revision CAS at final close.
+        requireJournalPorts();
+        if (submission.journalCheckpoint() == null) {
+            throw rejected("Journal checkpoint is required; legacy evidence cannot authorize close");
+        }
+        FiscalPeriodRef period = master.findFiscalPeriodById(submission.fiscalPeriodId())
+                .orElseThrow(() -> rejected("authoritative fiscal period is unavailable"));
+        JournalPeriodScope scope = new JournalPeriodScope(period.id(), period.startDate(), period.endDate());
+        if (!"OPEN".equals(period.closingStatus())
+                || !Objects.equals(submission.fiscalPeriodId(), period.id())
+                || !scope.equals(submission.journalCheckpoint().scope())
+                || !submission.journalCheckpoint().equals(journal.checkpoint(scope))) {
+            throw rejected("Journal checkpoint is stale or does not match the authoritative period");
+        }
         ClosingCalendar calendar = aggregates.lockCalendar(calendarId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found with id: " + calendarId));
         calendar.requireNoTransition();
@@ -65,6 +126,7 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
 
         FinalCloseEvidenceSet candidate = toEvidenceSet(submission, actor);
         requireDigest(candidate);
+        requireIdentity(calendar, period, candidate);
         // Latest selection orders by observedAt. Reject a future provider timestamp at admission
         // so it cannot pin the calendar ahead of later, valid snapshots.
         if (submission.observedAt().isAfter(clock.instant())) {
@@ -106,6 +168,9 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
     }
 
     private void requireEligible(ClosingCalendar calendar, FiscalPeriodRef period, FinalCloseEvidenceSet selected) {
+        if (selected.journalCheckpoint() == null) {
+            throw rejected("Journal checkpoint is required; legacy evidence cannot authorize close");
+        }
         requireDigest(selected);
         requireIdentity(calendar, period, selected);
         requireFreshness(calendar, selected);
@@ -130,7 +195,7 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
                 submission.observedAt(),
                 actor,
                 "0".repeat(64),
-                submission.controls()));
+                submission.controls(), submission.journalCheckpoint()));
     }
 
     private static FinalCloseEvidenceSet toEvidenceSet(Submission submission, String actor) {
@@ -144,7 +209,7 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
                 submission.observedAt(),
                 actor,
                 submission.contentDigest(),
-                submission.controls());
+                submission.controls(), submission.journalCheckpoint());
     }
 
     private void requireDigest(FinalCloseEvidenceSet selected) {
@@ -165,6 +230,10 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
                 || !Objects.equals(selected.fiscalYear(), period.fiscalYear())
                 || !Objects.equals(selected.fiscalPeriod(), period.fiscalPeriod())) {
             throw rejected("calendar or fiscal-period identity does not match Master");
+        }
+        if (selected.journalCheckpoint() == null || !selected.journalCheckpoint().scope().equals(
+                new JournalPeriodScope(period.id(), period.startDate(), period.endDate()))) {
+            throw rejected("Journal checkpoint scope does not match Master");
         }
         if (!Objects.equals(selected.ledgerCutoff(), period.endDate())) {
             throw rejected("ledger cutoff must equal the authoritative fiscal-period end date");
@@ -197,7 +266,13 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
     private static String computeDigest(FinalCloseEvidenceSet selected) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            update(digest, "FINAL_CLOSE_EVIDENCE_V1");
+            update(digest, selected.journalCheckpoint() == null ? "FINAL_CLOSE_EVIDENCE_V1" : "FINAL_CLOSE_EVIDENCE_V2");
+            if (selected.journalCheckpoint() != null) {
+                update(digest, selected.journalCheckpoint().scope().fiscalPeriodId().toString());
+                update(digest, selected.journalCheckpoint().scope().startDate().toString());
+                update(digest, selected.journalCheckpoint().scope().endDate().toString());
+                update(digest, Long.toString(selected.journalCheckpoint().revision()));
+            }
             update(digest, selected.evidenceSetId());
             update(digest, selected.calendarId().toString());
             update(digest, selected.fiscalPeriodId().toString());
@@ -243,6 +318,12 @@ public class FinalCloseEvidenceService implements FinalCloseEvidenceUseCase {
             throw new IllegalArgumentException(field + " must not be blank");
         }
         return value.trim();
+    }
+
+    private void requireJournalPorts() {
+        if (journal == null || master == null || calendars == null) {
+            throw rejected("mandatory Journal checkpoint integration is unavailable");
+        }
     }
 
     private static FinalCloseEvidenceValidationException rejected(String message) {

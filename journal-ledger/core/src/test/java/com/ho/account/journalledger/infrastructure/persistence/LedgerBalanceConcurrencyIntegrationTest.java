@@ -422,10 +422,12 @@ class LedgerBalanceConcurrencyIntegrationTest {
     private Attempt deadlockAttempt(Mode mode, Long journalId, int ownLock, int otherLock, CountDownLatch bothPosted) {
         return attempt(() -> {
             jdbc.queryForObject("SELECT id FROM balance_deadlock_probe WHERE id = ? FOR UPDATE", Integer.class, ownLock);
-            posting(mode).postJournalEntry(journalId, "deadlock-poster");
-            entityManager.flush();
+            // Both ambient transactions own an independent probe before one wins global admission.
+            // The winner then requests the loser's probe, producing an actual database deadlock.
             bothPosted.countDown();
             await(bothPosted);
+            posting(mode).postJournalEntry(journalId, "deadlock-poster");
+            entityManager.flush();
             jdbc.queryForObject("SELECT id FROM balance_deadlock_probe WHERE id = ? FOR UPDATE", Integer.class, otherLock);
         });
     }
@@ -681,6 +683,7 @@ class LedgerBalanceConcurrencyIntegrationTest {
     @EnableJpaRepositories("com.ho.account.journalledger.infrastructure.persistence.repository")
     @Import({JournalPersistenceAdapter.class, JournalReversalPersistenceAdapter.class})
     static class PostingApplication {
+        @Autowired PlatformTransactionManager transactionManager;
         @Bean BalanceReadGate balanceReadGate() { return new BalanceReadGate(); }
         @Bean PostingService jpaPosting(JournalPersistencePort journals, JournalReversalPersistencePort reversals,
                 GlEntryRepository glEntries,
@@ -704,7 +707,8 @@ class LedgerBalanceConcurrencyIntegrationTest {
                 ReflectionTestUtils.setField(balances, "entityManager", em);
             }
             return new PostingService(journals, reversals, entries,
-                    new LedgerService(gate.wrap(balances), new JdbcBalanceReaggregationControlAdapter(jdbc)),
+                    new LedgerService(gate.wrap(balances), new JdbcBalanceReaggregationControlAdapter(jdbc),
+                            new JdbcJournalPeriodAdmissionAdapter(jdbc, new JdbcBalanceReaggregationControlAdapter(jdbc), transactionManager)),
                     new ClosingLockValidationFilter(date -> false));
         }
     }

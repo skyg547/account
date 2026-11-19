@@ -1,6 +1,7 @@
 package com.ho.account.closing.dto;
 
 import com.ho.account.closing.domain.FinalCloseEvidenceSet;
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -15,7 +16,7 @@ public record FinalCloseEvidenceResponse(
         Instant observedAt,
         String submittedBy,
         String contentDigest,
-        int controlCount) {
+        int controlCount, JournalPeriodCheckpoint journalCheckpoint) {
 
     public static FinalCloseEvidenceResponse from(FinalCloseEvidenceSet evidenceSet) {
         return new FinalCloseEvidenceResponse(
@@ -28,6 +29,6 @@ public record FinalCloseEvidenceResponse(
                 evidenceSet.observedAt(),
                 evidenceSet.submittedBy(),
                 evidenceSet.contentDigest(),
-                evidenceSet.controls().size());
+                evidenceSet.controls().size(), evidenceSet.journalCheckpoint());
     }
 }
