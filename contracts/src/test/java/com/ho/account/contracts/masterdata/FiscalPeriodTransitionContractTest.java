@@ -8,6 +8,20 @@ import org.junit.jupiter.api.Test;
 class FiscalPeriodTransitionContractTest {
 
     @Test
+    void rejectsWholeDotSegmentsButPreservesOrdinaryDottedOperationIds() {
+        for (String reserved : java.util.List.of(".", "..")) {
+            assertThatThrownBy(() -> new FiscalPeriodTransitionCommand(reserved, 10L,
+                    FiscalPeriodClosingStatus.CLOSED, FiscalPeriodClosingStatus.OPEN, "approver"))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("reserved path segment");
+        }
+        for (String allowed : java.util.List.of("reopen.773", ".reopen", "reopen..773", "...")) {
+            assertThat(new FiscalPeriodTransitionCommand(allowed, 10L,
+                    FiscalPeriodClosingStatus.CLOSED, FiscalPeriodClosingStatus.OPEN, "approver").operationId())
+                    .isEqualTo(allowed);
+        }
+    }
+
+    @Test
     void receiptMatchesOnlyTheEntireOriginalCommand() {
         FiscalPeriodTransitionCommand command = command();
         FiscalPeriodTransitionReceipt receipt = new FiscalPeriodTransitionReceipt(

@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -66,9 +68,9 @@ class InternalFiscalPeriodControllerTest {
         org.mockito.Mockito.verifyNoInteractions(fiscalPeriodControlPort);
     }
 
-    @Test
-    void signedPrepareApplyAndReceiptBindOneOperation() throws Exception {
-        String operationId = "close-773";
+    @ParameterizedTest
+    @ValueSource(strings = {"close-773", "close@773"})
+    void signedPrepareApplyAndReceiptBindOneOperation(String operationId) throws Exception {
         String preparePath = "/api/internal/fiscal-periods/1/transitions/" + operationId;
         String receiptPath = "/api/internal/fiscal-periods/transitions/" + operationId;
         FiscalPeriodTransitionCommand command = new FiscalPeriodTransitionCommand(operationId, 1L,
@@ -101,9 +103,9 @@ class InternalFiscalPeriodControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.operationId").value(operationId));
     }
 
-    @Test
-    void signedConfirmFollowsAppliedReopenOperation() throws Exception {
-        String operationId = "reopen-773";
+    @ParameterizedTest
+    @ValueSource(strings = {"reopen-773", "reopen@773"})
+    void signedConfirmFollowsAppliedReopenOperation(String operationId) throws Exception {
         String preparePath = "/api/internal/fiscal-periods/1/transitions/" + operationId;
         String receiptPath = "/api/internal/fiscal-periods/transitions/" + operationId;
         String confirmPath = receiptPath + "/confirm";
@@ -138,9 +140,9 @@ class InternalFiscalPeriodControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.phase").value("CONFIRMED"));
     }
 
-    @Test
-    void signedCancelFollowsPreparedOperation() throws Exception {
-        String operationId = "cancel-773";
+    @ParameterizedTest
+    @ValueSource(strings = {"cancel-773", "cancel@773"})
+    void signedCancelFollowsPreparedOperation(String operationId) throws Exception {
         String preparePath = "/api/internal/fiscal-periods/1/transitions/" + operationId;
         String receiptPath = "/api/internal/fiscal-periods/transitions/" + operationId;
         FiscalPeriodTransitionCommand command = new FiscalPeriodTransitionCommand(operationId, 1L,

@@ -86,9 +86,19 @@ class HttpFiscalPeriodControlAdapterTest {
                 .hasMessageContaining("operation-bound transition");
     }
 
-    @Test
-    void reopenOperationRoutesSendBoundSignedServiceAssertionAndValidateReceipt() throws Exception {
-        String operationId = "2a28494e-8b9c-47e1-a443-3ce7b732973a";
+    @ParameterizedTest
+    @ValueSource(strings = {".", ".."})
+    void reservedDotOperationsAreRejectedBeforeAnyHttpRequest(String operationId) {
+        assertThatThrownBy(() -> adapter.findTransitionReceipt(operationId)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter.applyClosingTransition(operationId)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter.cancelClosingTransition(operationId, "operator"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter.confirmClosingTransition(operationId)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2a28494e-8b9c-47e1-a443-3ce7b732973a", "reopen..773", ".reopen", "..."})
+    void reopenOperationRoutesSendBoundSignedServiceAssertionAndValidateReceipt(String operationId) throws Exception {
         String preparePath = "/api/internal/fiscal-periods/9/transitions/" + operationId;
         String receiptPath = "/api/internal/fiscal-periods/transitions/" + operationId;
         String prepared = "{\"operationId\":\"" + operationId + "\",\"fiscalPeriodId\":9,"

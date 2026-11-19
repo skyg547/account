@@ -345,7 +345,7 @@ WHERE transition_stage = 'DISPATCHED';
 
 이 프로토콜은 Closing 명령과 Master 작업 ID를 직렬화합니다. Master는 기간당 미완료 준비 작업을
 하나로 제한하고 기대 상태를 적용 시 다시 검증합니다. 구버전 직접 변경 경로와 오래된 Closing writer는
-새 영수증 계약 밖에 있으므로, 배포 시 V58과 Master 전이 저장소를 먼저 적용하고 오래된 writer를
+새 영수증 계약 밖에 있으므로, 배포 시 V59와 Master 전이 저장소를 먼저 적용하고 오래된 writer를
 모두 중지·배출한 뒤 위 DISPATCHED 점검을 마쳐야 합니다. 새 의도는 `transition_protocol=RECEIPT_V1`로
 표시됩니다. 값이 없는 기존 의도는 자동 복구하지 않습니다. 미해결 전이를 지우거나 이전 버전으로
 바로 돌아가지 말고 두 시스템 상태를 대사합니다.

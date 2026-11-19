@@ -4,13 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 
 import com.ho.account.contracts.masterdata.FiscalPeriodClosingStatus;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodTransitionCommand;
 import com.ho.account.contracts.masterdata.FiscalPeriodTransitionReceipt;
 import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
+import com.ho.account.masterdata.core.domain.exception.FiscalPeriodTransitionConflictException;
+import com.ho.account.masterdata.core.infrastructure.persistence.entity.FiscalPeriodTransitionEntity;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.application.service.FiscalPeriodTransitionService;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodTransitionAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.entity.MasterDataAuditEventEntity;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -19,6 +24,7 @@ import com.ho.account.masterdata.core.infrastructure.persistence.repository.Fisc
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.FiscalPeriodTransitionRepository;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -27,6 +33,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -39,12 +47,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
+import java.sql.SQLException;
 
 /** Real H2 transactions exercise committed receipts and same-period row-lock behavior. */
 @DataJpaTest(properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false"})
 @ContextConfiguration(classes = FiscalPeriodTransitionPersistenceTest.TestApplication.class)
 @Import({JpaFiscalPeriodPersistenceAdapter.class, FiscalPeriodMapper.class,
-        MonolithFiscalPeriodControlAdapter.class, JpaMasterDataAuditAdapter.class})
+        MonolithFiscalPeriodControlAdapter.class, FiscalPeriodTransitionService.class, JpaFiscalPeriodTransitionAdapter.class, JpaMasterDataAuditAdapter.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class FiscalPeriodTransitionPersistenceTest {
     @SpringBootConfiguration
@@ -55,7 +65,7 @@ class FiscalPeriodTransitionPersistenceTest {
     @Autowired private FiscalPeriodControlPort control;
     @Autowired private JpaFiscalPeriodPersistenceAdapter periods;
     @Autowired private FiscalPeriodRepository periodRepository;
-    @Autowired private FiscalPeriodTransitionRepository transitions;
+    @SpyBean private FiscalPeriodTransitionRepository transitions;
     @Autowired private PlatformTransactionManager transactionManager;
     @SpyBean private JpaMasterDataAuditAdapter auditAdapter;
     @PersistenceContext private EntityManager entityManager;
@@ -296,6 +306,136 @@ class FiscalPeriodTransitionPersistenceTest {
         }
         assertThat(periods.findById(periodId).orElseThrow().getClosingStatus())
                 .isEqualTo(FiscalPeriod.ClosingStatus.OPEN);
+    }
+
+    @Test
+    void differentPeriodCannotOverwriteReceiptCommittedAfterItsMissingRead() throws Exception {
+        control.updateClosingStatus(periodId, "OPEN", "setup");
+        Long otherPeriod = transaction.execute(status -> periods.save(FiscalPeriod.reconstitute(
+                null, "2026", "12", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31),
+                FiscalPeriod.ClosingStatus.CLOSED, null, null, "prior")).getId());
+        String operationId = "cross-period@773";
+        var original = new FiscalPeriodTransitionCommand(operationId, periodId,
+                FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "alice");
+        var competing = new FiscalPeriodTransitionCommand(operationId, otherPeriod,
+                FiscalPeriodClosingStatus.CLOSED, FiscalPeriodClosingStatus.OPEN, "bob");
+        CountDownLatch missingRead = new CountDownLatch(1);
+        CountDownLatch originalCommitted = new CountDownLatch(1);
+        // Pause T2 after a real absent-ID SELECT. T1 commits on another period before T2 saves.
+        doAnswer(invocation -> {
+            // The repository delegates this read to EntityManager.find; keep the actual SQL read
+            // while adding a barrier (a Spring Data interface proxy has no callable real method).
+            Optional<FiscalPeriodTransitionEntity> found = Optional.ofNullable(
+                    entityManager.find(FiscalPeriodTransitionEntity.class, operationId));
+            if (Thread.currentThread().getName().equals("delayed-prepare")) {
+                assertThat(found).isEmpty();
+                missingRead.countDown();
+                assertThat(originalCommitted.await(10, TimeUnit.SECONDS)).isTrue();
+            }
+            return found;
+        }).when(transitions).findById(operationId);
+        var pool = Executors.newSingleThreadExecutor(task -> new Thread(task, "delayed-prepare"));
+        try {
+            var second = pool.submit(() -> control.prepareClosingTransition(competing));
+            assertThat(missingRead.await(10, TimeUnit.SECONDS)).isTrue();
+            var first = control.prepareClosingTransition(original);
+            var storedBefore = transitions.findById(operationId).orElseThrow();
+            originalCommitted.countDown();
+            assertThatThrownBy(() -> second.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(FiscalPeriodTransitionConflictException.class);
+            assertThat(control.findTransitionReceipt(operationId)).contains(first);
+            assertThat(transitions.findById(operationId).orElseThrow())
+                    .usingRecursiveComparison().isEqualTo(storedBefore);
+            assertThat(control.findFiscalPeriodById(periodId).orElseThrow().closingStatus()).isEqualTo("CLOSED");
+            assertThat(control.findFiscalPeriod("2026", "11").orElseThrow().closingStatus()).isEqualTo("CLOSED");
+            assertThat(periods.findById(periodId).orElseThrow().getClosingStatus())
+                    .isEqualTo(FiscalPeriod.ClosingStatus.OPEN);
+            assertThat(periods.findById(otherPeriod).orElseThrow().getClosingStatus())
+                    .isEqualTo(FiscalPeriod.ClosingStatus.CLOSED);
+        } finally {
+            originalCommitted.countDown();
+            pool.shutdownNow();
+            assertThat(pool.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+            transaction.executeWithoutResult(status -> {
+                transitions.deleteAll();
+                periodRepository.deleteById(otherPeriod);
+            });
+        }
+    }
+
+    @Test
+    void concurrentIdenticalPrepareConvergesOnOneCommittedReceipt() throws Exception {
+        var command = reopen("same-prepare@773");
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<FiscalPeriodTransitionReceipt> prepare = () -> {
+            assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+            return control.prepareClosingTransition(command);
+        };
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            var first = pool.submit(prepare);
+            var second = pool.submit(prepare);
+            start.countDown();
+            var receipt = first.get(10, TimeUnit.SECONDS);
+            assertThat(second.get(10, TimeUnit.SECONDS)).isEqualTo(receipt);
+            assertThat(control.findTransitionReceipt(command.operationId())).contains(receipt);
+            assertThat(transitions.count()).isEqualTo(1);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void rolledBackPrepareCanBeCreatedAgainInFreshTransaction() {
+        var command = reopen("rollback-prepare@773");
+        assertThatThrownBy(() -> transaction.execute(status -> {
+            control.prepareClosingTransition(command);
+            throw new IllegalStateException("failure after insert before commit");
+        })).isInstanceOf(IllegalStateException.class);
+        assertThat(control.findTransitionReceipt(command.operationId())).isEmpty();
+        var prepared = control.prepareClosingTransition(command);
+        assertThat(prepared.matches(command)).isTrue();
+        assertThat(control.findTransitionReceipt(command.operationId())).contains(prepared);
+    }
+
+    @Test
+    void unrelatedIntegrityFailureIsNotReportedAsTransitionConflict() {
+        var failure = new DataIntegrityViolationException("injected not-null violation",
+                new SQLException("synthetic missing value", "23502"));
+        doThrow(failure).when(transitions).saveAndFlush(any(FiscalPeriodTransitionEntity.class));
+        assertThatThrownBy(() -> control.prepareClosingTransition(reopen("integrity-failure@773")))
+                .isSameAs(failure);
+        assertThat(control.findTransitionReceipt("integrity-failure@773")).isEmpty();
+    }
+
+    @ParameterizedTest
+    @EnumSource(FiscalPeriodTransitionReceipt.Phase.class)
+    void originalCommandRemainsBoundInEveryReceiptPhase(FiscalPeriodTransitionReceipt.Phase phase) {
+        var original = reopen("identity-lifecycle@773");
+        control.prepareClosingTransition(original);
+        if (phase == FiscalPeriodTransitionReceipt.Phase.CANCELLED) {
+            control.cancelClosingTransition(original.operationId(), "recovery");
+        } else if (phase != FiscalPeriodTransitionReceipt.Phase.PREPARED) {
+            control.applyClosingTransition(original.operationId());
+            if (phase == FiscalPeriodTransitionReceipt.Phase.CONFIRMED) {
+                control.confirmClosingTransition(original.operationId());
+            }
+        }
+        var receipt = control.findTransitionReceipt(original.operationId()).orElseThrow();
+        assertThat(receipt.phase()).isEqualTo(phase);
+        for (var conflicting : java.util.List.of(
+                new FiscalPeriodTransitionCommand(original.operationId(), periodId,
+                        FiscalPeriodClosingStatus.CLOSED, FiscalPeriodClosingStatus.OPEN, "other-actor"),
+                new FiscalPeriodTransitionCommand(original.operationId(), periodId,
+                        FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "alice"),
+                new FiscalPeriodTransitionCommand(original.operationId(), periodId,
+                        FiscalPeriodClosingStatus.CLOSED, FiscalPeriodClosingStatus.PERMANENTLY_CLOSED, "alice"))) {
+            assertThatThrownBy(() -> control.prepareClosingTransition(conflicting))
+                    .isInstanceOf(FiscalPeriodTransitionConflictException.class);
+        }
+        assertThat(control.prepareClosingTransition(original)).isEqualTo(receipt);
+        assertThat(control.findTransitionReceipt(original.operationId())).contains(receipt);
     }
 
     private FiscalPeriodTransitionCommand reopen(String operationId) {

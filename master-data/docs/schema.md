@@ -241,3 +241,14 @@ partial index. A prepared close is an admission fence: public status reads repor
 effective admission `CLOSED` even though the stored period is `OPEN`; the read projection releases
 `OPEN` only after a separate confirmed receipt follows durable Closing completion. Both public
 read forms use one SQL statement to observe period and receipt in the same database snapshot.
+
+New receipts use INSERT even though the operation ID is assigned by the caller. The primary key
+atomically reserves that identity; an ID absent from one transaction's read can never cause a later
+save to merge another transaction's receipt. Command fields and creation time are not updatable.
+Same-period retries acquire the period lock and compare the complete command before returning the
+existing receipt, including cancelled/confirmed results. A different period racing for the same ID
+gets HTTP 409 on the losing unique insert, and that whole transaction rolls back. No receipt is
+queried inside an aborted transaction; later retries start with a fresh persistence context.
+Non-unique integrity failures remain infrastructure errors. The barrier regression proves the
+receipt and both public close-admission fences survive the losing request on synthetic H2 data;
+it does not prove PostgreSQL contention or production load.

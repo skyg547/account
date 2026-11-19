@@ -8,12 +8,15 @@ import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import com.ho.account.masterdata.core.domain.model.FiscalPeriod.ClosingStatus;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.application.service.FiscalPeriodTransitionService;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodTransitionAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.FiscalPeriodRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -49,7 +52,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 })
 @ContextConfiguration(classes = JpaFiscalPeriodPersistenceAdapterTest.TestApplication.class)
 @Import({JpaFiscalPeriodPersistenceAdapter.class, FiscalPeriodMapper.class,
-        MonolithFiscalPeriodControlAdapter.class, JpaMasterDataAuditAdapter.class})
+        MonolithFiscalPeriodControlAdapter.class, FiscalPeriodTransitionService.class, JpaFiscalPeriodTransitionAdapter.class, JpaMasterDataAuditAdapter.class})
 // 기본 slice의 rollback 트랜잭션을 끄므로 control adapter가 반환할 때 실제 커밋까지 완료해야 합니다.
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class JpaFiscalPeriodPersistenceAdapterTest {
@@ -119,7 +122,9 @@ class JpaFiscalPeriodPersistenceAdapterTest {
         assertThat(committed.getAuditUser()).isEqualTo("closing-command");
         assertThat(committed.getCreatedAt()).isEqualTo(CREATED);
         // 실제 갱신에서는 기존 @PreUpdate가 시간을 찍습니다. 순수 Mapper의 시간 보존 계약과 구분합니다.
-        assertThat(committed.getUpdatedAt()).isBetween(beforeCommand, LocalDateTime.now());
+        // TIMESTAMP(6) rounds nanoseconds on storage; compare bounds at that database precision.
+        assertThat(committed.getUpdatedAt()).isBetween(beforeCommand.truncatedTo(ChronoUnit.MICROS),
+                LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusNanos(1_000));
         assertBusinessIdentity(committed, closed);
         assertFreshReadsMatch(committed);
     }

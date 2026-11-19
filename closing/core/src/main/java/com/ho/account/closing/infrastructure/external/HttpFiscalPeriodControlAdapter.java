@@ -203,7 +203,8 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
     }
 
     private String operationPath(String operationId) {
-        if (operationId == null || !operationId.matches("[A-Za-z0-9._@-]{1,128}")) {
+        if (operationId == null || !operationId.matches("[A-Za-z0-9._@-]{1,128}")
+                || operationId.equals(".") || operationId.equals("..")) {
             throw new IllegalArgumentException("Invalid transition operation ID");
         }
         return "/api/internal/fiscal-periods/transitions/" + operationId;

@@ -306,6 +306,26 @@ API 활성 계정과목/상품 목록도 같은 원칙으로 `validFrom <= 기�
 
 ## 환율과 회계기간 흐름
 
+회계기간 전이 ID는 영문·숫자·`.`·`_`·`@`·`-`의 1~128자입니다. Closing client와
+Master의 prepare/조회/apply/cancel/confirm 인증 경로는 같은 범위를 사용합니다.
+서명은 HTTP method·정확한 path·operation ID와 준비 명령의 기간·기대/목표 상태를 묶습니다.
+인코딩된 경로와 서명/본문 불일치는 쓰기 전에 거부합니다. `reopen@773`도 정상적인 ID지만
+`reopen:773`, 빈 ID, 129자 ID는 사용할 수 없습니다.
+전체 ID가 `.` 또는 `..`인 경로 예약어도 command/client에서 거부합니다. `reopen.773`,
+`.reopen`, `reopen..773`처럼 점이 일반 이름에 포함된 ID는 허용합니다.
+
+준비 요청은 기간 행 잠금 → 전체 명령에 대한 기존 영수증 확인 → 도메인 전이 검증 →
+INSERT 순서입니다. 같은 기간·같은 명령의 동시 요청은 한 영수증으로 수렴합니다.
+서로 다른 기간의 요청이 같은 ID를 처음 조회했더라도 PK를 먼저 커밋한 명령만 보존되며,
+패자는 409로 롤백됩니다. 이때 원래 기간의 마감 fence와 actor/상태/시각은 이동하거나 지워지지 않습니다.
+DB 고유 제약 실패 뒤 같은 트랜잭션에서 재조회하지 않습니다.
+
+`FiscalPeriodTransition` 도메인은 전체 명령 결합과 적용·취소·확인 조건을 판단하며 원래
+명령을 보존한 새 영수증 상태를 반환합니다. `FiscalPeriodTransitionService`는 기간 잠금 아래
+이 도메인 판단, 기간 상태 저장, 감사, 영수증 저장을 한 트랜잭션으로 조정합니다.
+`FiscalPeriodTransitionPersistencePort` 경계 밖의 JPA 어댑터는 조회·매핑·INSERT 및 unique 오류
+변환을 담당하며 애플리케이션 서비스는 JPA entity/repository를 참조하지 않습니다.
+
 ```mermaid
 flowchart LR
     A[Closing 기준일 환율 요청] --> B[FxExchangeRateLookupPort]

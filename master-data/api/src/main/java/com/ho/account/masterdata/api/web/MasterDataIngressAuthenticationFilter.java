@@ -41,12 +41,13 @@ public final class MasterDataIngressAuthenticationFilter extends OncePerRequestF
     private static final Logger log = LoggerFactory.getLogger(MasterDataIngressAuthenticationFilter.class);
     private static final Pattern RAW_DETAIL_PATH = Pattern.compile(
             "^/api/master-data/change-requests/(-?[0-9]{1,19})/raw-detail$");
+    // Use the transition command's ID grammar before binding the exact signed method/path.
     private static final Pattern TRANSITION_PREPARE_PATH = Pattern.compile(
-            "^/api/internal/fiscal-periods/([1-9][0-9]{0,18})/transitions/([A-Za-z0-9._:-]{1,128})$");
+            "^/api/internal/fiscal-periods/([1-9][0-9]{0,18})/transitions/([A-Za-z0-9._@-]{1,128})$");
     private static final Pattern TRANSITION_RECEIPT_PATH = Pattern.compile(
-            "^/api/internal/fiscal-periods/transitions/([A-Za-z0-9._:-]{1,128})$");
+            "^/api/internal/fiscal-periods/transitions/([A-Za-z0-9._@-]{1,128})$");
     private static final Pattern TRANSITION_CONFIRM_PATH = Pattern.compile(
-            "^/api/internal/fiscal-periods/transitions/([A-Za-z0-9._:-]{1,128})/confirm$");
+            "^/api/internal/fiscal-periods/transitions/([A-Za-z0-9._@-]{1,128})/confirm$");
     public static final String VERIFIED_SERVICE = MasterDataIngressAuthenticationFilter.class.getName() + ".service";
     public static final String VERIFIED_ACTOR = MasterDataIngressAuthenticationFilter.class.getName() + ".actor";
     public static final String VERIFIED_PERIOD_ID = MasterDataIngressAuthenticationFilter.class.getName() + ".periodId";

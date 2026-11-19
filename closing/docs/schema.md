@@ -134,9 +134,9 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 | `transition_fiscal_period_id` | Master 회계기간 ID |
 | `transition_approval_id` | 재오픈 승인 ID; 마감에서는 null |
 | `transition_actor`, `transition_prepared_at` | 원 결정자와 준비 시각 |
-| `transition_protocol` | V58 이후 `RECEIPT_V1`; null인 기존 직접 PUT 의도는 자동 복구 차단 |
+| `transition_protocol` | V59 이후 `RECEIPT_V1`; null인 기존 직접 PUT 의도는 자동 복구 차단 |
 
-V58은 재오픈 `AUTHORIZED`/`READY_TO_CONFIRM` 상태에서 캘린더 `OPEN`과 작업 ID가 함께 유지되도록 CHECK 제약을
+V59는 재오픈 `AUTHORIZED`/`READY_TO_CONFIRM` 상태에서 캘린더 `OPEN`과 작업 ID가 함께 유지되도록 CHECK 제약을
 확장합니다. 이 상태에는 승인·새 체크리스트·감사가 이미 확정되어 있으며, Master `OPEN` 적용
 이후까지 Closing 입장은 작업 ID로 차단됩니다. DB CHECK 제약은 전이 컬럼의 부분 저장을 거부합니다.
 준비·완료·복구 감사 기록에는 작업 ID와 원 결정자를 남깁니다. 완료 감사는 회계기간 ID와 승인 ID도

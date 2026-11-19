@@ -26,6 +26,9 @@ class ClosingMonthlyTransitionMigrationTest {
         Flyway.configure().dataSource(source).locations("classpath:db/closing-migration")
                 .table("flyway_schema_history_closing").load().migrate();
 
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM \"flyway_schema_history_closing\" "
+                + "WHERE \"version\"='59' AND \"success\"", Integer.class)).isEqualTo(1);
+
         assertThat(jdbc.queryForMap("SELECT status, audit_user, transition_id FROM closing_calendars WHERE id=10"))
                 .containsEntry("STATUS", "CLOSED").containsEntry("AUDIT_USER", "original-closer")
                 .containsEntry("TRANSITION_ID", null);
@@ -42,7 +45,7 @@ class ClosingMonthlyTransitionMigrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbc.queryForObject("SELECT status FROM closing_calendars WHERE id=10", String.class))
                 .isEqualTo("CLOSED");
-        // V58 permits OPEN only after the durable authorization stage, while retaining the fence.
+        // V59 permits OPEN only after the durable authorization stage, while retaining the fence.
         jdbc.update("UPDATE closing_calendars SET transition_protocol='RECEIPT_V1' WHERE id=10");
         assertThatThrownBy(() -> jdbc.update("UPDATE closing_calendars SET transition_stage='AUTHORIZED' WHERE id=10"))
                 .isInstanceOf(DataIntegrityViolationException.class);

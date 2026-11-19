@@ -15,6 +15,10 @@ public record FiscalPeriodTransitionCommand(
 
     public FiscalPeriodTransitionCommand {
         requireIdentifier(operationId, "operationId", 128);
+        // These complete path segments are normalized by HTTP stacks, so they cannot bind an operation.
+        if (operationId.equals(".") || operationId.equals("..")) {
+            throw new IllegalArgumentException("operationId must not be a reserved path segment");
+        }
         if (fiscalPeriodId == null || fiscalPeriodId <= 0) {
             throw new IllegalArgumentException("fiscalPeriodId must be positive");
         }
