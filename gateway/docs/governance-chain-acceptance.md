@@ -42,8 +42,9 @@ Java 17, 프런트엔드 계약의 Node 20, lockfile과 일치하는 기존 fron
 node gateway/tests/governance-chain-acceptance.mjs
 ```
 
-기본 JAR 파일명은 `gateway/build/libs/gateway-0.0.1-SNAPSHOT.jar`와
-`auth/api/build/libs/api-0.0.1-SNAPSHOT.jar`입니다. 다른 이름은 `CHAIN_GATEWAY_JAR`,
+기본 JAR 파일명은 `gateway/build/libs/account-gateway-0.0.1-SNAPSHOT.jar`와
+`auth/api/build/libs/auth-api-0.0.1-SNAPSHOT.jar`입니다. 루트 Gradle의 부모 프로젝트명 접두사와
+현재 버전 규칙을 따릅니다. 다른 이름은 `CHAIN_GATEWAY_JAR`,
 `CHAIN_AUTH_JAR`에 로컬 파일 경로를 지정하며 Java 실행 파일은 `CHAIN_JAVA`로 지정할 수 있습니다.
 실행은 부모 검증 작업과 조정해서 진행합니다. 문서의 실행 명령 자체가 실행 성공 근거는 아닙니다.
 

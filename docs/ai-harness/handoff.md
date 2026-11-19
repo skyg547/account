@@ -1,3 +1,7 @@
+## GH-955 실제 체인 패키지 경로 보정 — 2026-11-20 KST
+- 별도 Auth/runtime Reviewer가 새 CI 준비안에서 실제 bootJar 이름과 하네스 기본 경로 불일치를 확인했다. Gradle archivesName/현재 버전에 맞게 Auth는 auth-api, Gateway는 account-gateway 접두사를 사용하도록 기본 경로2개와 기존 기능 문단을 수정했다. 환경 변수 override와 모든 chain assertion은 유지한다.
+- node --check와 diff/marker 정적 검사를 수행했다. Node20/lockfile 설치·6bootJar·실제 체인은 아직 미실행이며 신규 workflow와 문서 CI 절은 설치 승인 전 미게시 상태로 별도 보존한다. 수정된 기본 경로만 게시하며 사용자 승인·실행 게이트·실제 독립 GitHub 승인/신뢰 정책을 대체하지 않는다.
+- 원본9개 head/기본 dirty84/모든 PR·branch·worktree 및 금융 이력 보존. 현재 main 병합/Issue completed 종료0, 롤백은 검토된 경로 수정 revert.
 ## GH-955 최종 CI fixture 보정 — 2026-11-20 KST
 - PR #956, 원격 검증 head 1b1bda6c, base ed539846. Module run44560253740은 24개 모듈 중22개 SUCCESS: Master 실제 HTTP 복합 복구 fixture, Loan, Asset, Journal, Auth/Gateway, migration-runner PostgreSQL 포함. 성공 task 로그만으로 개별 테스트 수나 skipped case PASS를 추정하지 않는다.
 - Closing core452건 중1실패/1skip: 신규 annual durable-provider test가 source header description을 detail fixture에 넣지 않아 기존 금융·lineage 검증이 거부했다. production JDBC/HTTP source mapping과 같은 headerDescription 한 줄을 보완하며 receipt/retry/변경 내용 충돌 assertions와 production validator는 유지한다. 실행 GREEN은 새 head CI로 확인해야 한다.

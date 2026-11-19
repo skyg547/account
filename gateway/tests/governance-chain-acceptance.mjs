@@ -11,8 +11,8 @@ import { fileURLToPath } from 'node:url';
 // This harness owns every service it contacts. It accepts local artifact paths, never remote URLs.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const java = process.env.CHAIN_JAVA ?? 'java';
-const authJar = resolve(root, process.env.CHAIN_AUTH_JAR ?? 'auth/api/build/libs/api-0.0.1-SNAPSHOT.jar');
-const gatewayJar = resolve(root, process.env.CHAIN_GATEWAY_JAR ?? 'gateway/build/libs/gateway-0.0.1-SNAPSHOT.jar');
+const authJar = resolve(root, process.env.CHAIN_AUTH_JAR ?? 'auth/api/build/libs/auth-api-0.0.1-SNAPSHOT.jar');
+const gatewayJar = resolve(root, process.env.CHAIN_GATEWAY_JAR ?? 'gateway/build/libs/account-gateway-0.0.1-SNAPSHOT.jar');
 const frontend = join(root, 'frontend');
 const children = new Set();
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
