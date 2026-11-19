@@ -113,7 +113,7 @@ class LoanServiceTest {
     void genericEventsCannotForgeScheduledRepaymentCompletion() {
         assertThatThrownBy(() -> service.processLoanEvent(1L,
                 LoanEvent.EventType.SCHEDULED_REPAYMENT, LocalDate.of(2090, 1, 15),
-                "forged", "SYSTEM", Optional.empty(), Optional.empty()))
+                "forged", "SYSTEM", Optional.empty(), Optional.empty(), "operation-1"))
                 .hasMessageContaining("scheduled repayment use case");
         verify(persistencePort, never()).saveLoanEvent(any());
     }
@@ -206,7 +206,7 @@ class LoanServiceTest {
                 RecalculationRun.RecalculationReason.EARLY_REPAYMENT,
                 "loan-user",
                 Optional.of(newOutstanding),
-                Optional.empty());
+                Optional.empty(), "operation-1");
 
         assertThat(loan.getPrincipalAmount()).isEqualByComparingTo("5000000.00");
         assertThat(loan.getOutstandingPrincipal()).isEqualByComparingTo(newOutstanding);
@@ -230,7 +230,7 @@ class LoanServiceTest {
                 "Borrower defaulted",
                 "risk-user",
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(), "operation-1");
 
         assertThat(loan.getStatus()).isEqualTo(Loan.LoanStatus.DEFAULTED);
         assertThat(result.recalculationRun()).isEmpty();

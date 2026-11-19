@@ -67,6 +67,7 @@ class AnnualClosingServiceTest {
         assertThat(journal.createdCommands()).hasSize(1);
         JournalEntryCommand command = journal.createdCommands().get(0);
         assertThat(command.slipDate()).isEqualTo(YEAR_END);
+        assertThat(command.operationKey()).isEqualTo("ANNUAL_INCOME_TRANSFER_V1");
         assertThat(command.slipNo()).startsWith("ACL20261231").hasSize(20);
         assertThat(command.lines()).extracting(line -> line.accountCode())
                 .containsExactly(REVENUE_ACCOUNT, "51000", RETAINED_EARNINGS_ACCOUNT);

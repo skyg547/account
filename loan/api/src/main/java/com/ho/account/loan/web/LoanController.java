@@ -127,7 +127,8 @@ public class LoanController {
                 requestDto.getAmount(),
                 requestDto.getDeferralDate(),
                 requestDto.getAmortizationEndDate(),
-                requestDto.getUser()
+                requestDto.getUser(),
+                requestDto.getOperationId()
         );
         return new ResponseEntity<>(DeferredItemDto.fromEntity(deferredItem), HttpStatus.CREATED);
     }
@@ -169,7 +170,7 @@ public class LoanController {
                 requestDto.getDescription(),
                 requestDto.getUser(),
                 Optional.ofNullable(requestDto.getNewPrincipal()),
-                Optional.ofNullable(requestDto.getNewMaturityDate()));
+                Optional.ofNullable(requestDto.getNewMaturityDate()), requestDto.getOperationId());
         return new ResponseEntity<>(LoanEventResultDto.from(result), HttpStatus.CREATED);
     }
 
@@ -182,7 +183,7 @@ public class LoanController {
      */
     @PostMapping("/dod-scenario")
     public ResponseEntity<RecalculationRunDto> reproduceDoDScenario(@Valid @RequestBody DoDScenarioRequestDto requestDto) {
-        RecalculationRun run = loanUseCase.reproduceDoDScenario(requestDto.getLoanId(), requestDto.getUser());
+        RecalculationRun run = loanUseCase.reproduceDoDScenario(requestDto.getLoanId(), requestDto.getUser(), requestDto.getOperationId());
         return ResponseEntity.ok(RecalculationRunDto.fromEntity(run));
     }
 }

@@ -227,7 +227,7 @@ class HttpLoanJournalAdapterTest {
         lookup().andRespond(withSuccess(STORED_DRAFT.replace("123456789.12", "100.00"), MediaType.APPLICATION_JSON));
         var source = command();
         var twoHundred = new LoanJournalCommand(source.accountingDate(), source.description(), source.actor(),
-                source.lineageSourceType(), source.lineageSourceId(), source.currencyCode(), source.lines().stream()
+                source.lineageSourceType(), source.lineageSourceId(), source.currencyCode(), source.operationKey(), source.sourceRequestFingerprint(), source.lines().stream()
                     .map(line -> new LoanJournalLine(line.side(), line.accountCode(), new BigDecimal("200.00"),
                             line.description())).toList());
         assertThatThrownBy(() -> adapter.post(twoHundred)).hasMessageContaining("financial line confirmation");
@@ -366,7 +366,7 @@ class HttpLoanJournalAdapterTest {
                 """;
         var source = command();
         var precise = new LoanJournalCommand(source.accountingDate(), source.description(), source.actor(),
-                source.lineageSourceType(), source.lineageSourceId(), source.currencyCode(), List.of(
+                source.lineageSourceType(), source.lineageSourceId(), source.currencyCode(), source.operationKey(), source.sourceRequestFingerprint(), List.of(
                         new LoanJournalLine("DEBIT", "131000", new BigDecimal("99999999999999999.90"), "Loan"),
                         new LoanJournalLine("DEBIT", "131000", new BigDecimal("0.09"), "Loan remainder"),
                         new LoanJournalLine("CREDIT", "101000", new BigDecimal("99999999999999999.99"), "Cash")));
@@ -489,7 +489,7 @@ class HttpLoanJournalAdapterTest {
 
     private LoanJournalCommand command(String amount) {
         return new LoanJournalCommand(LocalDate.of(2026, 9, 10), "Loan disbursal", "loan-operator",
-                "LOAN_DISBURSAL", "7", "KRW", List.of(
+                "LOAN_DISBURSAL", "7", "KRW", "DISBURSAL_V1", null, List.of(
                         new LoanJournalLine("DEBIT", "131000", new BigDecimal(amount), "Loan"),
                         new LoanJournalLine("CREDIT", "101000", new BigDecimal(amount), "Cash")));
     }

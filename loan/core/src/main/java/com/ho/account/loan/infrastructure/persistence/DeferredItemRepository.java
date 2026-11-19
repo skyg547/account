@@ -12,5 +12,7 @@ import java.util.List;
  */
 @Repository
 public interface DeferredItemRepository extends JpaRepository<DeferredItem, Long> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"loan", "deferredItemType"})
+    java.util.Optional<DeferredItem> findByLoanIdAndOperationKey(Long loanId, String operationKey);
     List<DeferredItem> findByLoan(Loan loan);
 }

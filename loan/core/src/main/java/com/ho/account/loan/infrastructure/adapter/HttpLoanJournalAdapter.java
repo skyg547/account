@@ -167,6 +167,7 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
         return new JournalEntryCommand(command.accountingDate(), command.accountingDate(),
                 command.description(), "NORMAL", command.currencyCode(), null,
                 command.actor(), command.actor(), command.lineageSourceType(), command.lineageSourceId(),
+                null, command.operationKey(), command.sourceRequestFingerprint(),
                 command.lines().stream().map(line -> new JournalLineCommand(
                         line.side(), line.accountCode(), line.amount(), line.amount(),
                         null, null, line.description())).toList());

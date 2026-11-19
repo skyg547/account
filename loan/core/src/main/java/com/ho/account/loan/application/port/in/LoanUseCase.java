@@ -35,7 +35,8 @@ public interface LoanUseCase {
             BigDecimal amount,
             LocalDate deferralDate,
             LocalDate amortizationEndDate,
-            String user);
+            String user,
+            String operationId);
 
     List<EIRAmortizationSchedule> generateAmortizationSchedule(
             Long loanId,
@@ -49,7 +50,8 @@ public interface LoanUseCase {
             RecalculationRun.RecalculationReason reason,
             String user,
             Optional<BigDecimal> newPrincipal,
-            Optional<LocalDate> newMaturityDate);
+            Optional<LocalDate> newMaturityDate,
+            String operationId);
 
     LoanEventResult processLoanEvent(
             Long loanId,
@@ -58,9 +60,10 @@ public interface LoanUseCase {
             String description,
             String user,
             Optional<BigDecimal> newPrincipal,
-            Optional<LocalDate> newMaturityDate);
+            Optional<LocalDate> newMaturityDate,
+            String operationId);
 
-    RecalculationRun reproduceDoDScenario(Long loanId, String user);
+    RecalculationRun reproduceDoDScenario(Long loanId, String user, String operationId);
 
     record LoanEventResult(LoanEvent event, Optional<RecalculationRun> recalculationRun) {
         public LoanEventResult {

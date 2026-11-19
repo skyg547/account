@@ -81,6 +81,11 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
     @Override
     public ClosingJournalEntryResult createDraftAdjustment(ClosingJournalEntryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
+        String operationKey = switch (command.lineageSourceType()) {
+            case "FX_VALUATION" -> "FX_VALUATION_V1";
+            case "ECL_PROVISION" -> "ECL_PROVISION_V1";
+            default -> throw new IllegalArgumentException("Unsupported Closing journal lineage type");
+        };
         Optional<JournalSummary> existing = journalQueryPort.findBySlipNo(command.slipNo());
         if (existing.isPresent()) {
             JournalSummary summary = existing.get();
@@ -101,6 +106,7 @@ public final class JournalLedgerClosingJournalEntryAdapter implements ClosingJou
                 command.lineageSourceType(),
                 command.lineageSourceId(),
                 command.slipNo(),
+                operationKey,
                 command.lines().stream().map(this::toJournalLine).toList());
         JournalPostingResult result = journalPostingPort.createDraftEntry(journalCommand);
         // Journal may deduplicate by lineage before honoring the requested slip. A reply for

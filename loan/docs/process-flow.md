@@ -134,3 +134,40 @@ sequenceDiagram
 | EIR 스케줄 | `POST /api/loan/amortization-schedules/generate` |
 | 이벤트/재계산 | `POST /api/loan/events` |
 | 예제 시나리오 | `POST /api/loan/dod-scenario` |
+
+
+## Journal 생성 작업 식별자와 원천 재시도 (GH955)
+
+Journal은 `lineageSourceType + lineageSourceId + operationKey`를 필수 식별자로 저장합니다.
+slip 번호, 금액 지문, 재시도마다 새로 발급한 원천 ID로 작업 키를 추정하지 않습니다.
+
+| 업무 | lineage | operationKey |
+| --- | --- | --- |
+| 최초 대출 실행 | `LOAN_DISBURSAL` / loan ID | `DISBURSAL_V1` |
+| 일별 이자 발생 | `LOAN` / loan ID | `INTEREST_ACCRUAL_V1:<발생일>` |
+| 커밋된 약정 상환 예약 | `LOAN_SCHEDULED_REPAYMENT` / loan ID + 상환일 | `SCHEDULED_REPAYMENT_V1` |
+| 이연 항목 | `LOAN_DEFERRED_ITEM` / loan ID | `DEFERRED_ITEM_V1:<operationId>` |
+| 재계산 조정 | `LOAN_RECALCULATION` / loan ID | `RECALCULATION_V1:<operationId>` |
+| DoD 시나리오 이연·재계산 | 각 해당 lineage / loan ID | `DOD_DEFERRED_V1:<operationId>`, `DOD_RECALCULATION_V1:<operationId>` |
+
+`POST /api/loan/deferred-items`, `/events`, `/dod-scenario` 본문에 `operationId`가 필수입니다.
+영문·숫자로 시작하는 1~64자의 영문·숫자·`_`·`-`만 받습니다. 호출자는 최초 요청 전에 ID를
+확정하고 응답 유실·원천 롤백·프로세스 재시작 때 그대로 재전송합니다. 별도 업무에는 별도 ID를
+부여하므로 같은 대출·같은 날짜의 여러 이연 항목/이벤트를 합치지 않습니다. 기존 ID 없는 요청은
+쓰기 전 HTTP 400이며 Java use-case 계약도 명시적 ID를 요구합니다. 이 API 변경을 반영한 소비자를
+배포해야 합니다. DoD 시나리오는 최초 요청의 loan ID·실행자·작업 ID·시나리오 버전을 두 자식 작업에 함께 바인딩하며,
+완료 재시도는 현재 잔액으로 시나리오를 다시 계산하지 않습니다.
+
+원천은 대출 행 잠금 안에서 `DeferredItem` 또는 `LoanEvent`의 저장된 작업 키와 버전 지정 요청
+지문을 조회합니다. 동일 내용은 기존 결과를 반환하고 다른 내용은 `LoanOperationConflictException`
+(HTTP 409)입니다. 지문은 반올림 전 금액, 이연 유형과 종료일, 이벤트 종류·날짜·설명·새 원금·만기
+등 의미 필드를 포함하며 Journal에도 전달합니다. 원천 성공 기록이 롤백돼도 같은 입력 키로 원격
+receipt를 재사용하고, 같은 키의 다른 내용은 원격 409로 차단합니다. 로컬 Journal 어댑터는 이미
+POSTED인 결과를 다시 승인·전기하지 않습니다. V34의 유일 제약은 대출+작업 키 중복을 막으며
+기존 V30~V33 checksum은 유지합니다. 레거시 행에 임의의 작업 키를 채워 넣지 않습니다.
+
+`LoanJournalPostingFlowTest`는 합성 H2에서 실제 Loan JPA 롤백과 독립 Journal 트랜잭션/receipt를
+검증합니다. 참조 데이터와 원장 저장 sink는 통제된 포트입니다. HTTP 매핑 테스트는 JSON 명령을
+실제 receipt provider에 전달하지만 Gateway 인증이나 배포 네트워크 장애를 검증하지 않습니다.
+기존 dev HTTP 승인 흐름의 신뢰 헤더·maker/checker/REQUESTED 통합 제한은 여전히 남아 있습니다.
+메모리 Outbox의 영속성, 원천과 원격 Journal의 분산 원자성 또는 무조건 자동 복구를 보장하지 않습니다.

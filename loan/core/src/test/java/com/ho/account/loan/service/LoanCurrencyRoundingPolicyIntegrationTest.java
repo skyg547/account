@@ -95,7 +95,7 @@ class LoanCurrencyRoundingPolicyIntegrationTest {
         // when
         DeferredItem item = loanService.createDeferredItem(
                 1L, 10L, new BigDecimal("15000.75"),
-                LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1), "ADMIN");
+                LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1), "ADMIN", "operation-1");
 
         // then
         assertThat(item.getAmount()).isEqualTo(new BigDecimal("15000"));
@@ -142,7 +142,7 @@ class LoanCurrencyRoundingPolicyIntegrationTest {
         // when
         DeferredItem item = loanService.createDeferredItem(
                 2L, 20L, new BigDecimal("150.125"),
-                LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1), "ADMIN");
+                LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1), "ADMIN", "operation-1");
 
         // then
         assertThat(item.getAmount()).isEqualTo(new BigDecimal("150.13"));

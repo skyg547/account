@@ -1,6 +1,7 @@
 package com.ho.account.loan.service;
 
 import com.ho.account.loan.application.port.in.LoanUseCase;
+import com.ho.account.contracts.journal.SourceRequestFingerprint;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
 import com.ho.account.loan.application.port.out.LoanJournalPort.PostedJournal;
 import com.ho.account.loan.application.port.out.LoanPersistencePort;
@@ -34,12 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>🐣 이 클래스는 대출 업무의 지휘자입니다. 도메인 객체가 금액·상태 규칙을 지키게 하고,
  * 기준정보·영속성·전표는 Loan이 소유한 출력 포트 뒤로 숨긴 채 호출 순서와 트랜잭션 경계를 관리합니다.</p>
  *
- * <p><b>[MSA Transactional Outbox 패턴 적용 및 Dual Write 정합성 해결]</b><br>
- * 트랜잭션 내 외부 전표 API 동기 직접 호출로 인한 Dual Write 정합성 이슈(로컬 DB 커밋 성공 후 네트워크 장애로 전표 발행 실패)를 
- * 해결하기 위해 Transactional Outbox 패턴을 도입했습니다.<br>
- * 1. 로컬 DB 트랜잭션 수반 시 `JournalOutboxEvent`를 Outbox 테이블에 원자적으로 함께 저장합니다.<br>
- * 2. 비동기 릴레이 프로세서(Outbox Relay)가 PENDING 상태 이벤트를 수신측 전표 포트({@link LoanJournalPort})로 안전하게 발행합니다.<br>
- * 3. `lineageSourceType`과 `lineageSourceId` 기반의 멱등성 키(idempotency key)를 통해 최종 정합성(Eventual Consistency)과 중복 발행 방지를 보장합니다.</p>
+ * <p>동기 Journal 호출은 원천 트랜잭션과 별도로 커밋될 수 있습니다. 재시도에는 원천 DB에서 새로
+ * 발급한 ID가 아닌 명시적 업무 작업 키를 전달하며, 성공한 원천 결과는 동일 키와 요청 지문을
+ * 보존합니다. 같은 키의 내용 변경은 거부합니다. 기본 메모리 Outbox는 분산 원자성이나 장애 후
+ * 자동 복구를 제공하지 않습니다.</p>
  */
 @Service
 @Transactional
@@ -108,7 +107,8 @@ public class LoanService implements LoanUseCase {
                 loan.getLoanNumber() + " loan disbursal",
                 user,
                 "LOAN_DISBURSAL",
-                loanId.toString(),
+                loanId.toString(), "DISBURSAL_V1",
+                SourceRequestFingerprint.calculate("LOAN_DISBURSAL_V1", loanId, disbursalDate, disbursedAmount),
                 requireLoanCurrencyCode(loan),
                 roundedDisbursedAmount,
                 loanReceivableAccountCode,
@@ -165,8 +165,25 @@ public class LoanService implements LoanUseCase {
             BigDecimal amount,
             LocalDate deferralDate,
             LocalDate amortizationEndDate,
-            String user) {
+            String user,
+            String operationId) {
+        return createDeferredItemForOperation(loanId, deferredItemTypeId, amount, deferralDate,
+                amortizationEndDate, user, operationKey("DEFERRED_ITEM_V1", operationId));
+    }
+
+    private DeferredItem createDeferredItemForOperation(Long loanId, Long deferredItemTypeId,
+            BigDecimal amount, LocalDate deferralDate, LocalDate amortizationEndDate, String user,
+            String operationKey) {
+        String fingerprint = operationKey.startsWith("DOD_DEFERRED_V1:")
+                ? scenarioFingerprint(loanId, user, operationKey)
+                : SourceRequestFingerprint.calculate("LOAN_DEFERRED_REQUEST_V1", loanId,
+                        deferredItemTypeId, amount, deferralDate, amortizationEndDate);
         Loan loan = findLoanForUpdate(loanId);
+        Optional<DeferredItem> existing = persistencePort.findDeferredItemByOperation(loanId, operationKey);
+        if (existing.isPresent()) {
+            requireSameOperation(existing.get().getSourceRequestFingerprint(), fingerprint);
+            return existing.get();
+        }
         if (loan.getStatus() != Loan.LoanStatus.ACTIVE) {
             throw new IllegalStateException("Deferred items require an active loan: " + loan.getStatus());
         }
@@ -186,12 +203,13 @@ public class LoanService implements LoanUseCase {
                 loan.getLoanNumber() + " deferred item recognition",
                 user,
                 "LOAN_DEFERRED_ITEM",
-                loan.getId().toString(),
+                loan.getId().toString(), operationKey, fingerprint,
                 requireLoanCurrencyCode(loan),
                 roundedAmount,
                 accounts.deferredAsset().code(),
                 accounts.recognizedIncome().code());
         deferredItem.linkInitialJournal(initialEntry.journalEntryId(), initialEntry.slipNo());
+        deferredItem.bindOperation(operationKey, fingerprint);
         return persistencePort.saveDeferredItem(deferredItem);
     }
 
@@ -212,7 +230,8 @@ public class LoanService implements LoanUseCase {
             RecalculationReason reason,
             String user,
             Optional<BigDecimal> newPrincipal,
-            Optional<LocalDate> newMaturityDate) {
+            Optional<LocalDate> newMaturityDate,
+            String operationId) {
         return recalculateLoanWithEvent(
                 loanId,
                 recalculationDate,
@@ -221,7 +240,8 @@ public class LoanService implements LoanUseCase {
                 "Loan recalculation triggered by " + reason,
                 user,
                 safeOptional(newPrincipal),
-                safeOptional(newMaturityDate)).recalculationRun().orElseThrow();
+                safeOptional(newMaturityDate), operationKey("RECALCULATION_V1", operationId))
+                .recalculationRun().orElseThrow();
     }
 
     @Override
@@ -232,32 +252,41 @@ public class LoanService implements LoanUseCase {
             String description,
             String user,
             Optional<BigDecimal> newPrincipal,
-            Optional<LocalDate> newMaturityDate) {
+            Optional<LocalDate> newMaturityDate,
+            String operationId) {
         if (eventType == null) {
             throw new IllegalArgumentException("eventType is required.");
         }
+        String key = operationKey("RECALCULATION_V1", operationId);
         Optional<BigDecimal> principal = safeOptional(newPrincipal);
         Optional<LocalDate> maturity = safeOptional(newMaturityDate);
         return switch (eventType) {
             case EARLY_REPAYMENT -> recalculateLoanWithEvent(
                     loanId, eventDate, RecalculationReason.EARLY_REPAYMENT, eventType,
-                    description, user, principal, maturity);
+                    description, user, principal, maturity, key);
             case CONDITION_CHANGE -> recalculateLoanWithEvent(
                     loanId, eventDate, RecalculationReason.CONDITION_CHANGE, eventType,
-                    description, user, principal, maturity);
+                    description, user, principal, maturity, key);
             case RESCHEDULE -> recalculateLoanWithEvent(
                     loanId, eventDate, RecalculationReason.RESCHEDULE, eventType,
-                    description, user, principal, maturity);
+                    description, user, principal, maturity, key);
             case SCHEDULED_REPAYMENT_PENDING, SCHEDULED_REPAYMENT -> throw new IllegalArgumentException(
                     "Scheduled repayment events must use the scheduled repayment use case.");
             case DEFAULT, RECOVERY, OTHER -> recordLifecycleEvent(
-                    loanId, eventType, eventDate, description, user, principal, maturity);
+                    loanId, eventType, eventDate, description, user, principal, maturity, key);
         };
     }
 
     @Override
-    public RecalculationRun reproduceDoDScenario(Long loanId, String user) {
-        Loan loan = findLoanById(loanId);
+    public RecalculationRun reproduceDoDScenario(Long loanId, String user, String operationId) {
+        String scenarioKey = operationKey("DOD_RECALCULATION_V1", operationId);
+        Loan loan = findLoanForUpdate(loanId);
+        Optional<LoanEvent> completed = persistencePort.findLoanEventByOperation(loanId, scenarioKey);
+        if (completed.isPresent()) {
+            requireSameOperation(completed.get().getSourceRequestFingerprint(),
+                    scenarioFingerprint(loanId, user, scenarioKey));
+            return completed.get().getRecalculationRun();
+        }
         if (loan.getStatus() != Loan.LoanStatus.ACTIVE) {
             throw new IllegalStateException("DoD scenario requires an active loan.");
         }
@@ -281,13 +310,13 @@ public class LoanService implements LoanUseCase {
         BigDecimal deferredAmount = loan.getPrincipalAmount()
                 .multiply(new BigDecimal("0.01"))
                 .setScale(2, RoundingMode.HALF_UP);
-        createDeferredItem(
+        createDeferredItemForOperation(
                 loanId,
                 deferredItemType.getId(),
                 deferredAmount,
                 deferralDate,
                 amortizationEndDate,
-                user);
+                user, operationKey("DOD_DEFERRED_V1", operationId));
 
         generateAmortizationSchedule(
                 loanId,
@@ -302,13 +331,10 @@ public class LoanService implements LoanUseCase {
         BigDecimal newPrincipal = loan.getOutstandingPrincipal()
                 .multiply(new BigDecimal("0.70"))
                 .setScale(2, RoundingMode.HALF_UP);
-        return recalculateLoan(
-                loanId,
-                recalculationDate,
-                RecalculationReason.EARLY_REPAYMENT,
-                user,
-                Optional.of(newPrincipal),
-                Optional.empty());
+        return recalculateLoanWithEvent(
+                loanId, recalculationDate, RecalculationReason.EARLY_REPAYMENT,
+                EventType.EARLY_REPAYMENT, "DoD scenario early repayment", user,
+                Optional.of(newPrincipal), Optional.empty(), scenarioKey).recalculationRun().orElseThrow();
     }
 
     private LoanEventResult recalculateLoanWithEvent(
@@ -319,11 +345,22 @@ public class LoanService implements LoanUseCase {
             String description,
             String user,
             Optional<BigDecimal> newPrincipal,
-            Optional<LocalDate> newMaturityDate) {
+            Optional<LocalDate> newMaturityDate,
+            String operationKey) {
         if (reason == null || recalculationDate == null) {
             throw new IllegalArgumentException("recalculationDate and reason are required.");
         }
+        String normalizedDescription = defaultDescription(description, "Loan recalculation triggered by " + reason);
+        String fingerprint = operationKey.startsWith("DOD_RECALCULATION_V1:")
+                ? scenarioFingerprint(loanId, user, operationKey)
+                : eventFingerprint(loanId, eventType, recalculationDate, normalizedDescription,
+                        newPrincipal, newMaturityDate);
         Loan loan = findLoanForUpdate(loanId);
+        Optional<LoanEvent> existing = persistencePort.findLoanEventByOperation(loanId, operationKey);
+        if (existing.isPresent()) {
+            requireSameOperation(existing.get().getSourceRequestFingerprint(), fingerprint);
+            return new LoanEventResult(existing.get(), Optional.ofNullable(existing.get().getRecalculationRun()));
+        }
         CurrencyRoundingPolicy roundingPolicy = CurrencyRoundingPolicy.of(loan.getCurrencyCode());
 
         BigDecimal oldOutstanding = loan.getOutstandingPrincipal();
@@ -381,7 +418,7 @@ public class LoanService implements LoanUseCase {
                     loan.getLoanNumber() + " principal adjustment",
                     user,
                     "LOAN_RECALCULATION",
-                    loanId.toString(),
+                    loanId.toString(), operationKey, fingerprint,
                     requireLoanCurrencyCode(loan),
                     principalDelta,
                     adjustmentAccounts.cashAccountCode(),
@@ -394,9 +431,10 @@ public class LoanService implements LoanUseCase {
                 loan,
                 eventType,
                 recalculationDate,
-                defaultDescription(description, "Loan recalculation triggered by " + reason),
+                normalizedDescription,
                 savedRun,
                 user);
+        event.bindOperation(operationKey, fingerprint);
         LoanEvent savedEvent = persistencePort.saveLoanEvent(event);
         return new LoanEventResult(savedEvent, Optional.of(savedRun));
     }
@@ -408,12 +446,21 @@ public class LoanService implements LoanUseCase {
             String description,
             String user,
             Optional<BigDecimal> newPrincipal,
-            Optional<LocalDate> newMaturityDate) {
+            Optional<LocalDate> newMaturityDate,
+            String operationKey) {
         if (newPrincipal.isPresent() || newMaturityDate.isPresent()) {
             throw new IllegalArgumentException(
                     eventType + " does not accept recalculation fields.");
         }
+        String normalizedDescription = defaultDescription(description, "Loan event: " + eventType);
+        String fingerprint = eventFingerprint(loanId, eventType, eventDate, normalizedDescription,
+                newPrincipal, newMaturityDate);
         Loan loan = findLoanForUpdate(loanId);
+        Optional<LoanEvent> existing = persistencePort.findLoanEventByOperation(loanId, operationKey);
+        if (existing.isPresent()) {
+            requireSameOperation(existing.get().getSourceRequestFingerprint(), fingerprint);
+            return new LoanEventResult(existing.get(), Optional.ofNullable(existing.get().getRecalculationRun()));
+        }
         if (eventDate == null || eventDate.isBefore(loan.getDisbursalDate())) {
             throw new IllegalArgumentException("eventDate must not be before the loan disbursal date.");
         }
@@ -428,9 +475,10 @@ public class LoanService implements LoanUseCase {
                 loan,
                 eventType,
                 eventDate,
-                defaultDescription(description, "Loan event: " + eventType),
+                normalizedDescription,
                 null,
                 user);
+        event.bindOperation(operationKey, fingerprint);
         return new LoanEventResult(persistencePort.saveLoanEvent(event), Optional.empty());
     }
 
@@ -491,6 +539,8 @@ public class LoanService implements LoanUseCase {
             String createdBy,
             String lineageSourceType,
             String lineageSourceId,
+            String operationKey,
+            String sourceRequestFingerprint,
             String currencyCode,
             BigDecimal amount,
             String debitAccountCode,
@@ -506,12 +556,38 @@ public class LoanService implements LoanUseCase {
                 createdBy,
                 lineageSourceType,
                 lineageSourceId,
-                currencyCode,
+                currencyCode, operationKey, sourceRequestFingerprint,
                 List.of(
                         new LoanJournalPort.LoanJournalLine(
                                 "DEBIT", debitAccountCode, roundedAmount, description + " (DEBIT)"),
                         new LoanJournalPort.LoanJournalLine(
                                 "CREDIT", creditAccountCode, roundedAmount, description + " (CREDIT)"))));
+    }
+
+    private static String operationKey(String namespace, String operationId) {
+        if (operationId == null || !operationId.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,63}")) {
+            throw new IllegalArgumentException("operationId must contain 1-64 letters, digits, underscores or hyphens.");
+        }
+        return namespace + ":" + operationId;
+    }
+
+    private static String scenarioFingerprint(Long loanId, String actor, String operationKey) {
+        // A scenario-created type ID can roll back and be reallocated. It is derived state, not an input.
+        // Both child operations bind the original scenario request before deriving mutable loan terms.
+        return SourceRequestFingerprint.calculate("LOAN_DOD_REQUEST_V1", loanId,
+                actor == null ? null : actor.trim(), operationKey.substring(operationKey.indexOf(':') + 1));
+    }
+
+    private static String eventFingerprint(Long loanId, EventType type, LocalDate date, String description,
+            Optional<BigDecimal> principal, Optional<LocalDate> maturity) {
+        return SourceRequestFingerprint.calculate("LOAN_EVENT_REQUEST_V1", loanId, type.name(), date,
+                description, principal.orElse(null), maturity.orElse(null));
+    }
+
+    private static void requireSameOperation(String stored, String requested) {
+        if (!requested.equals(stored)) {
+            throw new LoanOperationConflictException();
+        }
     }
 
     private Loan findLoanForUpdate(Long loanId) {

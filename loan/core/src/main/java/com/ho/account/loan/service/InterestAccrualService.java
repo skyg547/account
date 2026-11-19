@@ -113,6 +113,7 @@ public class InterestAccrualService {
                 LINEAGE_SOURCE_TYPE,
                 requireLoanId(loan),
                 resolveLoanCurrencyCode(loan),
+                "INTEREST_ACCRUAL_V1:" + date, null,
                 List.of(
                         new LoanJournalPort.LoanJournalLine(
                                 "DEBIT",

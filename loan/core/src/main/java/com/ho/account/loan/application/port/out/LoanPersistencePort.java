@@ -37,6 +37,10 @@ public interface LoanPersistencePort {
 
     DeferredItemType saveDeferredItemType(DeferredItemType itemType);
 
+    Optional<DeferredItem> findDeferredItemByOperation(Long loanId, String operationKey);
+
+    Optional<LoanEvent> findLoanEventByOperation(Long loanId, String operationKey);
+
     DeferredItem saveDeferredItem(DeferredItem deferredItem);
 
     List<DeferredItem> findDeferredItems(Loan loan);

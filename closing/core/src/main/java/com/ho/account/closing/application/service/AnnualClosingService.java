@@ -145,7 +145,7 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         JournalEntryCommand command = new JournalEntryCommand(
                 endDate, endDate, annualDescription(year), ENTRY_TYPE, CURRENCY_CODE,
                 BigDecimal.ONE, "SYSTEM", "SYSTEM", ANNUAL_LINEAGE_TYPE,
-                currentLineageId, currentSlipNo, lines);
+                currentLineageId, currentSlipNo, "ANNUAL_INCOME_TRANSFER_V1", lines);
         journalPostingPort.createDraftEntry(command);
     }
 

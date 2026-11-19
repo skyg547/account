@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  * 이후 상각 스케줄과 전표 생성의 기초 금액이 됩니다.
  */
 @Entity
-@Table(name = "deferred_items")
+@Table(name = "deferred_items", uniqueConstraints = @UniqueConstraint(columnNames = {"loan_id", "operation_key"}))
 public class DeferredItem {
 
     @Id
@@ -51,6 +51,24 @@ public class DeferredItem {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private DeferredItemStatus status; // DEFERRED, AMORTIZING, FULLY_AMORTIZED
+
+    @Column(name = "operation_key", length = 100, updatable = false)
+    private String operationKey;
+
+    @Column(name = "source_request_fingerprint", length = 64, updatable = false)
+    private String sourceRequestFingerprint;
+
+    public String getOperationKey() { return operationKey; }
+    public String getSourceRequestFingerprint() { return sourceRequestFingerprint; }
+
+    public void bindOperation(String key, String fingerprint) {
+        if (operationKey != null || key == null || key.isBlank() || key.length() > 100
+                || fingerprint == null || !fingerprint.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("A new immutable operation binding is required.");
+        }
+        operationKey = key;
+        sourceRequestFingerprint = fingerprint;
+    }
 
     @Column(updatable = false)
     private LocalDateTime createdAt;

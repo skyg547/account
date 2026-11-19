@@ -765,3 +765,14 @@ loopback 테스트도 이 인증 통합을 증명하지 않습니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.
 - 결산 조정 등록은 전표 상세의 차변/대변 합계가 같은지 검증합니다.
 - `dev`의 원격 Journal HTTP 어댑터는 `account.closing.accounting.auto-post-adjustments=true`를 첫 전표 쓰기 전에 거부합니다. maker 승인 요청→별도 checker 승인→poster 전기와 불확실한 응답 후 상태 확인을 위한 신뢰된 서비스 주체 계약이 없기 때문입니다. 기본 `false`의 DRAFT는 Journal 담당자가 별도 승인·전기합니다.
+
+
+### Journal 필수 생성 작업 키 (GH955)
+
+연간 손익대체는 기존 연도·승인 매핑·원천 스냅샷 lineage에 `ANNUAL_INCOME_TRANSFER_V1`을 전달합니다.
+FX 그룹은 커밋된 배치·계정·통화 lineage에 `FX_VALUATION_V1`, ECL은 불변 ECLSNAP lineage에
+`ECL_PROVISION_V1`을 전달합니다. Journal V21 영속 receipt가 같은 명령 재시도를 원래 전표로
+수렴시키며 같은 작업의 내용 변경을 거부합니다. 서로 다른 그룹/스냅샷의 여러 전표는 보존합니다.
+slip 번호를 생성 식별자로 추정하지 않으며, 기존 slip 조회 경로도 전체 내용 대사를 유지합니다.
+`ClosingJournalCreationIdentityIntegrationTest`는 실제 생성 provider와 production SQL 기반 H2 receipt를
+사용합니다. 연간 원천 조회와 기준정보는 합성 포트이며 실제 원격 인증·네트워크 검증은 포함하지 않습니다.
