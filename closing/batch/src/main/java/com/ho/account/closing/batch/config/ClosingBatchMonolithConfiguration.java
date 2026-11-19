@@ -5,6 +5,8 @@ import com.ho.account.closing.infrastructure.external.JournalLedgerClosingJourna
 import com.ho.account.closing.infrastructure.external.MasterDataFxExchangeRateLookupAdapter;
 import com.ho.account.closing.infrastructure.source.JdbcEclAllowanceResultAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.application.service.FiscalPeriodTransitionService;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodTransitionAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithExchangeRateQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubjectPersistenceAdapter;
@@ -12,6 +14,7 @@ import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPe
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaMasterDataAuditAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaBusinessPartnerPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaMasterDataAuditAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.AccountSubjectMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.DepartmentMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
@@ -50,7 +53,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
         MasterDataFxExchangeRateLookupAdapter.class,
         JournalLedgerClosingJournalEntryAdapter.class,
         MonolithExchangeRateQueryAdapter.class,
-        MonolithFiscalPeriodControlAdapter.class,
+        MonolithFiscalPeriodControlAdapter.class, FiscalPeriodTransitionService.class, JpaFiscalPeriodTransitionAdapter.class,
         MonolithMasterDataQueryAdapter.class,
         JpaFiscalPeriodPersistenceAdapter.class,
         JpaMasterDataAuditAdapter.class,
@@ -58,6 +61,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
         JpaAccountSubjectPersistenceAdapter.class,
         AccountSubjectMapper.class,
         JpaBusinessPartnerPersistenceAdapter.class,
+        JpaMasterDataAuditAdapter.class,
         JpaDepartmentPersistenceAdapter.class,
         DepartmentMapper.class
 })

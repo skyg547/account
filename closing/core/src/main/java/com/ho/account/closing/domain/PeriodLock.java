@@ -148,7 +148,12 @@ public class PeriodLock {
         return unlockedAt;
     }
 
-    public void setUnlockedAt(LocalDateTime unlockedAt) {
+    /** Reconstitutes historical lock state without performing a new release. */
+    public void restoreLifecycle(boolean active, Long activeFiscalPeriodId,
+            String unlockedBy, LocalDateTime unlockedAt) {
+        this.active = active;
+        this.activeFiscalPeriodId = activeFiscalPeriodId;
+        this.unlockedBy = unlockedBy;
         this.unlockedAt = unlockedAt;
     }
 

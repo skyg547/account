@@ -47,8 +47,7 @@ public class ClosingCalendar {
 
     private String auditUser;
 
-    // Durable intent survives a failed/ambiguous remote Master call. Calendar admission stays closed
-    // until the original target is confirmed; a dispatched operation is never automatically replayed.
+    // The operation ID fences Closing admission while the independent Master transition is pending.
 
     private String transitionId;
 
@@ -107,6 +106,8 @@ public class ClosingCalendar {
         journalFenceCommand = null;
         clearTransition();
     }
+    /** Null on legacy direct-PUT intents, which cannot be attributed to a Master receipt. */
+    private String transitionProtocol;
 
     private String name;
 
@@ -114,7 +115,7 @@ public class ClosingCalendar {
         OPEN, IN_PROGRESS, CLOSED, PERMANENTLY_CLOSED
     }
 
-    public enum TransitionStage { PREPARED, DISPATCHED, CANCEL_RELEASE_PENDING, RELEASE_PENDING }
+    public enum TransitionStage { PREPARED, DISPATCHED, AUTHORIZED, READY_TO_CONFIRM, CANCEL_RELEASE_PENDING, RELEASE_PENDING }
 
     public String getTransitionId() { return transitionId; }
     public String getTransitionTarget() { return transitionTarget; }
@@ -124,11 +125,12 @@ public class ClosingCalendar {
     public String getTransitionActor() { return transitionActor; }
     public LocalDateTime getTransitionPreparedAt() { return transitionPreparedAt; }
     public String getTransitionEvidenceSetId() { return transitionEvidenceSetId; }
+    public String getTransitionProtocol() { return transitionProtocol; }
 
     /** Reconstitutes a durable transition exactly as stored, without running a new decision. */
     public void restoreTransition(String id, String target, TransitionStage stage,
             Long fiscalPeriodId, Long approvalId, String actor,
-            LocalDateTime preparedAt, String evidenceSetId) {
+            LocalDateTime preparedAt, String evidenceSetId, String protocol) {
         this.transitionId = id;
         this.transitionTarget = target;
         this.transitionStage = stage;
@@ -137,6 +139,7 @@ public class ClosingCalendar {
         this.transitionActor = actor;
         this.transitionPreparedAt = preparedAt;
         this.transitionEvidenceSetId = evidenceSetId;
+        this.transitionProtocol = protocol;
     }
 
     public void requireNoTransition() {
@@ -183,6 +186,7 @@ public class ClosingCalendar {
         this.transitionPreparedAt = LocalDateTime.now();
         // Freeze the distributed snapshot with the durable intent so recovery cannot select newer evidence.
         this.transitionEvidenceSetId = evidenceSetId == null ? null : evidenceSetId.trim();
+        this.transitionProtocol = "RECEIPT_V1";
         this.auditUser = actor.trim();
     }
 
@@ -207,6 +211,27 @@ public class ClosingCalendar {
         transitionStage = TransitionStage.DISPATCHED;
     }
 
+    /** Persist the complete reopen authorization before Master can expose OPEN to Journal. */
+    public void authorizeReopen(String operationId) {
+        requireTransition(operationId);
+        requireTransitionEvidence();
+        if (!"OPEN".equals(transitionTarget) || transitionStage != TransitionStage.DISPATCHED) {
+            throw new IllegalStateException("Only a dispatched reopen can be authorized.");
+        }
+        reopen(transitionActor);
+        transitionStage = TransitionStage.AUTHORIZED;
+    }
+
+    /** Master applied the bound reopen while public reads remain CLOSED until confirm. */
+    public void readyToConfirmReopen(String operationId) {
+        requireTransition(operationId);
+        if (!"OPEN".equals(transitionTarget) || transitionStage != TransitionStage.AUTHORIZED
+                || status != ClosingCalendarStatus.OPEN) {
+            throw new IllegalStateException("Only an authorized reopen can await confirmation.");
+        }
+        transitionStage = TransitionStage.READY_TO_CONFIRM;
+    }
+
     /** Releases only a never-dispatched final-close intent; its prior binding remains in audit history. */
     public void cancelPreparedClose(String operationId, String actor) {
         requireTransition(operationId);
@@ -217,31 +242,51 @@ public class ClosingCalendar {
             throw new IllegalStateException("Journal cancellation release must be pending.");
         }
         journalFenceCommand = null;
-        transitionId = null;
-        transitionTarget = null;
-        transitionStage = null;
-        transitionFiscalPeriodId = null;
-        transitionApprovalId = null;
-        transitionActor = null;
-        transitionPreparedAt = null;
-        transitionEvidenceSetId = null;
+        clearTransition(actor);
+    }
+
+    /** Requires an exact Master CANCELLED receipt before retaining the release intent. */
+    public void cancelDispatchedClose(String operationId, String actor) {
+        requireTransition(operationId);
+        requireActor(actor);
+        if (status != ClosingCalendarStatus.IN_PROGRESS
+                || transitionStage != TransitionStage.DISPATCHED
+                || !"CLOSED".equals(transitionTarget)) {
+            throw new IllegalStateException("Only a dispatched final-close transition can be cancelled.");
+        }
+        requireJournalFence();
+        transitionStage = TransitionStage.CANCEL_RELEASE_PENDING;
+        auditUser = actor.trim();
+    }
+
+    private void clearTransition(String actor) {
+        clearTransition();
         auditUser = actor.trim();
     }
 
     public void finishTransition(String operationId) {
         requireTransition(operationId);
         requireTransitionEvidence();
-        if (transitionStage != TransitionStage.DISPATCHED) {
+        if ("OPEN".equals(transitionTarget) && transitionStage == TransitionStage.AUTHORIZED) {
+            throw new IllegalStateException("Reopen finalization must commit before Master confirmation.");
+        }
+        if (transitionStage != TransitionStage.DISPATCHED
+                && transitionStage != TransitionStage.READY_TO_CONFIRM) {
             throw new IllegalStateException("Fiscal period transition has not been dispatched.");
         }
         if ("OPEN".equals(transitionTarget)) {
             requireJournalFence();
-            reopen(transitionActor);
-            // OPEN/new checklist commits before the coordinator releases Journal admission.
+            if (transitionStage != TransitionStage.READY_TO_CONFIRM || status != ClosingCalendarStatus.OPEN) {
+                throw new IllegalStateException("Reopen finalization must commit before Master confirmation.");
+            }
+            // Local authorization already advanced the cycle. Keep the original fence until its release ACK.
             transitionStage = TransitionStage.RELEASE_PENDING;
             return;
         } else {
             requireJournalFence();
+            if (transitionStage != TransitionStage.DISPATCHED) {
+                throw new IllegalStateException("Invalid final-close transition stage.");
+            }
             close(transitionActor);
         }
         clearTransition();
@@ -256,6 +301,7 @@ public class ClosingCalendar {
         transitionActor = null;
         transitionPreparedAt = null;
         transitionEvidenceSetId = null;
+        transitionProtocol = null;
     }
 
     private void requireTransitionEvidence() {
@@ -382,12 +428,19 @@ public class ClosingCalendar {
         return cycleNumber;
     }
 
-    public void setCycleNumber(int value) { cycleNumber = value; }
-
-    public void setLastSourceChangedAt(LocalDateTime value) { lastSourceChangedAt = value; }
+    /** Persistence reconstitution; normal cycle changes use domain transitions. */
+    public void setCycleNumber(int cycleNumber) {
+        if (cycleNumber <= 0) throw new IllegalArgumentException("cycleNumber must be positive");
+        this.cycleNumber = cycleNumber;
+    }
 
     public LocalDateTime getLastSourceChangedAt() {
         return lastSourceChangedAt;
+    }
+
+    /** Persistence reconstitution of the recorded source fence. */
+    public void setLastSourceChangedAt(LocalDateTime lastSourceChangedAt) {
+        this.lastSourceChangedAt = lastSourceChangedAt;
     }
 
     public void recordSourceChange() {

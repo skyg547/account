@@ -96,3 +96,34 @@ Port 메서드가 자동으로 네트워크 호출로 바뀌지 않습니다. �
 단정할 수 없는 결과이며, 이를 근거로 마감을 확정하거나 게이트를 자동 해제하면 안 됩니다.
 Journal 전체 admission row로 금액 변경이 직렬화되는 비용과 재시도·배포 조건은
 [`journal-ledger` 동시성 문서](../../journal-ledger/docs/posting-concurrency.md)에 설명합니다.
+### 회계기간 마감·재개와 응답 유실
+
+1. Closing이 로컬 전이 ID, 승인자, 기간 ID와 예상·목표 상태를 먼저 영속화합니다.
+2. 최종 마감은 원래 증빙·checkpoint에 바인딩한 정확한 Journal `ACTIVE` 응답을 먼저 확인합니다. Master Data의 `prepareClosingTransition`은 동일 명령을 `PREPARED`로 영속화합니다.
+   기간 행에 저장된 상태는 아직 바꾸지 않습니다. 다만 닫기 준비 중에는 전표 허용 판단에
+   쓰이는 기간 조회와 공개 GET이 보수적으로 `CLOSED`를 돌려주어 새 전표를 막습니다.
+   재개 준비 중에는 `OPEN`을 미리 돌려주지 않습니다.
+3. Master Data가 예상 상태 조건 아래 `applyClosingTransition`으로 기간 행과 영수증을
+   원자적으로 갱신합니다. 닫기는 `CLOSED`로 잠기고, 재개는 저장 상태가 `OPEN`이 되어도
+   전표 허용용 조회는 계속 `CLOSED`입니다.
+4. 재오픈 적용 전 Closing이 승인·달력·새 체크리스트·감사를 `AUTHORIZED`로 확정합니다. 적용 후 로컬 `READY_TO_CONFIRM`을 커밋하고
+   `confirmClosingTransition`을 호출합니다. 확인 영수증이 `CONFIRMED`가 되어야 재개
+   기간의 공개 조회가 `OPEN`을 돌려줍니다. 확인 응답이 유실되면 같은 ID로 재호출하거나
+   영수증을 조회해 복구합니다. `CONFIRMED` 뒤 `RELEASE_PENDING`을 커밋하고 원래 Journal 명령의 정확한 `RELEASED` 응답까지 기다립니다.
+5. timeout이나 응답 유실 시 `findTransitionReceipt`로 원격 상태를 조회하고 원본
+   명령의 **모든** 필드와 대조합니다. `PREPARED`면 같은 ID로 적용을 이어가고,
+   `APPLIED`면 로컬 확정과 원격 확인을 이어갑니다. `CONFIRMED`면 확인을 반복하지
+   않고 로컬 결과를 대조합니다.
+6. 닫기 준비 후 로컬 증거가 만료되어 더는 안전하게 적용할 수 없으면, 권한 있는
+   복구 담당자가 원래 ID와 별도 취소 actor로 `cancelClosingTransition`을 호출합니다.
+   Master Data는 기간/영수증을 잠그고 `PREPARED → CANCELLED`만 기록합니다. 이미
+   `APPLIED`라면 취소를 거절하고, 응답 유실 뒤 같은 취소를 반복하면 저장된
+   `CANCELLED` 영수증을 돌려줍니다. Closing은 영수증을 대조한 뒤 `CANCEL_RELEASE_PENDING`을 영속화하고 Journal release/tombstone의 정확한 `RELEASED` 응답 후 로컬 준비 상태를
+   해제합니다. 닫기 준비 동안 보수적으로 `CLOSED`였던 기간 조회는 다시 저장 상태를
+   따릅니다.
+
+제공자는 동일 ID에 다른 기간·예상/목표 상태·actor를 받은 경우 충돌로 거절하고,
+예상 상태가 틀리면 상태 변경을 거절해야 합니다. Closing은 이 충돌을 새로운 ID로
+자동 우회하지 않습니다. 자세한 필드는 [schema.md](./schema.md)를 참조합니다.
+
+Master 영수증은 기간 전이의 결과를 증명하고 Journal fence는 금액 커밋을 통제합니다. CONFIRMED 또는 CANCELLED 영수증만으로 Journal 봉인이 해제되지는 않습니다.

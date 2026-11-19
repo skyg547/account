@@ -56,6 +56,15 @@ public class ReopenApproval {
         return fiscalPeriodId;
     }
 
+    public Long getPendingFiscalPeriodId() {
+        return pendingFiscalPeriodId;
+    }
+
+    /** Persistence reconstitution of the unique pending slot. */
+    public void setPendingFiscalPeriodId(Long pendingFiscalPeriodId) {
+        this.pendingFiscalPeriodId = pendingFiscalPeriodId;
+    }
+
     public void setFiscalPeriodId(Long fiscalPeriodId) {
         this.fiscalPeriodId = fiscalPeriodId;
         syncPendingFiscalPeriodId();

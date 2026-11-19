@@ -29,7 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
                 "spring.batch.job.enabled=false",
                 "spring.batch.jdbc.initialize-schema=always",
                 "spring.sql.init.mode=always",
-                "spring.sql.init.schema-locations=classpath:db/local/schema-business-partner-screening.sql",
+                "spring.sql.init.schema-locations=classpath:db/local/schema-business-partner-screening.sql,classpath:db/local/schema-fiscal-period-transitions.sql",
                 "spring.cloud.config.enabled=false",
                 "spring.cloud.config.import-check.enabled=false",
                 "spring.cloud.discovery.enabled=false",

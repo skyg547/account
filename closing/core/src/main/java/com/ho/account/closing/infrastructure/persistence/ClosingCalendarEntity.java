@@ -92,6 +92,8 @@ public class ClosingCalendarEntity {
     private Long journalFenceRevision;
     @Column(length = 50)
     private String journalFenceActor;
+    @Column(name = "transition_protocol", length = 20)
+    private String transitionProtocol;
 
     @Transient
     private String name;

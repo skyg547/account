@@ -1,6 +1,8 @@
 package com.ho.account.closing.config;
 
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.application.service.FiscalPeriodTransitionService;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodTransitionAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithExchangeRateQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubjectPersistenceAdapter;
@@ -8,6 +10,7 @@ import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPe
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaMasterDataAuditAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaBusinessPartnerPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaMasterDataAuditAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.AccountSubjectMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.DepartmentMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
@@ -41,7 +44,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "com.ho.account.masterdata.core.infrastructure.persistence.repository"
 })
 @Import({
-        MonolithFiscalPeriodControlAdapter.class,
+        MonolithFiscalPeriodControlAdapter.class, FiscalPeriodTransitionService.class, JpaFiscalPeriodTransitionAdapter.class,
         MonolithExchangeRateQueryAdapter.class,
         MonolithMasterDataQueryAdapter.class,
         JpaFiscalPeriodPersistenceAdapter.class,
@@ -50,6 +53,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         JpaAccountSubjectPersistenceAdapter.class,
         AccountSubjectMapper.class,
         JpaBusinessPartnerPersistenceAdapter.class,
+        JpaMasterDataAuditAdapter.class,
         JpaDepartmentPersistenceAdapter.class,
         DepartmentMapper.class
 })

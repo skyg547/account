@@ -72,8 +72,9 @@ public class ClosingTask {
         return cycleNumber;
     }
 
-    /** Restores the persisted cycle without assigning historical evidence to the calendar's current cycle. */
+    /** Persistence reconstitution; new checklist rows use assignCycle/nextCycle. */
     public void setCycleNumber(int cycleNumber) {
+        if (cycleNumber <= 0) throw new IllegalArgumentException("cycleNumber must be positive");
         this.cycleNumber = cycleNumber;
     }
 

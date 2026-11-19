@@ -253,47 +253,63 @@ legacy `lineageSourceId=2026` 연차 전표는 헤더·라인이 모두
 | 진행 중인 전이 조회 | `GET /api/closing/calendars/{id}/transition` |
 | 작업 ID에 묶인 복구 | `POST /api/closing/calendars/{id}/transition/recover` |
 | 미전송 최종 마감 의도 취소 | `POST /api/closing/calendars/{id}/transition/cancel-prepared` |
+| 전송 후 미적용 최종 마감 취소 | `POST /api/closing/calendars/{id}/transition/cancel-dispatched-close` |
 
 복구는 Gateway가 검증해 넣은 `X-Auth-User`, `X-Auth-Roles`를 사용합니다.
 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다.
 조회와 복구 모두 이 권한을 요구하며, 사용자 헤더 누락은 401, 역할 부족은 403입니다.
-trim 후 50자를 넘는 actor는 transition use case 호출 전 400입니다.
+원격 Master 연결을 켜는 Closing 배포는 양쪽 서비스에 같은
+`MASTER_DATA_CLOSING_ASSERTION_SECRET`(UTF-8 32바이트 이상)을 주입해야 합니다. 없거나 짧으면
+Closing의 원격 전이 어댑터 생성 시 시작이 실패합니다. 서비스 assertion은 사용자 역할을
+조작하지 않고 Closing 진입 권한 검사 후의 서비스 권한을 증명합니다.
+최초 마감·재오픈 결정자는 원격 감사 접두어를 포함해야 하므로 안전한 ID 문자로 최대 42자입니다.
+복구 처리자는 기존 HTTP 경계의 50자 한도를 따릅니다.
 요청 본문에 처리자 이름을 넣어 권한을 대신하지 않습니다. Closing API를 외부에 직접 노출하지 않는
 기존 EOD와 같은 신뢰 경계를 전제로 합니다.
 
 먼저 조회한 작업 ID와 단계, 목표 상태, 바인딩된 `evidenceSetId`를 확인합니다.
 `PREPARED` 최종 마감은 바인딩된 증빙이 현재도 유효할 때만 최초 전송을 재개할 수 있습니다.
-`DISPATCHED`이면 원 요청이 더 이상 Master에서 실행될 수 없음을 운영 절차로 확인한 후에만
-`remoteRequestTerminated=true`로 복구를 요청합니다. 이 값은 원격 종료를 자동 증명하지 않습니다.
+`DISPATCHED`, `AUTHORIZED` 또는 `READY_TO_CONFIRM`이면 Master 영수증의 작업 ID·기간 ID·기대/목표 상태·원 결정자를
+로컬 의도와 대사한 뒤 동일 ID의 준비/적용을 이어 갑니다. `remoteRequestTerminated`는 구 API
+호환 입력이며 복구 권한의 근거로 사용하지 않습니다.
+최종 마감의 `DISPATCHED`가 증빙 만료로 더는 적용될 수 없고 Master 영수증이 `PREPARED`이면
+권한 있는 운영자는 같은 작업 ID와 사유로 `cancel-dispatched-close`를 호출합니다. Master가
+`CANCELLED` 영수증을 먼저 확정한 뒤 Closing이 로컬 의도를 해제하고 감사 기록을 남깁니다.
+DELETE 응답 유실 또는 로컬 커밋 실패 시 같은 취소 명령을 재시도합니다. Master 영수증이 없거나
+이미 `APPLIED`이면 취소하지 않습니다. 취소 후 새 증빙과 새 작업 ID로 마감을 준비합니다.
 
 ```json
 {
   "operationId": "조회에서 확인한 작업 UUID",
-  "remoteRequestTerminated": true
+  "remoteRequestTerminated": false
 }
 ```
 
-복구는 Master 목표 상태를 확인한 뒤 로컬 상태를 완료합니다. 이미 전송한 PUT을 다시 보내지 않으며,
-Master가 원 상태에 남았으면 계속 차단합니다. 해당 경우는 별도 권한의 Master 운영자가 원 요청 종료와
-기간 상태를 대사·조정해야 합니다. 오래된 작업 ID로 재호출하거나 경쟁 결정이 들어오면 충돌로 처리합니다.
+복구는 동일 작업 ID의 Master 영수증을 조회하고, 필요하면 멱등 적용·확인합니다. 재오픈은
+Master `APPLIED` 동안 공개 조회가 `CLOSED`를 유지하며, 로컬 `READY_TO_CONFIRM` 커밋 후에만
+`CONFIRMED`로 공개 `OPEN`이 됩니다. 마감 `APPLIED` 또는 재오픈 `CONFIRMED` 영수증과
+현재 Master 기간·목표 상태가 모두 일치해야 로컬 전이 ID를 지웁니다. 영수증 누락·불일치,
+오래된 작업 ID 또는 경쟁 결정은 차단합니다. 구버전 직접 PUT으로 만들어진 영수증 없는
+`DISPATCHED` 행은 자동 귀속하지 않습니다. 배포 전 조회·조치 절차는
+[업무 흐름](process-flow.md#구버전-dispatched-전이-배포-전-점검)을 따릅니다.
 원 승인자의 결정은 복구자 이름으로 덮어쓰지 않습니다.
 
 최초 마감·승인 호출 중 원격 반영이나 로컬 완료가 불명확하면 HTTP 503과
 `PERIOD_TRANSITION_RECOVERY_REQUIRED`를 반환합니다. 이 응답은 승인 결정이 롤백됐다는 뜻이 아닙니다.
 조회 결과의 `operationId`, `target`, `stage`, `evidenceSetId`, `decisionActor`를 확인하고 복구 흐름을 사용합니다.
 완료되면 `calendarStatus`가 목표 상태이며 진행 중인 전이 필드는 null입니다.
-경쟁 결정·오래된 작업 ID·확인 누락·Master 상태 불일치는 HTTP 409입니다.
+경쟁 결정·오래된 작업 ID·Master 영수증/상태 불일치는 충돌 또는 복구 필요 응답으로 남습니다.
 
 검증 명령:
 
 ```bash
 ./gradlew :closing:api:test --tests '*ClosingAggregateConcurrencyIntegrationTest' --tests '*ClosingTransitionRecoveryIntegrationTest'
-./gradlew :closing:test
+./gradlew :master-data:test :closing:test :contracts:test
 ./gradlew :closing:api:bootJar :closing:batch:bootJar
 ```
 
 동시성 테스트는 별도 트랜잭션과 latch로 순서를 제어하고, 원격 역할의 상태는 Closing 트랜잭션과 독립적으로
-저장합니다. 복구 테스트는 응답 유실과 로컬 완료 실패를 주입합니다. H2 검증은 실제 PostgreSQL 잠금·운영 부하나
+저장합니다. 복구 테스트는 응답 유실과 로컬 저장/커밋 실패를 주입합니다. H2 검증은 실제 PostgreSQL 잠금·운영 부하나
 배포된 Master의 네트워크 장애 증거를 대신하지 않습니다. 실행 결과는 [모듈 worklog](ai-harness/worklog.md)에 기록합니다.
 
 ### 재오픈 뒤 체크리스트 재실행 (GH-885)

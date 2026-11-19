@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Coordinates committed local intent with the non-transactional Journal and Master operations. */
+/** Coordinates committed local intent and the non-transactional remote Master operation. */
 @Service
 @Transactional(propagation = Propagation.NEVER)
 public class ClosingPeriodTransitionService implements ClosingTransitionRecoveryUseCase {
@@ -72,8 +72,8 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
                 || calendar.getTransitionStage() == TransitionStage.RELEASE_PENDING) {
             return releaseAndFinish(calendar, recoveredBy.trim());
         }
-        return releaseIfPending(transactions.reconcile(calendarId, operationId,
-                remoteRequestTerminated, recoveredBy.trim()));
+        // The same operation ID is safe to retry even when the previous response was lost.
+        return resume(calendarId, operationId, recoveredBy.trim());
     }
 
     @Override
@@ -81,13 +81,27 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
         return releaseAndFinish(transactions.cancelPreparedClose(calendarId, operationId, reason, actor));
     }
 
+    @Override
+    public ClosingCalendar cancelDispatchedClose(Long calendarId, String operationId, String reason, String actor) {
+        if (reason == null || reason.isBlank() || reason.trim().length() > 300) {
+            throw new IllegalArgumentException("reason must be 1-300 non-blank characters");
+        }
+        transactions.cancelRemoteClose(calendarId, operationId, actor);
+        try {
+            return releaseAndFinish(transactions.clearCancelledClose(calendarId, operationId, reason, actor));
+        } catch (RuntimeException failure) {
+            throw new ClosingTransitionPendingException(operationId, failure);
+        }
+    }
+
     private ClosingCalendar dispatch(ClosingCalendar calendar, String recoveryActor) {
+        requireReceiptProtocol(calendar);
         String operationId = calendar.getTransitionId();
         try {
             if ("CLOSED".equals(calendar.getTransitionTarget())) {
                 JournalPeriodFenceCommand command = transactions.requirePreparedFence(calendar.getId(), operationId);
                 requireJournal();
-                // No calendar lock is held while Journal drains monetary transactions.
+                // Journal drains monetary transactions without holding the local calendar lock.
                 requireResult(command, journal.fence(command), JournalPeriodFenceResult.State.ACTIVE);
             }
             transactions.markDispatched(calendar.getId(), operationId);
@@ -97,16 +111,37 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
         } catch (RuntimeException failure) {
             throw new ClosingTransitionPendingException(operationId, failure);
         }
-        try {
-            return releaseIfPending(transactions.dispatchAndFinish(calendar.getId(), operationId, recoveryActor));
-        } catch (RuntimeException failure) {
-            // Master dispatch or the later release may be uncertain; their committed stage drives recovery.
-            throw new ClosingTransitionPendingException(operationId, failure);
-        }
+        return resume(calendar.getId(), operationId, recoveryActor);
     }
 
-    private ClosingCalendar releaseIfPending(ClosingCalendar calendar) {
-        return calendar.getTransitionStage() == TransitionStage.RELEASE_PENDING ? releaseAndFinish(calendar) : calendar;
+    private ClosingCalendar resume(Long calendarId, String operationId, String recoveryActor) {
+        try {
+            ClosingCalendar current = findTransition(calendarId);
+            current.requireTransition(operationId);
+            requireReceiptProtocol(current);
+            if (current.getTransitionStage() == TransitionStage.RELEASE_PENDING
+                    || current.getTransitionStage() == TransitionStage.CANCEL_RELEASE_PENDING) {
+                return releaseAndFinish(current, recoveryActor);
+            }
+            if (current.getTransitionStage() == TransitionStage.DISPATCHED) {
+                transactions.prepareRemote(calendarId, operationId);
+                if ("OPEN".equals(current.getTransitionTarget())) {
+                    transactions.authorizeReopen(calendarId, operationId);
+                }
+            }
+            if (current.getTransitionStage() != TransitionStage.READY_TO_CONFIRM) {
+                current = transactions.applyAndFinish(calendarId, operationId, recoveryActor);
+            }
+            if (current.getTransitionStage() == TransitionStage.READY_TO_CONFIRM) {
+                current = transactions.confirmAndFinishReopen(calendarId, operationId, recoveryActor);
+            }
+            return current.getTransitionStage() == TransitionStage.RELEASE_PENDING
+                    ? releaseAndFinish(current, recoveryActor) : current;
+        } catch (ClosingTransitionPendingException pending) {
+            throw pending;
+        } catch (RuntimeException failure) {
+            throw new ClosingTransitionPendingException(operationId, failure);
+        }
     }
 
     private ClosingCalendar releaseAndFinish(ClosingCalendar calendar) {
@@ -136,6 +171,13 @@ public class ClosingPeriodTransitionService implements ClosingTransitionRecovery
             JournalPeriodFenceResult.State expected) {
         if (result == null || !command.equals(result.command()) || result.state() != expected) {
             throw new IllegalStateException("Journal returned a mismatched fence acknowledgement");
+        }
+    }
+
+    private void requireReceiptProtocol(ClosingCalendar calendar) {
+        if (!"RECEIPT_V1".equals(calendar.getTransitionProtocol())) {
+            throw new IllegalStateException(
+                    "Legacy fiscal transition has no operation receipt provenance; operator preflight is required.");
         }
     }
 }
