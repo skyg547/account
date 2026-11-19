@@ -1,3 +1,9 @@
+## GH-955 최종 CI fixture 보정 — 2026-11-20 KST
+- PR #956, 원격 검증 head 1b1bda6c, base ed539846. Module run44560253740은 24개 모듈 중22개 SUCCESS: Master 실제 HTTP 복합 복구 fixture, Loan, Asset, Journal, Auth/Gateway, migration-runner PostgreSQL 포함. 성공 task 로그만으로 개별 테스트 수나 skipped case PASS를 추정하지 않는다.
+- Closing core452건 중1실패/1skip: 신규 annual durable-provider test가 source header description을 detail fixture에 넣지 않아 기존 금융·lineage 검증이 거부했다. production JDBC/HTTP source mapping과 같은 headerDescription 한 줄을 보완하며 receipt/retry/변경 내용 충돌 assertions와 production validator는 유지한다. 실행 GREEN은 새 head CI로 확인해야 한다.
+- Deposit은 Caffeine3.1.8 의존성 조회가3회 실패하여 compile 전 중단했다. 실제 테스트 실패나 PASS로 처리하지 않는다. 다른 producer의 이전 유효한 실행 증거는 변경 없는 범위에만 재사용한다.
+- Node20/lockfile frontend tests·TypeScript·lint, Auth/Gateway/Closing/Master bootJar6개와 실제 BFF→Gateway→Auth 체인용 GitHub-hosted gate를2파일로 준비 중이다. 설치·다운로드 실행은 AGENTS.md에 따른 사용자 답변 대기이며 로컬 다운로드/DB 기동을 우회하지 않는다. 신뢰 정책/별도 GitHub reviewer 입력, 최종 독립 검수와 실행 게이트는 미완료다.
+- 기본 dirty84와 모든 원본 PR/branch/worktree를 보존한다. main merge/Issue completed close0. 롤백은 검토된 fixture revert 또는 forward correction이며 receipt/fence/감사/금융 이력을 삭제하지 않는다.
 ## GH-955 통합 수정 동결 — 2026-11-20 KST
 - 소스 checkpoint 03823ab7d04d8ae04b3c6ef2127777056c114815, PR #956. 독립 금융·인증 검수에서 확인된 생산자 operationKey 누락, Nav 역할 코드 불일치, merge 중복 선언, asset 신규 domain framework 결합/생성 DB ID drift/원 nullable 입력 결합 누락을 수정했다. 아래 과거 checkpoint의 미해결 지적은 이 기록과 현재 diff로 대조한다.
 - 부모만 Git/원격/공유 기록을 갱신했다. 원본 PR9개 head는 ancestor로 보존한다. Asset V21 양 dialect와 Loan V34를 새로 추가했고 기존 published migration은 바꾸지 않았다. 통합 신규 Closing V59는 V58의 두 release 대기 상태를 보존한다.

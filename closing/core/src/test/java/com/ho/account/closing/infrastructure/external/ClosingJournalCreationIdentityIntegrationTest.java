@@ -73,6 +73,7 @@ class ClosingJournalCreationIdentityIntegrationTest {
         source.setLineageSourceType("SOURCE"); source.setLineageSourceId("1");
         var credit = new JournalDetailSummary();
         credit.setId(1L); credit.setSlipNo("SOURCE-1"); credit.setAccountingDate(DATE);
+        credit.setHeaderDescription(source.getDescription());
         credit.setAccountCode("41000"); credit.setAccountCategory("REVENUE");
         credit.setSide(JournalSide.CREDIT); credit.setAmount(new BigDecimal("100")); credit.setBaseAmount(new BigDecimal("100"));
         AnnualJournalReadPort read = (start, end, first, digest) -> {
