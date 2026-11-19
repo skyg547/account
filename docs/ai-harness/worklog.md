@@ -1,3 +1,23 @@
+## 2026-11-19 — GH-944 Loan Journal fixture verification
+
+- Trace: [Issue #944](https://github.com/skyg547/account/issues/944), `agent/944-ci-loan`, `C:/tmp/account-work-944-ci-loan`, base `origin/main@ed539846`. Parent publishes the Draft PR after this checkpoint. Scope: one Loan test plus four parent-owned records; no production behavior or SQL changes.
+- An independent slip-number sequence restores the actual Journal port contract. Negative cases now assert the intended closing/ledger failure and downstream calls; arbitrary earlier exceptions cannot satisfy them. This directly constructed fixture does not claim committed DB rollback.
+- Actual focused RED: 3 tests/1 slip-allocation failure. GREEN: 3/3. Full offline command below passed core246/API7/Batch6 = 259 tests, 26 suites, failure/error/skip0; both bootJars executed. Logs: dedicated account automation `20261119-ci-loan-{red,green,full}.log` and module XML. The Issue command was corrected because `:loan:test` alone has no child aggregation.
+
+```powershell
+.\gradlew.bat :loan:core:test :loan:api:test :loan:batch:test :loan:api:bootJar :loan:batch:bootJar --offline --no-daemon --console=plain --max-workers=1
+```
+
+| Gate | Verdict | Evidence / remaining boundary |
+| --- | --- | --- |
+| Q1 clean code | PASS | Independent test sequence and precise failure assertions; no production rule changes |
+| Q2 flow / intent | PASS | Test lines85/187 explain early-failure masking and independent numbering |
+| Q3 relevant guidance | PASS | Runtime/module commands unchanged; Issue full-test command corrected |
+| Q4 actual verification | PASS | RED/GREEN +259 full tests and2 executed bootJars; independent XML/log review |
+
+- Fresh independent Astra Reviewer `/root/review_ci_fixes`, separate from spec and writer, confirmed no P0–P3 and all gates PASS. Parent alone owns records and Git/GitHub. Changed-file whitespace/marker gates PASS; the full tracked scan found pre-existing main Closing README markers, tracked by Issue947 and blocking merge until integrated. Node harness quality32/32 PASS. Python harness validator did not run: default Python is absent and bundled Python lacks PyYAML; no installation performed. No conflict was resolved.
+- Rollback: reviewed test-only revert; preserve business/audit history. Next: current published-head CI and real independent approval/trust policy before Ready/merge. Same-account audit comments cannot substitute. No deployment, operating DB, resource deletion or policy bypass.
+
 ## 2026-10-20 — GH-924 authenticated actors and durable audit evidence
 
 - Trace: [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b29125549504d245aa10b3d275923e407bff8d56`; [Draft PR #937](https://github.com/skyg547/account/pull/937) uses `Refs #924`. Allowlist: `master-data/**`, `auth/**`, and only the four specifically requested harness/history records. No shared contract, gateway, or other module source changed.
