@@ -130,7 +130,7 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 | --- | --- |
 | `transition_id` | 한 번의 마감/재오픈 작업 UUID |
 | `transition_target` | Master와 캘린더가 도달할 `OPEN` 또는 `CLOSED` |
-| `transition_stage` | 로컬 의도 `PREPARED`, 원격 준비 시작 `DISPATCHED`, 재오픈 승인 확정 `AUTHORIZED`, Master 확인 전 최종화 `READY_TO_CONFIRM` |
+| `transition_stage` | 로컬 의도 `PREPARED`, 원격 준비 시작 `DISPATCHED`, 재오픈 승인 확정 `AUTHORIZED`, Master 확인 전 최종화 `READY_TO_CONFIRM`, Journal 해제 대기 `RELEASE_PENDING`/`CANCEL_RELEASE_PENDING` |
 | `transition_fiscal_period_id` | Master 회계기간 ID |
 | `transition_approval_id` | 재오픈 승인 ID; 마감에서는 null |
 | `transition_actor`, `transition_prepared_at` | 원 결정자와 준비 시각 |
@@ -249,7 +249,7 @@ V57은 확정 ECL 원천의 run/model/기준일/법인, 합산 목표·노출·S
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를, V57은 ECL 스냅샷을, V58은 Journal checkpoint·fence와 해제 대기 상태를 추가합니다. 새 writer를 시작하기 전에 Closing V58과 Journal V20을 migrate/validate하고 기존 Journal 이력을 대사·인증하며 오래된 writer를 배출해야 합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를, V57은 ECL 스냅샷을, V58은 Journal checkpoint·fence와 해제 대기 상태를, V59는 두 해제 대기 상태를 보존하면서 RECEIPT_V1 및 AUTHORIZED·READY_TO_CONFIRM을 추가합니다. 새 writer를 시작하기 전에 Closing V59와 Journal V20/V21 및 Master 영수증 저장소를 migrate/validate하고 기존 Journal 이력을 대사·인증하며 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
 - V56부터 `period_locks` unlock은 행을 비활성화하고 해제자·시각을 보존합니다. 별도 `unlock_reason` 컬럼은 아직 없으며 기존 해제 감사 로그의 사유가 남습니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.

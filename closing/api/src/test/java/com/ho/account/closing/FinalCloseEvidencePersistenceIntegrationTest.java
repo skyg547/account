@@ -87,6 +87,11 @@ class FinalCloseEvidencePersistenceIntegrationTest {
 
     @Test
     void migrationRejectsCancellationWithoutCommandAndRetainsLegacyPreparedRows() {
+        // This fixture validates H2 in PostgreSQL mode, not a PostgreSQL server.
+        for (String version : new String[] {"58", "59"}) {
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history_closing "
+                    + "WHERE version=? AND success", Integer.class, version)).isEqualTo(1);
+        }
         jdbc.update("""
                 INSERT INTO closing_calendars(fiscal_year,fiscal_period,status,is_current_period,
                     transition_id,transition_target,transition_stage,transition_fiscal_period_id,

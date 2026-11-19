@@ -41,7 +41,13 @@ import com.ho.account.closing.infrastructure.persistence.JpaClosingTaskPersisten
 import com.ho.account.closing.infrastructure.persistence.JpaPeriodLockPersistenceAdapter;
 import com.ho.account.closing.infrastructure.persistence.JpaReopenApprovalPersistenceAdapter;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
+import com.ho.account.contracts.masterdata.FiscalPeriodClosingStatus;
+import com.ho.account.contracts.masterdata.FiscalPeriodTransitionCommand;
 import com.ho.account.contracts.masterdata.FiscalPeriodTransitionReceipt;
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
+import com.ho.account.contracts.journal.JournalPeriodFenceCommand;
+import com.ho.account.contracts.journal.JournalPeriodFenceResult;
+import com.ho.account.contracts.journal.JournalPeriodScope;
 import com.ho.account.masterdata.core.application.service.FiscalPeriodTransitionService;
 import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
@@ -62,6 +68,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,7 +96,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClient;
 
-/** Two real JPA databases joined only by signed HTTP serialization through an in-memory servlet. */
+/** Real Closing/Master JPA commits joined by signed HTTP, with independently committed Journal receipts. */
 @DataJpaTest(properties = {"spring.config.name=fiscal-transition-http-test",
         "spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false",
         "spring.cloud.config.enabled=false", "spring.cloud.config.import-check.enabled=false"})
@@ -201,8 +208,14 @@ class ClosingFiscalTransitionHttpRecoveryTest {
                 || fault == Fault.CLEAR_COMMIT || fault == Fault.CLEAR_AUDIT_SAVE;
         assertThat(remote.phase()).isEqualTo(beforeAuthorization ? FiscalPeriodTransitionReceipt.Phase.PREPARED
                 : afterConfirmation ? FiscalPeriodTransitionReceipt.Phase.CONFIRMED : FiscalPeriodTransitionReceipt.Phase.APPLIED);
+        boolean releasePending = fault == Fault.CLEAR_SAVE || fault == Fault.CLEAR_COMMIT
+                || fault == Fault.CLEAR_AUDIT_SAVE;
         assertThat(pending.getTransitionStage()).isEqualTo(beforeAuthorization ? TransitionStage.DISPATCHED
+                : releasePending ? TransitionStage.RELEASE_PENDING
                 : afterConfirmation ? TransitionStage.READY_TO_CONFIRM : TransitionStage.AUTHORIZED);
+        assertThat(pending.getJournalFenceCommand()).isEqualTo(fixture.originalFence());
+        assertThat(journal().state(fixture.originalFence())).isEqualTo(releasePending
+                ? JournalPeriodFenceResult.State.RELEASED : JournalPeriodFenceResult.State.ACTIVE);
         assertThat(pending.getStatus()).isEqualTo(beforeAuthorization ? ClosingCalendarStatus.CLOSED : ClosingCalendarStatus.OPEN);
         assertThat(pending.getCycleNumber()).isEqualTo(beforeAuthorization ? 1 : 2);
         assertThat(tasks.findByClosingCalendar(pending)).hasSize(beforeAuthorization ? 1 : 2);
@@ -235,6 +248,8 @@ class ClosingFiscalTransitionHttpRecoveryTest {
         ClosingCalendar pending = calendars.findById(fixture.calendarId()).orElseThrow();
         assertThat(pending.getStatus()).isEqualTo(ClosingCalendarStatus.CLOSED);
         assertThat(pending.getCycleNumber()).isEqualTo(1);
+        assertThat(pending.getJournalFenceCommand()).isEqualTo(fixture.originalFence());
+        assertThat(journal().state(fixture.originalFence())).isEqualTo(JournalPeriodFenceResult.State.ACTIVE);
         assertThat(approvals.findById(fixture.approvalId()).orElseThrow().getStatus())
                 .isEqualTo(decisionFailure ? ReopenApprovalStatus.PENDING : ReopenApprovalStatus.APPROVED);
         assertThat(closingContext.getBean(ClosingTaskPersistencePort.class).findByClosingCalendar(pending)).hasSize(1);
@@ -261,12 +276,126 @@ class ClosingFiscalTransitionHttpRecoveryTest {
         assertRecovered(fixture, operationId, decisionFailure ? 0 : 1);
     }
 
+    @Test
+    void confirmAckLossThenJournalReleaseAckLossRetainsOriginalFenceAndRecoversOnce() {
+        Fixture fixture = createClosedFixture();
+        var coordinator = closingContext.getBean(ClosingPeriodTransitionService.class);
+        var calendars = closingContext.getBean(ClosingCalendarPersistencePort.class);
+        faults.pending.set(Fault.CONFIRM_ACK_LOST);
+
+        assertThatThrownBy(() -> coordinator.decide(fixture.approvalId(), ReopenApprovalStatus.APPROVED, "approver"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar confirmed = calendars.findById(fixture.calendarId()).orElseThrow();
+        String operationId = confirmed.getTransitionId();
+        assertThat(operationId).isNotEqualTo(fixture.originalFence().operationId());
+        assertThat(confirmed.getTransitionStage()).isEqualTo(TransitionStage.READY_TO_CONFIRM);
+        assertThat(confirmed.getJournalFenceCommand()).isEqualTo(fixture.originalFence());
+        assertThat(provider.findTransitionReceipt(operationId).orElseThrow().phase())
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CONFIRMED);
+        assertThat(journal().state(fixture.originalFence())).isEqualTo(JournalPeriodFenceResult.State.ACTIVE);
+        assertThat(journal().releaseAttempts()).isEmpty();
+        assertAuditCounts(1, 1, 0);
+
+        journal().loseNextReleaseAck();
+        assertThatThrownBy(() -> coordinator.recoverTransition(fixture.calendarId(), operationId, false, "recovery-operator"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar pending = calendars.findById(fixture.calendarId()).orElseThrow();
+        assertThat(pending.getTransitionId()).isEqualTo(operationId);
+        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.RELEASE_PENDING);
+        assertThat(pending.getJournalFenceCommand()).isEqualTo(fixture.originalFence());
+        assertThat(pending.getCycleNumber()).isEqualTo(2);
+        assertThat(journal().state(fixture.originalFence())).isEqualTo(JournalPeriodFenceResult.State.RELEASED);
+        assertThat(closingContext.getBean(ClosingAdmissionQuery.class).isClosed(LocalDate.of(2026, 11, 15))).isTrue();
+        assertAuditCounts(1, 1, 0);
+
+        coordinator.recoverTransition(fixture.calendarId(), operationId, false, "recovery-operator");
+        assertRecovered(fixture, operationId, 1);
+        assertThat(journal().releaseAttempts()).containsExactly(fixture.originalFence(), fixture.originalFence());
+        assertThat(journal().releaseEffects(fixture.originalFence())).isEqualTo(1);
+    }
+
+    @Test
+    void cancelledMasterCloseAndLostJournalReleaseAckRejectDelayedApplyAndFence() {
+        // Seed a committed dispatched intent, the state reached after close evidence/fence validation.
+        // Cancellation uses the production coordinator and signed Master HTTP for every remote phase.
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            FiscalPeriod period = periods.findById(periodId).orElseThrow();
+            period.changeClosingStatus(FiscalPeriod.ClosingStatus.OPEN, "fixture");
+            periods.save(period);
+        });
+        var calendars = closingContext.getBean(ClosingCalendarPersistencePort.class);
+        ClosingCalendar dispatched = new TransactionTemplate(closingContext.getBean(PlatformTransactionManager.class))
+                .execute(status -> {
+                    ClosingCalendar calendar = new ClosingCalendar();
+                    calendar.setFiscalYear("2026");
+                    calendar.setFiscalPeriod("11");
+                    calendar.setStatus(ClosingCalendarStatus.IN_PROGRESS);
+                    calendar.setAuditUser("closer");
+                    calendar.prepareTransition("CLOSED", periodId, null, "synthetic-validated-evidence", "closer");
+                    JournalPeriodFenceCommand fence = originalFence(calendar.getTransitionId(), "closer");
+                    calendar.bindJournalFence(fence);
+                    journal().fence(fence);
+                    calendar.markTransitionDispatched(calendar.getTransitionId());
+                    return calendars.save(calendar);
+                });
+        String operationId = dispatched.getTransitionId();
+        JournalPeriodFenceCommand originalFence = dispatched.getJournalFenceCommand();
+        FiscalPeriodControlPort client = closingContext.getBean(FiscalPeriodControlPort.class);
+        FiscalPeriodTransitionCommand command = new FiscalPeriodTransitionCommand(operationId, periodId,
+                FiscalPeriodClosingStatus.OPEN, FiscalPeriodClosingStatus.CLOSED, "closer");
+        assertThat(client.prepareClosingTransition(command).phase()).isEqualTo(FiscalPeriodTransitionReceipt.Phase.PREPARED);
+        var coordinator = closingContext.getBean(ClosingPeriodTransitionService.class);
+        journal().loseNextReleaseAck();
+
+        assertThatThrownBy(() -> coordinator.cancelDispatchedClose(dispatched.getId(), operationId,
+                "synthetic cancellation", "operator"))
+                .isInstanceOf(ClosingTransitionPendingException.class);
+        ClosingCalendar pending = calendars.findById(dispatched.getId()).orElseThrow();
+        assertThat(pending.getTransitionId()).isEqualTo(operationId);
+        assertThat(pending.getTransitionStage()).isEqualTo(TransitionStage.CANCEL_RELEASE_PENDING);
+        assertThat(pending.getJournalFenceCommand()).isEqualTo(originalFence);
+        assertThat(pending.getCycleNumber()).isEqualTo(1);
+        assertThat(client.findTransitionReceipt(operationId).orElseThrow().phase())
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CANCELLED);
+        assertThat(journal().state(originalFence)).isEqualTo(JournalPeriodFenceResult.State.RELEASED);
+        assertThatThrownBy(() -> client.applyClosingTransition(operationId)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("HTTP 409");
+        assertThatThrownBy(() -> journal().fence(originalFence)).isInstanceOf(IllegalStateException.class);
+        assertThat(closingContext.getBean(ClosingAdmissionQuery.class).isClosed(LocalDate.of(2026, 11, 15))).isTrue();
+
+        coordinator.recoverTransition(dispatched.getId(), operationId, false, "recovery-operator");
+        ClosingCalendar recovered = calendars.findById(dispatched.getId()).orElseThrow();
+        assertThat(recovered.getTransitionId()).isNull();
+        assertThat(recovered.getJournalFenceCommand()).isNull();
+        assertThat(recovered.getStatus()).isEqualTo(ClosingCalendarStatus.IN_PROGRESS);
+        assertThat(recovered.getCycleNumber()).isEqualTo(1);
+        assertThat(receipts.count()).isEqualTo(1);
+        assertThat(client.findTransitionReceipt(operationId).orElseThrow().phase())
+                .isEqualTo(FiscalPeriodTransitionReceipt.Phase.CANCELLED);
+        assertThat(periods.findById(periodId).orElseThrow().getClosingStatus()).isEqualTo(FiscalPeriod.ClosingStatus.OPEN);
+        assertThat(journal().releaseAttempts()).containsExactly(originalFence, originalFence);
+        assertThat(journal().releaseEffects(originalFence)).isEqualTo(1);
+        assertThat(closingContext.getBean(ClosingAuditLogRepository.class).findAll())
+                .extracting(row -> row.getActionType()).containsExactlyInAnyOrder(
+                        ActionType.PERIOD_TRANSITION_CANCELLED, ActionType.PERIOD_TRANSITION_RECOVERED);
+        JdbcTemplate masterJdbc = new JdbcTemplate(dataSource);
+        assertThat(masterJdbc.queryForObject("SELECT COUNT(*) FROM master_data_audit_events "
+                + "WHERE target_key=? AND event_type='FISCAL_PERIOD_TRANSITION_CANCELLED'", Integer.class,
+                periodId.toString())).isEqualTo(1);
+        assertThat(masterJdbc.queryForObject("SELECT COUNT(*) FROM master_data_audit_events "
+                + "WHERE target_key=? AND event_type='FISCAL_PERIOD_STATUS'", Integer.class, periodId.toString())).isZero();
+    }
+
     private void assertRecovered(Fixture fixture, String operationId, int recoveryAudits) {
         var tasks = closingContext.getBean(ClosingTaskPersistencePort.class);
         var gates = closingContext.getBean(ClosingGatePersistencePort.class);
         ClosingCalendar recovered = closingContext.getBean(ClosingCalendarPersistencePort.class)
                 .findById(fixture.calendarId()).orElseThrow();
         assertThat(recovered.getTransitionId()).isNull();
+        assertThat(recovered.getJournalFenceCommand()).isNull();
+        assertThat(journal().state(fixture.originalFence())).isEqualTo(JournalPeriodFenceResult.State.RELEASED);
+        assertThat(journal().releaseAttempts()).isNotEmpty().containsOnly(fixture.originalFence());
+        assertThat(journal().releaseEffects(fixture.originalFence())).isEqualTo(1);
         assertThat(recovered.getStatus()).isEqualTo(ClosingCalendarStatus.OPEN);
         assertThat(recovered.getCycleNumber()).isEqualTo(2);
         var confirmed = provider.findTransitionReceipt(operationId).orElseThrow();
@@ -301,7 +430,16 @@ class ClosingFiscalTransitionHttpRecoveryTest {
         assertThat(rows.stream().filter(a -> a.getActionType() == ActionType.PERIOD_TRANSITION_RECOVERED)).hasSize(recovered);
     }
 
-    private record Fixture(Long calendarId, Long approvalId) {}
+    private record Fixture(Long calendarId, Long approvalId, JournalPeriodFenceCommand originalFence) {}
+
+    private JournalFenceHttpRecoveryFixture journal() {
+        return closingContext.getBean(JournalFenceHttpRecoveryFixture.class);
+    }
+
+    private JournalPeriodFenceCommand originalFence(String operationId, String actor) {
+        return new JournalPeriodFenceCommand(operationId, new JournalPeriodCheckpoint(
+                new JournalPeriodScope(periodId, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30)), 17), actor);
+    }
 
     private Fixture createClosedFixture() {
         var calendars = closingContext.getBean(ClosingCalendarPersistencePort.class);
@@ -315,6 +453,9 @@ class ClosingFiscalTransitionHttpRecoveryTest {
             initial.setFiscalPeriod("11");
             initial.setStatus(ClosingCalendarStatus.CLOSED);
             initial.setAuditUser("fixture");
+            JournalPeriodFenceCommand originalFence = originalFence("original-close-" + UUID.randomUUID(), "original-closer");
+            initial.restoreJournalFenceCommand(originalFence);
+            journal().fence(originalFence);
             ClosingCalendar saved = calendars.save(initial);
             ClosingTask task = new ClosingTask();
             task.assignCycle(saved);
@@ -330,7 +471,7 @@ class ClosingFiscalTransitionHttpRecoveryTest {
             ReopenApproval approval = new ReopenApproval();
             approval.assignFiscalPeriod(periodId, "2026", "11");
             approval.request("requester", "synthetic correction");
-            return new Fixture(saved.getId(), approvals.save(approval).getId());
+            return new Fixture(saved.getId(), approvals.save(approval).getId(), originalFence);
         });
     }
 
@@ -388,6 +529,9 @@ class ClosingFiscalTransitionHttpRecoveryTest {
     @Import({JpaClosingAggregatePersistenceAdapter.class, JpaPeriodLockPersistenceAdapter.class,
             ClosingPeriodTransitionService.class, ClosingAdmissionService.class})
     static class ClosingDatabaseConfiguration {
+        @Bean(name = "closingJournalPeriodFence") JournalFenceHttpRecoveryFixture journal() {
+            return new JournalFenceHttpRecoveryFixture();
+        }
         @Bean DataSource dataSource() {
             return new DriverManagerDataSource("jdbc:h2:mem:closing-http-" + UUID.randomUUID()
                     + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1", "sa", "");

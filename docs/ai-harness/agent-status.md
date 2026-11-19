@@ -1,3 +1,11 @@
+## GH-955 통합 후보 — 2026-11-20 KST
+- Issue #955, agent/955-pr-cohort-integration, C:/tmp/account-work-955-pr-cohort-integration; base ed539846. PR940/948/949/951/952/953/954/950/943의 정확한 공개 head를 merge ancestry로 보존했다. 원본 PR/브랜치/기본 dirty84는 유지한다.
+- 부모가 충돌을 해결했다. Journal V20 admission/fence+V21 creation, Closing V58 fence+V59 receipt authorization을 함께 유지한다. Master CONFIRMED 뒤에도 RELEASE_PENDING에서 원래 Journal RELEASED 응답을 기다리고, CANCELLED 뒤 CANCEL_RELEASE_PENDING에서 tombstone/응답 확인 후 정리한다. OPEN 복구 완료 감사는 release 뒤 한 번만 기록한다. 기간 범위 변경은 봉인과 확정된 로컬 승인 단계를 보존한다.
+- 변경은 통합에 필요한 의미 충돌·fixture·문서 정합성에 한정한다. root4 기록은 incoming prefix+ours 전체+incoming suffix로 역사를 보존했고 module Journal 기록도 양측 prepend를 보존했다. 테스트 assertions/장애 주입은 제거하지 않았다.
+- 추가 통합 검증: 원래19 실제 HTTP 장애 사례+확인 ACK 유실 후 Journal ACK 유실/취소 후 지연 apply 거부 2사례, H2 독립 커밋 receipt fixture; V58→V59 해제 단계·명령 일치/누락 거부·원자적 clear. 이는 작성한 범위이며 현재 실행 PASS가 아니다.
+- 실제 로컬 `:closing:core:test --offline --no-daemon --max-workers=2` 및 새 HTTP 표적 실행은 jjwt-api0.11.5 cache 부재로 컴파일 전 중단. 설치/다운로드 없이 보존했다. Node harness32 PASS/0fail/skip, diff/marker 확인은 별도 증거. 개별 PR의 이전 CI/테스트는 통합 head PASS를 대신하지 않는다.
+- 통합 후보 CI와 새 독립 금융/인증 Reviewer 진행. bootJar, 실제 Node20 BFF→Gateway→Auth chain, 실제 신뢰 정책/별도 GitHub 승인 계정은 아직 검증/입력 대기. 운영 DB/배포/삭제/직접mainpush/정책 우회 없음. Issue955 및 기능Issue는 OPEN 유지한다.
+- 롤백: writer 배출과 미해결 전이/기간 상태 대사 후 검토된 revert/forward schema correction. 승인·감사·전표·fence/tombstone·creation receipts와 migration history를 삭제하거나 임의 역채움하지 않는다.
 ## 2026-11-19 — GH-838 implementation draft / verification blocked
 
 - [Issue838](https://github.com/skyg547/account/issues/838), branch `agent/838-governance-runtime`, external `C:/tmp/account-work-838-runtime`, base `ed539846`; Draft publication follows checkpoint. Auth/shared and Gateway/config writers had disjoint scope; parent owns four records/Git/GitHub.
