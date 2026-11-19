@@ -1,3 +1,9 @@
+## 2026-11-19 — GH-944 fixture repair ready for Draft publication
+
+- `agent/944-ci-loan`, external `C:/tmp/account-work-944-ci-loan`, base `ed539846`; [Issue944](https://github.com/skyg547/account/issues/944). One Loan test + four parent records, no production changes. Draft PR publication follows this commit.
+- Focused RED3/1failure→GREEN3; full core246/API7/Batch6=259PASS, failures/errors/skips0;2bootJars PASS. Independent `/root/review_ci_fixes`: no P0–P3, Q1–Q4 PASS.
+- Next owner parent Integrator: publish and inspect current-head CI; real approval/trust policy remains required. Rollback reviewed test-only revert; no DB rollback/deployment proof or cleanup claimed.
+
 ## 2026-10-20 — GH-924 actor/audit evidence, Draft PR #937
 
 - [Issue #924](https://github.com/skyg547/account/issues/924), `agent/924-actor-audit`, `/tmp/account-924-actor-audit`, base `origin/main@b2912554`; [Draft PR #937](https://github.com/skyg547/account/pull/937), `Refs #924`. Only `master-data/**`, `auth/**` and the four user-named harness/history records changed.

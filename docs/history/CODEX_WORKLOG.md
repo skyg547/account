@@ -1,3 +1,9 @@
+## 2026-11-19 — GH-944 existing Loan CI fixture repair
+
+- User requested implementing open/rejected work through PR/review/merge. `agent/944-ci-loan`, external `C:/tmp/account-work-944-ci-loan`, base `ed539846`; [Issue944](https://github.com/skyg547/account/issues/944). Implementer changed only LoanJournalPostingFlowTest; parent owns four records/Git/GitHub. Draft publication follows this checkpoint.
+- Focused RED3/1fail→GREEN3; explicit Loan core246/API7/Batch6=259PASS, failure/error/skip0,2bootJars PASS. Separate Astra Reviewer `/root/review_ci_fixes` confirmed actual XML/logs, no P0–P3, Q1–Q4 PASS. Exact command and boundaries in harness worklog.
+- No production/SQL change or actual DB rollback proof. Reviewed test-only revert is rollback. Published-head CI and configured independent approval remain merge gates; no policy bypass, deployment or branch/worktree deletion.
+
 ## 2026-10-20 — GH-924 master-data/Auth actor and audit evidence
 
 - `$account-issue-loop`, `$account-hexagonal-change`, `$account-module-parallel` and `$account-review-handoff` governed Issue #924 on `agent/924-actor-audit` in `/tmp/account-924-actor-audit`, base `origin/main@b2912554`. Parallel writers owned disjoint `master-data/**` and `auth/**`; independent read-only reviewers checked both. Parent alone updated the four requested shared records and Git/GitHub state.

@@ -52,6 +52,7 @@ class LoanJournalPostingFlowTest {
     private void assertDisbursalJournalFailure(boolean closedPeriod) {
         InMemoryJournalPersistencePort journalStore = new InMemoryJournalPersistencePort();
         LedgerEntryPersistencePort ledgerEntries = mock(LedgerEntryPersistencePort.class);
+        LedgerService ledgerService = mock(LedgerService.class);
         AccountingPeriodStatusPort periodStatus = mock(AccountingPeriodStatusPort.class);
         LocalDate date = LocalDate.of(2026, 5, 18);
         when(periodStatus.isClosed(date)).thenReturn(closedPeriod);
@@ -60,7 +61,7 @@ class LoanJournalPostingFlowTest {
                     .when(ledgerEntries).save(any());
         }
         PostingService posting = new PostingService(journalStore, ledgerEntries,
-                mock(LedgerService.class), new ClosingLockValidationFilter(periodStatus));
+                ledgerService, new ClosingLockValidationFilter(periodStatus));
         JournalEntryService journal = new JournalEntryService(journalStore,
                 mock(JournalRuleEngine.class), posting,
                 new JournalValidationEngine(List.of(new BalanceValidationFilter())));
@@ -81,13 +82,24 @@ class LoanJournalPostingFlowTest {
         when(references.requireAccount("131900", date))
                 .thenReturn(new AccountReference("131900", "Loan receivable"));
 
+        // 채번 등 앞선 실패를 통과로 오인하지 않도록 의도한 거부 사유와 실제 호출을 함께 확인합니다.
         assertThatThrownBy(() -> loanService.disburseLoan(7L, date,
                 new BigDecimal("2500000.00"), "loan-maker"))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(closedPeriod
+                        ? "해당 회계 반영일(" + date + ")은 이미 마감된 기간입니다."
+                        : "ledger write failed");
+        verify(periodStatus).isClosed(date);
+        verifyNoMoreInteractions(periodStatus);
         verify(persistence, never()).saveLoan(any());
         verify(persistence, never()).saveDisbursal(any());
+        verify(ledgerService, never()).updateLedgerBalancesBulk(any());
         if (closedPeriod) {
             verify(ledgerEntries, never()).save(any());
+            assertThat(journalStore.findBySlipNo("JE-20260518-00000001").orElseThrow().getStatus().name())
+                    .isEqualTo("APPROVED");
+        } else {
+            verify(ledgerEntries).save(any());
         }
     }
 
@@ -159,6 +171,7 @@ class LoanJournalPostingFlowTest {
         assertThat(postedEntry.getLineageSourceType()).isEqualTo("LOAN_DISBURSAL");
         assertThat(postedEntry.getCreatedBy()).isEqualTo("loan-e2e");
         assertThat(postedEntry.getApprovedBy()).isEqualTo("service:loan-checker");
+        assertThat(postedEntry.getSlipNo()).isEqualTo("JE-20260518-00000001");
         assertThat(disbursal.getJournalEntrySlipNo()).isEqualTo(postedEntry.getSlipNo());
         verify(periodStatusPort).isClosed(disbursalDate);
         verifyNoMoreInteractions(periodStatusPort);
@@ -171,7 +184,14 @@ class LoanJournalPostingFlowTest {
 
     private static class InMemoryJournalPersistencePort implements JournalPersistencePort {
         private final AtomicLong sequence = new AtomicLong(100);
+        // 상세 PK 발급 횟수가 전표번호에 영향을 주지 않도록 실제 채번 계약을 별도로 흉내 냅니다.
+        private final AtomicLong slipNumberSequence = new AtomicLong();
         private final Map<Long, JournalEntry> entries = new LinkedHashMap<>();
+
+        @Override
+        public long nextSlipNumber() {
+            return slipNumberSequence.incrementAndGet();
+        }
 
         @Override
         public JournalEntry save(JournalEntry entry) {
