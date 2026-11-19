@@ -15,7 +15,7 @@
 | Q3 relevant guidance | PASS | Runtime/module commands unchanged; Issue full-test command corrected |
 | Q4 actual verification | PASS | RED/GREEN +259 full tests and2 executed bootJars; independent XML/log review |
 
-- Fresh independent Astra Reviewer `/root/review_ci_fixes`, separate from spec and writer, confirmed no P0–P3 and all gates PASS. Parent alone owns records and Git/GitHub. Whitespace/marker gates passed before records; rechecked at commit. No conflict was resolved.
+- Fresh independent Astra Reviewer `/root/review_ci_fixes`, separate from spec and writer, confirmed no P0–P3 and all gates PASS. Parent alone owns records and Git/GitHub. Changed-file whitespace/marker gates PASS; the full tracked scan found pre-existing main Closing README markers, tracked by Issue947 and blocking merge until integrated. Node harness quality32/32 PASS. Python harness validator did not run: default Python is absent and bundled Python lacks PyYAML; no installation performed. No conflict was resolved.
 - Rollback: reviewed test-only revert; preserve business/audit history. Next: current published-head CI and real independent approval/trust policy before Ready/merge. Same-account audit comments cannot substitute. No deployment, operating DB, resource deletion or policy bypass.
 
 ## 2026-10-20 — GH-924 authenticated actors and durable audit evidence
