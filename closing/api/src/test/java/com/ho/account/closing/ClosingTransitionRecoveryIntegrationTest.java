@@ -649,6 +649,9 @@ class ClosingTransitionRecoveryIntegrationTest {
                 .filter(a -> a.getActionType() == ActionType.PERIOD_TRANSITION_RECOVERED)).singleElement().satisfies(audit -> {
                     assertThat(audit.getActionUser()).isEqualTo("prepared-recovery-operator");
                     assertThat(audit.getActionReason()).contains("provider receipt reconciled");
+                    if (target.equals("OPEN")) {
+                        assertThat(audit.getActionReason()).contains("reconciled=CONFIRMED", "Journal release acknowledged");
+                    }
                 });
         assertThatThrownBy(() -> recovery.recoverTransition(prepared.getId(), prepared.getTransitionId(), false, "duplicate"))
                 .isInstanceOf(IllegalStateException.class);
@@ -683,7 +686,7 @@ class ClosingTransitionRecoveryIntegrationTest {
             assertThat(calendarAudits(fixture.calendarId()).stream()
                     .filter(a -> a.getActionType() == ActionType.PERIOD_TRANSITION_RECOVERED)).singleElement()
                     .satisfies(audit -> assertThat(audit.getActionReason())
-                            .contains("provider receipt reconciled"));
+                            .contains("provider receipt reconciled=CONFIRMED", "Journal release acknowledged"));
         } finally {
             put.release();
             workers.shutdownNow();

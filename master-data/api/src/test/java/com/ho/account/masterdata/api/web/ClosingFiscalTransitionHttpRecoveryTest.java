@@ -453,7 +453,7 @@ class ClosingFiscalTransitionHttpRecoveryTest {
             initial.setFiscalPeriod("11");
             initial.setStatus(ClosingCalendarStatus.CLOSED);
             initial.setAuditUser("fixture");
-            JournalPeriodFenceCommand originalFence = originalFence("original-close-" + UUID.randomUUID(), "original-closer");
+            JournalPeriodFenceCommand originalFence = originalFence(UUID.randomUUID().toString(), "original-closer");
             initial.restoreJournalFenceCommand(originalFence);
             journal().fence(originalFence);
             ClosingCalendar saved = calendars.save(initial);

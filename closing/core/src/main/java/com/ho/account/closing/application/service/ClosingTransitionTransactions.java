@@ -263,7 +263,9 @@ public class ClosingTransitionTransactions {
     public ClosingCalendar finishJournalRelease(Long calendarId, String operationId, String recoveryActor) {
         ClosingCalendar calendar = lock(calendarId);
         calendar.requireTransition(operationId);
-        String lineage = transitionEvidence(calendar) + "; decisionActor=" + calendar.getTransitionActor();
+        String lineage = transitionEvidence(calendar) + "; decisionActor=" + calendar.getTransitionActor()
+                + ("RECEIPT_V1".equals(calendar.getTransitionProtocol())
+                    ? "; provider receipt reconciled=CONFIRMED" : "; legacy Journal release recovered");
         calendar.finishJournalRelease(operationId);
         auditReleaseRecovery(calendar, lineage, recoveryActor);
         return calendars.save(calendar);
