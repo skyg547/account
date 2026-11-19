@@ -39,3 +39,14 @@ jar {
     enabled = true
 }
 
+tasks.named('processTestResources') {
+    // Copy the owned production migrations: dependency modules also publish db/migration.
+    from('src/main/resources/db/migration') {
+        include 'V60__reporting_persistence_schema.sql',
+                'V61__reporting_regulatory_submission.sql',
+                'V62__reporting_disclosure_note_mart.sql',
+                'V63__reporting_regulatory_filing.sql'
+        into 'db/reporting-test-migration'
+    }
+}
+

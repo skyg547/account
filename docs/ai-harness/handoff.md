@@ -1,3 +1,9 @@
+## 2026-11-19 — GH-945 Reporting fixture handoff
+
+- [Issue945](https://github.com/skyg547/account/issues/945), `agent/945-ci-reporting`, external `C:/tmp/account-work-945-ci-reporting`, base `origin/main@ed539846`; Draft publication follows checkpoint. Actual V60–V63 are copied to an isolated test path; enabled Flyway+Hibernate validation retain all original persistence cases.
+- Focused RED6/6fail→GREEN7; full121PASS0skip and bothbootJars. Independent read-only `/root/review_ci_fixes` verified XML/logs/hashes, no P0–P3, Q1–Q4 PASS. See worklog for command and boundaries.
+- Parent owns published-head CI and approved merge gate. Trust policy/independent approval remains required. Rollback reviewed build/test revert; preserve production SQL, data and resources. No PostgreSQL deployment proof claimed.
+
 ## 2026-11-19 — GH-944 Loan fixture handoff
 
 - [Issue944](https://github.com/skyg547/account/issues/944), `agent/944-ci-loan`, `C:/tmp/account-work-944-ci-loan`, base `origin/main@ed539846`; Draft PR publication after checkpoint. Independent slip allocator and exact negative exception/call assertions repair the existing CI fixture without production changes.
