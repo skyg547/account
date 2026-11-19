@@ -38,6 +38,8 @@ dependencies {
     compileOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Exercise the real signed Closing client through Master ingress and committed JPA receipts.
+    testImplementation project(':closing:core')
     testImplementation 'io.zonky.test:embedded-postgres:2.1.0'
 }
 // api is the HTTP executable. Keeping the plain library jar disabled makes it

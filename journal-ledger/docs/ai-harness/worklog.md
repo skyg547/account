@@ -1,3 +1,138 @@
+# GH-955 integration context
+This integration preserves Journal period admission from PR #940 and corrected creation idempotency from PR #953. The current migrations are V20 for monetary revision/admission/fences and V21 for creation locks/receipts. Source-request fingerprints bind producer request content independently of operation identity. The dated GH-762/GH-765 entries below preserve historical verification and publication states; references to creation V18/V20 and PR #941 describe earlier checkpoints and do not establish current integration approval or test results.
+
+# GH-762 — period admission remediation
+
+## 2026-10-23 — Existing Draft handoff revalidated
+
+- Resumed the already published `agent/762-period-admission` / `/tmp/account-762-period-admission` at `5549a258f9ad9b1b528457ee723a2fc7970fc343`; [Draft PR #940](https://github.com/skyg547/account/pull/940) is OPEN/DRAFT. The implementation remains `709811a9`; no production/test source changed in this follow-up.
+- Re-executed the literal `./gradlew :journal-ledger:test :closing:test :contracts:test`: exit 0, 21 seconds, all 54 tasks UP-TO-DATE. This checks Gradle's unchanged inputs and reuses prior execution evidence; it is not a fresh test execution. Current and preserved final XML agree: 1,256 discovered, 1,255 passed, failures/errors 0, optional PostgreSQL skip 1. Preserved PostgreSQL evidence contains 22 passes (Journal18 + Closing protocol3 + annual MVCC1), no skips; the actual JVM-restart PASS log remains available.
+- Scope, whitespace, exact changed-file conflict-marker and unmerged-index checks PASS for all 91 files. Shared harness/history remains untouched. The fresh `/tmp/account-762-atomic-period-gate` / `agent/762-atomic-period-gate` created before discovering the prior publication is clean and unused; it is retained, not a second implementation or PR.
+- [Module CI run 39890072461](https://github.com/skyg547/account/actions/runs/39890072461) on published head `5549a258`: Journal, Closing and Contracts PASS. Overall module validation FAIL: Loan has 1/246 failure (`LoanJournalPostingFlowTest`, `SlipNumberAllocationException` at line 149); migration-runner has 3/140 failures in Master Data H2/Flyway cases; Reporting has 6/104 failures from a JPA context Flyway/H2 initialization failure. These are observed failures, not proven baseline defects: this follow-up did not reproduce them on the base. Their modules are outside the explicit write allowlist, so no edits were made there. Human review must resolve their ownership and verification before Ready/merge.
+- Harness Validation and merge-guard regression PASS. [Guard run 39890155625](https://github.com/skyg547/account/actions/runs/39890155625) fails only `DRAFT_NOT_MERGE_READY` and `TRUST_POLICY_UNCONFIGURED`; the intended Draft and repository trust-policy gates remain.
+- Independent follow-up `/root/verify_762_handoff` (GPT-6 Astra xhigh, read-only) found no additional P0–P3 protocol defects and confirmed Q1–Q4 PASS from exact diff, preserved XML, audited RED and JVM-restart evidence. This does not clear the failed cross-module CI jobs. Issue #762 is synchronized to `status:needs-review`; the existing PR body now records these observed failures and authority separation.
+- Next owner: human reviewer for the three failed cross-module CI jobs, repository trust policy and deployment gates already described above. Ready, merge, Issue close and resource cleanup have not been performed. The parent will synchronize the existing PR body and this record-only commit; checks for a new head must be assessed separately.
+
+- Issue: [#762](https://github.com/skyg547/account/issues/762), `Refs #762`; branch `agent/762-period-admission`; worktree `/tmp/account-762-period-admission`; base `origin/main@ed539846a92f46e09896d0a56ab808a4f94cacc7` (remote base rechecked unchanged before publication).
+- Status: implementation, verification and independent review complete; [Draft PR #940](https://github.com/skyg547/account/pull/940) is open with `Refs #762`.
+- Scope: exactly `journal-ledger/**`, `closing/**`, `contracts/**`. User forbids common harness/history edits; these three module-local records carry the cross-module handoff. Original checkout and prior blocked worktree remain untouched.
+- Model/ownership: requested `gpt-6-astra`, `xhigh`. `journal_writer` and `closing_writer` owned disjoint modules; `closing_test_writer` received bounded Closing test/config/adapter allowlists. Parent owns contracts, cross-module proof, these records and Git/GitHub. `/root/journal_analysis` and `/root/closing_analysis` reviewed read-only and changed no production/test files.
+- Result: every monetary write holds the durable Journal revision lock through its enclosing commit. Fresh-source evidence binds that revision; final-close CAS drains in-flight writes and rejects changed snapshots. Durable ACTIVE/RELEASED operation receipts protect timeout/restart/cancel/reopen without delayed reactivation or stale release. V20/V58 and dedicated internal service authentication support embedded and HTTP adapters.
+- Final literal `./gradlew :journal-ledger:test :closing:test :contracts:test`: PASS, exit0, 1m36; 1,256 discovered / **1,255 PASS, 0 failures/errors, 1 optional PostgreSQL skip**. Journal core353/API86/Batch38; Closing core448 (447 PASS+1 skip)/API187/Batch133; contracts11. Unchanged successful tasks were up-to-date (2 executed/52 up-to-date); no skipped required evidence is represented as PASS.
+- Separate actual PostgreSQL16.13: Journal18 + Closing protocol3 + annual MVCC1 = **22 PASS**, failures/errors/skips0. The annual case covers the default suite's optional skip. Actual Journal API ACTIVE ACK → JVM kill → new JVM same receipt/release/tombstone smoke PASS. This is ACK-after-commit crash durability; in-flight process-kill/load/TLS deployment testing is not claimed.
+- Historical RED: unchanged audited `a97d10ab` production with byte-identical synthetic-outbound probe fails1/1 as intended (expected snapshot0, actual committed effects4); current actual protocol/PostingService regressions pass. The old probe is documentation-only, not a current GREEN test. Detailed scope, SHA and exact commands: [verification.md](../issue-762/verification.md).
+- Packaging: all four Journal/Closing API/Batch bootJARs PASS; nested V20/V58 bytes equal source. Static whitespace, exact-file conflict-marker, allowlist and unmerged-index gates PASS. Changed files: Journal25/Closing56/Contracts10 =91.
+- Independent review: corrected exact-HTTP200/JSON acknowledgement, historical-close bootstrap guidance, V58 NULL CHECK, and stale snapshot documentation. Both read-only reviewers report no remaining P0–P3 and Q1–Q4 PASS from diff/docs/preserved XML.
+- Baseline repairs needed for the requested suites: restore existing Closing hydration/persistence port methods, Master audit composition and optional embedded Journal mappings; align stale ECL/entity/classification fixtures while preserving money/lineage/uniqueness/locking assertions. Production financial calculations were not changed by those repairs.
+- Conflict record: inherited `closing/README.md` conflict markers already present at base were resolved under parent ownership by preserving valid lineage/reopen guidance and reconciling actual V49–V58 migrations. No Git merge conflict or unmerged index remains. Shared `conflict-log.md` stays outside the authorized allowlist.
+- Deployment/rollback: one authoritative Journal DB and READ_COMMITTED monetary transactions; intentional global write serialization. Stop old writers, apply migrations, reconcile/install historical CLOSED/PERMANENTLY_CLOSED fence coverage, freeze Master period definitions during pending transitions, and collect evidence from new primary snapshots. Trusted service transport/TLS and production load remain human deployment gates. Rollback requires quiescing writers/transitions and a reviewed code/forward-schema plan preserving revisions, receipts and release tombstones; removing the gate reopens GL07.
+- Authority separation: parent may commit/push/publish this Draft under the user's request. Independent agents review only. Human reviewer owns subsequent Ready, merge, Issue close, deployment and branch/worktree deletion. Publication does not imply production readiness.
+- Evidence: `/tmp/account-762-evidence/{final-aggregate,closing-full,postgres-journal-and-api,postgres-closing}`, `/tmp/account-762-final-aggregate.log`, `/tmp/account-762-packaging.log`, `/tmp/account-762-runtime-restart.log`. Task-only PostgreSQL container and audited proof worktree are retained for handoff; runtime smoke child JVMs have exited.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Journal admission adapter:41; Closing transition transactions:184; aggregate1,255 PASS, realPG22 PASS | 해당 없음: 코드 변경 적용 | 전역 직렬화 운영 부하 | journal_analysis / closing_analysis, diff·XML |
+| Q2 | PASS | Journal posting-concurrency:374; Closing process-flow:176; Contracts process-flow:78 | 해당 없음: 프로토콜 변경 적용 | 새 primary snapshot·Master 정의 동결 | 두 reviewer, 흐름 대조 |
+| Q3 | PASS | 모듈 README/schema/beginner/local-run; issue-762/verification.md | 해당 없음: 사용·배포 변경 적용 | 역사적 봉인 대사·TLS·운영 검증 | 두 reviewer, 정정 후 재검토 |
+| Q4 | PASS | Journal commit/tombstone 주석; Closing coordinator:90/transactions:242 | 해당 없음: 비자명 상태 전이 적용 | 후속 변경의 순서 보존 | 두 reviewer, 코드 인접 주석 |
+
+- Publication: reviewed implementation commit `709811a9ae59ce3fcee06d7785d1e011fa71f514` was pushed to the dedicated branch; Draft #940 is OPEN/DRAFT/MERGEABLE with verification and authority separation in its body and `agent:codex` ownership. The GitHub connector could read but returned403 on PR creation; the existing authenticated GitHub CLI completed the authorized publication.
+- Remote CI: Actions started for the implementation head; final record-commit checks are tracked on the PR and remain a separate review gate. Local verification is complete; no remote CI PASS is inferred from queued/running checks. This publication update changes only module-local records.
+- Resources/next owner: task-only PostgreSQL container `account-762-period-admission-pg` is stopped and retained; runtime JVMs exited; both worktrees remain. Human reviewer owns CI disposition, historical fence/bootstrap and load/TLS deployment review, then later Ready/merge/Issue-close gates.
+
+---
+
+다음은 보존된 이전 작업 기록이며 현재 GH-762 상태가 아닙니다.
+
+# GH-765 resumed worklog — 2026-10-23
+
+- User expanded scope to `journal-ledger/**`, `payable/**`, `receivable/**`, `contracts/**`; parent owns multi-module integration. Journal writer changed only `journal-ledger/**`.
+- Replaced contract `slipNo`/`PRIMARY` inference with explicit `operationKey`; manual HTTP uses required `Idempotency-Key`, event HTTP/Kafka require stable event operation key. Same key and changed financial or trusted audit content conflicts; missing key fails before persistence.
+- Integrated latest `main`: retained V18 broker-coordinate quarantine and replay, strict ISO accounting date, V19 sequence/namespace and HTTP 503; both Kafka process and replay use the business operation identity. Moved creation migration to V20, moved repository into infrastructure and mapped the domain operation in infrastructure XML.
+- Latest-main focused command `./gradlew :journal-ledger:core:test --tests '*JournalCreation*' --tests '*KafkaJournalEventServiceTest' --tests '*JournalEntryServiceTest' --console=plain --max-workers=1`: 52/52 PASS. `./gradlew :journal-ledger:api:test --console=plain --max-workers=1`: 88/88 PASS. Requested module command `./gradlew :journal-ledger:test --console=plain --max-workers=1`: core366/API88/batch38 = 492/492 PASS, failures/errors/skips0.
+- Disposable PostgreSQL16, independent DB connections: `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:39405/postgres ./gradlew :journal-ledger:core:test --tests '*JournalCreationOperationMigrationTest' --tests '*JournalCreationConcurrencyIntegrationTest' --rerun-tasks --offline --console=plain --max-workers=1`: migration2 + concurrency4 = 6/6 PASS. This was a task test container, not live/production PostgreSQL.
+- Static gates: conflict-marker scan and `git diff --check -- journal-ledger` PASS. Module files remain unstaged in the parent-controlled merge; no commit/push is claimed here.
+- Prior September audited-version RED proof at exact `a97d10ab` failed 1/1; that was previously executed, not rerun on 2026-10-23. The existing test fixture gained only a sequence mock to keep the current sequence allocator independent of the idempotency assertion.
+- V20 intentionally has no historical backfill. Cutover requires all writers/input fenced, old in-flight events reconciled with existing journals, and unapproved producers migrated before traffic resumes. Reversion must keep V18/V19/V20 data and receipt evidence.
+- Independent review follow-up: `JournalRuleEngine.resolveEntryDescription` used editable `ruleName` as the no-payload fallback, which changed the fingerprint of the same Kafka event after a display-name edit. It now uses stable `ruleCode`; caller `description`/`memo`/`title` still win and line fallback inherits the stable entry description. New `JournalRuleEngineTest.replayAfterRuleDisplayNameEditKeepsEntryAndFallbackLineFingerprintStable` checks the same event/key before and after a rule-name edit, both line descriptions, fingerprint equality and payload-description precedence. Targeted rule/fingerprint/Kafka-service tests 39/39 PASS. After this correction, `./gradlew :journal-ledger:test --console=plain --max-workers=1` passed core367/API88/batch38 = 493/493, failures/errors/skips0. The forced disposable PostgreSQL16 migration/concurrency command above passed 6/6 again (migration2/concurrency4). Parent Integrator separately reran the audited `a97d10ab` RED proof: 1/1 failed as expected at assertion 62.
+- Final review follow-up: `JournalEntryService.createJournalEntryFromEvent` now locks and compares a version 2 canonical raw event/accounting-date digest before rule evaluation; manual/contract keeps version 1 generated-journal digest. Thus the same committed event returns its original journal after rule deactivation, while a changed same-key amount conflicts before rule evaluation and Kafka cannot quarantine either completed retry. Canonicalization sorts nested map keys, normalizes numeric scale, preserves list order, includes trusted maker from HTTP/Kafka, and excludes broker coordinates. HTTP header/payload key precedence and Kafka alias/canonical key inputs populate both operation-key spellings to preserve rule expressions and converge on one digest. Regression coverage: `JournalEntryServiceTest`, `KafkaJournalEventServiceTest`, `JournalEventRequestFingerprintTest`, `JournalCreationIdempotencyMvcTest`, `KafkaTransactionListenerPrecisionTest`, and PostgreSQL `JournalCreationConcurrencyIntegrationTest` version 2 race. Fixed stale V18 lock message and GL10 scope paragraph; README/beginner/process-flow/schema/concurrency docs reflect the new contract.
+- Final verification after all review corrections: `./gradlew :journal-ledger:test --console=plain --max-workers=1` core373/API89/batch38 = 500/500 PASS, failures/errors/skips0. Parent then ran the exact requested `./gradlew :journal-ledger:test :payable:test :receivable:test :contracts:test` successfully; those tasks were up-to-date from prior passing module runs. XML reports showed journal-ledger500, payable70, receivable74 and contracts11, all with zero failures/errors/skips. Parent forced `:payable:api:test :payable:batch:test :receivable:api:test :receivable:batch:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1` and built six API/batch bootJARs; both commands passed. Parent reran `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:39405/postgres ./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.infrastructure.persistence.JournalCreationOperationMigrationTest' --tests 'com.ho.account.journalledger.infrastructure.persistence.JournalCreationConcurrencyIntegrationTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`: migration2/concurrency5 = 7/7 PASS on disposable PostgreSQL16. HTTP/Kafka alias-focused API tests also PASS.
+
+## GH-765 Q1–Q4 completion evidence
+
+| Item | Judgment | File/test evidence | N/A reason | Risk / next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 readable responsibility | PASS | `JournalEntryService` application lock→v2 event compare→rule→save, `JournalPostingAdapter` key mapping, infrastructure repository/XML mapping; module500 and PostgreSQL7 | None: production code changed | Out-of-scope producers need operation keys before rollout | `/root/independent_review`: PASS, no remaining blocking new-change finding |
+| Q2 flow and rationale | PASS | `docs/process-flow.md` V18/V20 scope, event v2 vs manual v1, `docs/posting-concurrency.md` V20 cutover/fence; PostgreSQL7 incl v2 race | None: behavior changed | Approved cutover and reconciliation plan | `/root/independent_review`: PASS |
+| Q3 feature and beginner docs | PASS | `README.md`, `docs/beginner-guide.md`, `docs/layer-guide.md`, `docs/schema.md` describe HTTP header precedence, key aliases, version families and migration V20 | None: API/schema changed | Human review of deploy prerequisites | `/root/independent_review`: PASS |
+| Q4 nearby intent comments | PASS | `JournalEntryService` pre-rule receipt rationale, `JournalEventRequestFingerprint` canonical form, `JournalCreationOperationWriteLock` V20 error, `KafkaTransactionListener` alias normalization | None: nontrivial logic changed | Keep canonicalization aligned across adapters | `/root/independent_review`: PASS |
+
+## Draft publication and handoff
+
+- Parent Integrator committed the reviewed work on `agent/765-journal-idempotency` as checkpoint `33300693` plus latest-main integration merge `f6811275` (base `origin/main@ed539846`). The net PR diff contains only `contracts/**` (6 files), `journal-ledger/**` (54), `payable/**` (28), and `receivable/**` (29); the primary dirty checkout was preserved. No unmerged index files, added conflict markers or net-diff whitespace errors remained.
+- Parent pushed only the agent branch and opened [Draft PR #941](https://github.com/skyg547/account/pull/941) against `main` with `Refs #765`. Issue #765 remains OPEN and its label moved from `status:ready` to `status:needs-review`. The Draft body records verification, Q1–Q4, rollback, deployment risks and writer/reviewer/Integrator authority separation.
+- At initial PR inspection, it was OPEN/DRAFT/MERGEABLE; Module Validation and Harness Validation were in progress and Agent Merge Guard was queued. No remote CI PASS is claimed. The next owner is a human reviewer for the Draft diff, cutover/producer compatibility and remote check results. Ready, merge, Issue close, deployment and branch/worktree cleanup remain separate gates.
+
+---
+
+The following blocked review record is retained history from the prior narrower allowlist.
+
+# GH-765 worklog — blocked at independent review
+
+## Scope and execution
+
+- Issue: [#765](https://github.com/skyg547/account/issues/765), GL10, P1, journal creation atomic idempotency.
+- Branch/worktree: `agent/765-journal-idempotency`; `/tmp/account-765-journal-idempotency`; base `origin/main@14731f730a200f279602c4b08934fb66731e34ea`.
+- Audited proof: `/tmp/account-765-regression-proof` detached at `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Scope: `journal-ledger/**` only. Shared contracts, producer modules, and repository-level harness/history files were not edited.
+- Model: `gpt-5.6-sol`, reasoning high. Read-only Planner/Reviewer were separated from disjoint Core/SQL/API/Test/Documentation writers; parent Integrator owns Git/GitHub and these records.
+
+## Candidate implementation
+
+- Added a source type/source ID/operation key identity and a versioned canonical SHA-256 financial fingerprint.
+- Added V18 durable operation records and 256 database stripe locks, with service flow lock→lookup→fingerprint comparison→validation/save→operation link.
+- Added manual HTTP `Idempotency-Key`, event/Kafka mappings, explicit content-conflict handling, persistence/concurrency/migration regressions, and module documentation.
+- The shared contract adapter maps `slipNo` where present and used `PRIMARY` for a missing value. This fallback is the review-blocking defect described below; the candidate must not be published as a complete remediation.
+
+## Verification evidence completed before the block
+
+- `./gradlew :journal-ledger:test --console=plain --no-daemon --max-workers=1`: BUILD SUCCESSFUL; core301, API64, batch12 = 377 tests, failures/errors/skips0.
+- Focused core selection: 53/53 PASS.
+- Disposable PostgreSQL16:
+  `JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:36651/posting765 ./gradlew :journal-ledger:core:test --tests '*JournalCreationConcurrencyIntegrationTest' --tests '*JournalCreationOperationMigrationTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`: 6/6 PASS.
+- The task container `account-765-postgres` was stopped after verification and retained; no production database or credentials were used.
+- Static gates before the review: 39 changed/untracked files, all under `journal-ledger/**`; `git diff --check`, untracked-whitespace, exact conflict-marker, and unmerged-index checks PASS.
+
+## Audited RED/current GREEN
+
+- Regression: `AuditedJournalCreationIdempotencyCompatibilityTest`.
+- Current and audited-proof file SHA-256 are identical: `0782dc3cb82780c27f55d9ed778499ee3ac9ae2cc3cf08b4ebd76499c9a5615f`.
+- Exact audited production at `a97d10ab6efc2570a88f83d630242cd748f8be57`: 1/1 expected failure at line62, BUILD FAILED.
+- Candidate: the same regression passes as part of the successful module verification.
+
+## Independent review and blocker
+
+- Severity: P1, merge-blocking. Q1 FAIL, Q2 FAIL, Q3 FAIL, Q4 PASS.
+- `JournalEntryCommand` has no independent operation identity. Its nullable `slipNo` is a globally unique resulting journal number, not a source-scoped retry key.
+- Receivable collection processing can create multiple allocations under `COLLECTION_MATCH/<collectionId>`, but the outbound command omits both receivable identity and persisted allocation/request identity.
+- Payable processing can create multiple offsets under `PAYABLE_OFFSET/<payableId>`, but the outbound command omits both advance-payment identity and persisted offset-operation identity.
+- Consequently, a retry and a second legitimate operation can be byte-identical at the journal-ledger boundary. A lineage/`PRIMARY` key collapses valid operations; a fingerprint-derived key has the same ambiguity; random/time/sequence keys are not stable across retries.
+- This cannot be repaired inside `journal-ledger/**` while preserving all stated acceptance criteria. The producer must carry a durable retry-stable operation key separately from `slipNo`.
+
+## Handoff and publication state
+
+- Required expansion: `contracts/**` plus affected producers, at minimum Receivable and Payable, followed by an audit of every command producer. Preserve allocation/request and offset/advance identities in the contract.
+- Alternative requiring explicit product approval: relax the acceptance criteria and reject ambiguous missing-key contract commands in a breaking fail-closed migration.
+- Issue label changed from `status:in-progress` to `status:blocked`; blocker comment: <https://github.com/skyg547/account/issues/765#issuecomment-5821997472>.
+- No commit, push, Draft PR, Ready transition, merge, Issue close, deployment, cleanup, or data mutation was performed.
+- Rollback: no published artifact exists. The uncommitted worktree may be discarded only after the owner decides not to expand scope; applied production migration rollback is not applicable.
+
+---
+
+The following is retained historical worklog and is not a current GH-765 report.
+
+---
+
 # 2026-10-09 — GH-894 domain persistence boundary
 
 - Issue [#894](https://github.com/skyg547/account/issues/894), base `origin/main@9348966a26a1bf279d03c5ac982fc9c13c928d4c`, branch `agent/894-domain-persistence-boundary`, worktree `/tmp/account-894-domain-persistence-boundary`. Detached RED proof: `/tmp/account-894-audited-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.

@@ -14,20 +14,41 @@ public record AdvancePaymentCommand(
         String vendorCode,
         LocalDate paymentDate,
         BigDecimal amount,
-        String description
+        String description,
+        String operationId
 ) {
+    /** Legacy Java callers remain source-compatible but must supply a stable business key to execute. */
+    @Deprecated
+    public AdvancePaymentCommand(String vendorCode, LocalDate paymentDate, BigDecimal amount, String description) {
+        this(vendorCode, paymentDate, amount, description, null);
+    }
+
     public AdvancePaymentCommand {
+        if (operationId == null || operationId.isBlank() || operationId.trim().length() > 100) {
+            throw new IllegalArgumentException("operationId is required and must not exceed 100 characters");
+        }
+        operationId = operationId.trim();
         if (vendorCode == null || vendorCode.isBlank()) {
             throw new IllegalArgumentException("vendorCode is required");
         }
         vendorCode = vendorCode.trim();
         paymentDate = Objects.requireNonNull(paymentDate, "paymentDate is required");
         amount = Objects.requireNonNull(amount, "amount is required");
+        amount = exactAmount(amount);
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("amount must be greater than zero");
         }
         if (description != null) {
             description = description.trim();
+        }
+    }
+    private static BigDecimal exactAmount(BigDecimal value) {
+        try {
+            BigDecimal normalized = value.setScale(2, java.math.RoundingMode.UNNECESSARY);
+            if (normalized.precision() > 19) throw new IllegalArgumentException("Amount exceeds NUMERIC(19,2)");
+            return normalized;
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Amount must be exactly representable at scale 2", exception);
         }
     }
 }

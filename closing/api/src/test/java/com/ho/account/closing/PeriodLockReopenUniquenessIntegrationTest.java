@@ -45,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 "spring.flyway.baseline-on-migrate=false", "spring.sql.init.mode=never",
                 "closing.sources.enabled=false", "closing.master-data.remote.enabled=true",
                 "closing.master-data.base-url=http://master-data.test",
+                "closing.master-data.internal-auth.secret=0123456789abcdef0123456789abcdef",
                 "closing.journal-ledger.base-url=http://journal-ledger.test"
         })
 class PeriodLockReopenUniquenessIntegrationTest {

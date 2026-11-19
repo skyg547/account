@@ -129,11 +129,26 @@ class FinalCloseEvidenceControllerTest {
                 .andExpect(jsonPath("$.code").value("FINAL_CLOSE_EVIDENCE_BLOCKED"));
     }
 
+    @Test
+    void checkpointRequiresSameProviderAuthenticationAndReturnsTypedToken() throws Exception {
+        properties.setTrustedSubmitters(Set.of("provider"));
+        when(useCase.checkpoint(10L)).thenReturn(new com.ho.account.contracts.journal.JournalPeriodCheckpoint(
+                new com.ho.account.contracts.journal.JournalPeriodScope(20L, LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 1, 31)), 7));
+        mvc.perform(post("/api/closing/calendars/10/final-close-evidence/checkpoint")
+                .header("X-Auth-User", "provider").header("X-Auth-Roles", "ROLE_CLOSING_EVIDENCE_PROVIDER"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(7))
+                .andExpect(jsonPath("$.scope.fiscalPeriodId").value(20));
+        mvc.perform(post("/api/closing/calendars/10/final-close-evidence/checkpoint"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private String validJson() {
         return """
                 {"evidenceSetId":"evidence-1","calendarId":10,"fiscalPeriodId":20,
                  "fiscalYear":"2026","fiscalPeriod":"01","ledgerCutoff":"2026-01-31",
                  "observedAt":"2026-02-01T00:00:00Z","submittedBy":"forged-body",
+                 "journalCheckpoint":{"scope":{"fiscalPeriodId":20,"startDate":"2026-01-01","endDate":"2026-01-31"},"revision":0},
                  "contentDigest":"%s","controls":[{"type":"AP_SUBLEDGER","sourceSystem":"payable",
                  "sourceRunId":"run-1","outcome":"PASS","blockingItemCount":0,
                  "totals":[{"accountCode":"1000","currencyCode":"KRW","sourceTotal":0,"postedTotal":0}]}]}

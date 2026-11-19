@@ -123,16 +123,38 @@ public class PeriodLock {
         return active;
     }
 
+    /** Restores persisted lock state without running release or replacing its audit timestamps. */
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public Long getActiveFiscalPeriodId() {
         return activeFiscalPeriodId;
+    }
+
+    public void setActiveFiscalPeriodId(Long activeFiscalPeriodId) {
+        this.activeFiscalPeriodId = activeFiscalPeriodId;
     }
 
     public String getUnlockedBy() {
         return unlockedBy;
     }
 
+    public void setUnlockedBy(String unlockedBy) {
+        this.unlockedBy = unlockedBy;
+    }
+
     public LocalDateTime getUnlockedAt() {
         return unlockedAt;
+    }
+
+    /** Reconstitutes historical lock state without performing a new release. */
+    public void restoreLifecycle(boolean active, Long activeFiscalPeriodId,
+            String unlockedBy, LocalDateTime unlockedAt) {
+        this.active = active;
+        this.activeFiscalPeriodId = activeFiscalPeriodId;
+        this.unlockedBy = unlockedBy;
+        this.unlockedAt = unlockedAt;
     }
 
     public PeriodLockType getLockType() {

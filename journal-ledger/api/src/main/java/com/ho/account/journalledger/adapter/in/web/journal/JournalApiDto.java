@@ -1,8 +1,9 @@
 package com.ho.account.journalledger.adapter.in.web.journal;
 
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
+import com.ho.account.journalledger.domain.journal.domain.JournalActor;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalActor;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 
 final class JournalApiDto {
+
+    private static final String MANUAL_SOURCE_TYPE = "MANUAL_JOURNAL";
 
     private JournalApiDto() {
     }
@@ -31,7 +34,15 @@ final class JournalApiDto {
             String lineageSourceId,
             @NotEmpty List<@Valid LineRequest> lines) {
 
-        JournalEntry toDomain(String actor) {
+        JournalCreationIdentity creationIdentity(String actor, String operationKey) {
+            String maker = requireActor(actor);
+            boolean hasExplicitLineage = hasText(lineageSourceType) || hasText(lineageSourceId);
+            return hasExplicitLineage
+                    ? new JournalCreationIdentity(lineageSourceType, lineageSourceId, operationKey)
+                    : new JournalCreationIdentity(MANUAL_SOURCE_TYPE, maker, operationKey);
+        }
+
+        JournalEntry toDomain(String actor, JournalCreationIdentity identity) {
             JournalEntry entry = new JournalEntry();
             entry.setSlipDate(slipDate);
             entry.setAccountingDate(accountingDate);
@@ -39,8 +50,9 @@ final class JournalApiDto {
             entry.setEntryType(entryType);
             entry.setCurrencyCode(currencyCode);
             entry.setExchangeRate(exchangeRate);
-            entry.setLineageSourceType(lineageSourceType);
-            entry.setLineageSourceId(lineageSourceId);
+            // Persist exactly the lineage used by the durable operation claim.
+            entry.setLineageSourceType(identity.sourceType());
+            entry.setLineageSourceId(identity.sourceId());
             entry.setCreatedBy(requireActor(actor));
             lines.forEach(line -> entry.addDetail(line.toDomain(actor)));
             return entry;
@@ -71,11 +83,30 @@ final class JournalApiDto {
     }
 
     record EventRequest(@NotNull Map<String, Object> eventData) {
-        Map<String, Object> eventDataWithActor(String actor) {
+        JournalCreationIdentity creationIdentity(String headerOperationKey) {
+            String sourceType = firstStableScalar(
+                    eventData, "lineageSourceType", "eventType", "ruleCode");
+            String sourceId = firstStableScalar(
+                    eventData, "lineageSourceId", "eventId", "sourceId", "documentId",
+                    "assetCode", "contractNo");
+            String operationKey = headerOperationKey != null
+                    ? headerOperationKey
+                    : firstStableScalar(eventData, "journalOperationKey", "operationKey");
+            return new JournalCreationIdentity(sourceType, sourceId, operationKey);
+        }
+
+        Map<String, Object> eventDataWithActor(String actor, JournalCreationIdentity identity) {
             Map<String, Object> enriched = new java.util.HashMap<>(eventData);
             // Payload identity is untrusted; the Gateway-authenticated principal always wins.
             enriched.put("createdBy", requireActor(actor));
             enriched.put("auditUser", requireActor(actor));
+            // Rule generation must persist the same lineage protected by the operation claim.
+            enriched.put("lineageSourceType", identity.sourceType());
+            enriched.put("lineageSourceId", identity.sourceId());
+            // The header wins over both payload key spellings. Normalize both spellings so
+            // rule expressions using the alias still work and equivalent retries hash alike.
+            enriched.put("operationKey", identity.operationKey());
+            enriched.put("journalOperationKey", identity.operationKey());
             return enriched;
         }
     }
@@ -142,5 +173,26 @@ final class JournalApiDto {
 
     private static String requireActor(String actor) {
         return JournalActor.canonicalize(actor);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static String firstStableScalar(Map<String, Object> values, String... keys) {
+        for (String key : keys) {
+            Object value = values.get(key);
+            if (value == null) {
+                continue;
+            }
+            if (!(value instanceof String) && !(value instanceof Number)) {
+                throw new IllegalArgumentException(key + " must be a string or number");
+            }
+            String text = value.toString();
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+        return null;
     }
 }

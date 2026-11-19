@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +43,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
     @Override
     @Transactional
     public FixedAsset registerAsset(FixedAsset asset, String actor) {
+        AssetJournalIdentity.requireSourceCode(asset.getAssetCode());
         asset.initializeAcquisitionBalances();
         asset.setStatus("ACTIVE");
         FixedAsset savedAsset = persistencePort.save(asset);
@@ -50,6 +52,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
 
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "ASSET_ACQUISITION");
+        AssetJournalIdentity.fixedAsset(event, savedAsset.getAssetCode(), "ACQUISITION:v1");
         event.put("assetCode", savedAsset.getAssetCode());
         event.put("amount", savedAsset.getAcquisitionCost());
         event.put("accountingDate", savedAsset.getAcquisitionDate().toString());
@@ -77,6 +80,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
                 
                 Map<String, Object> event = new HashMap<>();
                 event.put("transactionType", "ASSET_DEPRECIATION");
+                AssetJournalIdentity.fixedAsset(event, asset.getAssetCode(), "DEPRECIATION:v1:" + YearMonth.from(processDate));
                 event.put("assetCode", asset.getAssetCode());
                 event.put("amount", amount);
                 event.put("accountingDate", processDate.toString());
@@ -101,6 +105,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
 
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "ASSET_DISPOSAL");
+        AssetJournalIdentity.fixedAsset(event, savedAsset.getAssetCode(), "DISPOSAL:v1");
         event.put("assetCode", savedAsset.getAssetCode());
         event.put("salePrice", salePrice);
         event.put("bookValue", savedAsset.getCurrentBookValue());

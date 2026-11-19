@@ -38,9 +38,20 @@ public class LoanPersistenceAdapter implements LoanPersistencePort {
     @Override public Optional<DeferredItemType> findDeferredItemType(Long id) { return deferredItemTypeRepository.findById(id); }
     @Override public Optional<DeferredItemType> findDeferredItemType(String code) { return deferredItemTypeRepository.findByCode(code); }
     @Override public DeferredItemType saveDeferredItemType(DeferredItemType itemType) { return deferredItemTypeRepository.save(itemType); }
+    @Override public Optional<DeferredItem> findDeferredItemByOperation(Long loanId, String operationKey) {
+        return deferredItemRepository.findByLoanIdAndOperationKey(loanId, operationKey);
+    }
+    @Override public Optional<LoanEvent> findLoanEventByOperation(Long loanId, String operationKey) {
+        return loanEventRepository.findByLoanIdAndOperationKey(loanId, operationKey);
+    }
     @Override public DeferredItem saveDeferredItem(DeferredItem deferredItem) { return deferredItemRepository.save(deferredItem); }
     @Override public List<DeferredItem> findDeferredItems(Loan loan) { return deferredItemRepository.findByLoan(loan); }
-    @Override public void deleteSchedules(List<EIRAmortizationSchedule> schedules) { scheduleRepository.deleteAll(schedules); }
+    @Override public void deleteSchedules(List<EIRAmortizationSchedule> schedules) {
+        scheduleRepository.deleteAll(schedules);
+        // Replacement inserts use the same loan/date unique key. Execute queued deletes first;
+        // historical RecalculationRun foreign keys continue to reject deleting referenced rows.
+        scheduleRepository.flush();
+    }
     @Override public List<EIRAmortizationSchedule> findSchedules(Loan loan) { return scheduleRepository.findByLoan(loan); }
     @Override public List<EIRAmortizationSchedule> findSchedulesFrom(Loan loan, LocalDate startDate) {
         return scheduleRepository.findByLoanAndScheduleDateGreaterThanEqualOrderByScheduleDateAsc(loan, startDate);

@@ -22,6 +22,8 @@ public interface LoanJournalPort {
             String lineageSourceType,
             String lineageSourceId,
             String currencyCode,
+            String operationKey,
+            String sourceRequestFingerprint,
             List<LoanJournalLine> lines) {
 
         public LoanJournalCommand {
@@ -35,6 +37,13 @@ public interface LoanJournalPort {
             currencyCode = requireText(currencyCode, "currencyCode").toUpperCase(Locale.ROOT);
             if (currencyCode.length() != 3) {
                 throw new IllegalArgumentException("currencyCode must be a 3-letter ISO code.");
+            }
+            operationKey = requireText(operationKey, "operationKey");
+            if (operationKey.length() > 100) {
+                throw new IllegalArgumentException("operationKey must be at most 100 characters.");
+            }
+            if (sourceRequestFingerprint != null && !sourceRequestFingerprint.matches("[0-9a-f]{64}")) {
+                throw new IllegalArgumentException("sourceRequestFingerprint must be a lowercase SHA-256 digest.");
             }
             lines = lines == null ? List.of() : List.copyOf(lines);
             if (lines.size() < 2) {

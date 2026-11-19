@@ -103,6 +103,29 @@ class ClosingTransitionControllerTest {
     }
 
     @Test
+    void dispatchedCloseCancellationRequiresManagerAndUsesTrustedActor() throws Exception {
+        String path = "/api/closing/calendars/10/transition/cancel-dispatched-close";
+        String body = "{\"operationId\":\"operation-1\",\"reason\":\"expired snapshot\",\"actor\":\"forged\"}";
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(path).header("X-Auth-User", "operator").header("X-Auth-Roles", "AUDITOR")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(recovery);
+
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setId(10L);
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        when(recovery.cancelDispatchedClose(10L, "operation-1", "expired snapshot", "trusted-operator"))
+                .thenReturn(calendar);
+        mvc.perform(post(path).header("X-Auth-User", "trusted-operator")
+                .header("X-Auth-Roles", "CLOSING_MANAGER")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.calendarStatus").value("IN_PROGRESS"));
+        verify(recovery).cancelDispatchedClose(10L, "operation-1", "expired snapshot", "trusted-operator");
+    }
+
+    @Test
     void transitionQueryShowsBoundEvidenceIdToRecoveryOperator() throws Exception {
         ClosingCalendar calendar = new ClosingCalendar();
         calendar.setId(10L);

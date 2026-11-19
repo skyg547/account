@@ -150,7 +150,8 @@ public class ScheduledRepaymentService {
                     schedule.getInterestIncome(), "Settlement of accrued interest"));
         }
         return new LoanJournalPort.LoanJournalCommand(date, "Scheduled loan repayment: " + loan.getLoanNumber(),
-                ACTOR, LINEAGE, loan.getId() + ":" + date, loan.getCurrencyCode(), lines);
+                ACTOR, LINEAGE, loan.getId() + ":" + date, loan.getCurrencyCode(),
+                "SCHEDULED_REPAYMENT_V1", null, lines);
     }
 
     private static String snapshot(EIRAmortizationSchedule schedule) {

@@ -35,6 +35,11 @@ public class FixedAssetPersistenceAdapter implements FixedAssetPersistencePort {
     private final AssetHistoryRepository assetHistoryRepository;
 
     @Override
+    public Optional<FixedAsset> findByAssetCode(String code) {
+        return fixedAssetRepository.findByAssetCode(code);
+    }
+
+    @Override
     public FixedAsset save(FixedAsset asset) {
         return fixedAssetRepository.save(asset);
     }

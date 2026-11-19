@@ -33,5 +33,10 @@ public class SystemRoleJpaAdapter implements SystemRolePersistencePort {
     public Optional<SystemRole> findByRoleCode(String roleCode) {
         return systemRoleRepository.findByRoleCode(roleCode);
     }
+
+    @Override
+    public Optional<SystemRole> findByRoleCodeForDecision(String roleCode) {
+        return systemRoleRepository.findByRoleCodeForDecision(roleCode);
+    }
 }
 

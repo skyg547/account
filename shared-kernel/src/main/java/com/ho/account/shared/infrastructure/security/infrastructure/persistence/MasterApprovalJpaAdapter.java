@@ -28,5 +28,10 @@ public class MasterApprovalJpaAdapter implements MasterApprovalPersistencePort {
     public List<MasterApproval> findByStatus(MasterApproval.ApprovalStatus status) {
         return masterApprovalRepository.findByStatus(status);
     }
+
+    @Override
+    public Optional<MasterApproval> findByIdForDecision(Long id) {
+        return masterApprovalRepository.findByIdForDecision(id);
+    }
 }
 

@@ -1,5 +1,14 @@
 # master-data beginner guide
 
+## 회계기간 요청을 재시도할 때
+
+전이 ID는 한 명령의 영구적인 이름표입니다. 예를 들어 `reopen@773`으로 준비한 기간·상태·
+담당자가 모두 같으면 재시도는 저장된 영수증을 돌려줍니다. 다른 기간이나 담당자를 같은 ID로
+보내면 409이며 원래 영수증과 마감 차단 상태는 그대로 보존됩니다. 취소한 이름표도 재활용하지 않습니다.
+응답을 잃었으면 같은 ID로 영수증을 조회하고 로컬 승인·감사와 대조합니다. 임의로 ID를 바꿔
+재전송하거나 DB 영수증을 삭제하지 않습니다. ID는 1~128자이고 `@`는 허용되지만 `:`는 허용되지 않습니다.
+`.`나 `..`만으로 된 ID도 사용할 수 없습니다. `reopen.773`이나 `.reopen`은 정상적인 이름입니다.
+
 ## 감사 기록을 찾는 방법
 
 직접 기준정보를 바꾸면 해당 행의 `auditUser`와 `master_data_audit_events`의 actor·이전/결과
@@ -158,7 +167,7 @@ SCD2 `UPDATE`로 바꿀 수 있습니다. 종료된 이력만 있거나 미래 �
 9. `core/.../MasterDataChangeVersionPolicy`: CREATE/UPDATE/DEACTIVATE별 목표 버전과 저장된 SCD2 이력 수를 비교.
 10. `core/.../MasterDataValidityReportPipeline`: 기준일을 고정하고 DB 통계 포트의 네 집계 결과를 하나의 core 보고 모델로 조립.
 11. `core/.../MasterDataValidityPolicy`: 유효기간과 종료일 정합성 공통 정책.
-12. `core/.../MonolithFiscalPeriodControlAdapter`: Closing 계약을 회계기간 포트, 행 잠금, 도메인 상태 전이에 연결.
+12. `core/.../MonolithFiscalPeriodControlAdapter` → `FiscalPeriodTransitionService` → `FiscalPeriodTransition`: Closing 계약 변환, 기간 잠금·감사·저장 조정, 순수 도메인 상태 전이의 순서입니다. 저장은 `FiscalPeriodTransitionPersistencePort`를 거칩니다.
 13. `core/.../JpaBusinessPartnerPersistenceAdapter`: 순수 거래처 도메인과 두 JPA 엔티티를 명시적으로 변환.
 
 ## 연속 미래 변경의 유효기간 (Issue #667)

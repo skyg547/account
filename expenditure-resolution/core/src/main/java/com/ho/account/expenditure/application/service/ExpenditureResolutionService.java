@@ -321,6 +321,9 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
                 actor,
                 "EXPENDITURE_RESOLUTION",
                 resolution.getResolutionNo(),
+                null,
+                // Final approval is one operation on the persisted resolution, including response-loss retries.
+                "EXPENDITURE_RESOLUTION:APPROVAL:v1",
                 lines
         );
     }

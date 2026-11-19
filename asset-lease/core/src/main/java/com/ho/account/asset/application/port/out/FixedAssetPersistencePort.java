@@ -27,6 +27,7 @@ import java.util.Optional;
 public interface FixedAssetPersistencePort {
     FixedAsset save(FixedAsset asset);
     Optional<FixedAsset> findById(Long id);
+    Optional<FixedAsset> findByAssetCode(String code);
     List<FixedAsset> findByStatus(String status);
     Page<FixedAsset> findByStatus(String status, Pageable pageable);
     void saveHistory(AssetHistory history);

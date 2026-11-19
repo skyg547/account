@@ -32,6 +32,14 @@
 
 파일명은 대상 서비스의 `spring.application.name`과 일치해야 합니다.
 
+`gateway-service.yml`의 `audit-governance-api`는 `/api/audit/**`를 거버넌스의 실행 호스트인
+`lb://auth-service`로 전달합니다. 패키지 `gateway/src/main/resources/application.yml`과
+동일하게 관리하며 `GatewayRouteSecurityPolicyTest`가 두 설정의 경로·대상·전역 필터를 비교합니다.
+token-version WebClient의 기본 주소도 패키지와 동일한 `http://auth-service`이며 서비스 ID를
+LoadBalancer로 해석합니다. Gateway route의 `lb://`와 WebClient의 HTTP 전송 스킴을 구분합니다.
+내부감사 업무의 `/api/v1/internalaudit/**`는 `lb://internal-audit-service`에 그대로 남습니다.
+실행 검증은 [Gateway 거버넌스 체인 가이드](../gateway/docs/governance-chain-acceptance.md)를 따릅니다.
+
 ## 변경 관리
 
 파일을 저장했다고 실행 중인 모든 서비스 값이 즉시 바뀌는 것은 아닙니다. Config Server의 다음 조회에는 반영될 수 있지만, 클라이언트는 보통 재시작 또는 검증된 refresh/Bus 절차가 필요합니다.

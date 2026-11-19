@@ -13,5 +13,9 @@ public interface SystemRolePersistencePort {
     List<SystemRole> findAll();
 
     Optional<SystemRole> findByRoleCode(String roleCode);
+
+    default Optional<SystemRole> findByRoleCodeForDecision(String roleCode) {
+        throw new UnsupportedOperationException("Decision locking is required.");
+    }
 }
 

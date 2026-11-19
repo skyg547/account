@@ -16,6 +16,9 @@ public class CollectionAllocationJpaEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "operation_id", length = 100, nullable = false)
+    private String operationId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "collection_id", nullable = false)
     private CollectionJpaEntity collection;
@@ -45,6 +48,9 @@ public class CollectionAllocationJpaEntity {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getOperationId() { return operationId; }
+    public void setOperationId(String operationId) { this.operationId = operationId; }
 
     public CollectionJpaEntity getCollection() { return collection; }
     public void setCollection(CollectionJpaEntity collection) { this.collection = collection; }

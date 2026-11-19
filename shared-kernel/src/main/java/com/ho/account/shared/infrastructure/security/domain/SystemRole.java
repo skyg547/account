@@ -40,7 +40,7 @@ public class SystemRole {
     @Column(name = "UPDATE_DATE", nullable = false)
     private LocalDateTime updateDate;
 
-    @Column(name = "AUDIT_USER", nullable = false, length = 50)
+    @Column(name = "AUDIT_USER", nullable = false, length = 80)
     private String auditUser;
 
     public static SystemRole create(String roleCode, String roleName, String description, String auditUser) {

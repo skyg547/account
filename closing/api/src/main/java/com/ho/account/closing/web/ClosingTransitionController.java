@@ -48,4 +48,14 @@ public class ClosingTransitionController {
         return ClosingTransitionDto.from(recovery.cancelPreparedClose(
                 calendarId, request.operationId(), request.reason(), trustedActor));
     }
+
+    @PostMapping("/cancel-dispatched-close")
+    public ClosingTransitionDto cancelDispatchedClose(@PathVariable Long calendarId,
+            @Valid @RequestBody ClosingPreparedTransitionCancellationRequest request,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_USER_HEADER, required = false) String actor,
+            @RequestHeader(name = ClosingCommandAuthority.AUTH_ROLES_HEADER, required = false) String roles) {
+        String trustedActor = ClosingCommandAuthority.requireCommandAuthority(actor, roles, 42);
+        return ClosingTransitionDto.from(recovery.cancelDispatchedClose(
+                calendarId, request.operationId(), request.reason(), trustedActor));
+    }
 }

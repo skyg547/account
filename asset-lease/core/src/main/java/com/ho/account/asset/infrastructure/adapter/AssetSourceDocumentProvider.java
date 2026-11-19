@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AssetSourceDocumentProvider implements SourceDocumentProvider {
 
-    private static final Set<String> SUPPORTED_TYPES = Set.of("FIXED_ASSET", "IFRS16_LEASE");
+    private static final Set<String> SUPPORTED_TYPES = Set.of("FIXED_ASSET", "IFRS16_LEASE", "FIXED_ASSET_CODE", "IFRS16_LEASE_CONTRACT_NO");
 
     private final FixedAssetPersistencePort fixedAssetPersistencePort;
     private final LeasePersistencePort leasePersistencePort;
@@ -29,6 +29,15 @@ public class AssetSourceDocumentProvider implements SourceDocumentProvider {
 
     @Override
     public Optional<Map<String, Object>> getSourceDocument(String lineageSourceType, String lineageSourceId) {
+        // Distinct type namespaces preserve old numeric lineage even when business codes are numeric.
+        if ("FIXED_ASSET_CODE".equals(lineageSourceType)) {
+            return fixedAssetPersistencePort.findByAssetCode(lineageSourceId)
+                    .map(asset -> Map.of("type", "FixedAsset", "data", asset));
+        }
+        if ("IFRS16_LEASE_CONTRACT_NO".equals(lineageSourceType)) {
+            return leasePersistencePort.findContractByNumber(lineageSourceId)
+                    .map(contract -> Map.of("type", "LeaseContract", "data", contract));
+        }
         try {
             Long id = Long.valueOf(lineageSourceId);
             Map<String, Object> documentDetails = new HashMap<>();

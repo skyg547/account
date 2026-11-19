@@ -134,3 +134,7 @@ flowchart TD
 ```
 
 조정 전표가 필요한 사유 코드는 `adjustmentJournalEntryId`가 있어야 완료할 수 있다. 이미 자동 조정 전표가 만들어진 차이는 기존 전표 ID를 유지한다.
+
+자동 조정은 기존 정책상 대사 단위·기준일당 한 건이다. Journal 생성에는 `RECONCILIATION` 출처, `UNIT-<단위 ID>-DATE-<기준일>` 라인리지, `RECONCILIATION:ADJUSTMENT:v1` 작업 키를 전달한다. 실패한 실행을 다시 시작하면서 run/difference ID가 달라져도 같은 내용이면 기존 전표를 반환한다. 같은 기간의 금액·조정 계정 변경은 기존 키의 금융 내용 충돌이며 새 전표로 처리하지 않는다. 다른 단위 또는 기준일은 독립 작업이다. 별도 자동 교체 버전 경로는 현재 없으며, 수동 차이 해결은 명시적으로 전달한 전표 ID를 연결한다. 차이 행의 `adjustmentJournalEntryId` 연결은 유지한다.
+
+`ReconciliationJournalCreationIntegrationTest`는 원천/대상 조회와 실행 저장을 합성 포트로 대체하고 실제 Journal 생성 서비스와 JPA receipt를 H2로 연결한다. run/difference ID가 재할당되는 응답 유실 재시도, 변경 금액·계정 충돌, 다른 단위의 독립 생성을 검증한다. 실행 명령은 `./gradlew :reconciliation:core:test --tests '*ReconciliationJournalCreationIntegrationTest' --offline --no-daemon --console=plain`이다. 로컬 캐시에 Jackson 2.16.2 의존성이 없으면 컴파일 단계에서 중단되므로 캐시가 준비된 환경 또는 CI에서 실행 결과를 확인해야 한다. 운영 PostgreSQL과 원격 HTTP 검증은 별도다.

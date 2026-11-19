@@ -82,3 +82,17 @@ JDK 17과 캐시된 Gradle 의존성이 있는 저장소 루트에서 실행합�
 ## 목록을 여러 페이지로 읽기
 
 관리자 사용자 목록과 내 PAT·관리자 PAT 목록은 한 번에 최대 100개까지만 반환합니다. 예를 들어 권한 있는 요청에 `GET /api/auth/pat?page=0&size=20`을 보내면 첫 20개 이하의 JSON 배열과 `X-Page: 0`, `X-Page-Size: 20`, `X-Has-Next: true|false` 헤더를 받습니다. `X-Has-Next`가 `true`이면 같은 인증으로 `page=1`, `page=2`를 순서대로 읽으세요. `page`를 생략하면 0, `size`를 생략하면 20입니다. 최대 `size=100`이며 범위를 벗어난 값은 400입니다. 기존처럼 목록 API를 한 번만 호출하는 소비자는 첫 페이지만 보게 되므로 전체 목록이 필요한 화면은 반복 호출로 변경해야 합니다. 요청 중 데이터가 추가되거나 삭제되면 offset 페이지의 경계가 이동할 수 있습니다.
+
+## Governance approval exercise
+
+In JPA mode, log in as an ordinary synthetic user and request a role change for that exact username through `/api/audit/approvals/requests`. The response is a stored request receipt, so keep its `id`. A different current system administrator can approve it; the same requester cannot decide it. Approval replaces the target's roles, increases their roleVersion once and writes audit evidence in the same transaction. The target must log in again because the old JWT version is stale.
+
+Roles and authorization grants also pass through approval. POST role/grant responses are 202 approval receipts; query the role/grant after a distinct administrator approves. Empty role/permission data means no approved catalog/grant exists. Never add mock roles to make the screen appear authorized. Memory mode exposes no governance route.
+
+Focused offline checks (JDK 17 and cached dependencies):
+
+```powershell
+.\gradlew :auth:core:test --tests '*GovernancePayloadsTest' :auth:api:test --tests '*GovernanceHttpIntegrationTest' --tests '*AuthMemoryModeStartupTest' --tests '*GovernanceMigrationTest.h2*' --offline --no-daemon --console=plain --max-workers=1
+```
+
+The separate `GovernanceMigrationTest.postgresql*` case starts a disposable embedded PostgreSQL process and requires an approved local runtime environment. It must be reported separately from H2 and the packaged BFF→Gateway→Auth smoke. Never point these fixtures at an existing application database.

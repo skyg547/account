@@ -6,4 +6,6 @@ import java.util.Optional;
 public interface AdvancePaymentPersistencePort {
     AdvancePayment save(AdvancePayment advancePayment);
     Optional<AdvancePayment> findById(Long id);
+    /** Serialize offsets sharing one advance payment so its remaining balance stays valid. */
+    Optional<AdvancePayment> findByIdForUpdate(Long id);
 }

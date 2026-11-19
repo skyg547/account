@@ -73,8 +73,10 @@ class FinancialClosingCalculationServiceTest {
     @Test
     void postedReplayReportsCompletedFinancialOutcome() {
         ClosingJournalEntryCommand prepared = command("ECL-POSTED");
-        when(ecl.prepareEclProvision(DATE, 88L)).thenReturn(List.of(prepared));
-        when(ecl.postPreparedEclProvision(List.of(prepared)))
+        EclProvisionService.PreparedEclProvision snapshot =
+                new EclProvisionService.PreparedEclProvision(List.of(), List.of(prepared));
+        when(ecl.prepareEclProvisionSnapshot(DATE, 88L)).thenReturn(snapshot);
+        when(ecl.postPreparedEclProvision(snapshot, snapshot.commands()))
                 .thenReturn(List.of(new ClosingJournalEntryResult(901L, prepared.slipNo(), "POSTED")));
 
         FinancialClosingCalculationResult result = service.runEclProvision(DATE, 88L);
@@ -87,8 +89,10 @@ class FinancialClosingCalculationServiceTest {
     void mixedPostedAndDraftReplayRequiresReconciliation() {
         ClosingJournalEntryCommand a = command("ECL-A");
         ClosingJournalEntryCommand b = command("ECL-B");
-        when(ecl.prepareEclProvision(DATE, 88L)).thenReturn(List.of(a, b));
-        when(ecl.postPreparedEclProvision(List.of(a, b))).thenReturn(List.of(
+        EclProvisionService.PreparedEclProvision snapshot =
+                new EclProvisionService.PreparedEclProvision(List.of(), List.of(a, b));
+        when(ecl.prepareEclProvisionSnapshot(DATE, 88L)).thenReturn(snapshot);
+        when(ecl.postPreparedEclProvision(snapshot, snapshot.commands())).thenReturn(List.of(
                 new ClosingJournalEntryResult(901L, a.slipNo(), "POSTED"),
                 new ClosingJournalEntryResult(902L, b.slipNo(), "DRAFT")));
 
@@ -171,7 +175,7 @@ class FinancialClosingCalculationServiceTest {
                 .hasMessageContaining("No finalized ECL allowance summary");
 
         verify(ecl, never()).postPreparedEclProvision(
-                any(EclProvisionService.PreparedEclProvision.class));
+                any(EclProvisionService.PreparedEclProvision.class), any());
         verifyNoInteractions(fx);
     }
 

@@ -72,6 +72,12 @@ public class ClosingTask {
         return cycleNumber;
     }
 
+    /** Persistence reconstitution; new checklist rows use assignCycle/nextCycle. */
+    public void setCycleNumber(int cycleNumber) {
+        if (cycleNumber <= 0) throw new IllegalArgumentException("cycleNumber must be positive");
+        this.cycleNumber = cycleNumber;
+    }
+
     public void assignCycle(ClosingCalendar calendar) {
         if (calendar == null) {
             throw new IllegalArgumentException("calendar must not be null");

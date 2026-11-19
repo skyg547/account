@@ -48,6 +48,7 @@ class JournalLedgerClosingJournalEntryAdapterTest {
         ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(postingPort).createDraftEntry(captor.capture());
         assertThat(captor.getValue().slipNo()).isEqualTo(command.slipNo());
+        assertThat(captor.getValue().operationKey()).isEqualTo("FX_VALUATION_V1");
         assertThat(captor.getValue().auditUser()).isEqualTo("SYSTEM");
         assertThat(captor.getValue().lines()).hasSize(2);
     }

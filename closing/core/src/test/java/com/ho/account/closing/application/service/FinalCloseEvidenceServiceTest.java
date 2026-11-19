@@ -20,6 +20,11 @@ import com.ho.account.closing.domain.FinalCloseEvidenceControl.Type;
 import com.ho.account.closing.domain.FinalCloseEvidenceSet;
 import com.ho.account.closing.domain.FinalCloseEvidenceTotal;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
+import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
+import com.ho.account.contracts.journal.JournalPeriodCheckpoint;
+import com.ho.account.contracts.journal.JournalPeriodScope;
+import com.ho.account.contracts.journal.JournalPeriodFencePort;
+import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -40,6 +45,9 @@ class FinalCloseEvidenceServiceTest {
     private static final LocalDate CUTOFF = LocalDate.of(2026, 1, 31);
     private final ClosingAggregatePersistencePort aggregates = mock(ClosingAggregatePersistencePort.class);
     private final FinalCloseEvidencePersistencePort persistence = mock(FinalCloseEvidencePersistencePort.class);
+    private final JournalPeriodFencePort journal = mock(JournalPeriodFencePort.class);
+    private final FiscalPeriodControlPort master = mock(FiscalPeriodControlPort.class);
+    private final ClosingCalendarPersistencePort calendars = mock(ClosingCalendarPersistencePort.class);
     private FinalCloseEvidenceService service;
     private ClosingCalendar calendar;
     private FiscalPeriodRef period;
@@ -49,9 +57,13 @@ class FinalCloseEvidenceServiceTest {
         FinalCloseEvidenceProperties properties = new FinalCloseEvidenceProperties();
         properties.setMaxAge(Duration.ofHours(24));
         service = new FinalCloseEvidenceService(aggregates, persistence, properties,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC), journal, master, calendars);
         calendar = calendar("01");
         period = period("01", CUTOFF);
+        when(master.findFiscalPeriodById(20L)).thenReturn(Optional.of(period));
+        when(master.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(period));
+        when(calendars.findById(10L)).thenReturn(Optional.of(calendar));
+        when(journal.checkpoint(any())).thenAnswer(call -> new JournalPeriodCheckpoint(call.getArgument(0), 0));
     }
 
     @Test
@@ -140,7 +152,7 @@ class FinalCloseEvidenceServiceTest {
         FinalCloseEvidenceSet valid = evidence("digest", "01", NOW.minusSeconds(60), monthlyControls());
         FinalCloseEvidenceSet tampered = new FinalCloseEvidenceSet(valid.evidenceSetId(), valid.calendarId(),
                 valid.fiscalPeriodId(), valid.fiscalYear(), valid.fiscalPeriod(), valid.ledgerCutoff(),
-                valid.observedAt(), valid.submittedBy(), "f".repeat(64), valid.controls());
+                valid.observedAt(), valid.submittedBy(), "f".repeat(64), valid.controls(), valid.journalCheckpoint());
         when(persistence.findLatestByCalendarId(10L)).thenReturn(Optional.of(tampered));
         assertRejected("digest");
     }
@@ -193,7 +205,7 @@ class FinalCloseEvidenceServiceTest {
                                 control(Type.AP_SUBLEDGER, Outcome.FAIL, 0, totals()))),
                 new FinalCloseEvidenceSet(valid.evidenceSetId(), valid.calendarId(), valid.fiscalPeriodId(),
                         valid.fiscalYear(), valid.fiscalPeriod(), valid.ledgerCutoff(), valid.observedAt(),
-                        valid.submittedBy(), "f".repeat(64), valid.controls()));
+                        valid.submittedBy(), "f".repeat(64), valid.controls(), valid.journalCheckpoint()));
         for (FinalCloseEvidenceSet snapshot : invalid) {
             when(persistence.findByEvidenceSetId("bound")).thenReturn(Optional.of(snapshot));
             assertThatThrownBy(() -> service.requireBoundForFinalClose(calendar, period, "bound"))
@@ -327,7 +339,7 @@ class FinalCloseEvidenceServiceTest {
             LocalDate cutoff, Instant observedAt, List<FinalCloseEvidenceControl> controls) {
         Submission unsigned = unsigned(id, calendarId, year, code, cutoff, observedAt, controls, "provider-A", periodId);
         return new FinalCloseEvidenceSet(id, calendarId, periodId, year, code, cutoff, observedAt, "provider-A",
-                FinalCloseEvidenceService.computeContentDigest(unsigned, "provider-A"), controls);
+                FinalCloseEvidenceService.computeContentDigest(unsigned, "provider-A"), controls, checkpoint(periodId, cutoff));
     }
 
     private Submission unsigned(String id, Long calendarId, String year, String code, LocalDate cutoff,
@@ -337,9 +349,9 @@ class FinalCloseEvidenceServiceTest {
 
     private Submission unsigned(String id, Long calendarId, String year, String code, LocalDate cutoff,
             Instant observedAt, List<FinalCloseEvidenceControl> controls, String actor, Long periodId) {
-        Submission seed = new Submission(id, calendarId, periodId, year, code, cutoff, observedAt, "0".repeat(64), controls);
+        Submission seed = new Submission(id, calendarId, periodId, year, code, cutoff, observedAt, "0".repeat(64), controls, checkpoint(periodId, cutoff));
         return new Submission(id, calendarId, periodId, year, code, cutoff, observedAt,
-                FinalCloseEvidenceService.computeContentDigest(seed, actor), controls);
+                FinalCloseEvidenceService.computeContentDigest(seed, actor), controls, checkpoint(periodId, cutoff));
     }
 
     private List<FinalCloseEvidenceControl> monthlyControls() {
@@ -363,6 +375,43 @@ class FinalCloseEvidenceServiceTest {
     private List<FinalCloseEvidenceControl> replace(List<FinalCloseEvidenceControl> controls, int index,
             FinalCloseEvidenceControl replacement) {
         controls.set(index, replacement); return controls;
+    }
+
+    private JournalPeriodCheckpoint checkpoint(Long periodId, LocalDate end) {
+        return new JournalPeriodCheckpoint(new JournalPeriodScope(periodId, LocalDate.of(2026, 1, 1), end), 0);
+    }
+
+    @Test
+    void checkpointDrainsJournalUsingAuthoritativeMasterRangeBeforeProviderReads() {
+        assertThat(service.checkpoint(10L)).isEqualTo(checkpoint(20L, CUTOFF));
+        verify(journal).checkpoint(new JournalPeriodScope(20L, CUTOFF.withDayOfMonth(1), CUTOFF));
+        verifyNoInteractions(persistence);
+    }
+
+    @Test
+    void rejectsStaleRevisionBeforeLockingCalendarOrAppendingEvidence() {
+        Submission input = unsigned("stale", 10L, "2026", "01", CUTOFF, NOW, monthlyControls(), "provider-A");
+        org.mockito.Mockito.doAnswer(call -> new JournalPeriodCheckpoint(call.getArgument(0), 1))
+                .when(journal).checkpoint(any());
+        assertThatThrownBy(() -> service.record(10L, input, "provider-A"))
+                .isInstanceOf(FinalCloseEvidenceValidationException.class).hasMessageContaining("stale");
+        verifyNoInteractions(aggregates, persistence);
+    }
+
+    @Test
+    void legacyEvidenceCannotAuthorizeCloseAndCheckpointIsPartOfDigest() {
+        FinalCloseEvidenceSet valid = evidence("legacy", "01", NOW.minusSeconds(1), monthlyControls());
+        FinalCloseEvidenceSet legacy = new FinalCloseEvidenceSet(valid.evidenceSetId(), valid.calendarId(),
+                valid.fiscalPeriodId(), valid.fiscalYear(), valid.fiscalPeriod(), valid.ledgerCutoff(),
+                valid.observedAt(), valid.submittedBy(), valid.contentDigest(), valid.controls());
+        when(persistence.findLatestByCalendarId(10L)).thenReturn(Optional.of(legacy));
+        assertRejected("Journal checkpoint is required");
+        FinalCloseEvidenceSet tampered = new FinalCloseEvidenceSet(valid.evidenceSetId(), valid.calendarId(),
+                valid.fiscalPeriodId(), valid.fiscalYear(), valid.fiscalPeriod(), valid.ledgerCutoff(),
+                valid.observedAt(), valid.submittedBy(), valid.contentDigest(), valid.controls(),
+                new JournalPeriodCheckpoint(valid.journalCheckpoint().scope(), 99));
+        when(persistence.findLatestByCalendarId(10L)).thenReturn(Optional.of(tampered));
+        assertRejected("digest");
     }
 
     private record Case(UnaryOperator<List<FinalCloseEvidenceControl>> mutation, String message) { }

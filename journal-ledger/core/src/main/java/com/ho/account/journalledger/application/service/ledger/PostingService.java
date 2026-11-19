@@ -110,6 +110,9 @@ public class PostingService {
         // 작성·승인 이후 기간이 닫힐 수 있으므로 전기 직전에 다시 확인합니다.
         // 조회 실패도 상태·감사 사용자 변경보다 먼저 전파하여 쓰기를 시작하지 않습니다.
         closingLockValidationFilter.validate(journalEntry);
+        // Remote period validation alone cannot exclude a concurrent close. The DB admission
+        // lock survives this method and is held until the enclosing posting transaction commits.
+        ledgerService.admitMonetaryMovement(journalEntry.getAccountingDate());
         journalEntry.post(poster);
         journalPersistencePort.save(journalEntry);
 

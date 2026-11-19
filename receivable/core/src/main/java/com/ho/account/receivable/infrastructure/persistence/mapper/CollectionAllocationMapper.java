@@ -27,7 +27,8 @@ public class CollectionAllocationMapper {
         CollectionAllocation domain = CollectionAllocation.record(
                 collectionMapper.toDomain(entity.getCollection()),
                 receivableMapper.toDomain(entity.getReceivable()),
-                entity.getMatchedAmount()
+                entity.getMatchedAmount(),
+                entity.getOperationId()
         );
         domain.setId(entity.getId());
         domain.setResidualCollectionAmount(entity.getResidualCollectionAmount());
@@ -40,6 +41,7 @@ public class CollectionAllocationMapper {
         if (domain == null) return null;
         CollectionAllocationJpaEntity entity = new CollectionAllocationJpaEntity();
         entity.setId(domain.getId());
+        entity.setOperationId(domain.getOperationId());
         entity.setCollection(collectionMapper.toEntity(domain.getCollection()));
         entity.setReceivable(receivableMapper.toEntity(domain.getReceivable()));
         entity.setMatchedAmount(domain.getMatchedAmount());

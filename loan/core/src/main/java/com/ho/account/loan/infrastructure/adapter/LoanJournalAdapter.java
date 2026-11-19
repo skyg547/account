@@ -6,6 +6,7 @@ import com.ho.account.contracts.outbox.InMemoryOutboxAdapter;
 import com.ho.account.contracts.outbox.JournalOutboxEvent;
 import com.ho.account.contracts.outbox.OutboxPort;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import com.ho.account.journalledger.application.port.in.JournalCreationIdentity;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalActor;
@@ -74,7 +75,7 @@ public class LoanJournalAdapter implements LoanJournalPort {
         }
         // 1. 전표 호출 전 이벤트 기록. 기본 메모리 구현은 뒤따르는 실패에 함께 롤백되지 않습니다.
         JournalEntryCommand contractCommand = toContractCommand(command);
-        String idempotencyKey = command.lineageSourceType() + ":" + command.lineageSourceId();
+        String idempotencyKey = command.lineageSourceType() + ":" + command.lineageSourceId() + ":" + command.operationKey();
         
         JournalOutboxEvent outboxEvent = JournalOutboxEvent.createPending(
                 "LOAN",
@@ -100,10 +101,25 @@ public class LoanJournalAdapter implements LoanJournalPort {
         entry.setCurrencyCode(command.currencyCode());
 
         command.lines().forEach(line -> entry.addDetail(toDetail(line, command.actor())));
-        JournalEntry saved = journalUseCase.createJournalEntry(entry);
-        journalUseCase.requestJournalEntryApproval(saved.getId(), command.actor());
-        journalUseCase.approveJournalEntry(saved.getId(), approver);
-        journalUseCase.postJournalEntry(saved.getId(), command.actor());
+        JournalEntry saved = journalUseCase.createJournalEntry(new JournalCreationIdentity(
+                command.lineageSourceType(), command.lineageSourceId(), command.operationKey()),
+                entry, command.sourceRequestFingerprint());
+        // A committed operation may already be posted when the source transaction retries.
+        // Resume only valid forward transitions; do not approve or post a completed receipt again.
+        switch (saved.getStatus()) {
+            case DRAFT -> {
+                journalUseCase.requestJournalEntryApproval(saved.getId(), command.actor());
+                journalUseCase.approveJournalEntry(saved.getId(), approver);
+                journalUseCase.postJournalEntry(saved.getId(), command.actor());
+            }
+            case REQUESTED -> {
+                journalUseCase.approveJournalEntry(saved.getId(), approver);
+                journalUseCase.postJournalEntry(saved.getId(), command.actor());
+            }
+            case APPROVED -> journalUseCase.postJournalEntry(saved.getId(), command.actor());
+            case POSTED -> { }
+            default -> throw new IllegalStateException("Loan journal operation is not reusable: " + saved.getStatus());
+        }
         JournalEntry posted = journalUseCase.getJournalEntryWithDetails(saved.getId()).orElse(saved);
 
         // 3. 로컬 전기 호출 성공을 표시합니다. 메모리 표시만으로 외부 발행을 증명하지 않습니다.
@@ -128,6 +144,7 @@ public class LoanJournalAdapter implements LoanJournalPort {
                 command.actor(),
                 command.lineageSourceType(),
                 command.lineageSourceId(),
+                null, command.operationKey(), command.sourceRequestFingerprint(),
                 lines
         );
     }

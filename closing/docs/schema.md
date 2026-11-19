@@ -65,7 +65,7 @@ erDiagram
 
 ## 기간 잠금과 재오픈 고유성 (GH-887)
 
-V54는 기존 잠금 행을 활성으로 backfill합니다. 예전 unlock은 잠금 행을 삭제했으므로 남아 있는
+V56은 기존 잠금 행을 활성으로 backfill합니다. 예전 unlock은 잠금 행을 삭제했으므로 남아 있는
 행은 일단 활성으로 취급합니다. 새 `active_fiscal_period_id`는 활성일 때 기간 ID, 해제 후에는
 `NULL`이고, 고유 제약과 상태 대응 CHECK가 이 값을 보호합니다. `unlocked_by`와 `unlocked_at`은
 해제 행의 감사 정보를 보존합니다. `reopen_approvals.pending_fiscal_period_id`도 `PENDING`일 때만
@@ -73,7 +73,7 @@ V54는 기존 잠금 행을 활성으로 backfill합니다. 예전 unlock은 잠
 `NULL`인 이력 키는 여러 행이 가능하지만 활성/대기 키는 기간별 한 행만 가능합니다.
 
 배포 전에는 Closing writer를 중지하고 같은 데이터베이스에서 다음 읽기 전용 사전 점검을
-실행합니다. 두 결과가 모두 0행이어야 V54를 적용할 수 있습니다.
+실행합니다. 두 결과가 모두 0행이어야 V56을 적용할 수 있습니다.
 
 ```sql
 SELECT fiscal_period_id, COUNT(*) AS row_count
@@ -85,13 +85,13 @@ GROUP BY fiscal_period_id HAVING COUNT(*) > 1;
 
 중복을 발견하면 배포와 쓰기를 중단합니다. 운영자가 원 잠금/요청, Closing 감사 기록,
 Master 상태를 대사하고 권한 있는 업무 결정과 별도 승인된 보정 절차를 기록해야 합니다.
-레거시 잠금에는 비활성 표시가 없으므로 V54 이전 중복 행에서 어느 하나를 자동으로
+레거시 잠금에는 비활성 표시가 없으므로 V56 이전 중복 행에서 어느 하나를 자동으로
 활성으로 선택할 근거가 없습니다. 보정은 전체 원본과 결정 근거를 감사 가능한 보관소에
 보존한 후 별도의 검토된 순방향 변경으로 수행해야 합니다. 재오픈 중복도 임의 승인/반려
-시각이나 결정자를 꾸며 넣지 않습니다. 대사가 끝나기 전에는 V54 고유 제약 실패를
-우회하거나 앱을 시작하지 않습니다. V54 자체는 중복을 삭제하거나 승자를 선택하지 않습니다.
+시각이나 결정자를 꾸며 넣지 않습니다. 대사가 끝나기 전에는 V56 고유 제약 실패를
+우회하거나 앱을 시작하지 않습니다. V56 자체는 중복을 삭제하거나 승자를 선택하지 않습니다.
 
-적용 순서는 기존 writer 중지·배출, 사전 점검과 보정 승인, V54 migrate/validate, 새
+적용 순서는 기존 writer 중지·배출, 사전 점검과 보정 승인, V56 migrate/validate, 새
 API/Batch 기동입니다. 기존 writer는 새 활성/대기 슬롯을 유지하지 않으므로 혼합 버전
 쓰기를 허용하지 않습니다. 롤백도 이력 행과 새 제약을 삭제하는 down migration이 아니라
 쓰기 중지·대사 후 검토된 순방향 보정으로 수행합니다. 로컬 H2 회귀는 제약과 경합을
@@ -130,24 +130,26 @@ V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 
 | --- | --- |
 | `transition_id` | 한 번의 마감/재오픈 작업 UUID |
 | `transition_target` | Master와 캘린더가 도달할 `OPEN` 또는 `CLOSED` |
-| `transition_stage` | 아직 전송 권한을 획득하지 않은 `PREPARED`, 전송 여부가 불명확할 수 있는 `DISPATCHED` |
+| `transition_stage` | 로컬 의도 `PREPARED`, 원격 준비 시작 `DISPATCHED`, 재오픈 승인 확정 `AUTHORIZED`, Master 확인 전 최종화 `READY_TO_CONFIRM`, Journal 해제 대기 `RELEASE_PENDING`/`CANCEL_RELEASE_PENDING` |
 | `transition_fiscal_period_id` | Master 회계기간 ID |
 | `transition_approval_id` | 재오픈 승인 ID; 마감에서는 null |
 | `transition_actor`, `transition_prepared_at` | 원 결정자와 준비 시각 |
+| `transition_protocol` | V59 이후 `RECEIPT_V1`; null인 기존 직접 PUT 의도는 자동 복구 차단 |
 
-전이 완료는 캘린더 상태 변경·감사 기록·전이 컬럼 제거를 한 로컬 트랜잭션으로 처리합니다.
-실패하면 전이 기록을 보존합니다. DB CHECK 제약은 전이 컬럼의 부분 저장을 거부하고,
-재오픈 의도는 `CLOSED` 캘린더와 승인 ID, 마감 의도는 `IN_PROGRESS` 캘린더와 연결되게 합니다.
+V59는 재오픈 `AUTHORIZED`/`READY_TO_CONFIRM` 상태에서 캘린더 `OPEN`과 작업 ID가 함께 유지되도록 CHECK 제약을
+확장합니다. 이 상태에는 승인·새 체크리스트·감사가 이미 확정되어 있으며, Master `OPEN` 적용
+이후까지 Closing 입장은 작업 ID로 차단됩니다. DB CHECK 제약은 전이 컬럼의 부분 저장을 거부합니다.
 준비·완료·복구 감사 기록에는 작업 ID와 원 결정자를 남깁니다. 완료 감사는 회계기간 ID와 승인 ID도
 보존해 전이 필드를 비운 뒤에도 원 승인을 추적할 수 있으며, 복구 기록의 처리자는 별도로 보존합니다.
-전송 전 재개와 전송 후 종료 확인에 따른 복구는 감사 사유로 구분합니다. `reopen_approvals.status=APPROVED`만으로 실제 재오픈 완료를
+Master 작업 영수증은 operation ID, 기간 ID, 기대·목표 상태, 원 결정자와 PREPARED/APPLIED/CONFIRMED/CANCELLED 단계를
+포함합니다. 같은 ID의 다른 요청은 거부되며, 복구는 전체 내용을 대사합니다. `reopen_approvals.status=APPROVED`만으로 실제 재오픈 완료를
 판단하지 말고 캘린더 상태와 미완료 전이를 함께 확인해야 합니다.
 동시성 경계와 운영 복구 조건은 [업무 흐름](process-flow.md#월말-동시-결정과-복구-gh-774)에 설명합니다.
 
-V52와 후속 V53/V54는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
-새 API/Batch를 시작하기 전에 V54까지 release-time migrate/validate를 수행해야 합니다.
+V52부터 현재 V59까지는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
+새 API/Batch를 시작하기 전에 V59까지 release-time migrate/validate를 수행해야 합니다.
 
-V54는 평가·충당 실행 이력에 endpoint별 고유 `execution_key`와 `journal_count`,
+V55는 평가·충당 실행 이력에 endpoint별 고유 `execution_key`와 `journal_count`,
 실행 키 잠금 테이블과 불변 명령 manifest 테이블을 추가합니다.
 기존 이력은 임의 키를 부여하지 않고 null로 남깁니다. 새 API 호출은 키가 필수입니다.
 기존 버전 writer는 새 잠금·전이 규칙을 모르므로 혼합 버전 쓰기를 허용하지 않습니다.
@@ -172,7 +174,7 @@ forward-only입니다. 롤백 시 증빙이나 미완료 전이를 삭제하지 
 
 ## 재오픈 회차와 체크리스트 이력 (GH-885)
 
-V54는 `closing_calendars`, `closing_tasks`, `closing_gates`에 양수 `cycle_number`를 추가하고 캘린더에 `last_source_changed_at`(UTC)을 추가합니다. 기존 자식 행은 1회차로 backfill합니다. 재오픈 이력이 없는 캘린더도 1회차입니다. 이미 재오픈된 기존 캘린더(`reopened_at IS NOT NULL`)는 자식 행의 정확한 과거 회차를 복구할 수 없으므로 캘린더만 2회차로 두어 과거 완료/통과 행을 차단합니다. 해당 기간은 운영자가 새 태스크·게이트를 정의해야 다시 마감할 수 있습니다. 캘린더의 번호가 현재 회차이며 각 태스크·게이트 행의 번호가 해당 행의 이력 회차입니다. 승인된 재오픈의 원격 `OPEN` 결과를 확인한 뒤 한 로컬 트랜잭션에서 번호를 올리고 직전 회차 정의를 `PENDING` 행으로 복제합니다. 완료/통과 상태, 작업자, 통과 시각은 복제하지 않습니다. 원본 행과 감사 기록은 보존합니다.
+V54는 `closing_calendars`, `closing_tasks`, `closing_gates`에 양수 `cycle_number`를 추가하고 캘린더에 `last_source_changed_at`(UTC)을 추가합니다. 기존 자식 행은 1회차로 backfill합니다. 재오픈 이력이 없는 캘린더도 1회차입니다. 이미 재오픈된 기존 캘린더(`reopened_at IS NOT NULL`)는 자식 행의 정확한 과거 회차를 복구할 수 없으므로 캘린더만 2회차로 두어 과거 완료/통과 행을 차단합니다. 해당 기간은 운영자가 새 태스크·게이트를 정의해야 다시 마감할 수 있습니다. 캘린더의 번호가 현재 회차이며 각 태스크·게이트 행의 번호가 해당 행의 이력 회차입니다. 승인된 재오픈은 원격 `OPEN` 적용 전에 한 로컬 트랜잭션에서 번호를 올리고 직전 회차 정의를 `PENDING` 행으로 복제합니다. 완료/통과 상태, 작업자, 통과 시각은 복제하지 않습니다. 원본 행과 감사 기록은 보존합니다.
 
 현재 회차만 일반 태스크 조회, 게이트 선행조건, 최종 마감 준비에 참여하고, 이전 회차 ID의 상태 변경은 거부합니다. 동일한 원천 상태에도 체크리스트 증빙을 자동 이월하지 않습니다. 새 마감은 새 시작 시각 뒤의 최종 마감 증빙을 요구합니다. V54 적용 전 오래된 writer를 배출하고, 롤백은 회차 행을 삭제하거나 번호를 되돌리는 방식으로 하지 않습니다. 원천별 권위 있는 변경 워터마크가 없으므로 공급자 제출 이후의 모든 외부 변경을 DB 회차 번호만으로 감지할 수는 없습니다.
 Closing이 조정 전표를 승인해 등록하면 `last_source_changed_at`을 갱신합니다. 현재 회차에서 통제가 진행됐다면 회차를 올리고 새로운 `PENDING` 정의를 복제하며, 이전 완료 행은 보존합니다. 마감 증빙의 `observedAt`은 현재 시작 시각과 이 원천 변경 시각 양쪽보다 늦어야 합니다. 이 시각은 Closing을 통과한 조정만 포착하며 다른 모듈이 직접 전기한 거래의 워터마크가 아닙니다.
@@ -247,7 +249,7 @@ V57은 확정 ECL 원천의 run/model/기준일/법인, 합산 목표·노출·S
 
 - V49는 clean PostgreSQL/H2용으로 위 10개 Closing JPA 소유 테이블을 생성하고 `daily_closing_status`만 legacy Boolean 모양으로 둡니다. 이어지는 V50이 `is_closed`를 `OPEN`/`CLOSED`로 backfill하고 Boolean 컬럼을 제거합니다.
 - V51은 49에서 baseline된 기존 DB에도 캘린더 하위 조회, 기간별 배치/승인/조정 조회 인덱스를 forward-only로 보강합니다. 같은 이름의 잘못된 인덱스가 있으면 runner가 baseline 전에 거부합니다.
-- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를 추가합니다. 새 writer를 시작하기 전에 V56까지 migrate/validate하고 오래된 writer를 배출해야 합니다.
+- V52는 미완료 월말 전이를, V53은 append-only 최종 마감 증빙과 CLOSED 전이의 증빙 ID 바인딩을, V54는 재오픈 회차와 체크리스트 이력 번호를, V55는 실행 키 고유 제약과 전표 건수 컬럼을, V56은 활성 잠금·대기 요청 고유 키를, V57은 ECL 스냅샷을, V58은 Journal checkpoint·fence와 해제 대기 상태를, V59는 두 해제 대기 상태를 보존하면서 RECEIPT_V1 및 AUTHORIZED·READY_TO_CONFIRM을 추가합니다. 새 writer를 시작하기 전에 Closing V59와 Journal V20/V21 및 Master 영수증 저장소를 migrate/validate하고 기존 Journal 이력을 대사·인증하며 오래된 writer를 배출해야 합니다.
 - Closing API/Batch는 전용 Flyway 위치 `classpath:db/closing-migration`과 이력 테이블 `flyway_schema_history_closing`을 공유합니다. 기존 history 없는 스키마는 runner가 전체 V49 컬럼의 타입·길이·nullability, identity, PK/FK/기간 unique를 확인한 경우에만 49에서 baseline하며, 일부만 존재하거나 V50이 부분 적용된 모양은 자동 보정하지 않습니다.
 - V56부터 `period_locks` unlock은 행을 비활성화하고 해제자·시각을 보존합니다. 별도 `unlock_reason` 컬럼은 아직 없으며 기존 해제 감사 로그의 사유가 남습니다.
 - FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
@@ -278,3 +280,27 @@ SELECT fiscal_period_id, adjustment_type, journal_entry_id, approved_by, approve
 FROM closing_adjustments
 ORDER BY approved_at DESC;
 ```
+
+
+## Journal checkpoint와 영속 봉인 명령 (GH-762)
+
+V58은 `final_close_evidence_sets`에 nullable `journal_revision`, `journal_start_date`,
+`journal_end_date`를 추가합니다. 기간 ID는 기존 `fiscal_period_id`를 사용합니다. 세 컬럼은 모두
+null인 과거 행 또는 전부 채운 유효 범위여야 합니다. 과거 행은 조회·감사 용도로만 유지되며
+새 마감에 사용할 수 없습니다. 신규 토큰은 V2 digest에 포함되어 저장 후 변경을 감지합니다.
+
+`closing_calendars.journal_fence_*`는 operation ID·기간 ID·시작/종료일·revision·actor의 정확한
+명령을 저장합니다. CLOSED 후에도 남기고 재개방이 완료된 뒤 같은 명령을 release합니다.
+`transition_stage`는 30자로 늘고 `CANCEL_RELEASE_PENDING`, `RELEASE_PENDING`을 허용합니다.
+CHECK는 전이·상태·명령의 완전성을 보존합니다. 전역 revision/봉인/tombstone 테이블은 Journal
+소유 V20이며 Closing migration이 다른 서비스 스키마를 수정하지 않습니다.
+
+배포는 기존 writer와 금액 쓰기를 drain한 후 각 소유 migration을 적용하고, 토큰 없는 증빙을
+다시 수집해야 합니다. 과거 CLOSED 행의 봉인 명령은 자동 추정하지 않습니다. 이 행은 재개방 시
+거부되므로 담당자의 승인된 원장/기간 대사와 forward correction이 필요합니다. 기존 증빙·감사·
+명령/tombstone을 지우거나 revision을 되돌리는 down migration은 지원하지 않습니다. 코드 롤백도
+구버전 writer가 새 fence를 우회하지 않도록 쓰기를 중단한 상태에서 검토해야 합니다.
+
+### 통합 migration 계약 (GH-955)
+
+현재 Closing 이력은 V49–V59입니다. V58의 checkpoint·fence와 두 해제 대기 상태를 V59가 보존하며 RECEIPT_V1·AUTHORIZED·READY_TO_CONFIRM을 추가합니다. OPEN RELEASE_PENDING은 원래 fence가 있어야 하고 CANCEL_RELEASE_PENDING은 fence operation ID와 전이 ID가 같아야 합니다. 프로토콜·원래 명령·전이 ID는 정확한 Journal RELEASED 응답까지 보존합니다. Closing V59, Journal V20 admission·V21 생성 locks/receipts 및 Master 전이 저장소를 먼저 migrate/validate하고 오래된 writer를 배출합니다. Master 영수증은 Journal admission이나 생성 registry를 대신하지 않습니다. 기존 V58 rollback·이력 대사 조건도 유지합니다.

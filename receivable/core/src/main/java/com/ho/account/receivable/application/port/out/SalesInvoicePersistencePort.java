@@ -7,6 +7,7 @@ import java.util.Optional;
 
 public interface SalesInvoicePersistencePort {
     SalesInvoice save(SalesInvoice invoice);
+    Optional<SalesInvoice> findByInvoiceNo(String invoiceNo);
     List<SalesInvoice> findAll();
     List<SalesInvoice> findByStatus(SalesInvoiceStatus status);
     Optional<SalesInvoice> findById(Long id);

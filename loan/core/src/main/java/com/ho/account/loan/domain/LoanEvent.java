@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
  * 전표는 별도 journal-ledger Aggregate가 소유하므로 이벤트에는 ID와 전표번호만 값으로 남깁니다.
  */
 @Entity
-@Table(name = "loan_events")
+@Table(name = "loan_events", uniqueConstraints = @UniqueConstraint(columnNames = {"loan_id", "operation_key"}))
 public class LoanEvent {
 
     @Id
@@ -42,6 +42,24 @@ public class LoanEvent {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recalculation_run_id")
     private RecalculationRun recalculationRun;
+
+    @Column(name = "operation_key", length = 100, updatable = false)
+    private String operationKey;
+
+    @Column(name = "source_request_fingerprint", length = 64, updatable = false)
+    private String sourceRequestFingerprint;
+
+    public String getOperationKey() { return operationKey; }
+    public String getSourceRequestFingerprint() { return sourceRequestFingerprint; }
+
+    public void bindOperation(String key, String fingerprint) {
+        if (operationKey != null || key == null || key.isBlank() || key.length() > 100
+                || fingerprint == null || !fingerprint.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("A new immutable operation binding is required.");
+        }
+        operationKey = key;
+        sourceRequestFingerprint = fingerprint;
+    }
 
     @Column(updatable = false)
     private LocalDateTime createdAt;

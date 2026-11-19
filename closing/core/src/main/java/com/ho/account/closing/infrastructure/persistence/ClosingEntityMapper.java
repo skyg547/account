@@ -29,7 +29,15 @@ final class ClosingEntityMapper {
         domain.restoreTransition(entity.getTransitionId(), entity.getTransitionTarget(),
                 entity.getTransitionStage(), entity.getTransitionFiscalPeriodId(),
                 entity.getTransitionApprovalId(), entity.getTransitionActor(),
-                entity.getTransitionPreparedAt(), entity.getTransitionEvidenceSetId());
+                entity.getTransitionPreparedAt(), entity.getTransitionEvidenceSetId(),
+                entity.getTransitionProtocol());
+        if (entity.getJournalFenceOperationId() != null) {
+            domain.restoreJournalFenceCommand(new com.ho.account.contracts.journal.JournalPeriodFenceCommand(
+                    entity.getJournalFenceOperationId(), new com.ho.account.contracts.journal.JournalPeriodCheckpoint(
+                            new com.ho.account.contracts.journal.JournalPeriodScope(entity.getJournalFencePeriodId(),
+                                    entity.getJournalFenceStartDate(), entity.getJournalFenceEndDate()),
+                            entity.getJournalFenceRevision()), entity.getJournalFenceActor()));
+        }
         return domain;
     }
 
@@ -59,6 +67,14 @@ final class ClosingEntityMapper {
         entity.setTransitionActor(domain.getTransitionActor());
         entity.setTransitionPreparedAt(domain.getTransitionPreparedAt());
         entity.setTransitionEvidenceSetId(domain.getTransitionEvidenceSetId());
+        var fence = domain.getJournalFenceCommand();
+        entity.setJournalFenceOperationId(fence == null ? null : fence.operationId());
+        entity.setJournalFencePeriodId(fence == null ? null : fence.checkpoint().scope().fiscalPeriodId());
+        entity.setJournalFenceStartDate(fence == null ? null : fence.checkpoint().scope().startDate());
+        entity.setJournalFenceEndDate(fence == null ? null : fence.checkpoint().scope().endDate());
+        entity.setJournalFenceRevision(fence == null ? null : fence.checkpoint().revision());
+        entity.setJournalFenceActor(fence == null ? null : fence.actor());
+        entity.setTransitionProtocol(domain.getTransitionProtocol());
         entity.setName(domain.getName());
         return entity;
     }
@@ -153,10 +169,8 @@ final class ClosingEntityMapper {
         domain.setLockType(entity.getLockType());
         domain.setLockedBy(entity.getLockedBy());
         domain.setLockedAt(entity.getLockedAt());
-        domain.setActive(entity.isActive());
-        domain.setActiveFiscalPeriodId(entity.getActiveFiscalPeriodId());
-        domain.setUnlockedBy(entity.getUnlockedBy());
-        domain.setUnlockedAt(entity.getUnlockedAt());
+        domain.restoreLifecycle(entity.isActive(), entity.getActiveFiscalPeriodId(),
+                entity.getUnlockedBy(), entity.getUnlockedAt());
         domain.setReason(entity.getReason());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());

@@ -31,12 +31,20 @@
 현재 주요 계약:
 
 - 전표: `JournalPostingPort`, `JournalQueryPort`, `JournalEntryCommand`
+- 마감 admission: `JournalPeriodFencePort`, `JournalPeriodCheckpoint`, `JournalPeriodFenceCommand`
 - 원장: `LedgerQueryPort`, `LedgerBalanceSummary`
 - 기준정보: `MasterDataQueryPort`, `AccountSubjectRef`, `FiscalPeriodControlPort`
 - 지출/리스: `BudgetControlPort`, `LeasePaymentResolutionPort`
 - 자산: `AssetRegistrationPort`
 - 세금/마감: `TaxInvoiceQueryPort`, `AccountingPeriodStatusPort`
 - 원문서 추적: `SourceDocumentProvider`
+
+전표 생성 명령의 `operationKey`는 lineage 안에서 한 업무 사건/버전을 가리킵니다.
+재시도에는 동일 키와 동일 전표 내용(작성자 포함)을 사용하며, `slipNo`와는 독립적입니다.
+생성자 및 원격 JSON 호환 조건은 [계약 스키마](./docs/schema.md)에 정리했습니다.
+`FiscalPeriodControlPort`의 새 준비·적용·확인·영수증 조회 계약은 응답 유실 후 같은 회계기간
+전이를 식별하는 데 사용합니다. [전이 흐름](./docs/process-flow.md#회계기간-마감재개와-응답-유실)과
+[필드 계약](./docs/schema.md#회계기간-전이-영수증-fiscalperiodcontrolport)을 참조하세요.
 
 ## 이번 점검에서 강화한 정합성
 

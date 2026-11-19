@@ -13,6 +13,11 @@ import lombok.Data;
  */
 @Data
 public class DoDScenarioRequestDto {
+    @NotBlank
+    @Size(max = 64)
+    @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+    private String operationId;
+
     @NotNull
     @Positive
     private Long loanId;

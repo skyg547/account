@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.contracts.journal.*;
 import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
@@ -102,6 +103,7 @@ class PostingConcurrencyIntegrationTest {
     @Autowired private EntityManager entityManager;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private EntryGate gate;
+    @Autowired private JdbcJournalPeriodAdmissionAdapter admission;
     @Autowired @Qualifier("jpaBalances") private LedgerBalancePersistencePort jpaBalances;
     @Autowired private BalanceReaggregationService reaggregationService;
     @Autowired private JournalEntryService reversalCommands;
@@ -116,6 +118,7 @@ class PostingConcurrencyIntegrationTest {
             jdbc.update("UPDATE ledger_reaggregation_control SET status = 'OPEN',"
                     + " owner_job_instance_id = NULL, range_start = NULL, range_end = NULL, epoch = epoch + 1"
                     + " WHERE control_id = 1");
+            jdbc.update("DELETE FROM journal_period_fences");
             for (String table : List.of("gl_entries", "sl_entries", "gl_balances", "sl_balances",
                     "journal_reversal_operations", "journal_details", "journal_entries")) {
                 jdbc.update("DELETE FROM " + table);
@@ -371,12 +374,13 @@ class PostingConcurrencyIntegrationTest {
     }
 
     @Test
-    void postingThatWinsAnAffectedStripeCommitsBeforeBarrierAndIsInStablePostedSourceOnce() throws Exception {
+    void postingThatWinsAdmissionCommitsBeforeReaggregationAndIsInStablePostedSourceOnce() throws Exception {
         CountDownLatch stripeHeld = new CountDownLatch(1);
         CountDownLatch allowPosting = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Future<?> posting = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                admission.admit(DATE);
                 jpaBalances.lockBalanceAccounts(List.of(
                         new LedgerBalancePersistencePort.BalanceAccount("10100", "KRW"),
                         new LedgerBalancePersistencePort.BalanceAccount("40100", "KRW")));
@@ -453,6 +457,106 @@ class PostingConcurrencyIntegrationTest {
                     .isInstanceOf(DataIntegrityViolationException.class);
         }
         assertPostedExactlyOnce("original");
+    }
+
+    private JournalPeriodScope periodScope() {
+        return new JournalPeriodScope(762L, DATE.withDayOfMonth(1), DATE.withDayOfMonth(30));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void fenceDrainsPostingUntilOuterCommitThenRejectsStaleValidation(Mode mode) throws Exception {
+        JournalPeriodFenceCommand command = new JournalPeriodFenceCommand("outer-commit-" + mode,
+                admission.checkpoint(periodScope()), "closer");
+        CountDownLatch methodReturned = new CountDownLatch(1);
+        CountDownLatch allowCommit = new CountDownLatch(1);
+        CountDownLatch fenceStarted = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> writer = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                posting(mode).postJournalEntry(journalId, "outer-poster");
+                entityManager.flush();
+                methodReturned.countDown();
+                await(allowCommit);
+            }));
+            await(methodReturned);
+            Future<?> fence = executor.submit(() -> {
+                fenceStarted.countDown();
+                return admission.fence(command);
+            });
+            await(fenceStarted);
+            assertThatThrownBy(() -> fence.get(300, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            allowCommit.countDown();
+            writer.get(15, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> fence.get(15, TimeUnit.SECONDS))
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .hasRootCauseMessage("Journal changed after checkpoint; repeat validation from fresh sources");
+            assertPostedExactlyOnce("outer-poster");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM journal_period_fences", Integer.class)).isZero();
+        } finally {
+            allowCommit.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(20, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void committedFenceRejectsPostingAndReversalWithoutAnyFinancialOrAuditWrite(Mode mode) {
+        long originalId = seedPendingReversalOperation("FENCE-" + mode);
+        JournalPeriodFenceCommand command = new JournalPeriodFenceCommand("fence-first-" + mode,
+                admission.checkpoint(periodScope()), "closer");
+        admission.fence(command);
+        assertThatThrownBy(() -> posting(mode).postJournalEntry(journalId, "blocked-poster"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("fenced");
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("APPROVED");
+        assertThat(jdbc.queryForObject("SELECT audit_user FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("approver");
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_reversal_operations WHERE original_journal_entry_id = ?",
+                String.class, originalId)).isEqualTo("PENDING");
+        assertEntryCounts(0);
+        assertBalances("0.00");
+        admission.release(command);
+        posting(mode).postJournalEntry(journalId, "after-release");
+        assertPostedExactlyOnce("after-release");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void committedFenceRejectsOrdinaryPostingBeforeAuditOrFinancialMutation(Mode mode) {
+        admission.fence(new JournalPeriodFenceCommand("normal-fence-" + mode,
+                admission.checkpoint(periodScope()), "closer"));
+        long revision = admission.checkpoint(periodScope()).revision();
+        assertThatThrownBy(() -> posting(mode).postJournalEntry(journalId, "denied"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("fenced");
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("APPROVED");
+        assertThat(jdbc.queryForObject("SELECT audit_user FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("approver");
+        assertEntryCounts(0);
+        assertBalances("0.00");
+        assertThat(admission.checkpoint(periodScope()).revision()).isEqualTo(revision);
+    }
+
+    @Test
+    void directSingleAndBulkMovementAndReaggregationCannotChangeFencedSuccessors() {
+        JournalPeriodScope successor = new JournalPeriodScope(763L, DATE.plusMonths(1), DATE.plusMonths(2));
+        admission.fence(new JournalPeriodFenceCommand("successor-fence", admission.checkpoint(successor), "closer"));
+        LedgerService direct = new LedgerService(jpaBalances,
+                new JdbcBalanceReaggregationControlAdapter(jdbc), admission);
+        JournalEntry entry = journal();
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status ->
+                direct.updateLedgerBalances(entry.getDetails().get(0), DATE)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("fenced");
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status -> direct.updateLedgerBalancesBulk(entry.getDetails())))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("fenced");
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status -> direct.reaggregateLedgerBalancesForPeriod(DATE, DATE)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("fenced");
+        assertThatThrownBy(() -> reaggregationService.start(762, DATE, DATE))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("fenced");
+        assertEntryCounts(0);
+        assertBalances("0.00");
     }
 
     private void assertPostedExactlyOnce(String poster) {
@@ -614,10 +718,15 @@ class PostingConcurrencyIntegrationTest {
             return new JdbcBalanceReaggregationControlAdapter(jdbc);
         }
 
+        @Bean JdbcJournalPeriodAdmissionAdapter admission(JdbcTemplate jdbc,
+                JdbcBalanceReaggregationControlAdapter control, PlatformTransactionManager manager) {
+            return new JdbcJournalPeriodAdmissionAdapter(jdbc, control, manager);
+        }
+
         @Bean BalanceReaggregationService reaggregationService(
                 @Qualifier("jpaBalances") LedgerBalancePersistencePort balances,
-                JdbcBalanceReaggregationControlAdapter control) {
-            return new BalanceReaggregationService(balances, control);
+                JdbcBalanceReaggregationControlAdapter control, JdbcJournalPeriodAdmissionAdapter admission) {
+            return new BalanceReaggregationService(balances, control, admission);
         }
 
         @Bean JournalEntryService reversalCommands(
@@ -633,25 +742,25 @@ class PostingConcurrencyIntegrationTest {
                 JournalReversalPersistencePort reversals,
                 @Qualifier("jpaEntries") LedgerEntryPersistencePort entries,
                 @Qualifier("jpaBalances") LedgerBalancePersistencePort balances,
-                EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control) {
-            return service(journals, reversals, gate.wrap(entries, em), balances, em, control);
+                EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control, JdbcJournalPeriodAdmissionAdapter admission) {
+            return service(journals, reversals, gate.wrap(entries, em), balances, em, control, admission);
         }
 
         @Bean PostingService jdbcPosting(JournalPersistencePort journals,
                 JournalReversalPersistencePort reversals,
                 @Qualifier("jdbcEntries") LedgerEntryPersistencePort entries, JdbcTemplate jdbc,
                 @Qualifier("jdbcBalances") LedgerBalancePersistencePort balances,
-                EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control) {
-            return service(journals, reversals, gate.wrap(entries, em), balances, em, control);
+                EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control, JdbcJournalPeriodAdmissionAdapter admission) {
+            return service(journals, reversals, gate.wrap(entries, em), balances, em, control, admission);
         }
 
         private PostingService service(JournalPersistencePort journals, JournalReversalPersistencePort reversals,
                 LedgerEntryPersistencePort entries,
                 LedgerBalancePersistencePort balances, EntityManager em,
-                JdbcBalanceReaggregationControlAdapter control) {
+                JdbcBalanceReaggregationControlAdapter control, JdbcJournalPeriodAdmissionAdapter admission) {
             // These adapters are nested fixture objects, so Spring cannot inject their persistence context.
             org.springframework.test.util.ReflectionTestUtils.setField(balances, "entityManager", em);
-            return new PostingService(journals, reversals, entries, new LedgerService(balances, control),
+            return new PostingService(journals, reversals, entries, new LedgerService(balances, control, admission),
                     new ClosingLockValidationFilter(date -> false));
         }
     }

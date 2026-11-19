@@ -205,6 +205,16 @@ public class DepositTransactionalOutboxAdapter implements OutboxPort {
     private JournalOutboxEvent toJournalOutboxEvent(DepositOutboxEntity entity) {
         try {
             JournalEntryCommand command = objectMapper.readValue(entity.getPayload(), JournalEntryCommand.class);
+            if (command.operationKey() == null) {
+                // Legacy Deposit payloads predate operationKey, but their committed outbox key is durable.
+                // Keep explicit command keys intact and never manufacture identity from a new event ID.
+                String operationKey = Objects.requireNonNull(entity.getIdempotencyKey(),
+                        "Legacy Deposit outbox requires its persisted idempotency key");
+                command = new JournalEntryCommand(command.slipDate(), command.accountingDate(),
+                        command.description(), command.entryType(), command.currencyCode(), command.exchangeRate(),
+                        command.createdBy(), command.auditUser(), command.lineageSourceType(), command.lineageSourceId(),
+                        command.slipNo(), operationKey, command.sourceRequestFingerprint(), command.lines());
+            }
             return new JournalOutboxEvent(
                     entity.getEventId(),
                     entity.getSourceModule(),

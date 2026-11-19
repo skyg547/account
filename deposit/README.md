@@ -52,6 +52,12 @@ IntelliJ에서는 `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Contex
 
 HTTP 성공은 **잔액과 전표 요청의 로컬 커밋**을 뜻합니다. 외부 Journal 초안 생성은 커밋 후 기존 outbox 릴레이가 수행하므로, 릴레이가 완료되기 전에는 원장 대사가 일시적으로 차이 날 수 있습니다. 예를 들어 로컬 H2 프로필에서 계좌를 개설한 뒤 `{"amount": "100.00"}`으로 입금하면 잔액이 100.00 증가하고 해당 거래의 outbox 이벤트가 생성됩니다. 릴레이가 활성화되어 있으면 이후 이벤트 상태가 `PUBLISHED`로 바뀝니다.
 
+Journal 생성 명령의 `operationKey`는 outbox의 영속 `idempotencyKey`와 같다. 초기입금은 `DEPOSIT_ACCOUNT:<계좌번호>`, 입출금은 `DEPOSIT_TRANSACTION:<거래 UUID>`를 쓴다. 거래 UUID는 낙관 잠금 재시도 전에 한 번 만들고, 커밋된 outbox를 릴레이할 때 그대로 읽는다. 전표 응답을 잃어도 같은 키와 내용은 같은 Journal ID를 반환하며, 같은 키의 금액·계정 변경은 충돌로 거부된다. 같은 계좌의 다음 입출금은 별도 거래 키를 가지므로 합쳐지지 않는다.
+
+배포 전 생성된 outbox JSON에 `operationKey`가 없으면 Deposit 영속 어댑터가 해당 행에 이미 저장된 `idempotencyKey`를 전달한다. 명시된 키는 덮어쓰지 않는다. 배포 사전 점검에서는 미처리 legacy 행의 키가 존재하고 공백이 아니며 Journal의 100자 제한 안인지 확인해야 한다. 유효한 기존 키가 없는 행은 실패하며 새 UUID나 전표번호로 추측하지 않는다. 원본 payload와 과거 이력은 수정하지 않는다.
+
+`DepositJournalCreationIntegrationTest`는 합성 H2에서 실제 Deposit outbox와 Journal 생성 서비스/JPA receipt를 연결해 초기입금 응답 유실, legacy payload 재전송, 같은 키의 금액 충돌 및 같은 계좌의 복수 입금을 검증한다. `./gradlew :deposit:core:test --tests '*DepositJournalCreationIntegrationTest' --offline --no-daemon --console=plain`으로 실행한다. 운영 PostgreSQL·원격 HTTP 검증은 별도다.
+
 회계일자가 마감되어 Journal이 전표를 거부하면 **이미 커밋된 잔액은 자동으로 되돌리지 않습니다.** 릴레이는 오류와 재시도 횟수를 outbox에 남기며, 반복 실패로 `FAILED`가 된 이벤트는 원인을 확인하고 마감 정책에 맞게 기간을 재개방하거나 승인된 조정 전표 절차를 결정한 뒤 재전송해야 합니다. 임의로 원본 outbox를 지우거나 회계일자를 바꾸면 계보가 끊깁니다. 현재 입출금 HTTP 요청에는 멱등 키가 없으므로 동일 요청을 다시 보내면 새 거래로 처리됩니다. `deposit_transactions` 영속 이력, 운영 PostgreSQL 트랜잭션, 실제 Journal 마감·대사는 이 변경에서 검증하지 않았습니다.
 
 운영에서는 로컬 어댑터 대신 master-data와 journal-ledger의 실제 어댑터를 연결해야 합니다.

@@ -52,13 +52,13 @@ class LoanJournalAdapterTest {
     void requestsApprovalAsMakerThenApprovesWithConfiguredCheckerBeforePosting() {
         properties.setJournalApproverActor(" SERVICE:LOAN-CHECKER ");
         JournalEntry saved = savedEntry();
-        when(journal.createJournalEntry(any())).thenReturn(saved);
+        when(journal.createJournalEntry(any(), any(), any())).thenReturn(saved);
         when(journal.getJournalEntryWithDetails(17L)).thenReturn(java.util.Optional.of(saved));
 
         adapter().post(command("loan-maker"));
 
         InOrder order = inOrder(journal);
-        order.verify(journal).createJournalEntry(any());
+        order.verify(journal).createJournalEntry(any(), any(), any());
         order.verify(journal).requestJournalEntryApproval(17L, "loan-maker");
         order.verify(journal).approveJournalEntry(17L, "service:loan-checker");
         order.verify(journal).postJournalEntry(17L, "loan-maker");
@@ -67,7 +67,7 @@ class LoanJournalAdapterTest {
     @Test
     void approvalFailureNeverPostsOrPublishes() {
         properties.setJournalApproverActor("service:loan-checker");
-        when(journal.createJournalEntry(any())).thenReturn(savedEntry());
+        when(journal.createJournalEntry(any(), any(), any())).thenReturn(savedEntry());
         org.mockito.Mockito.doThrow(new IllegalStateException("approval rejected"))
                 .when(journal).approveJournalEntry(17L, "service:loan-checker");
 
@@ -80,7 +80,7 @@ class LoanJournalAdapterTest {
     @Test
     void postingFailureNeverPublishesOrReportsSuccess() {
         properties.setJournalApproverActor("service:loan-checker");
-        when(journal.createJournalEntry(any())).thenReturn(savedEntry());
+        when(journal.createJournalEntry(any(), any(), any())).thenReturn(savedEntry());
         org.mockito.Mockito.doThrow(new IllegalStateException("ledger write failed"))
                 .when(journal).postJournalEntry(17L, "loan-maker");
 
@@ -95,6 +95,7 @@ class LoanJournalAdapterTest {
 
     private static JournalEntry savedEntry() {
         JournalEntry entry = new JournalEntry();
+        entry.initializeDraft();
         entry.setId(17L);
         entry.setSlipNo("LOAN-17");
         return entry;
@@ -102,7 +103,7 @@ class LoanJournalAdapterTest {
 
     private static LoanJournalCommand command(String maker) {
         return new LoanJournalCommand(LocalDate.of(2026, 5, 18), "Loan disbursal", maker,
-                "LOAN_DISBURSAL", "7", "KRW", List.of(
+                "LOAN_DISBURSAL", "7", "KRW", "DISBURSAL_V1", null, List.of(
                 new LoanJournalLine("DEBIT", "131900", new BigDecimal("1000"), "Receivable"),
                 new LoanJournalLine("CREDIT", "101900", new BigDecimal("1000"), "Cash")));
     }

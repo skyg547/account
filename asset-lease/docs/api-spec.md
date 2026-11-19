@@ -73,12 +73,13 @@
 - **목적:** 리스 기간 연장, 리스료 변경 등 계약 조건 변경 시 리스부채와 사용권자산을 재측정합니다.
 - **Request Body (LeaseRemeasurementRequest):**
   - `contractId` (Long): 대상 계약 ID
+  - `operationId` (String, 필수): 접수한 업무 변경 식별자. 1~80자, 첫 글자는 영문/숫자, 나머지는 영문/숫자/`.`/`_`/`:`/`-`. 같은 변경의 재시도에는 동일 값을 전달한다.
   - `remeasurementDate` (LocalDate, 필수): 아직 `SCHEDULED`인 첫 회차의 날짜 (`YYYY-MM-DD`)
   - `newMonthlyPayment` (BigDecimal, 선택): 변경된 월 리스료, 양수·소수 둘째 자리까지
   - `newEndDate` (LocalDate, 선택): 변경된 종료일, 기준일 이후
   - `newDiscountRate` (BigDecimal, 선택): 변경된 연 이자율(%), 0 이상·소수 넷째 자리까지
 - **Header:** `X-User-ID` (실행자, 필수)
-- **예시:** `{"contractId":1,"remeasurementDate":"2026-06-01","newMonthlyPayment":2400.00}`
+- **예시:** `{"contractId":1,"operationId":"AMENDMENT-2026-001","remeasurementDate":"2026-06-01","newMonthlyPayment":2400.00}`
 - **Success Response:** `200 OK` (조건이 반영된 계약 엔티티; 부채·사용권자산·상환표는 DB에 함께 저장)
 - **검증:** 이미 `PAID`인 기준일이나 미처리 과거 회차, 계약 기간 밖 기준일, 잘못된 금액·이자율은 거절한다. 같은 조건과 기준일의 재시도는 미래 회차를 중복 생성하지 않는다.
 
@@ -95,3 +96,5 @@
 - **PV (Present Value, 현재가치):** 미래에 낼 리스료를 지금 시점의 가치로 환산한 금액입니다. 은행 이자를 생각하면 쉽습니다.
 - **사용권자산(ROU Asset):** 리스 계약을 통해 자산을 사용할 수 있는 '권리'를 자산으로 잡는 것입니다.
 - **리스부채(Lease Liability):** 앞으로 내야 할 리스료를 '빚'으로 잡는 것입니다.
+
+GH-955 호환성: 재측정의 누락/잘못된 `operationId`는 서비스 호출 전에 HTTP 400, 동일 ID의 다른 입력은 HTTP 409다. 기존 ID 없는 클라이언트는 업데이트가 필요하다. 다른 업무 변경은 같은 날에도 새 ID를 사용하며, 같은 요청 재시도는 원래 회계 이벤트를 재발행한다.

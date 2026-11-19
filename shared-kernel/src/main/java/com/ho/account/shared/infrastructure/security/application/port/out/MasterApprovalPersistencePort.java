@@ -10,6 +10,11 @@ public interface MasterApprovalPersistencePort {
 
     Optional<MasterApproval> findById(Long id);
 
+    /** Implementations used for decisions must hold a write lock until the caller commits. */
+    default Optional<MasterApproval> findByIdForDecision(Long id) {
+        throw new UnsupportedOperationException("Decision locking is required.");
+    }
+
     List<MasterApproval> findByStatus(MasterApproval.ApprovalStatus status);
 }
 

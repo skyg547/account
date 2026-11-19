@@ -1,3 +1,111 @@
+## GH-955 실제 체인 패키지 경로 보정 — 2026-11-20 KST
+- 별도 Auth/runtime Reviewer가 새 CI 준비안에서 실제 bootJar 이름과 하네스 기본 경로 불일치를 확인했다. Gradle archivesName/현재 버전에 맞게 Auth는 auth-api, Gateway는 account-gateway 접두사를 사용하도록 기본 경로2개와 기존 기능 문단을 수정했다. 환경 변수 override와 모든 chain assertion은 유지한다.
+- node --check와 diff/marker 정적 검사를 수행했다. Node20/lockfile 설치·6bootJar·실제 체인은 아직 미실행이며 신규 workflow와 문서 CI 절은 설치 승인 전 미게시 상태로 별도 보존한다. 수정된 기본 경로만 게시하며 사용자 승인·실행 게이트·실제 독립 GitHub 승인/신뢰 정책을 대체하지 않는다.
+- 원본9개 head/기본 dirty84/모든 PR·branch·worktree 및 금융 이력 보존. 현재 main 병합/Issue completed 종료0, 롤백은 검토된 경로 수정 revert.
+## GH-955 최종 CI fixture 보정 — 2026-11-20 KST
+- PR #956, 원격 검증 head 1b1bda6c, base ed539846. Module run44560253740은 24개 모듈 중22개 SUCCESS: Master 실제 HTTP 복합 복구 fixture, Loan, Asset, Journal, Auth/Gateway, migration-runner PostgreSQL 포함. 성공 task 로그만으로 개별 테스트 수나 skipped case PASS를 추정하지 않는다.
+- Closing core452건 중1실패/1skip: 신규 annual durable-provider test가 source header description을 detail fixture에 넣지 않아 기존 금융·lineage 검증이 거부했다. production JDBC/HTTP source mapping과 같은 headerDescription 한 줄을 보완하며 receipt/retry/변경 내용 충돌 assertions와 production validator는 유지한다. 실행 GREEN은 새 head CI로 확인해야 한다.
+- Deposit은 Caffeine3.1.8 의존성 조회가3회 실패하여 compile 전 중단했다. 실제 테스트 실패나 PASS로 처리하지 않는다. 다른 producer의 이전 유효한 실행 증거는 변경 없는 범위에만 재사용한다.
+- Node20/lockfile frontend tests·TypeScript·lint, Auth/Gateway/Closing/Master bootJar6개와 실제 BFF→Gateway→Auth 체인용 GitHub-hosted gate를2파일로 준비 중이다. 설치·다운로드 실행은 AGENTS.md에 따른 사용자 답변 대기이며 로컬 다운로드/DB 기동을 우회하지 않는다. 신뢰 정책/별도 GitHub reviewer 입력, 최종 독립 검수와 실행 게이트는 미완료다.
+- 기본 dirty84와 모든 원본 PR/branch/worktree를 보존한다. main merge/Issue completed close0. 롤백은 검토된 fixture revert 또는 forward correction이며 receipt/fence/감사/금융 이력을 삭제하지 않는다.
+## GH-955 통합 수정 동결 — 2026-11-20 KST
+- 소스 checkpoint 03823ab7d04d8ae04b3c6ef2127777056c114815, PR #956. 독립 금융·인증 검수에서 확인된 생산자 operationKey 누락, Nav 역할 코드 불일치, merge 중복 선언, asset 신규 domain framework 결합/생성 DB ID drift/원 nullable 입력 결합 누락을 수정했다. 아래 과거 checkpoint의 미해결 지적은 이 기록과 현재 diff로 대조한다.
+- 부모만 Git/원격/공유 기록을 갱신했다. 원본 PR9개 head는 ancestor로 보존한다. Asset V21 양 dialect와 Loan V34를 새로 추가했고 기존 published migration은 바꾸지 않았다. 통합 신규 Closing V59는 V58의 두 release 대기 상태를 보존한다.
+- Loan: 명시적 operationId, source 원 요청 digest와 동일 loan 잠금/unique binding, source rollback 뒤 독립 Journal receipt 재사용, 완료 source 결과 replay, local/HTTP 동일 identity; DoD 64자 ID·생성 type ID 변경·완료 replay 검증. Asset: business code/no·lifecycle/month keys, 명시적 재측정 ID, 순수 receipt domain/infra JPA, 원 event 값과 raw fingerprint/version replay. 신규 API ID 필수(400), 변경 재사용409 호환성·writer 배출·forward migration 조건을 기능 문서에 기록했다.
+- 실제 검증: Loan core254/API9/Batch6=269(27 suites), Asset core58/API4/Batch3=65(16 suites), 모두 failure/error/skip0, 각 API/Batch bootJar2개 PASS. Asset28파일은 run전후 SHA 동일. Loan/API 테스트는 HTTP identity/실제 JPA receipt를 입증하며 기존 원격 인증·REQUESTED 흐름의 실제 호환을 뜻하지 않는다. H2/합성 rule 및 ledger/reference leaf mock 한계를 보존한다.
+- Deposit/Expenditure full173 PASS 뒤 수정한 독립 commit Deposit2case 재실행 PASS; Recon offline Jackson 미실행은 hosted6be job135676348583 SUCCESS로 보완했다. runner 실제 PG job135676348030, Deposit/Expense135676344465/135676344526 SUCCESS. Closinga9 job135683983183 SUCCESS(새 annual/FX/ECL source checkpoint 이전이므로 새 테스트는 최종 CI 필요).
+- 실제6be Master fixture 실패는 36자 DB operation ID에 'original-close-'+UUID51자를 넣은 설정 오류였다. UUID36자로 수정했고 명령 비교/장애 조건을 유지했다. Closing220/2fail은 release 완료 감사에 기존 provider provenance가 빠진 문제로 RECEIPT_V1 CONFIRMED와 Journal ACK를 모두 남기고 legacy release는 구분했으며 assertions를 강화했다. 최종 통합 CI로 재확인한다.
+- 독립 Reviewer가 source 지적 해소와 Loan/Asset 실제 XML/빌드 증거를 재확인했다. 전체 Q4/승인/병합은 미완료다. Node20·정확한 프런트 의존성/tsc/lint/BFF/실제 확장 chain 및 Closing/Master/Auth/Gateway bootJar는 로컬 cache/권한 제약으로 미확인이다. Merge Guard 신뢰 정책 undefined와 별도 GitHub reviewer 입력도 대기한다. 녹색 constituent CI를 이 게이트의 대체로 쓰지 않는다.
+- 기존 두 번째 Loan source 재계산이 과거 schedule FK와 충돌하는 한계를 실제1/1 RED로 확인하고 Issue #957에 분리했다. history를 삭제하지 않았고 필수 source rollback/변경 내용/완료 replay assertions는 유지했다. 같은 날 별도 deferred source 및 별도 Journal identity는 검증했다. 반복 source 재계산 성공을 주장하지 않는다. Asset Kafka/DB 이중 쓰기 비원자성도 기존 한계이며 outbox를 구현했다고 주장하지 않는다.
+- source/SQL/기능 문서·검증 로그/manifest는 각 모듈 build/gh955-evidence와 PR 감사 근거로 보존한다. 검토된 revert/forward schema correction만 롤백 경로이며 receipt/fence/tombstone/승인/감사/금융 이력 삭제·임의 역채움은 금지한다. 기본 checkout dirty84와 모든 branch/worktree를 보존한다. 실제 main merge/Issue completed close는 아직0.
+## GH-955 통합 후보 — 2026-11-20 KST
+- Issue #955, agent/955-pr-cohort-integration, C:/tmp/account-work-955-pr-cohort-integration; base ed539846. PR940/948/949/951/952/953/954/950/943의 정확한 공개 head를 merge ancestry로 보존했다. 원본 PR/브랜치/기본 dirty84는 유지한다.
+- 부모가 충돌을 해결했다. Journal V20 admission/fence+V21 creation, Closing V58 fence+V59 receipt authorization을 함께 유지한다. Master CONFIRMED 뒤에도 RELEASE_PENDING에서 원래 Journal RELEASED 응답을 기다리고, CANCELLED 뒤 CANCEL_RELEASE_PENDING에서 tombstone/응답 확인 후 정리한다. OPEN 복구 완료 감사는 release 뒤 한 번만 기록한다. 기간 범위 변경은 봉인과 확정된 로컬 승인 단계를 보존한다.
+- 변경은 통합에 필요한 의미 충돌·fixture·문서 정합성에 한정한다. root4 기록은 incoming prefix+ours 전체+incoming suffix로 역사를 보존했고 module Journal 기록도 양측 prepend를 보존했다. 테스트 assertions/장애 주입은 제거하지 않았다.
+- 추가 통합 검증: 원래19 실제 HTTP 장애 사례+확인 ACK 유실 후 Journal ACK 유실/취소 후 지연 apply 거부 2사례, H2 독립 커밋 receipt fixture; V58→V59 해제 단계·명령 일치/누락 거부·원자적 clear. 이는 작성한 범위이며 현재 실행 PASS가 아니다.
+- 실제 로컬 `:closing:core:test --offline --no-daemon --max-workers=2` 및 새 HTTP 표적 실행은 jjwt-api0.11.5 cache 부재로 컴파일 전 중단. 설치/다운로드 없이 보존했다. Node harness32 PASS/0fail/skip, diff/marker 확인은 별도 증거. 개별 PR의 이전 CI/테스트는 통합 head PASS를 대신하지 않는다.
+- 통합 후보 CI와 새 독립 금융/인증 Reviewer 진행. bootJar, 실제 Node20 BFF→Gateway→Auth chain, 실제 신뢰 정책/별도 GitHub 승인 계정은 아직 검증/입력 대기. 운영 DB/배포/삭제/직접mainpush/정책 우회 없음. Issue955 및 기능Issue는 OPEN 유지한다.
+- 롤백: writer 배출과 미해결 전이/기간 상태 대사 후 검토된 revert/forward schema correction. 승인·감사·전표·fence/tombstone·creation receipts와 migration history를 삭제하거나 임의 역채움하지 않는다.
+## 2026-11-19 — GH-838 implementation draft / verification blocked
+
+- [Issue838](https://github.com/skyg547/account/issues/838), branch `agent/838-governance-runtime`, external `C:/tmp/account-work-838-runtime`, base `ed539846`; Draft publication follows checkpoint. Auth/shared and Gateway/config writers had disjoint scope; parent owns four records/Git/GitHub.
+- Secure verified-actor governance host, V77, atomic approval/role/audit effects, mirrored audit route and actual chain harness authored. Fresh Astra `/root/review838_runtime` rechecked concurrency/boundary repairs: no unresolved P0–P3 static finding; Q1–Q3 static PASS, Q4 actual FAIL.
+- Auth/Gateway compile stopped on offline dependencies; no tests/JAR/actual chain/PG PASS. Dependency/Node20/PG authorization pending. See worklog commands and precise limitations. Next owner parent: unblock environment, execute, re-review exact head/current CI and satisfy real trust/independent approval; no Ready/merge yet. Rollback reviewed code/forward-schema correction preserving history; no deployment or resource deletion.
+
+## 2026-11-20 — GH-773 CI fixture correction
+
+- Published PR954 head81bf510e passed Closing/contract tests, but Master API168 tests had35 failures/14 existing skips:19 concrete-coordinator lookup failures and16 ingress404s. Actual HTML showed new fixture BootstrapConfiguration hijacking neighboring tests, and a JDK transaction proxy incompatible with concrete coordinator lookup.
+- Two test files only: explicit lite fixture no longer advertises an application root; independent Closing fixture is TestConfiguration with class transaction proxies. Assertions,19 fault cases, test counts and production behavior unchanged. Independent /root/review773_revision found no delta issue; diff check PASS. New-head CI is required; the earlier failed run is not acceptance evidence. No local dependency downloads/runtime bypass.
+
+## 2026-11-19 — GH-773 rejected PR942 remediation / verification-blocked draft
+
+- Trace: [Issue773](https://github.com/skyg547/account/issues/773), replacement for closed [PR942](https://github.com/skyg547/account/pull/942); `agent/773-transition-revision`, external `C:/tmp/account-work-773-revision`, base main `ed539846`, rejected head `3153e898`. Parent publishes new Draft after checkpoint; current user authorizes implementation/publication/review/merge after actual gates.
+- Scope: Master Data/Closing and minimal explicitly authorized FiscalPeriodTransitionCommand +focused contract test, plus four parent records. Receipt entity Persistable lifecycle forces INSERT; immutable command/time mapping and unique23505 conversion without aborted-Tx requery preserve other-period winning receipt. Actual barrier RED12/1fail→GREEN demonstrates overwrite remediation. ID grammar includes@ and rejects reserved whole dot/dot-dot while retaining ordinary dotted IDs.
+- Fresh independent `/root/review773_revision` also required rich domain/application boundaries and a real committed-provider recovery fixture. Pure FiscalPeriodTransition owns lifecycle; application service coordinates through receipt port; JPA adapter maps/INSERTs/translates SQL errors; explicit API/Batch wiring updated. Service tests mock ports for order/fences/terminal retries/actor/failure propagation.
+- Actual38PASS (contract4/domain4/receiptJPA18/periodJPA12), then service19PASS from separate run=57 distinct passing tests, failure/error/skip0. Core production compiled. API/Closing attempted run stopped at closing:core:compileJava on uncached jjwt-api0.11.5; HTTP fixtures and affected API/client/migration/bootJar remain uncompiled/unexecuted. No dependency download or PostgreSQL runtime.
+
+```powershell
+.\gradlew.bat :master-data:core:test --tests '*FiscalPeriodTransitionServiceTest' --offline --no-daemon --console=plain --max-workers=1
+.\gradlew.bat :contracts:test :master-data:core:test :master-data:api:test :master-data:api:bootJar :closing:core:test :closing:api:test :closing:batch:test :closing:api:bootJar :closing:batch:bootJar --offline --no-daemon --console=plain --max-workers=1
+```
+
+- Authored actual two-H2/JPA contexts with signed Closing client→MockMvc provider,19 recovery cases: committed prepare/apply/confirm ACK losses; individual local approval/calendar/intent/dispatch/task/gate/audit save and phase commit failures. Before identity creation rollback leaves no receipt; later recovery retains original identity and provider fence. These are static-reviewed, NOT executed. Close/cancel real-HTTP ACK loss and PostgreSQL concurrency remain residual gaps.
+- Final independent static review no unresolved P0–P3; Q1–Q3/intent comments PASS, actual Q4 FAIL until full execution/build/migrations. Changed-file whitespace/markers PASS; full main README conflict tracked #947. Current-head CI, latest-main admission integration and real independent approval/trust policy remain required; no Ready/merge claim.
+- Unapplied authorized reopen SQL V58→V59 retains blob c9e79dc6082a5a89ac1d3b0db5fd5a9d881ec23c, reserving admission V58 for PR940. Rollback reviewed code revert and forward schema correction preserving approval/receipt/audit history. Parent alone Git/GitHub/records; no operating DB/deployment/cleanup/policy bypass, primary dirty84 untouched.
+
+## 2026-11-19 — GH-765 rejected PR941 remediation / new reviewed draft
+
+- Trace: [Issue765](https://github.com/skyg547/account/issues/765), replacement for closed [PR941](https://github.com/skyg547/account/pull/941); `agent/765-idempotency-revision`, external `C:/tmp/account-work-765-revision`, base main `ed539846`, original rejected head `ac91836c`. Parent publishes a new Draft after this checkpoint; current user authorizes implementation/publication/review/merge after real gates.
+- Scope: approved contracts/Journal/payable/receivable feature plus four parent records. Creation identity uses immutable incoming collection reference/invoice number/advance operation ID, same-local-Tx source receipts and versioned whole-source digest combined with canonical Journal content. Offset identity excludes advance target; matching binds receivable target. Source drilldown resolves committed receipt IDs. Advance operationId and collection referenceNo are required API compatibility changes.
+- Independent fresh `/root/review765_revision` found two more P1s: REST/event trusted-maker copies dropped digest; automatic retry identity included mutable target. Genuine RED12/7fail proved them. Both copies now retain digest; collection-scoped AUTO_REMAINDER_V1 retains target/amount only as content. Actual JSON/controller/independent Journal JPA rollback tests prove changed source fields and candidate drift conflict without additional Journal or local allocation effects. No automatic reversal/unallocation path exists; automatic matching consumes the full remainder.
+- Actual initial full run668PASS (contracts14; Journal380/89/38; payable54/16/2; receivable57/17/1), all failure/error/skip0, six bootJars. After fixes focused34PASS, then final affected full suites JournalAPI99/receivablecore57/API17/Batch1=174PASS0failure/error/skip, three affected bootJars PASS. Unchanged contracts/payable/Journalcore+batch and three unaffected JAR evidence are reused; this is not a single final combined full-suite run. Ten controller/JPA/source-rollback cases pass. Logs: journal-ledger/{core,api}/build/765-{full-verification,review-red,review-green,final-impact}.log.
+
+```powershell
+.\gradlew.bat :journal-ledger:api:test :receivable:core:test :receivable:api:test :receivable:batch:test :journal-ledger:api:bootJar :receivable:api:bootJar :receivable:batch:bootJar --offline --no-daemon --console=plain --max-workers=1
+```
+
+- Final independent review: no remaining P0–P3; Q1 correctness/architecture, Q2 flow/comments, Q3 module guidance, Q4 local actual evidence PASS. Changed-file whitespace/markers PASS. Full tracked main README markers tracked #947; current-head CI/actual trusted approval and latest-main integration remain merge gates.
+- Unapplied creation SQL moves V20→V21 unchanged (blob c31bdf941aae80a266740e21757614b24b812581), reserving admission V20 for PR940. Fence old writers and reconcile unresolved legacy ID-based requests before namespace migration; no guessed receipt backfill, and already-applied V20 needs separate approved transition. Rollback reviewed code revert/forward schema correction, retain all receipt/business/audit history.
+- Limits: synthetic source JDBC fixtures + simulated authenticated HTTP bridge, no fresh PostgreSQL/process-kill/load/Gateway deployment proof. Preexisting zero-tax sales zero-detail rejection is unchanged and is not claimed fixed. Parent alone updates records/Git/GitHub; primary dirty84 and all resources preserved. Same-account audit never replaces independent formal approval/trust policy.
+
+## 2026-11-19 — GH-947 Closing baseline README conflict / migration inventory
+
+- Trace: [Issue947](https://github.com/skyg547/account/issues/947), `agent/947-closing-doc-marker`, external `C:/tmp/account-work-947-closing-doc-marker`, base `origin/main@ed539846`. Parent publishes Draft after checkpoint and owns four shared records/Git/GitHub. Primary dirty84 preserved.
+- Scope / change: Resolved real main README conflict into one V49–V57 inventory. Preserved full legacy V49 verification, reopen-cycle guidance, V57 ECL forward-only/no-backfill warning. Corrected nearby period-lock uniqueness V56 and manifest V55 from actual owned SQL. Substantive allowlist Closing README and directly linked schema/process-flow guides: only proven migration-reference corrections, preserving valid V54 reopen-cycle references. No production/test/SQL edits.
+- Actual evidence: Actual diff --check and FULL tracked Java/SQL/Markdown/Gradle/YAML conflict-marker scan PASS (no matches). Node harness quality32/32 PASS. Java tests N/A for documentation-only change. Python harness validator unexecuted because bundled Python lacks PyYAML; no install. Fresh independent Astra /root/review_ci_fixes rechecked expanded three-document scope: no P0–P3, Q1 N/A, Q2/Q3 PASS; actual Q4 awaits published-head Harness CI for the missing local Python check.
+- Remaining gate: Independent review and exact published-head harness/current CI + real trust/independent approval remain required. No source runtime claims, deployment or cleanup. Documentation-only reviewed revert is rollback.
+- Rollback: reviewed scoped code/docs revert; forward correction for schema if ever applied, preserve all business/audit history. No operating DB/secrets/URLs/deployment/resource deletion or policy bypass.
+
+```powershell
+node --test tools/ci/harness-quality-contract.test.cjs
+```
+
+
+## 2026-11-19 — GH-946 Master Data migration-engine acceptance
+
+- Trace: [Issue946](https://github.com/skyg547/account/issues/946), `agent/946-ci-migration`, external `C:/tmp/account-work-946-ci-migration`, base `origin/main@ed539846`. Parent publishes Draft after checkpoint and owns four shared records/Git/GitHub. Primary dirty84 preserved.
+- Scope / change: Three unsupported H2 Master full-history cases move to four mandatory actual embedded PostgreSQL cases: fresh install/Batch+repeat, schema precision/FK/index/unique, V5→latest, and Product overlap/negative-price constraints. Actual packaged SQL and MigrationExecutor are uncapped; no production SQL/packaging/conditional skips changed. README explains engine/runtime boundary.
+- Actual evidence: Executed baseline RED47tests/3fail at PostgreSQL-only V9, error/skip0, preserved automation XML/log. New compileTestJava+bootJar --offline --continue exit1/9s: zonky2.1.0 uncached; production bootJar executed successfully, new tests not compiled/executed, PG not started. Fresh /root/review_ci_fixes no P0–P3 static findings, Q1–Q3 static PASS, Q4 actual FAIL. No dependency/runtime approval reply.
+- Remaining gate: Must execute all four replacement cases with no skips and full suite after approved dependencies/disposable PG, re-review and pass current CI. Existing RED is not a result for modified suite. Full tracked baseline README markers separately tracked #947. Draft only; no Ready/merge.
+- Rollback: reviewed scoped code/docs revert; forward correction for schema if ever applied, preserve all business/audit history. No operating DB/secrets/URLs/deployment/resource deletion or policy bypass.
+
+```powershell
+.\gradlew.bat :migration-runner:test :migration-runner:bootJar --offline --no-daemon --console=plain --max-workers=1
+```
+
+
+## 2026-11-19 — GH-945 existing Reporting CI fixture repair
+
+- User authorized open/rejected implementation through PR/review/merge. `agent/945-ci-reporting`, `C:/tmp/account-work-945-ci-reporting`, base `ed539846`; [Issue945](https://github.com/skyg547/account/issues/945). Writer owns Reporting build/test; parent owns four records and Git/GitHub. Draft publication after checkpoint.
+- Existing RED6/6fail at dependency MasterV9 PostgreSQL SQL→owned production migration copy→GREEN7; full core105/API10/Batch6=121PASS0failure/error/skip,2bootJars PASS. Fresh Astra `/root/review_ci_fixes` confirmed actual logs/XML/SQL byte identity, no P0–P3 and Q1–Q4 PASS.
+- No production SQL/runtime change, skips or deployment proof. Rollback reviewed build/test revert. Current published-head CI and real independent approval/trust policy remain gates; no bypass/deployment/cleanup.
+
+## 2026-11-19 — GH-944 existing Loan CI fixture repair
+
+- User requested implementing open/rejected work through PR/review/merge. `agent/944-ci-loan`, external `C:/tmp/account-work-944-ci-loan`, base `ed539846`; [Issue944](https://github.com/skyg547/account/issues/944). Implementer changed only LoanJournalPostingFlowTest; parent owns four records/Git/GitHub. Draft publication follows this checkpoint.
+- Focused RED3/1fail→GREEN3; explicit Loan core246/API7/Batch6=259PASS, failure/error/skip0,2bootJars PASS. Separate Astra Reviewer `/root/review_ci_fixes` confirmed actual XML/logs, no P0–P3, Q1–Q4 PASS. Exact command and boundaries in harness worklog.
+- No production/SQL change or actual DB rollback proof. Reviewed test-only revert is rollback. Published-head CI and configured independent approval remain merge gates; no policy bypass, deployment or branch/worktree deletion.
+
 ## 2026-10-20 — GH-924 master-data/Auth actor and audit evidence
 
 - `$account-issue-loop`, `$account-hexagonal-change`, `$account-module-parallel` and `$account-review-handoff` governed Issue #924 on `agent/924-actor-audit` in `/tmp/account-924-actor-audit`, base `origin/main@b2912554`. Parallel writers owned disjoint `master-data/**` and `auth/**`; independent read-only reviewers checked both. Parent alone updated the four requested shared records and Git/GitHub state.

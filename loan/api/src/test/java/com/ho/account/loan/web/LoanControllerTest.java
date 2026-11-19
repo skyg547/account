@@ -69,7 +69,7 @@ class LoanControllerTest {
         when(useCase.processLoanEvent(
                 eq(7L), eq(LoanEvent.EventType.DEFAULT), eq(LocalDate.of(2026, 6, 1)),
                 eq("Borrower defaulted"), eq("risk-user"),
-                eq(Optional.empty()), eq(Optional.empty())))
+                eq(Optional.empty()), eq(Optional.empty()), eq("operation-1")))
                 .thenReturn(new LoanUseCase.LoanEventResult(event, Optional.empty()));
 
         LoanEventRequestDto request = new LoanEventRequestDto();
@@ -78,6 +78,7 @@ class LoanControllerTest {
         request.setEventDate(LocalDate.of(2026, 6, 1));
         request.setDescription("Borrower defaulted");
         request.setUser("risk-user");
+        request.setOperationId("operation-1");
 
         ResponseEntity<LoanEventResultDto> response =
                 new LoanController(useCase).processLoanEvent(request);
@@ -88,7 +89,42 @@ class LoanControllerTest {
         assertThat(response.getBody().recalculationRun()).isNull();
         verify(useCase).processLoanEvent(
                 7L, LoanEvent.EventType.DEFAULT, LocalDate.of(2026, 6, 1),
-                "Borrower defaulted", "risk-user", Optional.empty(), Optional.empty());
+                "Borrower defaulted", "risk-user", Optional.empty(), Optional.empty(), "operation-1");
+    }
+
+    @Test
+    void retryableRequestsWithoutOperationIdFailAtHttpBoundary() throws Exception {
+        LoanUseCase useCase = mock(LoanUseCase.class);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LoanController(useCase))
+                .setControllerAdvice(new LoanApiExceptionHandler()).build();
+        mvc.perform(post("/api/loan/deferred-items").contentType(MediaType.APPLICATION_JSON).content("""
+                {"loanId":7,"deferredItemTypeId":1,"amount":100,"deferralDate":"2026-05-18",
+                 "amortizationEndDate":"2026-08-18","user":"loan-maker"}
+                """)).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/loan/events").contentType(MediaType.APPLICATION_JSON).content("""
+                {"loanId":7,"eventType":"EARLY_REPAYMENT","eventDate":"2026-08-18",
+                 "newPrincipal":900,"user":"loan-maker"}
+                """)).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/loan/dod-scenario").contentType(MediaType.APPLICATION_JSON).content("""
+                {"loanId":7,"user":"loan-maker"}
+                """)).andExpect(status().isBadRequest());
+        verifyNoInteractions(useCase);
+    }
+
+    @Test
+    void typedOperationContentConflictIsHttp409() throws Exception {
+        LoanUseCase useCase = mock(LoanUseCase.class);
+        when(useCase.processLoanEvent(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new com.ho.account.loan.service.LoanOperationConflictException());
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LoanController(useCase))
+                .setControllerAdvice(new LoanApiExceptionHandler()).build();
+        mvc.perform(post("/api/loan/events").contentType(MediaType.APPLICATION_JSON).content("""
+                {"loanId":7,"operationId":"repay-1","eventType":"EARLY_REPAYMENT",
+                 "eventDate":"2026-08-18","newPrincipal":900,"user":"loan-maker"}
+                """)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Loan operation ID already exists with different request content."));
     }
 
     @Test

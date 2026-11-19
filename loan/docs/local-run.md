@@ -84,3 +84,11 @@ Dockerfile은 Java 17 builder/runtime과 `:loan:api:bootJar`의 `api-0.0.1-SNAPS
 - 별도 `application.yml`이 없으므로 실행 명령에 application name, DB, discovery, 계정 및 로컬 전표 승인자 설정을 명시합니다. 승인자를 설정하지 않으면 API·Batch가 기동하더라도 첫 로컬 전표 호출은 실패합니다.
 - 로컬 API 8087은 단독 실행 예시입니다. 전체 Compose에서는 Governance가 8087을 사용하므로 Loan은 8088입니다.
 - HTTP actor 필드는 신뢰 경계가 아닙니다. 운영에서는 인증 principal에서 서버가 주입해야 합니다.
+
+
+### GH955 요청 호환성
+
+이연 항목·이벤트·DoD 요청에 `"operationId":"client-event-001"` 같은 호출자 보관 ID를 추가합니다.
+같은 업무 재시도는 같은 ID와 원래 내용을 전송합니다. ID 누락은 400, 같은 ID의 내용 변경은 409입니다.
+Flyway 사용 런타임은 V34 및 Journal V21이 선행되어야 합니다. 로컬 `create-drop`은 배포 마이그레이션
+증거가 아니며 실제 receipt 검증은 `LoanJournalPostingFlowTest`의 production SQL 기반 합성 DB로 합니다.

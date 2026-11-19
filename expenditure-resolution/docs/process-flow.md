@@ -46,6 +46,10 @@ flowchart TD
 
 전표 생성 시 차변은 상세 비용 계정 라인이고, 대변은 지급 계정 라인이다. 이때 부서, 계정, 거래처 코드는 값으로 넘기며 외부 Aggregate를 직접 소유하지 않는다.
 
+전표 생성 식별자는 저장된 결의번호 라인리지와 `operationKey=EXPENDITURE_RESOLUTION:APPROVAL:v1`이다. 최종 승인 한 건의 응답이 유실되어 재시도해도 같은 전표를 돌려받는다. 같은 결의번호·키의 금액이나 계정 등 전표 내용이 바뀌면 Journal의 영속 fingerprint 검사에서 충돌한다. 현재 승인 도메인에는 승인 완료 결의의 버전 교체 경로가 없으므로 재시도 때 키를 새로 만들지 않는다. 다른 결의번호의 승인은 독립 전표다.
+
+`ExpenditureJournalCreationIntegrationTest`는 결의 조회 포트를 합성 데이터로 대체하고 실제 Journal 생성 서비스/JPA receipt를 H2에서 실행한다. 최초 생성 뒤 응답 유실, 동일 결의 재조회·재시도, 변경 금액 충돌, 별도 결의 생성을 확인한다. `./gradlew :expenditure-resolution:core:test --tests '*ExpenditureJournalCreationIntegrationTest' --offline --no-daemon --console=plain`으로 실행하며 운영 DB·원격 HTTP 검증을 대신하지 않는다.
+
 신규 전표 생성의 기대 응답은 `DRAFT`이며, 이것만으로 전표가 승인·전기되었다고 판단하지 않는다. 같은 라인리지의 전표가 이미 있으면 Journal 포트가 기존 전표 상태를 돌려줄 수 있다. 서비스는 포트 구현이 HTTP, local, mock 중 무엇이든 응답의 전표 ID가 양수이고 상태가 정확히 `DRAFT`인지 먼저 확인한다. HTTP 어댑터도 HTTP 200 응답의 같은 필드가 누락되거나 잘못되면 연계 실패로 거부한다. 예를 들어 ID가 `null`, `0`, 음수이거나 상태가 없거나 `DRAFT`가 아니면 예외가 발생하고 결의서는 `REQUESTED`로 남으며 승인 저장 및 이후 자산·리스 연계를 시작하지 않는다. 유효한 응답은 전표 ID를 결의서에 저장하고 `APPROVED`로 전이한다.
 
 로컬 확인: 저장소 루트에서 `./gradlew :expenditure-resolution:core:test --offline --no-daemon --console=plain`을 실행한다. 서비스·HTTP 어댑터 회귀 테스트의 성공을 확인할 수 있다. 이 테스트는 원격 Journal 장애 시 재시도 원자성이나 실제 운영 전표의 승인·전기를 검증하지 않는다.

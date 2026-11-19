@@ -22,12 +22,14 @@ public record CollectionCommand(
         collectionDate = Objects.requireNonNull(collectionDate, "collectionDate is required");
         customerCode = requireText(customerCode, "customerCode");
         amount = Objects.requireNonNull(amount, "amount is required");
+        amount = exactAmount(amount);
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("amount must be greater than zero");
         }
         bankAccount = trimToNull(bankAccount);
         virtualAccount = trimToNull(virtualAccount);
-        referenceNo = trimToNull(referenceNo);
+        referenceNo = requireText(referenceNo, "referenceNo");
+        if (referenceNo.length() > 100) throw new IllegalArgumentException("referenceNo exceeds 100 characters");
     }
 
     private static String requireText(String value, String fieldName) {
@@ -42,5 +44,14 @@ public record CollectionCommand(
             return null;
         }
         return value.trim();
+    }
+    private static BigDecimal exactAmount(BigDecimal value) {
+        try {
+            BigDecimal normalized = value.setScale(2, java.math.RoundingMode.UNNECESSARY);
+            if (normalized.precision() > 19) throw new IllegalArgumentException("Amount exceeds NUMERIC(19,2)");
+            return normalized;
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Amount must be exactly representable at scale 2", exception);
+        }
     }
 }

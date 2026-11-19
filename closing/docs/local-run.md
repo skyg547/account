@@ -253,53 +253,69 @@ legacy `lineageSourceId=2026` 연차 전표는 헤더·라인이 모두
 | 진행 중인 전이 조회 | `GET /api/closing/calendars/{id}/transition` |
 | 작업 ID에 묶인 복구 | `POST /api/closing/calendars/{id}/transition/recover` |
 | 미전송 최종 마감 의도 취소 | `POST /api/closing/calendars/{id}/transition/cancel-prepared` |
+| 전송 후 미적용 최종 마감 취소 | `POST /api/closing/calendars/{id}/transition/cancel-dispatched-close` |
 
 복구는 Gateway가 검증해 넣은 `X-Auth-User`, `X-Auth-Roles`를 사용합니다.
 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다.
 조회와 복구 모두 이 권한을 요구하며, 사용자 헤더 누락은 401, 역할 부족은 403입니다.
-trim 후 50자를 넘는 actor는 transition use case 호출 전 400입니다.
+원격 Master 연결을 켜는 Closing 배포는 양쪽 서비스에 같은
+`MASTER_DATA_CLOSING_ASSERTION_SECRET`(UTF-8 32바이트 이상)을 주입해야 합니다. 없거나 짧으면
+Closing의 원격 전이 어댑터 생성 시 시작이 실패합니다. 서비스 assertion은 사용자 역할을
+조작하지 않고 Closing 진입 권한 검사 후의 서비스 권한을 증명합니다.
+최초 마감·재오픈 결정자는 원격 감사 접두어를 포함해야 하므로 안전한 ID 문자로 최대 42자입니다.
+복구 처리자는 기존 HTTP 경계의 50자 한도를 따릅니다.
 요청 본문에 처리자 이름을 넣어 권한을 대신하지 않습니다. Closing API를 외부에 직접 노출하지 않는
 기존 EOD와 같은 신뢰 경계를 전제로 합니다.
 
 먼저 조회한 작업 ID와 단계, 목표 상태, 바인딩된 `evidenceSetId`를 확인합니다.
 `PREPARED` 최종 마감은 바인딩된 증빙이 현재도 유효할 때만 최초 전송을 재개할 수 있습니다.
-`DISPATCHED`이면 원 요청이 더 이상 Master에서 실행될 수 없음을 운영 절차로 확인한 후에만
-`remoteRequestTerminated=true`로 복구를 요청합니다. 이 값은 원격 종료를 자동 증명하지 않습니다.
+`DISPATCHED`, `AUTHORIZED` 또는 `READY_TO_CONFIRM`이면 Master 영수증의 작업 ID·기간 ID·기대/목표 상태·원 결정자를
+로컬 의도와 대사한 뒤 동일 ID의 준비/적용을 이어 갑니다. `remoteRequestTerminated`는 구 API
+호환 입력이며 복구 권한의 근거로 사용하지 않습니다.
+최종 마감의 `DISPATCHED`가 증빙 만료로 더는 적용될 수 없고 Master 영수증이 `PREPARED`이면
+권한 있는 운영자는 같은 작업 ID와 사유로 `cancel-dispatched-close`를 호출합니다. Master가
+`CANCELLED` 영수증을 먼저 확정한 뒤 Closing이 로컬 의도를 해제하고 감사 기록을 남깁니다.
+DELETE 응답 유실 또는 로컬 커밋 실패 시 같은 취소 명령을 재시도합니다. Master 영수증이 없거나
+이미 `APPLIED`이면 취소하지 않습니다. 취소 후 새 증빙과 새 작업 ID로 마감을 준비합니다.
 
 ```json
 {
   "operationId": "조회에서 확인한 작업 UUID",
-  "remoteRequestTerminated": true
+  "remoteRequestTerminated": false
 }
 ```
 
-복구는 Master 목표 상태를 확인한 뒤 로컬 상태를 완료합니다. 이미 전송한 PUT을 다시 보내지 않으며,
-Master가 원 상태에 남았으면 계속 차단합니다. 해당 경우는 별도 권한의 Master 운영자가 원 요청 종료와
-기간 상태를 대사·조정해야 합니다. 오래된 작업 ID로 재호출하거나 경쟁 결정이 들어오면 충돌로 처리합니다.
+복구는 동일 작업 ID의 Master 영수증을 조회하고, 필요하면 멱등 적용·확인합니다. 재오픈은
+Master `APPLIED` 동안 공개 조회가 `CLOSED`를 유지하며, 로컬 `READY_TO_CONFIRM` 커밋 후에만
+`CONFIRMED`로 공개 `OPEN`이 됩니다. 마감 `APPLIED` 또는 재오픈 `CONFIRMED` 영수증과
+현재 Master 기간·목표 상태가 모두 일치해야 로컬 전이 ID를 지웁니다. 영수증 누락·불일치,
+오래된 작업 ID 또는 경쟁 결정은 차단합니다. 구버전 직접 PUT으로 만들어진 영수증 없는
+`DISPATCHED` 행은 자동 귀속하지 않습니다. 배포 전 조회·조치 절차는
+[업무 흐름](process-flow.md#구버전-dispatched-전이-배포-전-점검)을 따릅니다.
 원 승인자의 결정은 복구자 이름으로 덮어쓰지 않습니다.
 
 최초 마감·승인 호출 중 원격 반영이나 로컬 완료가 불명확하면 HTTP 503과
 `PERIOD_TRANSITION_RECOVERY_REQUIRED`를 반환합니다. 이 응답은 승인 결정이 롤백됐다는 뜻이 아닙니다.
 조회 결과의 `operationId`, `target`, `stage`, `evidenceSetId`, `decisionActor`를 확인하고 복구 흐름을 사용합니다.
 완료되면 `calendarStatus`가 목표 상태이며 진행 중인 전이 필드는 null입니다.
-경쟁 결정·오래된 작업 ID·확인 누락·Master 상태 불일치는 HTTP 409입니다.
+경쟁 결정·오래된 작업 ID·Master 영수증/상태 불일치는 충돌 또는 복구 필요 응답으로 남습니다.
 
 검증 명령:
 
 ```bash
 ./gradlew :closing:api:test --tests '*ClosingAggregateConcurrencyIntegrationTest' --tests '*ClosingTransitionRecoveryIntegrationTest'
-./gradlew :closing:test
+./gradlew :master-data:test :closing:test :contracts:test
 ./gradlew :closing:api:bootJar :closing:batch:bootJar
 ```
 
 동시성 테스트는 별도 트랜잭션과 latch로 순서를 제어하고, 원격 역할의 상태는 Closing 트랜잭션과 독립적으로
-저장합니다. 복구 테스트는 응답 유실과 로컬 완료 실패를 주입합니다. H2 검증은 실제 PostgreSQL 잠금·운영 부하나
+저장합니다. 복구 테스트는 응답 유실과 로컬 저장/커밋 실패를 주입합니다. H2 검증은 실제 PostgreSQL 잠금·운영 부하나
 배포된 Master의 네트워크 장애 증거를 대신하지 않습니다. 실행 결과는 [모듈 worklog](ai-harness/worklog.md)에 기록합니다.
 
 ### 재오픈 뒤 체크리스트 재실행 (GH-885)
 
 승인된 재오픈이 완료되면 캘린더의 `cycleNumber`가 증가합니다. `GET /api/closing/calendars/{calendarId}/tasks`는 새 회차의 `PENDING` 행을 반환합니다. 이전 태스크·게이트 ID는 이력이며 상태 변경에 사용할 수 없습니다. 원천 변경이 없더라도 예전 `COMPLETED`/`PASSED`는 이월하지 않습니다. 새 태스크를 다시 완료하고 새 게이트를 통과시킨 뒤 마감을 시작한 시각보다 늦게 관측한 최종 마감 증빙을 제출해야 합니다. 새 활동이 있으면 공급자 실행 ID와 합계가 그 활동을 반영하는지도 대사합니다.
-통제 진행 후 `POST /api/closing/adjustments`로 조정 전표를 등록하면 현재 회차가 다시 증가하고 체크리스트가 `PENDING`으로 돌아갑니다. 조정 전에 제출한 최종 마감 증빙도 사용할 수 없습니다. 통제를 시작하기 전 조정이면 회차 증가는 없지만 증빙 관측 시각은 조정 이후여야 합니다. 이 동작은 Closing이 등록한 조정에 한정되므로 직접 원장 전기를 허용하는 운영 환경에서는 원천 동결과 별도 대사가 필요합니다.
+통제 진행 후 `POST /api/closing/adjustments`로 조정 전표를 등록하면 현재 회차가 다시 증가하고 체크리스트가 `PENDING`으로 돌아갑니다. 조정 전에 제출한 최종 마감 증빙도 사용할 수 없습니다. 통제를 시작하기 전 조정이면 회차 증가는 없지만 증빙 관측 시각은 조정 이후여야 합니다. 체크리스트 회차 갱신은 Closing이 등록한 조정에 한정됩니다. 직접 원장 전기를 포함한 금액 변경은 GH-762 Journal revision이 별도로 검출합니다. 공급자는 checkpoint 응답 이후 새 primary 트랜잭션으로 합계를 읽고, 최종 fence에서 revision 불일치가 나면 증빙을 새로 수집해야 합니다.
 
 ```bash
 ./gradlew :closing:core:test --tests '*ClosingDomainTransitionTest' --tests '*ClosingServiceTest'
@@ -594,6 +610,10 @@ Content-Type: application/json
   "fiscalPeriod": "04",
   "ledgerCutoff": "2026-04-30",
   "observedAt": "2026-04-30T15:10:00.123456Z",
+  "journalCheckpoint": {
+    "scope": {"fiscalPeriodId": 104, "startDate": "2026-04-01", "endDate": "2026-04-30"},
+    "revision": 7
+  },
   "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "controls": [
     {
@@ -617,7 +637,7 @@ digest 값은 형식만 맞춘 placeholder이고, 예시는 명시적 `0/0`과 �
 금액 정규화 규칙은 [업무 흐름](process-flow.md#최종-마감-증빙-gh-778)을 따릅니다.
 
 성공은 201과 저장된 `submittedBy`/digest/control count를 반환합니다. 같은 set ID와 digest 재시도는
-기존 set을 반환하고, 같은 ID의 다른 내용은 409입니다. 형식 위반은 400, 캘린더 없음은 404,
+현재 checkpoint·캘린더 검증도 통과하면 기존 set을 반환하고, 같은 ID의 다른 내용은 409입니다. 형식 위반은 400, 캘린더 없음은 404,
 digest/상태/identity 위반 또는 최종 마감 증빙 실패는 409입니다. 실패한 증빙을 무시하는 override는
 없습니다. 최신 set이 FAIL이면 새롭고 올바른 set을 append해야 합니다.
 
@@ -658,3 +678,41 @@ AP·AR·리스·대출·조정·ECL(연차이면 이체) 금융 통제의 완료
 시간대 없는 DB 값으로 저장했고 새 증빙 검사는 이를 UTC로 해석하므로, 작업을 안전하게 drain하지
 못한 행은 마감을 HOLD합니다. 원래 시간대·시작 시각·원천 증빙을 운영자가 대사하고 검토된
 forward correction으로 처리합니다. 자동 시각 변환이나 freshness 우회는 하지 않습니다.
+
+
+## Journal 기간 봉인 (GH-762)
+
+증빙 공급자는 동일한 `ROLE_CLOSING_EVIDENCE_PROVIDER`/submitter allowlist 인증으로
+`POST /api/closing/calendars/10/final-close-evidence/checkpoint`를 먼저 호출합니다. 요청 body는
+없으며, 반환된 `scope`와 `revision`을 `journalCheckpoint`에 그대로 넣습니다. 위 예의 7은
+합성 placeholder이며 실제 응답으로 바꿔야 합니다. 응답 **후** primary 원천의 새 트랜잭션에서
+증빙을 읽고 V2 digest를 계산합니다. 기존 transaction snapshot/지연 replica는 사용하지 않습니다.
+
+독립 배포는 `closing.journal.period-fence.enabled=true`, `closing.journal.base-url`,
+`closing.journal.period-fence.service-token`을 승인된 배포 설정으로 제공합니다. Journal에는
+같은 내부 secret을 `journal.period-fence.service-token`으로 주입합니다. 토큰은 공백 없이 32 UTF-8
+바이트 이상이며 파일/명령 출력에 적지 않습니다. TLS 또는 승인된 사설 전송 경계가 전제입니다.
+connect/read timeout 기본값은 2초/5초이고 각 1ms~60초만 허용합니다. 정확한 HTTP 200만 확인 응답으로 인정합니다. redirect·비정상 응답·
+다른 scope/명령/state, 중복/알 수 없는 JSON 필드·trailing JSON은 실패합니다. 임베디드 composition은 실제 Journal 포트를 사용하며,
+독립 local에 포트가 없으면 checkpoint와 마감을 거부합니다.
+
+응답 유실 후 같은 명령은 재시도할 수 있습니다. cancel-prepared는 `CANCEL_RELEASE_PENDING`을
+먼저 저장하고, reopen은 OPEN·새 회차와 `RELEASE_PENDING`을 먼저 저장한 뒤 Journal을 해제합니다.
+전이 조회의 operation ID로 `/transition/recover`를 호출하면 해당 단계만 재개합니다. Master
+DISPATCHED 상태는 기존처럼 원격 요청 종료 확인과 목표 상태 대사가 필요하며 blind replay하지 않습니다.
+
+관련 합성 DB/실제 loopback HTTP 회귀 실행 명령:
+
+```bash
+./gradlew :closing:core:test --tests '*FinalCloseEvidenceServiceTest' --tests '*JournalPeriodAdmissionIntegrationTest' --offline --no-daemon --console=plain --max-workers=1
+./gradlew :closing:api:test --tests '*ClosingJournalFenceRecoveryIntegrationTest' --tests '*FinalCloseEvidencePersistenceIntegrationTest' --offline --no-daemon --console=plain --max-workers=1
+./gradlew :closing:test --offline --no-daemon --console=plain --max-workers=1
+```
+
+실제 공급자의 primary snapshot, TLS/Gateway 배포, 대량 부하와 운영 데이터 이행은 별도 검증입니다.
+V58 이전 봉인 없는 CLOSED 캘린더는 자동 재개방할 수 없으며 승인된 대사·forward correction이 필요합니다.
+배포 전 모든 구버전 금액 writer/Batch를 중지·drain하고 Closing V58과 Journal V20을 적용합니다.
+Journal V20의 빈 fence 목록은 기존 마감을 인증하지 않습니다. 권위 있는 Master/Closing의 과거
+CLOSED/PERMANENTLY_CLOSED 종료일과 검토된 ACTIVE fence 보호 범위를 대사·설치하고 승인된
+이행 검증을 마칠 때까지 쓰기를 재개하지 않습니다. 자세한 절차는
+[Journal admission 배포 경계](../../journal-ledger/docs/posting-concurrency.md#마감-검증과-금액-쓰기의-원자적-경계-v20)를 따릅니다.

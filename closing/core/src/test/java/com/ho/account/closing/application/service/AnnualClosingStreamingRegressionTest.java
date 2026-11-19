@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -59,8 +61,15 @@ class AnnualClosingStreamingRegressionTest {
     void rejectsUnboundedDistinctDatedClassificationsBeforePosting() {
         SyntheticProvider provider = new SyntheticProvider(10_001, false, true);
         JournalPostingPort posting = mock(JournalPostingPort.class);
+        MasterDataQueryPort datedMaster = master();
+        // Each generated source account needs authoritative classification before the size guard is reached.
+        when(datedMaster.findAccountSubjectAt(org.mockito.ArgumentMatchers.argThat(
+                code -> code != null && code.matches("R[0-9]+")),
+                org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 6, 30))))
+                .thenAnswer(call -> Optional.of(new AccountSubjectRef(call.getArgument(0), "Revenue",
+                        false, false, "CREDIT", "REVENUE")));
 
-        assertThatThrownBy(() -> service(provider, posting, master())
+        assertThatThrownBy(() -> service(provider, posting, datedMaster)
                 .performIncomeStatementClosing(2026))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("bounded review limit");
