@@ -19,8 +19,8 @@ services:
       # 때문에 EUREKA_CLIENT_SERVICEURL_DEFAULTZONE 환경변수를 무시하고 자체 값을 우선 적용합니다.
       # gateway-service.yml이 ${EUREKA_DEFAULT_ZONE:...} 형태로 이 이름을 참조하므로 반드시 이 변수명을 써야 합니다.
       - EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/
-      # 서비스 디스커버리(Eureka) 및 Spring Cloud LoadBalancer 연동을 위한 로드밸런싱 주소
-      - AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=lb://auth-service
+      # @LoadBalanced WebClient가 서비스 ID를 찾고 HTTP로 전송하는 주소
+      - AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth-service
       # 현재 shell 또는 secret provider에서 Auth와 동일한 신규 승인 값을 주입합니다. 미설정 시 Compose가 실행을 중단합니다.
       - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}
       # Frontend BFF와 Gateway만 공유하는 별도 키입니다. JWT/internal API 키를 재사용하지 않습니다.

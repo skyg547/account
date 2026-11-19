@@ -51,6 +51,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
   - `V74__auth_pat_lifecycle_events.sql`: PAT 생성·폐기 이벤트
   - `V75__auth_pat_list_page_indexes.sql`: PAT 목록 페이지 정렬 인덱스
   - `V76__auth_security_event_evidence.sql`: PAT 사유·전후 상태와 로그인 실패·성공 이벤트
+  - `V77__auth_governance.sql`: Auth 소유 역할·권한·승인·감사 테이블
 - memory와 JPA 모드 모두 역할의 `dataScope`, `validFrom`, `validTo`를 보존합니다.
 - 현재 지원하는 인가 범위는 subject가 없는 정확한 `GLOBAL`뿐입니다. 새 승인에 범위가 없거나 다른 값이면 저장하지 않고 거부합니다. 기존 비전역 범위 행은 승격하지 않으며 로그인·토큰 버전 검증에서 계정을 차단합니다. 관리자 사용자 목록은 현재 저장된 전역 관리자 역할도 확인합니다. 입력·출력·남는 Gateway 제한은 [역할 범위 흐름](./docs/process-flow.md)에 설명합니다.
 
@@ -121,7 +122,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 2. 실행 구성에 `local` 프로파일과 JWT/internal-token 환경변수를 필수로 주입합니다. 로그인 사용자가 필요하면 저장소 밖의 승인된 런타임 입력으로 configured user를 추가합니다.
 3. `Auth bootRun`을 실행합니다.
 4. Config Server/Eureka/PostgreSQL 없이 내장 WAS가 `8081` 포트에서 시작됩니다.
-5. Flyway V70~V76 적용 후 Hibernate가 스키마를 검증합니다.
+5. Flyway V70~V77 적용 후 Hibernate가 스키마를 검증합니다.
 
 local SQL 데모 credential과 기본 사용자는 없으며 `spring.sql.init.mode=never`입니다. 선택적 configured user는 외부 런타임 입력/placeholder인 `AUTH_USERS_0_USERNAME`, `AUTH_USERS_0_PASSWORD` 등으로 제공하고, 저장소 파일·쉘 히스토리·로그에 값을 남기지 않습니다. `AUTH_USERS_0_PASSWORD`는 외부에서 준비한 정책 준수 인코딩 값이어야 합니다.
 
@@ -182,3 +183,11 @@ docker-compose up -d auth
 현재 소비자 이전 대상은 `frontend/src/services/adminService.ts`의 `getUsers()`와 이를 호출하는 `frontend/src/app/admin/users/page.tsx`, `frontend/src/app/system/tokens/page.tsx`의 관리자 PAT 목록, `frontend/src/app/profile/pat/page.tsx`의 내 PAT 목록입니다. 이 코드들은 현재 첫 배열 응답을 전체 목록으로 취급하므로, 화면에서 전체 데이터가 필요하면 응답의 `X-Has-Next`를 읽어 같은 인증으로 후속 페이지를 이어 붙여야 합니다. 프런트엔드는 이번 auth 모듈 변경 범위 밖이므로 소비자 이전은 별도 작업으로 추적합니다.
 
 사용자 목록은 `username ASC` (고유 키)로 페이지를 정한 뒤 선택된 사용자들의 역할만 읽습니다. 역할의 현재 효력 판단은 기존처럼 조회 시각에 적용합니다. PAT 목록은 `created_at DESC, id DESC`로 정렬하고 개인 목록은 검증된 토큰 소유자만 조회하며 관리자 목록에는 검증된 시스템 관리자 권한이 필요합니다. 각 목록은 SQL에서 크기를 제한하며 한 행을 추가 조회해 다음 페이지 여부를 정합니다. Offset 페이지는 조회 중 삽입·삭제가 있으면 경계가 이동할 수 있으므로 변경 중인 데이터를 완전한 스냅샷으로 내보내는 용도로 사용하지 마세요.
+
+### Auth governance runtime (Issue #838)
+
+`/api/audit/**` is owned by Auth in JPA mode. A narrow Auth controller and service register only the four governance entity/repository adapters; the legacy shared Controller, header actor provider and remote Auth self-call are not registered. Memory mode has no governance endpoints (404). Flyway V77 creates the governance tables, and local startup validates the mappings.
+
+The conservative policy follows Auth's existing system administrator boundary: current approved GLOBAL `SYSTEM_ADMIN` or `ROLE_SYSTEM_ADMIN` is required for global role lists, role/authorization management, pending approvals, decisions and audit reads. An ordinary authenticated user may request `AUTH_USER_ROLE` only for their exact username. Own-role authorization lookup and permission checks use current effective GLOBAL roles; an absent catalog/grant returns no permissions. Other-role authorization inspection is administrator-only, while permission checks always require the requested role to belong to the caller. There are no seeded grants or special AUDITOR privileges.
+
+All requests verify a single Bearer JWT (HS256 signature, issuer, audience, required issuance/expiry, integral positive roleVersion) against the active, unlocked current AuthUser. `X-Auth-*`, `X-User-ID`, `requestUser` and `approverUser` are not authority. The verified requester cannot approve or reject their own request. See [governance flow](docs/process-flow.md#governance-request-and-decision) and [schema](docs/schema.md#governance-schema-v77).

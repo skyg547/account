@@ -58,7 +58,7 @@ local profile은 다음을 적용합니다.
 - H2 PostgreSQL 호환 모드
 - `auth.persistence.mode=jpa`
 - `auth.login-security.store=jpa`
-- Flyway V70~V76 활성화
+- Flyway V70~V77 활성화 (V77은 Auth 거버넌스 테이블 생성)
 - Hibernate `ddl-auto=validate`
 - `spring.sql.init.mode=never`
 - 보안 입력과 데모 사용자 기본값 없음

@@ -202,3 +202,24 @@ Auth 발급기의 `AUTH_JWT_AUDIENCE`와 Master Data 수신 검증기의 `AUTH_J
 ## 목록 조회의 페이지 흐름 (Issue #920)
 
 관리자 사용자와 PAT 목록은 `page=0`, `size=20`에서 시작하고 `size`는 100까지 허용합니다. Controller는 제한된 페이지 요청을 core use case로 전달합니다. 사용자 영속성 어댑터는 먼저 `username ASC`로 사용자 키만 SQL 페이지 조회하고 그 페이지의 역할 할당을 다시 읽어 유효 시각에 따른 표시 역할을 계산합니다. PAT 영속성 어댑터는 소유자 필터를 유지하며 `created_at DESC, id DESC` 순서로 SQL 페이지 조회합니다. 응답은 JSON 배열과 `X-Page`, `X-Page-Size`, `X-Has-Next` 헤더로 구성됩니다. 전체 결과가 필요한 클라이언트는 `X-Has-Next`가 `false`가 될 때까지 다음 페이지를 읽어야 합니다.
+
+## Governance request and decision
+
+1. Gateway routes `/api/audit/**` to Auth. Auth independently verifies the Bearer token and current account/role version. Current roles come from approved, effective, subjectless GLOBAL assignments; any unsupported stored scope denies authentication.
+2. `POST /api/audit/approvals/requests` validates the supported master/type/payload before inserting. `AUTH_USER_ROLE` accepts CREATE or UPDATE; `SYSTEM_ROLE` accepts CREATE; `AUTHORIZATION` accepts CREATE or DELETE. Other combinations return 400. Unknown targets return 404 and duplicates/conflicting state return 409.
+3. A user can request their own exact username; a current system administrator can request another user's change. The request binds the requester to the verified identity regardless of legacy body fields. `username` must match `masterKey`; legacy numeric `userId` is display metadata. Roles are normalized to `ROLE_...`. Omitted `dataScope` means GLOBAL; blank or unsupported scope is rejected. The effective date becomes midnight UTC and must precede an optional validTo.
+4. The response has a positive persisted `id`, real PENDING `status`, request date and effective date. Role creation and authorization grant/revoke routes return **202 approval receipts**, not unsaved role previews. The catalog changes only after approval. Consumers expecting the former role-shaped mutation response must use the approval receipt then query the catalog.
+5. A distinct verified current system administrator posts `/approvals/{id}/approve` or `/reject` with optional remarks. The service holds a pessimistic approval-row write lock until commit. Concurrent decisions yield one committed outcome; subsequent decisions return 409. Authorization grants also lock their role before rechecking WRITE/EXECUTE separation, preventing different approvals from racing the policy.
+6. Approval calls the local `AuthUserRoleAssignmentUseCase` within the same transaction: role replacement, roleVersion increment, apply log, approval decision and audit log commit together. Any audit or application failure rolls all of them back, leaving a retryable PENDING request. Rejection changes no Auth roles. There is no REST self-call and no cross-service atomicity claim.
+
+Example request (send the caller's Bearer JWT; values below are synthetic):
+
+```json
+{"masterType":"AUTH_USER_ROLE","masterKey":"learner","requestType":"UPDATE","payload":"{\"username\":\"learner\",\"role\":\"USER\"}"}
+```
+
+`GET /roles` and `/approvals/pending` are administrator-only. `GET /roles/{roleCode}/authorizations` permits the caller's exact current role, or administrator management inspection; absent role catalog rows return an empty array. `GET /permissions/check?roleCode=ROLE_USER&functionCode=ledger.read&accessType=READ` checks only the caller's exact current role and GLOBAL grants. No roles or permissions are invented. Audit reads require administrator authority. Errors use safe 400/401/403/404/409 responses without reflecting credentials or submitted actor hints.
+
+Governance code boundaries: `GovernanceController` calls `GovernanceUseCase`; `GovernanceService` coordinates credential/persistence/application ports. Framework-free `GovernanceChangePolicy` and `GovernanceRoleChange` own master/type compatibility, exact target identity, role normalization, GLOBAL scope and UTC validity/default rules. `GovernancePayloads` only decodes JSON into those validated changes and application commands. Pure domain and mocked-port service tests complement the full HTTP/JPA evidence.
+
+Concurrent approvals may preload a target through validation or credential verification before obtaining its row lock. `JpaAuthUserRoleAssignmentAdapter` therefore locks only the user row, detaches that user and its cascaded role entities, then reloads the current aggregate while the same database transaction still owns the lock. This adapter owns role mutation; callers pass immutable replacements and do not stage user entity edits. Approval/audit entities remain managed, and commit/rollback remains atomic. The two-approval/same-target regression deliberately preloads version 1 in both transactions and requires final version 3 with apply-log versions 2 and 3 and one complete final role replacement.

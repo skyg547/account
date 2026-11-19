@@ -35,6 +35,13 @@ Gateway는 회계 계산이나 승인 상태 변경을 수행하지 않습니다
 
 모든 `/api/**`는 기본적으로 인증 대상이며, 현재 외부 공개 예외는 `POST /api/auth/login`과 CORS 사전 요청(`OPTIONS`)뿐입니다.
 
+`/api/audit/**`는 `audit-governance-api` 라우트로 Auth의 거버넌스 런타임에 전달됩니다.
+역할별 권한 조회와 승인 요청은 이 경로를 사용하고, 내부감사 업무의
+`/api/v1/internalaudit/**`는 계속 `internal-audit-service`로 전달됩니다.
+패키지 설정과 Config Server 설정의 라우트·전역 요청 제한은 정책 테스트로 함께 검사합니다.
+실제 BFF→Gateway→Auth 검증 절차와 전제 조건은
+[거버넌스 체인 검증](./docs/governance-chain-acceptance.md)을 참고합니다.
+
 ```text
 외부 요청
   -> X-Auth-* 신뢰 헤더 삭제
@@ -97,7 +104,7 @@ auth:
     allowed-clock-skew-seconds: ${AUTH_JWT_ALLOWED_CLOCK_SKEW_SECONDS:30}
   token-version-validation:
     enabled: ${AUTH_TOKEN_VERSION_VALIDATION_ENABLED:true}
-    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:lb://auth-service}
+    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:http://auth-service}
     cache-ttl-seconds: ${AUTH_TOKEN_VERSION_VALIDATION_CACHE_TTL_SECONDS:30}
     timeout-millis: ${AUTH_TOKEN_VERSION_VALIDATION_TIMEOUT_MILLIS:500}
     maximum-cache-size: ${AUTH_TOKEN_VERSION_VALIDATION_MAXIMUM_CACHE_SIZE:10000}
@@ -111,6 +118,10 @@ Frontend BFF를 함께 쓰면 `BFF_GATEWAY_SHARED_SECRET`도 필요합니다. JW
 맞는 불투명 SHA-256 키만 사용합니다. 임의 `X-Forwarded-For`와 위조 BFF 헤더는 신뢰하지 않습니다.
 
 정상 검증 결과만 짧게 캐시합니다. 거절·장애 결과는 캐시하지 않으므로 계정 복구나 Auth 복구가 불필요하게 지연되지 않습니다.
+
+token-version 검증의 `http://auth-service`는 `@LoadBalanced WebClient`가 해석하는 서비스 ID
+주소입니다. Eureka/SimpleDiscovery가 실제 host·port를 공급하고 HTTP 전송 스킴을 유지합니다.
+Gateway route의 `lb://auth-service`는 Gateway 라우팅 필터가 처리하는 별도 설정입니다.
 
 ---
 

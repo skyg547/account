@@ -25,16 +25,16 @@ public class MasterApproval {
     @Column(nullable = false, length = 20)
     private ChangeRequestType requestType;
 
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "text")
     private String payload; // 변경될 데이터 (JSON 형태 저장 권장)
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 80)
     private String requestUser;
 
     @Column(nullable = false)
     private LocalDateTime requestDate;
 
-    @Column(length = 50)
+    @Column(length = 80)
     private String approverUser;
 
     private LocalDateTime approvalDate;
@@ -57,7 +57,7 @@ public class MasterApproval {
 
     private LocalDateTime updatedAt;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 80)
     private String auditUser;
 
     public enum ChangeRequestType {

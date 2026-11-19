@@ -1,3 +1,19 @@
+## 2026-11-19 — GH-838 secure Auth governance host and Gateway chain draft
+
+- Trace: [Issue838](https://github.com/skyg547/account/issues/838), `agent/838-governance-runtime`, `C:/tmp/account-work-838-runtime`, base `origin/main@ed539846`; parent publishes Draft after checkpoint. Approved Auth/shared-kernel/Gateway/config-repo scope plus four parent records; independent final reviewer separate from writers/spec.
+- Auth explicitly hosts narrow JPA governance endpoints through an inbound use-case port. Signature/issuer/audience/time/current user/version/GLOBAL-role checks bind actor; ordinary users request their own role changes, verified SYSTEM_ADMIN manages/decides, distinct decision actor/SOD required. Positive persisted receipts replace unsafe preview success. Domain policy owns request rules; approval/role effect/version/apply log/audit are transactional. V77 and portable four-table mappings support the host; memory mode isolates JPA governance.
+- Gateway packaged/config mirrors route /api/audit/** to auth-service, preserving internal-audit paths/authentication. LoadBalanced WebClient uses http://auth-service rather than a route-specific lb scheme; route URIs retain lb. Actual Next BFF→Gateway JAR→Auth JAR→synthetic DB harness is authored under gateway/tests; no mock upstream success is claimed.
+- Independent `/root/review838_runtime` found stale managed-user/version concurrency P1 and input/domain boundaries P2; writers repaired them and added target-preload/WRITE-EXECUTE race/pure-policy/port-mocked tests. Final static56-path review: no unresolved P0–P3, Q1–Q3 PASS; actual Q4 FAIL. H2 fault/HTTP cases and PostgreSQL migration test are authored but unexecuted.
+
+```powershell
+.\gradlew.bat :auth:core:test :auth:api:test :auth:api:bootJar :gateway:test :gateway:bootJar --offline --no-daemon --console=plain --max-workers=1
+node gateway/tests/governance-chain-acceptance.mjs
+```
+
+- Actual Auth attempt stopped before compilation: missing jjwt-api0.11.5; shared-kernel compile passed. Gateway attempt stopped compileJava with33 uncached artifacts; XML0/JAR0, no test executed. Dedicated logs20261119-838-gateway-test-build.log and writer evidence preserve failure. Node20/exact lock dependencies and disposable PostgreSQL execution await explicit user authorization; no downloads/DB process were performed. Do not interpret these commands as passed.
+- Changed-file whitespace/marker checks PASS. Full repository main has Closing README conflict markers tracked #947; resolve/integrate before merge. Real current-head CI, actual chain, migration/lock tests and trusted independent approval remain gates; base policy undefined cannot be replaced with same-account comments.
+- Rollback reviewed scope revert plus forward schema correction preserving role/approval/audit history. No production DB, secrets, operating URLs, deployment or cleanup. Parent alone owns shared records/Git/GitHub; primary dirty84 untouched.
+
 ## 2026-11-20 — GH-773 CI fixture correction
 
 - Published PR954 head81bf510e passed Closing/contract tests, but Master API168 tests had35 failures/14 existing skips:19 concrete-coordinator lookup failures and16 ingress404s. Actual HTML showed new fixture BootstrapConfiguration hijacking neighboring tests, and a JDK transaction proxy incompatible with concrete coordinator lookup.
